@@ -1,0 +1,34 @@
+---
+// Bridge page for the `go.` short-link flow.
+//
+// Clerk's `__session` cookie is host-only to THIS origin (360.arclumenpartners.com)
+// and CANNOT be read by the sibling `go.` subdomain. So staff/visitor detection
+// must happen here, where the cookie lives. `go.` simply 302s here with the code;
+// we decide and redirect. Visitors touch this page only for the redirect — no
+// login wall, no tracking beyond what 360 already does.
+export const prerender = false;
+import { sanity } from '../lib/sanity';
+
+const code = Astro.url.searchParams.get('code') ?? '';
+const { userId } = Astro.locals.auth();
+
+// Staff (has a session on this origin): send to the internal 360 viewer.
+if (userId) {
+  return Astro.redirect(`/l/${code}`);
+}
+
+// Anonymous visitor: resolve the real destination and send them there.
+// No session required — they should reach the normal destination, not sign-in.
+try {
+  const rec = await sanity.fetch(
+    `*[_type == "shortLink" && code == $code][0]{ targetUrl }`,
+    { code }
+  );
+  if (rec?.targetUrl) return Astro.redirect(rec.targetUrl);
+} catch {
+  // fall through to safe fallback
+}
+
+// Unknown code (or Sanity error): don't invent a destination.
+return Astro.redirect('/');
+---
