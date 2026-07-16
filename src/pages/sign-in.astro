@@ -1,0 +1,17 @@
+---
+export const prerender = false;
+import { SignIn } from '@clerk/astro/components';
+---
+<!doctype html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sign in · ArcLumen 360</title>
+  </head>
+  <body class="h-full bg-slate-50 text-slate-900 antialiased">
+    <main class="mx-auto flex min-h-full max-w-md flex-col justify-center px-6 py-16">
+      <SignIn />
+    </main>
+  </body>
+</html>

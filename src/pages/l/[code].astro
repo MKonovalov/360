@@ -1,0 +1,54 @@
+---
+export const prerender = false;
+import { sanity, type ShortLinkRecord } from '../../lib/sanity';
+
+// Clerk injects auth into Astro.locals. If there is no session, bounce to sign-in.
+const { userId } = Astro.locals.auth();
+if (!userId) return Astro.redirect('/sign-in');
+
+const code = Astro.params.code ?? '';
+
+let record: ShortLinkRecord | null = null;
+let notFound = false;
+try {
+  record = await sanity.fetch(
+    `*[_type == "shortLink" && code == $code][0]{ _id, title, targetUrl, contactName }`,
+    { code }
+  );
+  if (!record) notFound = true;
+} catch {
+  notFound = true;
+}
+---
+<!doctype html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{record?.title ?? 'Link'} · ArcLumen 360</title>
+  </head>
+  <body class="h-full bg-slate-50 text-slate-900 antialiased">
+    <main class="mx-auto flex min-h-full max-w-2xl flex-col justify-center px-6 py-16">
+      {notFound ? (
+        <div class="rounded-lg border border-amber-200 bg-amber-50 p-6">
+          <h1 class="text-lg font-semibold text-amber-800">Link not found</h1>
+          <p class="mt-2 text-sm text-amber-700">No record matches <code>{code}</code>.</p>
+        </div>
+      ) : (
+        <article class="rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
+          <p class="text-xs font-medium uppercase tracking-wide text-indigo-500">Staff view</p>
+          <h1 class="mt-2 text-2xl font-bold">{record!.title}</h1>
+          {record!.contactName && (
+            <p class="mt-1 text-sm text-slate-500">{record!.contactName}</p>
+          )}
+          <a
+            href={record!.targetUrl}
+            class="mt-6 inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+          >
+            Open destination
+          </a>
+        </article>
+      )}
+    </main>
+  </body>
+</html>
