@@ -7,7 +7,7 @@ import clerk from '@clerk/astro';
 // never on a static build.
 export default defineConfig({
   output: 'server',
-  adapter: vercel(),
+  adapter: vercel({ runtime: 'nodejs20.x' }),
   site: 'https://360.arclumenpartners.com',
   integrations: [tailwind(), clerk()],
 });
