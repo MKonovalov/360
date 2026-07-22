@@ -95,40 +95,40 @@ Explicitly excluded from milestone 1. Documented to prevent scope creep.
 
 ## Traceability
 
-Populated during roadmap creation.
+Mapped to phases in .planning/ROADMAP.md (created 2026-07-22).
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | — | Pending |
-| FOUND-02 | — | Pending |
-| FOUND-03 | — | Pending |
-| FOUND-04 | — | Pending |
-| COMP-01 | — | Pending |
-| COMP-02 | — | Pending |
-| COMP-03 | — | Pending |
-| COMP-04 | — | Pending |
-| PERS-01 | — | Pending |
-| PERS-02 | — | Pending |
-| PERS-03 | — | Pending |
-| PERS-04 | — | Pending |
-| EXPL-01 | — | Pending |
-| EXPL-02 | — | Pending |
-| EXPL-03 | — | Pending |
-| EXPL-04 | — | Pending |
-| EXPL-05 | — | Pending |
-| EXPL-06 | — | Pending |
-| EXPL-07 | — | Pending |
-| ARCP-01 | — | Pending |
-| ARCP-02 | — | Pending |
-| DATA-01 | — | Pending |
-| DATA-02 | — | Pending |
-| DATA-03 | — | Pending |
+| FOUND-01 | Phase 1 | Mapped |
+| FOUND-02 | Phase 1 | Mapped |
+| FOUND-03 | Phase 1 | Mapped |
+| FOUND-04 | Phase 1 | Mapped |
+| COMP-01 | Phase 2 | Mapped |
+| COMP-02 | Phase 2 | Mapped |
+| COMP-03 | Phase 2 | Mapped |
+| COMP-04 | Phase 2 | Mapped |
+| PERS-01 | Phase 3 | Mapped |
+| PERS-02 | Phase 3 | Mapped |
+| PERS-03 | Phase 3 | Mapped |
+| PERS-04 | Phase 3 | Mapped |
+| EXPL-01 | Phase 2 | Mapped |
+| EXPL-02 | Phase 2 | Mapped |
+| EXPL-03 | Phase 2 | Mapped |
+| EXPL-04 | Phase 2 | Mapped |
+| EXPL-05 | Phase 2 | Mapped |
+| EXPL-06 | Phase 4 | Mapped |
+| EXPL-07 | Phase 2 | Mapped |
+| ARCP-01 | Phase 4 | Mapped |
+| ARCP-02 | Phase 4 | Mapped |
+| DATA-01 | Phase 3 | Mapped |
+| DATA-02 | Phase 1 | Mapped |
+| DATA-03 | Phase 1 | Mapped |
 
 **Coverage:**
 - v1 requirements: 24 total
-- Mapped to phases: 0
-- Unmapped: 24 ⚠️ (roadmap creation will map these)
+- Mapped to phases: 24
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-07-22*
-*Last updated: 2026-07-22 after initial definition*
+*Last updated: 2026-07-22 after roadmap creation — 24/24 v1 requirements mapped to Phases 1-4*
