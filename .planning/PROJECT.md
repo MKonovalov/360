@@ -27,11 +27,13 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 - [ ] List items show status/signal badges (e.g. signal strength, last-updated)
 - [ ] Company 360 view shows: firmographics, tech stack/tools used, buying signals (financial cost pressure, no mature GBS/SSC org, new CFO/GBS head, transformation program announcement), and linked personas
 - [ ] Persona 360 view shows: role/title & seniority, previous companies, and linked company
-- [ ] Milestone 1 runs on a manual/seed dataset — no live enrichment API wired yet
+- [ ] Milestone 1 runs on a manual/seed dataset for core Company/Persona fields — no live commercial enrichment API (Clearbit/Apollo/ZoomInfo) wired yet
+- [ ] Company/Persona 360 views ingest and display related knowledge articles read from Arcpedia (existing internal wiki at arcpedia.arclumen.de) — read-only in milestone 1, no writes back to Arcpedia
 
 ### Out of Scope
 
-- Enrichment API integration (Clearbit/Apollo/ZoomInfo, etc.) — deferred; milestone 1 is seed/manual data only
+- Commercial enrichment API integration (Clearbit/Apollo/ZoomInfo, etc.) — deferred; milestone 1 is seed/manual data only (Arcpedia read-integration is in scope, see Active requirements)
+- Writing/ingesting content back into Arcpedia from ArcLumen 360 — milestone 1 is read-only; AI-drafted content (e.g. tailored persona LinkedIn DMs) is a stated future direction, not milestone 1
 - Scoring/prioritization algorithm — milestone 1 is browsing/viewing only, ranking logic is a later milestone
 - CRM sync / automated outreach triggers — the pipeline's action stage (prioritized list → outreach → CRM sync) comes after the explorer is validated
 - Multi-user roles/permissions — any authenticated staff user sees everything for now (matches existing app's current auth model)
@@ -45,6 +47,7 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 - Problem this solves: today, ICP/signal knowledge lives in individual heads and inboxes with no shared visibility across the team.
 - End users: a mixed/leadership audience — not just sales reps, but broader internal staff and execs reviewing the pipeline.
 - Full pipeline vision beyond milestone 1: a prioritized target list, outreach triggers pushed to sales, and CRM/export sync. Milestone 1 stops at the browsing/overview experience — the UI shell working end-to-end against seed data is the milestone-1 definition of done.
+- **Arcpedia** (`/Users/mkonovalov/Projects/arcpedia`, live at arcpedia.arclumen.de) is an existing, actively-built internal wiki ("a wiki for the agent age" — Next.js + Cloudflare Workers, Clerk-authenticated, LLM-powered ingest/query). It exposes a public (no-auth) REST read surface: `GET /api/wiki/search?q=`, `GET /api/wiki/browse?q=&scope=&tag=&page=`, `POST /api/wiki/dataview` (query by frontmatter), plus a session-gated `POST /api/query` (LLM-synthesized answers over the corpus) and an MCP server at `/api/mcp`. ArcLumen 360 milestone 1 should read from this API to surface related knowledge articles on Company/Persona 360 views — no write-back in milestone 1. Beyond milestone 1, the user's stated future direction includes AI-drafted, tailored outreach content (e.g. persona-specific LinkedIn DMs) — not in scope now, but worth keeping the data model open to it.
 
 ## Constraints
 
