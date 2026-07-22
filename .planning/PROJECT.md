@@ -48,9 +48,9 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 
 ## Constraints
 
-- **Tech stack**: Open to reconsidering — current repo uses Astro SSR + Sanity + Clerk + Tailwind on Vercel, built originally for a landing/redirect tool, not confirmed as the right fit for a data-heavy ICP dashboard. Research phase should evaluate.
-- **Auth**: Reuse the existing Clerk integration/config — don't re-implement auth from scratch.
-- **Deployment**: Vercel, Node 20 pinned — the adapter forces `nodejs18.x` on Node 22, which Vercel rejects (see `.planning/codebase/CONCERNS.md`).
+- **Tech stack**: Migrate Astro → Next.js (App Router) and Sanity → Neon Postgres + Drizzle ORM, per research (`.planning/research/STACK.md`). Astro's island-isolation model fights master-detail selection state; Sanity's editorial-CMS shape doesn't fit relational Company/Persona/Signal data that will need high-frequency programmatic writes once enrichment lands.
+- **Auth**: Reuse the existing Clerk integration/config, ported to `@clerk/nextjs` — same Clerk project/dashboard, same session model, don't re-implement auth from scratch.
+- **Deployment**: Same Vercel project/domain. Node 20 pin goes away with the Astro adapter (source of the original pin bug) — pin Node 22.x instead per Vercel's Node 20 deprecation (Oct 2026).
 
 ## Key Decisions
 
@@ -58,7 +58,7 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 |----------|-----------|---------|
 | Build ArcLumen 360 inside this repo (`360-arclumen`), absorbing/retiring the existing short-link tool | Reuse existing Clerk auth + Vercel deploy setup rather than standing up a new repo | — Pending |
 | Milestone 1 = explorer UI shell only, against manual/seed data | Validate the explorer UX and Company/Persona data model before investing in real enrichment integrations | — Pending |
-| Tech stack left open for research phase to re-evaluate | Astro was built for a landing/redirect tool; not yet confirmed as right fit for a data-heavy dashboard | — Pending |
+| Migrate Astro → Next.js App Router, Sanity → Neon Postgres + Drizzle, before building explorer UI | Research confirmed current stack fights master-detail state and relational data needs; Clerk/Vercel continuity preserved | — Pending |
 
 ## Evolution
 
