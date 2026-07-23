@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { listCompanies, type CompanyFilters } from '@/lib/db/queries/companies';
 import { listSignalsForCompany } from '@/lib/db/queries/signals';
 import {
@@ -9,6 +10,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { SignalBadge } from '@/components/companies/signal-badge';
+import { cn } from '@/lib/utils';
 
 // revenue_band/ownership_type are fixed-but-extensible pgEnums storing
 // slug values (e.g. "under_50m", "pe_backed") — humanize for display
@@ -21,12 +23,25 @@ function humanizeEnum(value: string | null): string {
     .join(' ');
 }
 
-export async function CompanyList({ filters }: { filters?: CompanyFilters }) {
+export async function CompanyList({
+  filters,
+  selectedId,
+}: {
+  filters?: CompanyFilters;
+  selectedId?: number;
+}) {
   const companies = await listCompanies(filters);
 
   if (companies.length === 0) {
     return (
-      <div className="flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-8 text-center">
+      <div
+        className={cn(
+          'flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-8 text-center',
+          // D-07 mobile pattern: hide the list pane once a company is
+          // selected on narrow viewports so only the detail pane shows.
+          selectedId ? 'hidden md:flex' : 'flex'
+        )}
+      >
         <p className="text-[18px] font-semibold leading-[1.2] text-slate-900">
           No companies yet
         </p>
@@ -48,7 +63,15 @@ export async function CompanyList({ filters }: { filters?: CompanyFilters }) {
   );
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white">
+    <div
+      className={cn(
+        'rounded-lg border border-slate-200 bg-white',
+        // D-07 mobile pattern: a selected company hides the list on narrow
+        // viewports so only the detail pane shows (RESEARCH.md "Mobile/
+        // Narrow-Viewport Behavior").
+        selectedId ? 'hidden md:block' : 'block'
+      )}
+    >
       <Table>
         <TableHeader>
           <TableRow>
@@ -63,8 +86,20 @@ export async function CompanyList({ filters }: { filters?: CompanyFilters }) {
         </TableHeader>
         <TableBody>
           {rowsWithSignals.map(({ company, distinctSignalTypes }) => (
-            <TableRow key={company.id} className="min-h-12">
-              <TableCell className="font-medium text-slate-900">{company.name}</TableCell>
+            <TableRow
+              key={company.id}
+              className={cn(
+                'min-h-12',
+                // Accent (indigo-600) selected-row indicator per UI-SPEC's
+                // Color section — accent marks selection state only.
+                company.id === selectedId && 'border-l-2 border-l-indigo-600 bg-indigo-50/50'
+              )}
+            >
+              <TableCell className="font-medium text-slate-900">
+                <Link href={`/companies/${company.id}`} className="block">
+                  {company.name}
+                </Link>
+              </TableCell>
               <TableCell>{company.industry ?? '—'}</TableCell>
               <TableCell>{company.employeeCountBand ?? '—'}</TableCell>
               <TableCell>{company.hqLocation ?? '—'}</TableCell>
