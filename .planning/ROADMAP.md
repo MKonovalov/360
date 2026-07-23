@@ -64,7 +64,12 @@ Plans:
   4. Company detail shows linked Personas inline.
   5. The selected Company and active filters are reflected in the URL, so a staff member can share or reopen the exact view via link.
 
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 02-01-PLAN.md — Company schema extension (D-01..D-04), Drizzle query layer, seed dataset expanded to 9 companies
+- [ ] 02-02-PLAN.md — shadcn/ui install, collapsible sidebar shell, gated Companies list with firmographics + signal badges
+- [ ] 02-03-PLAN.md — Company detail pane + /companies/[id] master-detail route, mobile responsive swap
+- [ ] 02-04-PLAN.md — nuqs search/filter wiring, URL-synced AND-combined filters, empty/error-state copy
 **UI hint**: yes
 
 ### Phase 3: Persona Explorer
@@ -106,6 +111,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation — Platform Migration & Data Model | 4/4 | Complete    | 2026-07-23 |
-| 2. Company Explorer | 0/TBD | Not started | - |
+| 2. Company Explorer | 0/4 | Not started | - |
 | 3. Persona Explorer | 0/TBD | Not started | - |
 | 4. Arcpedia Integration & Resilience Polish | 0/TBD | Not started | - |
