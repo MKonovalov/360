@@ -36,6 +36,16 @@ export const ownershipTypeEnum = pgEnum('ownership_type', [
   'subsidiary',
 ]);
 
+// D-01: fixed-but-extensible enum, same pattern as revenueBandEnum/
+// ownershipTypeEnum (Phase 2's D-02) — 5-tier IC-to-C-level ladder.
+export const seniorityEnum = pgEnum('seniority', [
+  'ic',
+  'manager',
+  'director',
+  'vp',
+  'c_level',
+]);
+
 export const company = pgTable('company', {
   id: serial('id').primaryKey(),
   name: text('name').notNull(),
@@ -57,7 +67,9 @@ export const persona = pgTable('persona', {
   id: serial('id').primaryKey(),
   name: text('name').notNull(),
   title: text('title'),
-  // ... remaining Persona fields land in Phase 3 per PERS-01..04
+  seniority: seniorityEnum('seniority'), // D-01
+  email: text('email'), // D-02: nullable, manually entered
+  linkedinUrl: text('linkedin_url'), // D-02/D-03: full URL, stored/rendered as-is
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { db } from '../index';
-import { companyPersonaRole, persona } from '../schema';
+import { companyPersonaRole, persona, company } from '../schema';
 
 export interface InsertCompanyPersonaRoleInput {
   companyId: number;
@@ -25,4 +25,15 @@ export async function listPersonasForCompany(companyId: number) {
     .from(companyPersonaRole)
     .innerJoin(persona, eq(companyPersonaRole.personaId, persona.id))
     .where(eq(companyPersonaRole.companyId, companyId));
+}
+
+// PERS-02/PERS-03: reverse of listPersonasForCompany — a Persona's current +
+// historical company roles for the detail pane's Current Company and Career
+// History sections (D-04).
+export async function listCompanyRolesForPersona(personaId: number) {
+  return db
+    .select({ company, role: companyPersonaRole })
+    .from(companyPersonaRole)
+    .innerJoin(company, eq(companyPersonaRole.companyId, company.id))
+    .where(eq(companyPersonaRole.personaId, personaId));
 }
