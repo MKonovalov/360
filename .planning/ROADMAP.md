@@ -36,7 +36,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 **Wave 1**
 
-- [ ] 01-01-PLAN.md — Next.js 16 + Clerk scaffold (proxy.ts, requireStaffAccess(), sign-in, landing page)
+- [x] 01-01-PLAN.md — Next.js 16 + Clerk scaffold (proxy.ts, requireStaffAccess(), sign-in, landing page)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -105,7 +105,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation — Platform Migration & Data Model | 0/4 | Not started | - |
+| 1. Foundation — Platform Migration & Data Model | 1/4 | In Progress|  |
 | 2. Company Explorer | 0/TBD | Not started | - |
 | 3. Persona Explorer | 0/TBD | Not started | - |
 | 4. Arcpedia Integration & Resilience Polish | 0/TBD | Not started | - |
