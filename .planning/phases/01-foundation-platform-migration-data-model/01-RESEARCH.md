@@ -458,17 +458,19 @@ npx drizzle-kit migrate
 | A2 | `@clerk/themes` is not required for Phase 1's walking-skeleton UI (no styled app shell ships yet) and can be deferred to Phase 2. | Standard Stack (Supporting) | Low risk — if the walking-skeleton page ends up rendering Clerk's hosted `<SignIn/>` unstyled, that's acceptable for a Phase 1 MVP slice; installing the package later is a one-line addition |
 | A3 | Vercel's dashboard Project Settings Node version does not need manual changing because `package.json`'s `engines.node: "22.x"` already overrides it. | Common Pitfalls, Pitfall 4 | Low risk — this is `[CITED]` from Vercel's own changelog, but the plan should still include a one-step "confirm deployed Function runtime shows Node 22.x in Vercel dashboard after first deploy" verification task rather than assuming silently |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Does the Neon Postgres instance need to be provisioned before or during Phase 1 planning?**
+1. **Does the Neon Postgres instance need to be provisioned before or during Phase 1 planning?** — RESOLVED
    - What we know: Vercel's Marketplace integration for Neon is a one-click provision from the Vercel dashboard, auto-setting `DATABASE_URL`.
    - What's unclear: Whether this provisioning step has already happened for the `360-arclumen` Vercel project, or whether it's a Phase 1 execution-time task.
    - Recommendation: Treat "provision Neon via Vercel Marketplace" as an explicit early task in the Phase 1 plan (likely a `checkpoint:human-verify` step, since it requires Vercel dashboard access), not an assumed-already-done prerequisite.
+   - **Resolution:** Implemented as `01-02-PLAN.md` Task 1 — `checkpoint:human-action` (blocking gate), "Confirm/provision Neon Postgres via Vercel Marketplace, sync DATABASE_URL locally."
 
-2. **Exact CSV column layout for seed data (Claude's Discretion per CONTEXT.md).**
+2. **Exact CSV column layout for seed data (Claude's Discretion per CONTEXT.md).** — RESOLVED
    - What we know: Format is CSV (D-04), volume is 5-15 companies with linked personas (D-02), handed over during Phase 1 execution after schema exists (D-03).
    - What's unclear: The exact column names/shape the user will fill in.
    - Recommendation: Once the Drizzle schema is finalized, generate a CSV template (one sheet/file per table: companies, personas, signals, company_persona_roles) with header rows matching the schema's field names, and hand that to the user as the fill-in template — this is an execution-time deliverable, not something to over-specify in this research.
+   - **Resolution:** Implemented as `01-03-PLAN.md` Task 1 — "CSV seed templates + zod row-validation schemas with formula-injection guards," built against the finalized schema from `01-02-PLAN.md` Task 2.
 
 ## Environment Availability
 
