@@ -2,27 +2,8 @@ import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { PersonaList } from '@/components/personas/persona-list';
 import { PersonaSearchInput } from '@/components/personas/persona-search-input';
 import { PersonaFilters } from '@/components/personas/persona-filters';
-import {
-  listDistinctCurrentCompanyNames,
-  type PersonaFilters as PersonaFiltersShape,
-} from '@/lib/db/queries/personas';
-
-// Next's searchParams type is `string | string[] | undefined` per key —
-// take the first array element if a key is ever repeated in the URL.
-function firstValue(value: string | string[] | undefined): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-function parsePersonaFilters(params: {
-  [key: string]: string | string[] | undefined;
-}): PersonaFiltersShape {
-  return {
-    search: firstValue(params.search),
-    seniority: firstValue(params.seniority),
-    currentCompany: firstValue(params.currentCompany),
-    hasSignals: firstValue(params.hasSignals) === 'true',
-  };
-}
+import { listDistinctCurrentCompanyNames } from '@/lib/db/queries/personas';
+import { parsePersonaFilters } from '@/lib/params/personaFilters';
 
 // Belt-and-suspenders alongside the layout's auth gate (mirrors
 // CompaniesPage) — every page under /personas gates itself too, so the

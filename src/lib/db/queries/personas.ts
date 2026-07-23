@@ -1,4 +1,4 @@
-import { and, eq, ilike, exists, or, sql } from 'drizzle-orm';
+import { and, eq, ilike, exists, not, or, sql } from 'drizzle-orm';
 import { db } from '../index';
 import { persona, companyPersonaRole, company, signal, seniorityEnum } from '../schema';
 
@@ -6,6 +6,10 @@ export interface PersonaFilters {
   search?: string;
   seniority?: string;
   currentCompany?: string;
+  // Tri-state, not a plain boolean: `true` = staff explicitly chose "Yes",
+  // `false` = staff explicitly chose "No", `undefined` = filter not applied
+  // at all — three distinct states that must stay distinct all the way
+  // down to the WHERE composition below.
   hasSignals?: boolean;
 }
 
@@ -13,6 +17,18 @@ export interface PersonaFilters {
 // conditions (never raw SQL string interpolation) — mirrors listCompanies's
 // contract (T-3-01), extended with a two-hop EXISTS for hasSignals.
 export async function listPersonas(filters: PersonaFilters = {}) {
+  // D-07: TWO-HOP EXISTS — persona -> companyPersonaRole(isCurrent) ->
+  // company -> signal. Built once and reused for both the true and false
+  // hasSignals branches below so the subquery body isn't duplicated.
+  const hasSignalsExistsSubquery = db
+    .select({ one: sql`1` })
+    .from(companyPersonaRole)
+    .innerJoin(company, eq(companyPersonaRole.companyId, company.id))
+    .innerJoin(signal, eq(signal.companyId, company.id))
+    .where(
+      and(eq(companyPersonaRole.personaId, persona.id), eq(companyPersonaRole.isCurrent, true))
+    );
+
   return db
     .select()
     .from(persona)
@@ -60,25 +76,17 @@ export async function listPersonas(filters: PersonaFilters = {}) {
                 )
             )
           : undefined,
-        // D-07: TWO-HOP EXISTS — persona -> companyPersonaRole(isCurrent)
-        // -> company -> signal. Structurally new to this codebase (Phase 2's
-        // EXISTS subqueries were single-table); verified against seed data
-        // (RESEARCH.md Pitfall 1 / Open Question #1).
-        filters.hasSignals
-          ? exists(
-              db
-                .select({ one: sql`1` })
-                .from(companyPersonaRole)
-                .innerJoin(company, eq(companyPersonaRole.companyId, company.id))
-                .innerJoin(signal, eq(signal.companyId, company.id))
-                .where(
-                  and(
-                    eq(companyPersonaRole.personaId, persona.id),
-                    eq(companyPersonaRole.isCurrent, true)
-                  )
-                )
-            )
-          : undefined
+        // Tri-state branch keyed on the three PersonaFilters.hasSignals
+        // states: explicit true -> EXISTS, explicit false -> NOT EXISTS,
+        // unset -> undefined (no filtering), mirroring the seniority and
+        // currentCompany legs above. Structurally new to this codebase
+        // (Phase 2's EXISTS subqueries were single-table); verified against
+        // seed data (RESEARCH.md Pitfall 1 / Open Question #1).
+        filters.hasSignals === true
+          ? exists(hasSignalsExistsSubquery)
+          : filters.hasSignals === false
+            ? not(exists(hasSignalsExistsSubquery))
+            : undefined
       )
     );
 }

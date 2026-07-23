@@ -56,7 +56,10 @@ export async function PersonaList({
     // A filtered search/filter combination matching zero rows gets distinct
     // copy from a genuinely empty (unseeded) dataset.
     const hasActiveFilters = Boolean(
-      filters?.search || filters?.seniority || filters?.currentCompany || filters?.hasSignals
+      filters?.search ||
+        filters?.seniority ||
+        filters?.currentCompany ||
+        filters?.hasSignals !== undefined
     );
 
     return (
