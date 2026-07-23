@@ -1,0 +1,3 @@
+company_name,signal_type,strength,source,detected_at,note
+Acme Test Co,cost_pressure,high,manual,2026-01-15,Placeholder signal for pipeline testing
+Beta Sample Inc,new_cfo_or_gbs_head,medium,manual,2026-02-01,Placeholder signal for pipeline testing
