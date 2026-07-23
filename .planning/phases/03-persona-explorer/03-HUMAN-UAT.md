@@ -8,7 +8,11 @@ updated: 2026-07-23T21:47:33Z
 
 ## Current Test
 
-[awaiting human testing]
+number: 1
+name: Sidebar active-state and full filter behavior on `/personas`
+expected: |
+  Sign in, visit `/personas`. Key Personas is highlighted/active in the sidebar and Companies is inactive-but-clickable. The table lists all 10 seeded personas with correct title/seniority/current-company. Type in search and select each filter (seniority, current company, has signals) individually and combined, including "Has signals: No". Sidebar highlights correctly; list narrows correctly for search/seniority/currentCompany. "Has signals: No" now correctly shows zero rows with "No personas match your filters" copy (previously a no-op showing all 10 — this is the closed gap, now expected to work correctly in the browser).
+awaiting: user response
 
 ## Tests
 
