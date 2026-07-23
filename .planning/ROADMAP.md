@@ -64,12 +64,23 @@ Plans:
   4. Company detail shows linked Personas inline.
   5. The selected Company and active filters are reflected in the URL, so a staff member can share or reopen the exact view via link.
 
-**Plans**: 4 plans
-Plans:
+**Plans**: 4 plansPlans:
+**Wave 1**
+
 - [ ] 02-01-PLAN.md — Company schema extension (D-01..D-04), Drizzle query layer, seed dataset expanded to 9 companies
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 02-02-PLAN.md — shadcn/ui install, collapsible sidebar shell, gated Companies list with firmographics + signal badges
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 02-03-PLAN.md — Company detail pane + /companies/[id] master-detail route, mobile responsive swap
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 02-04-PLAN.md — nuqs search/filter wiring, URL-synced AND-combined filters, empty/error-state copy
+
 **UI hint**: yes
 
 ### Phase 3: Persona Explorer
