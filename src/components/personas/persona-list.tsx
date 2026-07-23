@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { listPersonas, type PersonaFilters } from '@/lib/db/queries/personas';
 import { listCompanyRolesForPersona } from '@/lib/db/queries/companyPersonaRoles';
 import {
@@ -120,10 +121,21 @@ export async function PersonaList({
         </TableHeader>
         <TableBody>
           {rowsWithCurrentCompany.map(({ persona, currentCompanyName }) => (
-            // Row Link + selected-row highlight land in Plan 03-03 alongside
-            // the /personas/[id] detail route (plan's explicit sequencing).
-            <TableRow key={persona.id} className="min-h-12">
-              <TableCell className="font-medium text-slate-900">{persona.name}</TableCell>
+            <TableRow
+              key={persona.id}
+              className={cn(
+                'min-h-12',
+                // Accent (indigo-600) selected-row indicator per UI-SPEC's
+                // Color section — accent marks selection state only
+                // (matches company-list.tsx's exact class shape).
+                persona.id === selectedId && 'border-l-2 border-l-indigo-600 bg-indigo-50/50'
+              )}
+            >
+              <TableCell className="font-medium text-slate-900">
+                <Link href={`/personas/${persona.id}`} className="block">
+                  {persona.name}
+                </Link>
+              </TableCell>
               <TableCell>{persona.title}</TableCell>
               <TableCell>{humanizeEnum(persona.seniority)}</TableCell>
               <TableCell>{currentCompanyName}</TableCell>
