@@ -1,3 +1,13 @@
 company_name,signal_type,strength,source,detected_at,note
 Acme Test Co,cost_pressure,high,manual,2026-01-15,Placeholder signal for pipeline testing
 Beta Sample Inc,new_cfo_or_gbs_head,medium,manual,2026-02-01,Placeholder signal for pipeline testing
+Gamma Placeholder AG,immature_gbs_org,high,manual,2026-02-10,Placeholder signal for pipeline testing
+Gamma Placeholder AG,transformation_announcement,medium,manual,2026-03-01,Placeholder signal for pipeline testing
+Delta Sample Retail Group,cost_pressure,medium,manual,2026-01-20,Placeholder signal for pipeline testing
+Epsilon Test Health Systems,transformation_announcement,high,manual,2026-02-15,Placeholder signal for pipeline testing
+Zeta Sample Logistics,immature_gbs_org,low,manual,2026-01-05,Placeholder signal for pipeline testing
+Eta Placeholder Energy Corp,new_cfo_or_gbs_head,high,manual,2026-03-10,Placeholder signal for pipeline testing
+Eta Placeholder Energy Corp,cost_pressure,low,manual,2026-01-25,Placeholder signal for pipeline testing
+Theta Sample Brands,immature_gbs_org,medium,manual,2026-02-20,Placeholder signal for pipeline testing
+Iota Test Solutions,transformation_announcement,low,manual,2026-03-05,Placeholder signal for pipeline testing
+Iota Test Solutions,new_cfo_or_gbs_head,medium,manual,2026-02-28,Placeholder signal for pipeline testing

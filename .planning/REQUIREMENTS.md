@@ -16,10 +16,10 @@ Requirements for milestone 1 (explorer UI shell). Each maps to roadmap phases.
 
 ### Company
 
-- [ ] **COMP-01**: Staff can view a list of Companies with firmographics (industry, size/employee count, HQ location, revenue band, ownership type)
-- [ ] **COMP-02**: Staff can view a Company's tech stack/tools used
+- [x] **COMP-01**: Staff can view a list of Companies with firmographics (industry, size/employee count, HQ location, revenue band, ownership type)
+- [x] **COMP-02**: Staff can view a Company's tech stack/tools used
 - [ ] **COMP-03**: Staff can view a Company's buying signals — financial cost pressure, no mature GBS/SSC org, new CFO/GBS head, transformation program announcement — each with a source/note and last-updated timestamp
-- [ ] **COMP-04**: Staff can view Personas linked to a Company, shown inline on the Company detail view
+- [x] **COMP-04**: Staff can view Personas linked to a Company, shown inline on the Company detail view
 
 ### Persona
 
