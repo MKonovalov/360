@@ -67,7 +67,7 @@ Plans:
 **Plans**: 4 plansPlans:
 **Wave 1**
 
-- [ ] 02-01-PLAN.md — Company schema extension (D-01..D-04), Drizzle query layer, seed dataset expanded to 9 companies
+- [x] 02-01-PLAN.md — Company schema extension (D-01..D-04), Drizzle query layer, seed dataset expanded to 9 companies
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -122,6 +122,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation — Platform Migration & Data Model | 4/4 | Complete    | 2026-07-23 |
-| 2. Company Explorer | 0/4 | Not started | - |
+| 2. Company Explorer | 1/4 | In Progress|  |
 | 3. Persona Explorer | 0/TBD | Not started | - |
 | 4. Arcpedia Integration & Resilience Polish | 0/TBD | Not started | - |
