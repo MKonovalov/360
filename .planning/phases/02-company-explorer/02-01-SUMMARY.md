@@ -123,3 +123,7 @@ None - no external service configuration required. Same Neon Postgres instance a
 ---
 *Phase: 02-company-explorer*
 *Completed: 2026-07-23*
+
+## Self-Check: PASSED
+
+All modified/created files confirmed present on disk; all task commits (`d54a34b7`, `2b16a5df`) and the SUMMARY commit (`ae7169a1`) confirmed present in `git log`.
