@@ -30,13 +30,13 @@ Requirements for milestone 1 (explorer UI shell). Each maps to roadmap phases.
 
 ### Explorer UX
 
-- [ ] **EXPL-01**: Staff can search Companies and Personas by name, company, or title
-- [ ] **EXPL-02**: Staff can filter Companies/Personas by key attributes (industry, signal type, seniority, etc.)
+- [x] **EXPL-01**: Staff can search Companies and Personas by name, company, or title
+- [x] **EXPL-02**: Staff can filter Companies/Personas by key attributes (industry, signal type, seniority, etc.)
 - [x] **EXPL-03**: Staff sees a collapsible/resizable left nav with two sections — Companies and Key Personas
 - [ ] **EXPL-04**: Clicking a list item opens its full detail in a master-detail pane; the list stays visible
 - [x] **EXPL-05**: List rows show status/signal badges for scan-and-triage without opening every record
 - [ ] **EXPL-06**: Lists and detail panes handle empty, loading, and error states explicitly
-- [ ] **EXPL-07**: Selection and active filters are reflected in the URL (deep-linkable, shareable)
+- [x] **EXPL-07**: Selection and active filters are reflected in the URL (deep-linkable, shareable)
 
 ### Arcpedia Integration
 
