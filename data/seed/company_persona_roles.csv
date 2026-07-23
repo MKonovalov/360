@@ -1,3 +1,12 @@
 company_name,persona_name,title,is_current,start_date,end_date
 Acme Test Co,Jordan Sample,VP of Finance,true,2024-01-01,
 Beta Sample Inc,Taylor Placeholder,Chief Financial Officer,true,2023-06-01,
+Gamma Placeholder AG,Morgan Testcase,Head of Global Business Services,true,2022-09-01,
+Delta Sample Retail Group,Casey Fakename,VP of Operations,true,2023-03-15,
+Epsilon Test Health Systems,Riley Sampledata,Chief Financial Officer,true,2021-11-01,
+Zeta Sample Logistics,Avery Placeholderson,Director of Finance Transformation,true,2024-05-01,
+Eta Placeholder Energy Corp,Drew Testfield,Chief Operating Officer,true,2020-01-01,
+Theta Sample Brands,Reese Sampleton,VP of Shared Services,true,2023-08-01,
+Iota Test Solutions,Quinn Fakeworth,Chief Financial Officer,true,2024-02-01,
+Acme Test Co,Sydney Placeholdt,VP of Finance (Former),false,2019-01-01,2023-12-31
+Gamma Placeholder AG,Sydney Placeholdt,Head of GBS Transformation,true,2024-01-01,

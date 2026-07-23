@@ -77,15 +77,32 @@ async function main() {
   // with a descriptive error, never a partial insert or a raw Postgres
   // exception surfacing to the caller.
   const { db } = await import('../lib/db');
-  const { company, persona } = await import('../lib/db/schema');
+  const { company, persona, signal, companyPersonaRole } = await import('../lib/db/schema');
   const { insertSignal } = await import('../lib/db/queries/signals');
   const { insertCompanyPersonaRole } = await import('../lib/db/queries/companyPersonaRoles');
+
+  // This pipeline fully owns the seed dataset — clear prior seed-managed
+  // rows (children first, respecting FK constraints) so re-running `npm run
+  // seed` is idempotent and never accumulates duplicate companies/personas
+  // across runs (e.g. Phase 1's original 2-row placeholder set).
+  await db.delete(companyPersonaRole);
+  await db.delete(signal);
+  await db.delete(persona);
+  await db.delete(company);
 
   const companyNameToId = new Map<string, number>();
   for (const row of companyRows) {
     const [inserted] = await db
       .insert(company)
-      .values({ name: row.name, industry: row.industry })
+      .values({
+        name: row.name,
+        industry: row.industry,
+        employeeCountBand: row.employee_count_band,
+        hqLocation: row.hq_location,
+        revenueBand: row.revenue_band,
+        ownershipType: row.ownership_type,
+        techStack: row.tech_stack ? row.tech_stack.split('|').map((s) => s.trim()) : undefined,
+      })
       .returning();
     companyNameToId.set(row.name, inserted.id);
   }

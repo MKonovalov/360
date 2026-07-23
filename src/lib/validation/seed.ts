@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { signalTypeEnum, signalStrengthEnum } from '../db/schema';
+import { signalTypeEnum, signalStrengthEnum, revenueBandEnum, ownershipTypeEnum } from '../db/schema';
 
 // CSV-injection / formula-injection guard: a leading =, +, -, @, tab, or
 // carriage return can be interpreted as a formula by spreadsheet software
@@ -44,9 +44,32 @@ const optionalDateString = z
     message: 'Expected YYYY-MM-DD date format',
   });
 
+// Blank-to-undefined-then-validate, mirroring optionalDateString's shape,
+// but piping into the same Drizzle pgEnum values used at the DB level
+// (revenueBandEnum/ownershipTypeEnum) so the CSV validator and the schema
+// can never drift apart.
+const optionalRevenueBand = z
+  .string()
+  .optional()
+  .transform((value) => (value === '' || value === undefined ? undefined : value))
+  .pipe(z.enum(revenueBandEnum.enumValues).optional());
+
+const optionalOwnershipType = z
+  .string()
+  .optional()
+  .transform((value) => (value === '' || value === undefined ? undefined : value))
+  .pipe(z.enum(ownershipTypeEnum.enumValues).optional());
+
 export const companyRowSchema = z.object({
   name: safeCsvString.min(1, 'name is required'),
   industry: optionalSafeCsvString,
+  employee_count_band: optionalSafeCsvString,
+  hq_location: optionalSafeCsvString,
+  revenue_band: optionalRevenueBand,
+  ownership_type: optionalOwnershipType,
+  // Raw pipe-delimited string, validated as safe text here — split into an
+  // array in seed.ts, not in the schema (D-04, no per-tool metadata needed).
+  tech_stack: optionalSafeCsvString,
 });
 
 export const personaRowSchema = z.object({

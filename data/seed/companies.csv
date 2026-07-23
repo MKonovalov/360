@@ -1,3 +1,10 @@
-name,industry
-Acme Test Co,Manufacturing
-Beta Sample Inc,Financial Services
+name,industry,employee_count_band,hq_location,revenue_band,ownership_type,tech_stack
+Acme Test Co,Manufacturing,1001-5000,"Detroit, USA",250m_1b,private,SAP ERP|Excel|Concur
+Beta Sample Inc,Financial Services,201-1000,"New York, USA",1b_5b,public,Oracle Financials|Workday|Tableau
+Gamma Placeholder AG,Manufacturing,5001-20000,"Essen, Germany",1b_5b,subsidiary,SAP S/4HANA|Ariba|Power BI
+Delta Sample Retail Group,Retail,1001-5000,"Chicago, USA",250m_1b,private,NetSuite|Salesforce|Shopify Plus
+Epsilon Test Health Systems,Healthcare,5001-20000,"Boston, USA",1b_5b,public,Epic|Workday|ServiceNow
+Zeta Sample Logistics,Logistics,201-1000,"Rotterdam, Netherlands",50m_250m,pe_backed,SAP TM|Excel
+Eta Placeholder Energy Corp,Energy,20000+,"Houston, USA",5b_plus,public,SAP ERP|Palantir Foundry|Power BI
+Theta Sample Brands,Consumer Goods,1001-5000,"London, UK",250m_1b,family_owned,Oracle NetSuite|HubSpot
+Iota Test Solutions,SaaS,51-200,"Austin, USA",under_50m,private,QuickBooks|Airtable|HubSpot
