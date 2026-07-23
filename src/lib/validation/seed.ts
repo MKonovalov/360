@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { signalTypeEnum, signalStrengthEnum, revenueBandEnum, ownershipTypeEnum } from '../db/schema';
+import {
+  signalTypeEnum,
+  signalStrengthEnum,
+  revenueBandEnum,
+  ownershipTypeEnum,
+  seniorityEnum,
+} from '../db/schema';
 
 // CSV-injection / formula-injection guard: a leading =, +, -, @, tab, or
 // carriage return can be interpreted as a formula by spreadsheet software
@@ -60,6 +66,27 @@ const optionalOwnershipType = z
   .transform((value) => (value === '' || value === undefined ? undefined : value))
   .pipe(z.enum(ownershipTypeEnum.enumValues).optional());
 
+// D-01: same blank-to-undefined-then-pipe shape as optionalRevenueBand/
+// optionalOwnershipType, piped into the seniorityEnum Drizzle values so the
+// CSV validator and the schema can never drift apart.
+const optionalSeniority = z
+  .string()
+  .optional()
+  .transform((value) => (value === '' || value === undefined ? undefined : value))
+  .pipe(z.enum(seniorityEnum.enumValues).optional());
+
+// Same blank-to-undefined transform + formula-injection guard as
+// optionalSafeCsvString, piped into Zod v4's top-level z.email() (not the
+// deprecated z.string().email() form) for basic email shape validation.
+const optionalEmailString = z
+  .string()
+  .optional()
+  .transform((value) => (value === '' || value === undefined ? undefined : value))
+  .refine((value) => value === undefined || !startsWithDangerousPrefix(value), {
+    message: FORMULA_INJECTION_MESSAGE,
+  })
+  .pipe(z.email().optional());
+
 export const companyRowSchema = z.object({
   name: safeCsvString.min(1, 'name is required'),
   industry: optionalSafeCsvString,
@@ -75,6 +102,9 @@ export const companyRowSchema = z.object({
 export const personaRowSchema = z.object({
   name: safeCsvString.min(1, 'name is required'),
   title: optionalSafeCsvString,
+  seniority: optionalSeniority,
+  email: optionalEmailString,
+  linkedin_url: optionalSafeCsvString,
 });
 
 // DATA-03: signal_type/strength are validated against the same Drizzle

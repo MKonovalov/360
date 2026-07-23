@@ -1,11 +1,11 @@
-name,title
-Jordan Sample,VP of Finance
-Taylor Placeholder,Chief Financial Officer
-Morgan Testcase,Head of Global Business Services
-Casey Fakename,VP of Operations
-Riley Sampledata,Chief Financial Officer
-Avery Placeholderson,Director of Finance Transformation
-Drew Testfield,Chief Operating Officer
-Reese Sampleton,VP of Shared Services
-Quinn Fakeworth,Chief Financial Officer
-Sydney Placeholdt,Head of GBS Transformation
+name,title,seniority,email,linkedin_url
+Jordan Sample,VP of Finance,vp,jordan.sample@acmetestco.example,https://linkedin.com/in/jordan-sample-placeholder
+Taylor Placeholder,Chief Financial Officer,c_level,taylor.placeholder@betasample.example,https://linkedin.com/in/taylor-placeholder
+Morgan Testcase,Head of Global Business Services,director,morgan.testcase@gammaplaceholder.example,https://linkedin.com/in/morgan-testcase
+Casey Fakename,Finance Systems Analyst,ic,casey.fakename@deltasample.example,https://linkedin.com/in/casey-fakename
+Riley Sampledata,Chief Financial Officer,c_level,riley.sampledata@epsilontest.example,https://linkedin.com/in/riley-sampledata
+Avery Placeholderson,Director of Finance Transformation,director,avery.placeholderson@zetasample.example,https://linkedin.com/in/avery-placeholderson
+Drew Testfield,Chief Operating Officer,c_level,drew.testfield@etaplaceholder.example,
+Reese Sampleton,VP of Shared Services,vp,,https://linkedin.com/in/reese-sampleton
+Quinn Fakeworth,GBS Program Manager,manager,,
+Sydney Placeholdt,Head of GBS Transformation,director,sydney.placeholdt@gammaplaceholder.example,https://linkedin.com/in/sydney-placeholdt

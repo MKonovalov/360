@@ -111,7 +111,13 @@ async function main() {
   for (const row of personaRows) {
     const [inserted] = await db
       .insert(persona)
-      .values({ name: row.name, title: row.title })
+      .values({
+        name: row.name,
+        title: row.title,
+        seniority: row.seniority,
+        email: row.email,
+        linkedinUrl: row.linkedin_url,
+      })
       .returning();
     personaNameToId.set(row.name, inserted.id);
   }
