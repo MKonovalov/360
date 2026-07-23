@@ -1,4 +1,7 @@
+'use client';
+
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   Sidebar,
   SidebarContent,
@@ -8,12 +11,14 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 
-// Server Component: this phase has exactly one navigable section
-// (Companies), so "active" is hardcoded rather than computed from
-// usePathname() — avoids an unnecessary client boundary for a decision
-// that's currently static. Revisit with real pathname matching once
-// Phase 3's /personas route exists alongside this one.
+// Client Component: both Companies and Key Personas are now real routes, so
+// "active" is computed from usePathname() rather than hardcoded (03-RESEARCH.md
+// Pattern 5). .startsWith(), not exact equality, so /companies/[id] and
+// /personas/[id] (added in Plan 03-03) both still highlight the correct
+// single item (03-RESEARCH.md Pitfall 3).
 export function AppSidebar() {
+  const pathname = usePathname();
+
   return (
     <Sidebar>
       <SidebarContent>
@@ -22,16 +27,20 @@ export function AppSidebar() {
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
-                isActive
+                isActive={pathname.startsWith('/companies')}
                 className="data-active:bg-indigo-50 data-active:text-indigo-600 data-active:hover:bg-indigo-50 data-active:hover:text-indigo-600"
               >
                 <Link href="/companies">Companies</Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              {/* D-11: visible-but-disabled, no href — Phase 3 hasn't
-                  shipped the Personas explorer route yet. */}
-              <SidebarMenuButton disabled>Key Personas</SidebarMenuButton>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname.startsWith('/personas')}
+                className="data-active:bg-indigo-50 data-active:text-indigo-600 data-active:hover:bg-indigo-50 data-active:hover:text-indigo-600"
+              >
+                <Link href="/personas">Key Personas</Link>
+              </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
