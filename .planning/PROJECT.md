@@ -23,18 +23,18 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 - ✓ Clicking a Company list item opens its full detail in a master-detail pane (list stays visible, detail fills main area) — validated in Phase 2 (2026-07-23)
 - ✓ Company list items show signal badges — validated in Phase 2 (2026-07-23)
 - ✓ Company 360 view shows: firmographics, tech stack/tools used, buying signals (financial cost pressure, no mature GBS/SSC org, new CFO/GBS head, transformation program announcement), and linked personas — validated in Phase 2 (2026-07-23)
+- ✓ Persona list is searchable and filterable (seniority, current company, has-signals; AND-composed) — validated in Phase 3 (2026-07-23); the has-signals "No" leg shipped broken in the initial pass (silent no-op) and was gap-closed same-day, see Key Decisions
+- ✓ Clicking a Persona list item opens its full detail in a master-detail pane — validated in Phase 3 (2026-07-23)
+- ✓ Persona 360 view shows: role/title & seniority, career history (previous companies with dates), linked current company, and contact info (email/LinkedIn) — validated in Phase 3 (2026-07-23), PERS-01 through PERS-04
 
 ### Active
 
-- [ ] Persona list is searchable and filterable (Phase 3 scope)
-- [ ] Clicking a Persona list item opens its full detail in a master-detail pane (Phase 3 scope)
-- [ ] Persona list items show status/signal badges (Phase 3 scope)
-- [ ] Persona 360 view shows: role/title & seniority, previous companies, and linked company
 - [ ] Milestone 1 runs on a manual/seed dataset for core Company/Persona fields — no live commercial enrichment API (Clearbit/Apollo/ZoomInfo) wired yet
 - [ ] Company/Persona 360 views ingest and display related knowledge articles read from Arcpedia (existing internal wiki at arcpedia.arclumen.de) — read-only in milestone 1, no writes back to Arcpedia
 
 ### Out of Scope
 
+- Persona list row-level status/signal badges — EXPL-05 (list rows show signal badges) maps only to Phase 2's Company list per REQUIREMENTS.md's phase-mapping table; never a Phase 3 requirement despite an earlier PROJECT.md draft implying otherwise
 - Commercial enrichment API integration (Clearbit/Apollo/ZoomInfo, etc.) — deferred; milestone 1 is seed/manual data only (Arcpedia read-integration is in scope, see Active requirements)
 - Writing/ingesting content back into Arcpedia from ArcLumen 360 — milestone 1 is read-only; AI-drafted content (e.g. tailored persona LinkedIn DMs) is a stated future direction, not milestone 1
 - Scoring/prioritization algorithm — milestone 1 is browsing/viewing only, ranking logic is a later milestone
@@ -44,7 +44,7 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 
 ## Current State
 
-Phase 2 complete (2026-07-23) — the Company Explorer is live: collapsible/resizable sidebar shell, gated `/companies` list with search/filters (debounced search, industry/signal-type/revenue-band/ownership-type, all URL-synced), and `/companies/[id]` master-detail showing firmographics, tech stack, buying signals, and linked personas. Schema extended with firmographic fields (D-01–D-04), seed dataset now 9 companies/10 personas/12 signals/11 role links. 4 items deferred to manual browser QA (sidebar drag feel, click-to-detail, deep-link/mobile-swap, debounce/filter UX) — tracked in `02-HUMAN-UAT.md`. Next: Phase 3 (Persona Explorer).
+Phase 3 complete (2026-07-23) — the Persona Explorer is live: gated `/personas` list with search/filters (seniority, current company, has-signals; AND-composed, URL-synced), `/personas/[id]` master-detail showing role/seniority, career history, linked current company, and contact info. AppSidebar converted to a `usePathname()`-driven Client Component so both Companies and Key Personas nav sections highlight correctly. Schema extended with `seniority`/`email`/`linkedinUrl` (D-01–D-03), seed dataset now 10 personas across all 5 seniority tiers with career history. Shipped with one same-day gap-closure: the has-signals "No" filter was a silent no-op at ship time (missing NOT EXISTS branch + a tri-state parsing bug duplicated across both persona pages) — fixed, code-reviewed, security-audited (13/13 threats closed), and re-verified 15/15 within the same session. 2 items deferred to manual browser QA (sidebar/filter interaction, click-through + mobile swap) — both passed, tracked in `03-HUMAN-UAT.md`. Deployed to production (360.arclumenpartners.com). Next: Phase 4 (Arcpedia Integration & Resilience Polish).
 
 ## Context
 
@@ -70,6 +70,7 @@ Phase 2 complete (2026-07-23) — the Company Explorer is live: collapsible/resi
 | Milestone 1 = explorer UI shell only, against manual/seed data | Validate the explorer UX and Company/Persona data model before investing in real enrichment integrations | — Pending (Phase 2+) |
 | Migrate Astro → Next.js App Router, Sanity → Neon Postgres + Drizzle, before building explorer UI | Research confirmed current stack fights master-detail state and relational data needs; Clerk/Vercel continuity preserved | Done — Phase 1 |
 | shadcn/ui installed with the `nova` preset (Geist/lucide, `neutral` base) instead of the originally-assumed New York/Slate flow | shadcn CLI's init flow replaced named-color prompts with a preset system between research and execution; `nova` was the closest match to UI-SPEC's locked style | Done — Phase 2 |
+| `PersonaFilters.hasSignals` must be a genuine tri-state (`true`/`false`/`undefined`), not a plain boolean | Phase 3 shipped with `false` and `undefined` collapsed into the same value at both the URL-parsing layer (duplicated across two page files) and the query layer (`listPersonas` had no `NOT EXISTS` branch) — the "No" filter silently returned all 10 personas instead of 0. Caught by code review (CR-01) and independently reproduced by verification against live data before shipping further | Done — Phase 3 gap closure; `parsePersonaFilters` also consolidated into one shared module (`src/lib/params/personaFilters.ts`) to prevent the duplicate-fix risk recurring |
 
 ## Evolution
 
@@ -89,4 +90,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-23 after Phase 2 completion*
+*Last updated: 2026-07-23 after Phase 3 completion*
