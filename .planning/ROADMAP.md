@@ -14,7 +14,7 @@ ArcLumen 360 milestone 1 takes this repo from its current Astro/Clerk/Sanity sho
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation — Platform Migration & Data Model** - Next.js/Clerk/Neon+Drizzle stack in place; no explorer UI yet (completed 2026-07-23)
-- [ ] **Phase 2: Company Explorer** - Staff can search, filter, and drill into full Company 360 detail
+- [x] **Phase 2: Company Explorer** - Staff can search, filter, and drill into full Company 360 detail (completed 2026-07-23)
 - [ ] **Phase 3: Persona Explorer** - Staff can search, filter, and drill into full Persona 360 detail
 - [ ] **Phase 4: Arcpedia Integration & Resilience Polish** - Related knowledge articles surface on both 360 views; all states handled explicitly
 
@@ -79,7 +79,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 02-04-PLAN.md — nuqs search/filter wiring, URL-synced AND-combined filters, empty/error-state copy
+- [x] 02-04-PLAN.md — nuqs search/filter wiring, URL-synced AND-combined filters, empty/error-state copy
 
 **UI hint**: yes
 
@@ -122,6 +122,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation — Platform Migration & Data Model | 4/4 | Complete    | 2026-07-23 |
-| 2. Company Explorer | 3/4 | In Progress|  |
+| 2. Company Explorer | 4/4 | Complete   | 2026-07-23 |
 | 3. Persona Explorer | 0/TBD | Not started | - |
 | 4. Arcpedia Integration & Resilience Polish | 0/TBD | Not started | - |
