@@ -13,11 +13,43 @@ export const signalTypeEnum = pgEnum('signal_type', [
 // D-05: 3-tier strength, not a numeric score.
 export const signalStrengthEnum = pgEnum('signal_strength', ['low', 'medium', 'high']);
 
+// D-02: fixed-but-extensible enum, same pattern as signalTypeEnum (D-07).
+// Bucket boundaries roughly track where GBS/SSC transformation programs
+// become financially justified (see 02-RESEARCH.md "Proposed Enum Values").
+// Adding a bucket later is a `drizzle-kit generate` migration, not a redesign.
+export const revenueBandEnum = pgEnum('revenue_band', [
+  'under_50m',
+  '50m_250m',
+  '250m_1b',
+  '1b_5b',
+  '5b_plus',
+]);
+
+// D-02: fixed-but-extensible enum. `subsidiary` (beyond the 4 obvious values)
+// reflects that ArcLumen's GBS/SSC advisory domain frequently targets the
+// regional arm of a larger multinational, a distinct common ICP shape.
+export const ownershipTypeEnum = pgEnum('ownership_type', [
+  'private',
+  'public',
+  'pe_backed',
+  'family_owned',
+  'subsidiary',
+]);
+
 export const company = pgTable('company', {
   id: serial('id').primaryKey(),
   name: text('name').notNull(),
   industry: text('industry'),
-  // ... remaining firmographic fields land in Phase 2 per COMP-01
+  // D-01: banded range text (e.g. "51-200"), not an exact integer — fits
+  // manually-seeded data where exact counts are rarely known.
+  employeeCountBand: text('employee_count_band'),
+  // D-03: single freeform text, no separate city/country columns —
+  // display-only this phase, no geo-level filtering required.
+  hqLocation: text('hq_location'),
+  revenueBand: revenueBandEnum('revenue_band'),
+  ownershipType: ownershipTypeEnum('ownership_type'),
+  // D-04: text array, no per-tool metadata (detected date, category) needed.
+  techStack: text('tech_stack').array(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
