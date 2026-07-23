@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation — Platform Migration & Data Model** - Next.js/Clerk/Neon+Drizzle stack in place; no explorer UI yet (completed 2026-07-23)
 - [x] **Phase 2: Company Explorer** - Staff can search, filter, and drill into full Company 360 detail (completed 2026-07-23)
-- [ ] **Phase 3: Persona Explorer** - Staff can search, filter, and drill into full Persona 360 detail
+- [x] **Phase 3: Persona Explorer** - Staff can search, filter, and drill into full Persona 360 detail (completed 2026-07-23)
 - [ ] **Phase 4: Arcpedia Integration & Resilience Polish** - Related knowledge articles surface on both 360 views; all states handled explicitly
 
 ## Phase Details
@@ -108,7 +108,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 03-03-PLAN.md — Persona detail pane + /personas/[id] master-detail route, list-to-detail wiring, mobile responsive swap
+- [x] 03-03-PLAN.md — Persona detail pane + /personas/[id] master-detail route, list-to-detail wiring, mobile responsive swap
 
 **UI hint**: yes
 
@@ -136,5 +136,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Foundation — Platform Migration & Data Model | 4/4 | Complete    | 2026-07-23 |
 | 2. Company Explorer | 4/4 | Complete    | 2026-07-23 |
-| 3. Persona Explorer | 2/3 | In Progress|  |
+| 3. Persona Explorer | 3/3 | Complete   | 2026-07-23 |
 | 4. Arcpedia Integration & Resilience Polish | 0/TBD | Not started | - |
