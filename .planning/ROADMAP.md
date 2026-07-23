@@ -96,7 +96,20 @@ Plans:
   3. Persona detail shows manually entered contact info (email/LinkedIn).
   4. The full seed dataset of Companies and Personas is loaded and browsable end-to-end — both explorers are functional, not just one.
 
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+**Wave 1**
+
+- [ ] 03-01-PLAN.md — Persona schema extension (seniority enum, email, linkedinUrl per D-01..D-03), Drizzle query layer (listPersonas filters incl. two-hop EXISTS, listCompanyRolesForPersona), seed backfill + career history expansion
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 03-02-PLAN.md — Persona search/filter/list components, /personas route, AppSidebar converted to pathname-aware Client Component
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 03-03-PLAN.md — Persona detail pane + /personas/[id] master-detail route, list-to-detail wiring, mobile responsive swap
+
 **UI hint**: yes
 
 ### Phase 4: Arcpedia Integration & Resilience Polish
