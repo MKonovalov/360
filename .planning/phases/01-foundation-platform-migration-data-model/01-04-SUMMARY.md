@@ -2,7 +2,7 @@
 phase: 01-foundation-platform-migration-data-model
 plan: 04
 subsystem: web-app
-tags: [nextjs, server-actions, drizzle, walking-skeleton]
+tags: [nextjs, server-actions, drizzle, vercel, walking-skeleton]
 
 requires:
   - phase: 01-01
@@ -15,6 +15,7 @@ provides:
   - Live dashboard company count (Client -> Server Action -> Postgres round trip)
   - Gated Server Action pattern (src/app/actions.ts) proving requireStaffAccess()
     applies to Server Actions independently of page-level checks
+  - Migrated Next.js app deployed live to the existing Vercel project, Node 22.x confirmed
 affects: [phase-02, phase-03]
 
 tech-stack:
@@ -22,6 +23,7 @@ tech-stack:
   patterns:
     - "Server Actions call requireStaffAccess() FIRST, before any DB access — src/app/actions.ts's refreshCompanyCount() is the first concrete instance of this pattern in the codebase"
     - "Client Components accepting server-computed initial state via props (initialCount) and holding it in useState, updated only through a Server Action call — no client-side fetch/REST layer introduced"
+    - "next.config.ts's turbopack.root pin is now scoped to local dev only (process.env.VERCEL check) — Vercel's build container has no sibling-worktree ambiguity and the unconditional pin broke output tracing there"
 
 key-files:
   created:
@@ -29,60 +31,73 @@ key-files:
     - src/components/RefreshCompanyCount.tsx
   modified:
     - src/app/page.tsx
+    - next.config.ts
 
 key-decisions:
-  - "src/app/page.tsx's DB read is gated by a real `if (userId) { ... }` block (not a ternary/ IIFE) so the listCompanies() call is structurally nested inside the staff-only branch and the acceptance criterion's grep -B3 check for a preceding `if (userId)` line passes cleanly"
+  - "src/app/page.tsx's DB read is gated by a real `if (userId) { ... }` block (not a ternary/IIFE) so the listCompanies() call is structurally nested inside the staff-only branch"
+  - "Vercel project's Framework Preset was 'Other' (never explicitly set) — this silently broke Next.js output translation into Vercel Functions (build succeeded, but every route 404'd live with zero Function invocations). Fixed via `vercel project update --framework nextjs`."
+  - "Deployed Lambda runtime confirmed nodejs22.x via `vercel inspect --format json` despite the Vercel dashboard's separate 'Node.js Version' project setting showing 24.x — package.json's engines field takes precedence for the actual Function runtime. The dashboard setting itself is stale and should be corrected by the user (no CLI flag exists to change it) to avoid future confusion."
+  - "Verified the deployed app against the custom domain (360.arclumenpartners.com), not the generic *.vercel.app alias — Clerk's production instance is domain-locked to arclumenpartners.com, so the .vercel.app alias throws 'unable to attribute this request to an instance running on Clerk' in the browser console. This is expected Clerk behavior, not an app bug."
 
-requirements-completed: []
+requirements-completed: [FOUND-01, FOUND-04]
 
-duration: ~10min (Task 1 only)
+duration: ~45min (including deploy debugging)
 completed: 2026-07-23
 ---
 
-# Phase 01 Plan 04: Task 1 (partial) — Live Dashboard Wiring Summary
+# Phase 01 Plan 04: Walking Skeleton Complete — Live Dashboard + Production Deploy Summary
 
-Task 1 wires the dashboard's signed-in branch to a live `listCompanies()` read from Neon and adds a Client Component -> Server Action -> Postgres round trip (`RefreshCompanyCount` -> `refreshCompanyCount()`), with `requireStaffAccess()` called first inside the Server Action to prove Server Actions are gated independently of page-level checks. **Task 2 (Vercel production deployment) is deferred to the orchestrator** — it is a production deploy to shared live infrastructure requiring explicit user confirmation outside this executor agent's scope.
+Dashboard's signed-in branch reads a live `listCompanies()` count from Neon; a Client Component -> Server Action -> Postgres round trip (`RefreshCompanyCount` -> `refreshCompanyCount()`) proves `requireStaffAccess()` gates Server Actions independently of page-level checks. The migrated Next.js app is deployed to the existing Vercel project on confirmed Node 22.x, with the old Astro `/l/[code]` route returning 404 in production.
 
 ## Performance
 
-- **Duration:** ~10 min (Task 1 only)
-- **Tasks:** 1/2 (Task 2 deferred)
-- **Files modified:** 3 (2 created, 1 modified)
+- **Duration:** ~45 min (Task 1 ~10min, Task 2 ~35min including two deploy-configuration bugs found and fixed)
+- **Tasks:** 2/2
+- **Files modified:** 4 (2 created, 2 modified)
 
 ## Accomplishments
 
-- `src/app/page.tsx`: signed-in branch now reads `await listCompanies()` inside an `if (userId) { ... }` block (anonymous visitors never trigger a DB query), rendering the live count and `<RefreshCompanyCount initialCount={companies.length} />`
-- `src/app/actions.ts`: new Server Action `refreshCompanyCount()` — `'use server'` as the first line, `requireStaffAccess()` called before any call to `listCompanies()` (byte-order verified)
-- `src/components/RefreshCompanyCount.tsx`: new Client Component — `'use client'` as the first line, holds `count` via `useState(initialCount)`, `onClick` handler calls `refreshCompanyCount()` and updates state
-- `npm run build` passes (Next.js 16 Turbopack build, TypeScript check, static page generation all succeeded)
+- `src/app/page.tsx`: signed-in branch reads `await listCompanies()` inside `if (userId) { ... }`, renders live count + `<RefreshCompanyCount initialCount={companies.length} />`
+- `src/app/actions.ts`: Server Action `refreshCompanyCount()` — `'use server'` first line, `requireStaffAccess()` called before `listCompanies()` (byte-order verified)
+- `src/components/RefreshCompanyCount.tsx`: Client Component — `'use client'` first line, `useState`-held count, button `onClick` round-trips through the Server Action
+- Deployed to production: `https://360.arclumenpartners.com` and `https://360-arclumen.vercel.app` both alias the new deployment
+- Deployed Lambda runtime confirmed `nodejs22.x` (via `vercel inspect --format json`)
+- `curl` root returns `200`; `curl /l/anything` returns `404` (old Astro route confirmed gone from production)
+- Scanned all client-shipped JS chunks for `DATABASE_URL`/`CLERK_SECRET_KEY` values — none found
+- Sign-in page renders correctly on the custom domain (Clerk hosted UI, "Sign in to Arclumen Partners")
 
 ## Task Commits
 
 1. **Task 1: Wire dashboard to a live company count + Client Component -> Server Action refresh** — `9d2460e5` (feat)
+2. **Task 2: Deploy to Vercel, confirm Node 22.x runtime and no dead Astro routes** — `946bb5f1` (fix: turbopack.root scoping), deploy operations (no additional repo commit — Task 2 is deployment + Vercel project settings, not code)
+
+**Other commits this plan:** `e096a854` (docs: partial progress checkpoint, superseded by this summary)
 
 ## Files Created/Modified
 
-- `src/app/page.tsx` - signed-in branch now calls `listCompanies()` and renders the live count + `RefreshCompanyCount`
-- `src/app/actions.ts` - `refreshCompanyCount()` Server Action, gated by `requireStaffAccess()` before any DB access
-- `src/components/RefreshCompanyCount.tsx` - Client Component wiring a button's `onClick` to the Server Action, `useState`-held count
+- `src/app/page.tsx` - signed-in branch calls `listCompanies()`, renders live count + `RefreshCompanyCount`
+- `src/app/actions.ts` - `refreshCompanyCount()` Server Action, gated by `requireStaffAccess()`
+- `src/components/RefreshCompanyCount.tsx` - Client Component wiring a button's `onClick` to the Server Action
+- `next.config.ts` - `turbopack.root` pin scoped to local dev only (`!process.env.VERCEL`)
 
 ## Deviations from Plan
 
-None — Task 1 executed exactly as written. `page.tsx`'s conditional was implemented as a real `if (userId)` block feeding a `signedInContent` variable (rather than a JSX ternary/IIFE) purely to keep `listCompanies()` unambiguously and structurally inside the staff-only branch — functionally identical to what the plan describes, no behavior difference.
+1. **[Auto-fixed, blocking] `turbopack.root` pin broke Vercel output tracing:** 01-01's unconditional `turbopack.root: path.join(__dirname)` pin (added to fix a local sibling-worktree package-lock.json collision) caused every route to build successfully but 404 live on Vercel with zero Function invocations. Scoped the pin to skip when `process.env.VERCEL` is set.
+2. **[Auto-fixed, blocking] Vercel project Framework Preset was never set (`null`/"Other")**, not "Next.js" — this was the primary cause of the 404s: Next.js's build output only gets translated into Vercel Functions (Lambdas) when the framework preset is recognized. Fixed via `npx vercel project update --framework nextjs` (an account-settings change — flagged to the user as it happened, done in direct service of the user-approved production deploy).
+3. **[Auto-fixed] `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` was never added to Vercel's env store** (only the old Astro-era `PUBLIC_CLERK_PUBLISHABLE_KEY` name existed) — first deploy attempt failed at build time with a Zod validation error. Added via `vercel env add` to Production and Preview.
+4. **[Flagged, not auto-fixed] Vercel dashboard's "Node.js Version" project setting shows 24.x**, not 22.x. The actual deployed Lambda runtime is confirmed `nodejs22.x` (package.json's `engines` field wins), so this doesn't currently cause a functional problem, but the dashboard setting is stale and has no CLI-exposed fix — user should correct it via Project Settings -> General -> Node.js Version to avoid future confusion or drift.
+5. **[N/A, expected Clerk behavior] `*.vercel.app` alias throws a Clerk attribution error in-browser** — the production Clerk instance is domain-locked to `arclumenpartners.com`. Verified via the real `360.arclumenpartners.com` domain instead, which is clean.
 
-## Deferred to Orchestrator
+**Total deviations:** 3 auto-fixed blocking, 1 auto-fixed non-blocking, 1 flagged for user, 1 expected/non-issue.
 
-**Task 2: Deploy to Vercel, confirm Node 22.x runtime and no dead Astro routes** — NOT executed by this agent. Per this agent's explicit scope boundary, production deploys (`npx vercel --prod`) to the shared, live Vercel project are out of scope for autonomous execution and require the orchestrator (and/or the user) to run and confirm. STATE.md, ROADMAP.md, and REQUIREMENTS.md are intentionally **not** marked complete for 01-04 — the orchestrator will finish those updates after Task 2 (deploy + Node 22.x verification + dead-Astro-route check) completes.
+## Human-UAT Deferred
 
-Task 2's remaining acceptance criteria (unexecuted):
-- `npm run build` exits `0` immediately before deploy (already verified as part of Task 1; re-run pre-flight per the plan's Task 2 action).
-- `npx vercel --prod` completes and prints an `https://` deployment URL.
-- `npx vercel inspect <deployment-url>` reports the runtime as `nodejs22.x`.
-- `curl` to the deployed root URL returns HTTP `200`.
-- `curl` to the deployed `/l/anything` returns HTTP `404` (confirms D-09's Astro route deletion shipped to production).
+Per `01-VALIDATION.md`'s `human_verify_mode: end-of-phase`, actually signing in as staff and confirming the dashboard shows the seeded company count + the Refresh button works requires the user's own Clerk credentials — I don't have and shouldn't obtain staff login credentials. Automated verification covered everything else (build, deploy, runtime, routing, no secret leakage, sign-in page renders). **User action needed:** sign in at https://360.arclumenpartners.com and confirm the dashboard + Refresh button work as expected.
 
 ## Self-Check: PASSED
 
 - FOUND: `src/app/actions.ts`
 - FOUND: `src/components/RefreshCompanyCount.tsx`
 - FOUND: commit `9d2460e5`
+- FOUND: commit `946bb5f1`
+- VERIFIED: production deployment live, nodejs22.x, root 200, /l/anything 404
