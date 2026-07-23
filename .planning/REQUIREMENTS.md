@@ -9,10 +9,10 @@ Requirements for milestone 1 (explorer UI shell). Each maps to roadmap phases.
 
 ### Foundation
 
-- [ ] **FOUND-01**: App runs on Next.js (App Router), deployed on Vercel with Node 22 — migrated off Astro
+- [x] **FOUND-01**: App runs on Next.js (App Router), deployed on Vercel with Node 22 — migrated off Astro
 - [x] **FOUND-02**: Company/Persona/Signal data persisted in Neon Postgres via Drizzle ORM — migrated off Sanity
-- [ ] **FOUND-03**: Staff can sign in via Clerk (`@clerk/nextjs`), reusing the existing Clerk project/session model
-- [ ] **FOUND-04**: Staff-access check (any authenticated Clerk user = staff) is centralized in one function, not scattered inline checks
+- [x] **FOUND-03**: Staff can sign in via Clerk (`@clerk/nextjs`), reusing the existing Clerk project/session model
+- [x] **FOUND-04**: Staff-access check (any authenticated Clerk user = staff) is centralized in one function, not scattered inline checks
 
 ### Company
 
