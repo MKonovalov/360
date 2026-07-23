@@ -23,10 +23,10 @@ Requirements for milestone 1 (explorer UI shell). Each maps to roadmap phases.
 
 ### Persona
 
-- [ ] **PERS-01**: Staff can view a Persona's role/title and seniority
-- [ ] **PERS-02**: Staff can view a Persona's career history (previous companies with dates)
-- [ ] **PERS-03**: Staff can view the Company a Persona is linked to, shown inline
-- [ ] **PERS-04**: Staff can view a Persona's contact info (email/LinkedIn), manually entered
+- [x] **PERS-01**: Staff can view a Persona's role/title and seniority
+- [x] **PERS-02**: Staff can view a Persona's career history (previous companies with dates)
+- [x] **PERS-03**: Staff can view the Company a Persona is linked to, shown inline
+- [x] **PERS-04**: Staff can view a Persona's contact info (email/LinkedIn), manually entered
 
 ### Explorer UX
 
@@ -45,7 +45,7 @@ Requirements for milestone 1 (explorer UI shell). Each maps to roadmap phases.
 
 ### Data Model
 
-- [ ] **DATA-01**: A seed/manual dataset of Companies and Personas is loaded and browsable end-to-end
+- [x] **DATA-01**: A seed/manual dataset of Companies and Personas is loaded and browsable end-to-end
 - [x] **DATA-02**: Company↔Persona relationship is modeled as many-to-many with date-range metadata (supports a persona's "previous companies")
 - [x] **DATA-03**: Buying signals are modeled as typed, dated, sourced records linked to a Company — not free-text blobs
 
