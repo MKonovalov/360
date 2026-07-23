@@ -71,7 +71,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 02-02-PLAN.md — shadcn/ui install, collapsible sidebar shell, gated Companies list with firmographics + signal badges
+- [x] 02-02-PLAN.md — shadcn/ui install, collapsible sidebar shell, gated Companies list with firmographics + signal badges
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -122,6 +122,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation — Platform Migration & Data Model | 4/4 | Complete    | 2026-07-23 |
-| 2. Company Explorer | 1/4 | In Progress|  |
+| 2. Company Explorer | 2/4 | In Progress|  |
 | 3. Persona Explorer | 0/TBD | Not started | - |
 | 4. Arcpedia Integration & Resilience Polish | 0/TBD | Not started | - |
