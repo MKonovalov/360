@@ -100,7 +100,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 03-01-PLAN.md — Persona schema extension (seniority enum, email, linkedinUrl per D-01..D-03), Drizzle query layer (listPersonas filters incl. two-hop EXISTS, listCompanyRolesForPersona), seed backfill + career history expansion
+- [x] 03-01-PLAN.md — Persona schema extension (seniority enum, email, linkedinUrl per D-01..D-03), Drizzle query layer (listPersonas filters incl. two-hop EXISTS, listCompanyRolesForPersona), seed backfill + career history expansion
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -136,5 +136,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Foundation — Platform Migration & Data Model | 4/4 | Complete    | 2026-07-23 |
 | 2. Company Explorer | 4/4 | Complete    | 2026-07-23 |
-| 3. Persona Explorer | 0/TBD | Not started | - |
+| 3. Persona Explorer | 1/3 | In Progress|  |
 | 4. Arcpedia Integration & Resilience Polish | 0/TBD | Not started | - |
