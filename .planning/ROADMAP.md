@@ -104,7 +104,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 03-02-PLAN.md — Persona search/filter/list components, /personas route, AppSidebar converted to pathname-aware Client Component
+- [x] 03-02-PLAN.md — Persona search/filter/list components, /personas route, AppSidebar converted to pathname-aware Client Component
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -136,5 +136,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Foundation — Platform Migration & Data Model | 4/4 | Complete    | 2026-07-23 |
 | 2. Company Explorer | 4/4 | Complete    | 2026-07-23 |
-| 3. Persona Explorer | 1/3 | In Progress|  |
+| 3. Persona Explorer | 2/3 | In Progress|  |
 | 4. Arcpedia Integration & Resilience Polish | 0/TBD | Not started | - |
