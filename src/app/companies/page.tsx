@@ -9,8 +9,11 @@ export default async function CompaniesPage() {
 
   return (
     <div className="grid grid-cols-[minmax(320px,1fr)_2fr] gap-8 p-8">
-      <CompanyList filters={undefined} />
-      <div className="flex min-h-48 items-center justify-center rounded-lg border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
+      <CompanyList filters={undefined} selectedId={undefined} />
+      {/* D-07 mobile pattern: no company selected here, so on narrow
+          viewports only the list shows — this placeholder pane is
+          desktop-only, never an empty detail pane on mobile. */}
+      <div className="hidden min-h-48 items-center justify-center rounded-lg border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500 md:flex">
         Select a company to view details
       </div>
     </div>

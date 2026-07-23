@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { CompanyList } from '@/components/companies/company-list';
@@ -27,10 +28,22 @@ export default async function CompanyDetailPage({
 
   return (
     <div className="grid grid-cols-[minmax(320px,1fr)_2fr] gap-8 p-8">
-      {/* selectedId threading + mobile responsive swap lands in Task 2,
-          which owns CompanyList's signature change. */}
-      <CompanyList filters={undefined} />
-      <CompanyDetail id={companyId} />
+      <CompanyList filters={undefined} selectedId={companyId} />
+      {/* D-07 mobile pattern: a company is selected, so the detail pane is
+          always visible; the list hides itself (CompanyList's own
+          `hidden md:block`). A plain Link (never the router-history-back
+          navigation helper, which would break a directly-shared
+          /companies/{id} URL — RESEARCH.md Anti-Pattern note) gets mobile
+          users back to the list. */}
+      <div className="block">
+        <Link
+          href="/companies"
+          className="mb-4 inline-block text-[14px] font-normal leading-[1.5] text-indigo-600 md:hidden"
+        >
+          ← Back to list
+        </Link>
+        <CompanyDetail id={companyId} />
+      </div>
     </div>
   );
 }
