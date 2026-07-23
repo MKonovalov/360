@@ -30,9 +30,37 @@ export async function CompanyList({
   filters?: CompanyFilters;
   selectedId?: number;
 }) {
-  const companies = await listCompanies(filters);
+  // Phase 2 baseline error-state handling (CONTEXT.md's Claude's Discretion
+  // note) — full EXPL-06 hardening lands in Phase 4, but a Sanity/DB-style
+  // fetch failure must degrade to known-good UI copy, never a thrown 500.
+  let companies: Awaited<ReturnType<typeof listCompanies>>;
+  try {
+    companies = await listCompanies(filters);
+  } catch {
+    return (
+      <div
+        className={cn(
+          'flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-8 text-center',
+          selectedId ? 'hidden md:flex' : 'flex'
+        )}
+      >
+        <p className="text-[18px] font-semibold leading-[1.2] text-slate-900">
+          {"Couldn't load companies"}
+        </p>
+        <p className="text-sm text-slate-500">
+          Something went wrong fetching this data. Try refreshing the page.
+        </p>
+      </div>
+    );
+  }
 
   if (companies.length === 0) {
+    // A filtered search/filter combination matching zero rows gets distinct
+    // copy from a genuinely empty (unseeded) dataset.
+    const hasActiveFilters = Boolean(
+      filters?.search || filters?.industry || filters?.signalType || filters?.revenueBand || filters?.ownershipType
+    );
+
     return (
       <div
         className={cn(
@@ -42,12 +70,25 @@ export async function CompanyList({
           selectedId ? 'hidden md:flex' : 'flex'
         )}
       >
-        <p className="text-[18px] font-semibold leading-[1.2] text-slate-900">
-          No companies yet
-        </p>
-        <p className="text-sm text-slate-500">
-          Company data will appear here once the seed dataset is loaded.
-        </p>
+        {hasActiveFilters ? (
+          <>
+            <p className="text-[18px] font-semibold leading-[1.2] text-slate-900">
+              No companies match your filters
+            </p>
+            <p className="text-sm text-slate-500">
+              Try removing a filter or clearing your search.
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-[18px] font-semibold leading-[1.2] text-slate-900">
+              No companies yet
+            </p>
+            <p className="text-sm text-slate-500">
+              Company data will appear here once the seed dataset is loaded.
+            </p>
+          </>
+        )}
       </div>
     );
   }
