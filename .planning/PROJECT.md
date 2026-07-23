@@ -14,9 +14,9 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 
 <!-- Inferred from existing codebase (.planning/codebase/) -->
 
-- ✓ Clerk authentication (sign-in flow, session middleware populating `Astro.locals.auth()`) — existing
-- ✓ Astro SSR hosting on Vercel, pinned to Node 20 — existing
-- ✓ Sanity CMS client/GROQ integration pattern — existing (may be repurposed or replaced for ArcLumen 360's data model)
+- ✓ Clerk authentication, ported to `@clerk/nextjs` (session gate via `requireStaffAccess()`, applies to pages and Server Actions alike) — validated in Phase 1 (2026-07-23)
+- ✓ Next.js 16 App Router hosting on Vercel, Node 22.x confirmed live — validated in Phase 1 (2026-07-23), replaces the retired Astro/Node 20 setup
+- ✓ Neon Postgres + Drizzle ORM relational schema (Company/Persona/Signal/CompanyPersonaRole, DATA-02/DATA-03) — validated in Phase 1 (2026-07-23), replaces the retired Sanity CMS integration
 
 ### Active
 
@@ -39,6 +39,10 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 - Multi-user roles/permissions — any authenticated staff user sees everything for now (matches existing app's current auth model)
 - Existing short-link staff tool — being retired soon; not actively extended or migrated as part of this build
 
+## Current State
+
+Phase 1 complete (2026-07-23) — the app runs on Next.js 16 App Router + `@clerk/nextjs`, deployed to the existing Vercel project on Node 22.x, old Astro/Sanity code fully removed. Neon Postgres + Drizzle schema (Company/Persona/Signal/CompanyPersonaRole) is live with a working CSV seed pipeline. No explorer UI yet — the dashboard shows a live, staff-gated company count as a walking-skeleton proof that auth, DB writes/reads, and Server Actions are wired end-to-end. Next: Phase 2 (Company Explorer).
+
 ## Context
 
 - ArcLumen Partners' domain appears to be GBS/SSC (Global Business Services / Shared Services Center) transformation advisory — the named buying signals (CFO/GBS-head changes, transformation program announcements, cost pressure, immature GBS org) reflect this niche and should shape research and data modeling.
@@ -59,9 +63,9 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Build ArcLumen 360 inside this repo (`360-arclumen`), absorbing/retiring the existing short-link tool | Reuse existing Clerk auth + Vercel deploy setup rather than standing up a new repo | — Pending |
-| Milestone 1 = explorer UI shell only, against manual/seed data | Validate the explorer UX and Company/Persona data model before investing in real enrichment integrations | — Pending |
-| Migrate Astro → Next.js App Router, Sanity → Neon Postgres + Drizzle, before building explorer UI | Research confirmed current stack fights master-detail state and relational data needs; Clerk/Vercel continuity preserved | — Pending |
+| Build ArcLumen 360 inside this repo (`360-arclumen`), absorbing/retiring the existing short-link tool | Reuse existing Clerk auth + Vercel deploy setup rather than standing up a new repo | Done — Phase 1 |
+| Milestone 1 = explorer UI shell only, against manual/seed data | Validate the explorer UX and Company/Persona data model before investing in real enrichment integrations | — Pending (Phase 2+) |
+| Migrate Astro → Next.js App Router, Sanity → Neon Postgres + Drizzle, before building explorer UI | Research confirmed current stack fights master-detail state and relational data needs; Clerk/Vercel continuity preserved | Done — Phase 1 |
 
 ## Evolution
 
@@ -81,4 +85,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-22 after initialization*
+*Last updated: 2026-07-23 after Phase 1 completion*
