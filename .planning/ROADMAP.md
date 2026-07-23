@@ -28,7 +28,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   1. Staff can sign in with the existing Clerk credentials and land on the migrated, authenticated app, deployed on the same Vercel project pinned to Node 22 (the Astro adapter and its Node-20 workaround are gone).
   2. A single, centralized staff-access check function gates every authenticated route — no scattered inline auth checks remain in the codebase.
   3. Company, Persona, Signal, and a Company-Persona join/history table exist in Neon Postgres via Drizzle ORM, with signals modeled as typed/dated/sourced records (not free-text) and Company-Persona modeled many-to-many with date-range metadata.
-**Plans**: TBD
+**Plans**: 4 plans (walking skeleton — MVP mode)
+
+Plans:
+- [ ] 01-01-PLAN.md — Next.js 16 + Clerk scaffold (proxy.ts, requireStaffAccess(), sign-in, landing page)
+- [ ] 01-02-PLAN.md — Neon provisioning + Drizzle schema (company/persona/signal/companyPersonaRole) + drizzle-kit push
+- [ ] 01-03-PLAN.md — CSV seed pipeline (query functions, zod validation, seed.ts)
+- [ ] 01-04-PLAN.md — Dashboard DB read + Server Action refresh + deploy to Vercel (Node 22 confirmed)
 
 ### Phase 2: Company Explorer
 **Goal**: Staff can find and fully review any Company end-to-end — search, filter, scan signal badges in a list, and open complete 360 detail — establishing the master-detail/URL-state pattern that Phase 3 reuses.
@@ -76,7 +82,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation — Platform Migration & Data Model | 0/TBD | Not started | - |
+| 1. Foundation — Platform Migration & Data Model | 0/4 | Not started | - |
 | 2. Company Explorer | 0/TBD | Not started | - |
 | 3. Persona Explorer | 0/TBD | Not started | - |
 | 4. Arcpedia Integration & Resilience Polish | 0/TBD | Not started | - |
