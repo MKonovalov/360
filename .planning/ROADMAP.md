@@ -40,7 +40,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 01-02-PLAN.md — Neon provisioning + Drizzle schema (company/persona/signal/companyPersonaRole) + drizzle-kit push
+- [x] 01-02-PLAN.md — Neon provisioning + Drizzle schema (company/persona/signal/companyPersonaRole) + drizzle-kit push
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -105,7 +105,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation — Platform Migration & Data Model | 1/4 | In Progress|  |
+| 1. Foundation — Platform Migration & Data Model | 2/4 | In Progress|  |
 | 2. Company Explorer | 0/TBD | Not started | - |
 | 3. Persona Explorer | 0/TBD | Not started | - |
 | 4. Arcpedia Integration & Resilience Polish | 0/TBD | Not started | - |
