@@ -137,3 +137,7 @@ None - no external service configuration required. `nuqs` is a client-side/routi
 ---
 *Phase: 02-company-explorer*
 *Completed: 2026-07-23*
+
+## Self-Check: PASSED
+
+All created files verified on disk (`company-search-input.tsx`, `company-filters.tsx`, `02-04-SUMMARY.md`, `deferred-items.md`). All commit hashes verified in `git log` (`a08a811d`, `aa97669e`, `4bfdd1a3`). No accidental deletions in any commit; no leftover untracked files.
