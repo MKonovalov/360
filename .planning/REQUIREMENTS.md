@@ -10,7 +10,7 @@ Requirements for milestone 1 (explorer UI shell). Each maps to roadmap phases.
 ### Foundation
 
 - [ ] **FOUND-01**: App runs on Next.js (App Router), deployed on Vercel with Node 22 — migrated off Astro
-- [ ] **FOUND-02**: Company/Persona/Signal data persisted in Neon Postgres via Drizzle ORM — migrated off Sanity
+- [x] **FOUND-02**: Company/Persona/Signal data persisted in Neon Postgres via Drizzle ORM — migrated off Sanity
 - [ ] **FOUND-03**: Staff can sign in via Clerk (`@clerk/nextjs`), reusing the existing Clerk project/session model
 - [ ] **FOUND-04**: Staff-access check (any authenticated Clerk user = staff) is centralized in one function, not scattered inline checks
 
@@ -46,8 +46,8 @@ Requirements for milestone 1 (explorer UI shell). Each maps to roadmap phases.
 ### Data Model
 
 - [ ] **DATA-01**: A seed/manual dataset of Companies and Personas is loaded and browsable end-to-end
-- [ ] **DATA-02**: Company↔Persona relationship is modeled as many-to-many with date-range metadata (supports a persona's "previous companies")
-- [ ] **DATA-03**: Buying signals are modeled as typed, dated, sourced records linked to a Company — not free-text blobs
+- [x] **DATA-02**: Company↔Persona relationship is modeled as many-to-many with date-range metadata (supports a persona's "previous companies")
+- [x] **DATA-03**: Buying signals are modeled as typed, dated, sourced records linked to a Company — not free-text blobs
 
 ## v2 Requirements
 

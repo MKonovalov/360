@@ -44,7 +44,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 01-03-PLAN.md — CSV seed pipeline (query functions, zod validation, seed.ts)
+- [x] 01-03-PLAN.md — CSV seed pipeline (query functions, zod validation, seed.ts)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -105,7 +105,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation — Platform Migration & Data Model | 2/4 | In Progress|  |
+| 1. Foundation — Platform Migration & Data Model | 3/4 | In Progress|  |
 | 2. Company Explorer | 0/TBD | Not started | - |
 | 3. Persona Explorer | 0/TBD | Not started | - |
 | 4. Arcpedia Integration & Resilience Polish | 0/TBD | Not started | - |
