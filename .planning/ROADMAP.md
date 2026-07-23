@@ -75,7 +75,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 02-03-PLAN.md — Company detail pane + /companies/[id] master-detail route, mobile responsive swap
+- [x] 02-03-PLAN.md — Company detail pane + /companies/[id] master-detail route, mobile responsive swap
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -122,6 +122,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation — Platform Migration & Data Model | 4/4 | Complete    | 2026-07-23 |
-| 2. Company Explorer | 2/4 | In Progress|  |
+| 2. Company Explorer | 3/4 | In Progress|  |
 | 3. Persona Explorer | 0/TBD | Not started | - |
 | 4. Arcpedia Integration & Resilience Polish | 0/TBD | Not started | - |
