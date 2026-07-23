@@ -585,17 +585,19 @@ export async function listPersonasForCompany(companyId: number) {
 | A5 | `date-fns` package identity/version (4.4.0) | Standard Stack / Package Legitimacy Audit | Very low — optional, only needed if native `Intl.DateTimeFormat` proves insufficient; 94M weekly downloads |
 | A6 | `default.js`'s lack of documented `searchParams` support (used as the deciding factor against Parallel Routes) | Architecture Patterns, Pattern 1 rationale | Medium if the planner chooses Parallel Routes anyway — the official docs page simply didn't document a `searchParams` prop for `default.js` (only `params`); this is an inference from omission, not a confirmed negative. If Parallel Routes are used, a Wave-0 smoke test (hard-refresh `/companies/42?industry=saas` and confirm the `@list` slot's filters are correctly applied) should verify this behavior directly rather than trusting the inference |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Not-found behavior for `getCompanyById` on a nonexistent/deleted id**
    - What we know: Phase 1's `getCompanyByName` returns `rows[0]` (i.e., `undefined` if not found), no throw.
    - What's unclear: Whether the Phase 2 detail page should call Next.js `notFound()` (renders `not-found.tsx`, a real 404) or degrade to the UI-SPEC's generic error copy ("Couldn't load companies"). `notFound()` seems more correct for "this specific id doesn't exist" vs. a true fetch failure, but Phase 1 established no precedent for reads (only for the seed pipeline's write-path validation).
    - Recommendation: Use `notFound()` for a structurally invalid/nonexistent id (matches Next.js convention, gives a real 404 rather than misusing the "error" copy meant for actual fetch failures) — the planner should confirm this against UI-SPEC's copywriting contract, which doesn't currently have a distinct "record not found" state separate from "true empty" / "filtered empty" / "error."
+   - **RESOLVED:** Planner followed this recommendation — Plan 02-03's `CompanyDetail` component calls `notFound()` when `getCompanyById(id)` returns `undefined` (see `02-03-PLAN.md` Task, `company-detail.tsx`).
 
 2. **Whether `companies/layout.tsx` should also gate the (currently ungated) landing page**
    - What we know: `src/app/page.tsx` deliberately does not call `requireStaffAccess()` (Phase 1's one documented exception).
    - What's unclear: Whether the new Sidebar shell should live at `src/app/layout.tsx` (wrapping everything, including the landing page) or scoped to `src/app/companies/layout.tsx` only.
    - Recommendation: Scope it to `companies/layout.tsx` this phase (Pattern 4) — the landing page's design is an explicit, documented exception, and Phase 3 will add `personas/layout.tsx` as a sibling (or the planner may choose to extract a shared `(explorer)` route group at that point, once there are two consumers to justify it — premature to introduce a route group for one consumer).
+   - **RESOLVED:** Planner followed this recommendation — Plan 02-02's `src/app/companies/layout.tsx` scopes `requireStaffAccess()` and the Sidebar shell to the `/companies` subtree only; the landing page (`src/app/page.tsx`) remains ungated per Phase 1's documented exception.
 
 ## Validation Architecture
 
