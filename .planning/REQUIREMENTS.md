@@ -18,7 +18,7 @@ Requirements for milestone 1 (explorer UI shell). Each maps to roadmap phases.
 
 - [x] **COMP-01**: Staff can view a list of Companies with firmographics (industry, size/employee count, HQ location, revenue band, ownership type)
 - [x] **COMP-02**: Staff can view a Company's tech stack/tools used
-- [ ] **COMP-03**: Staff can view a Company's buying signals — financial cost pressure, no mature GBS/SSC org, new CFO/GBS head, transformation program announcement — each with a source/note and last-updated timestamp
+- [x] **COMP-03**: Staff can view a Company's buying signals — financial cost pressure, no mature GBS/SSC org, new CFO/GBS head, transformation program announcement — each with a source/note and last-updated timestamp
 - [x] **COMP-04**: Staff can view Personas linked to a Company, shown inline on the Company detail view
 
 ### Persona
@@ -33,7 +33,7 @@ Requirements for milestone 1 (explorer UI shell). Each maps to roadmap phases.
 - [x] **EXPL-01**: Staff can search Companies and Personas by name, company, or title
 - [x] **EXPL-02**: Staff can filter Companies/Personas by key attributes (industry, signal type, seniority, etc.)
 - [x] **EXPL-03**: Staff sees a collapsible/resizable left nav with two sections — Companies and Key Personas
-- [ ] **EXPL-04**: Clicking a list item opens its full detail in a master-detail pane; the list stays visible
+- [x] **EXPL-04**: Clicking a list item opens its full detail in a master-detail pane; the list stays visible
 - [x] **EXPL-05**: List rows show status/signal badges for scan-and-triage without opening every record
 - [ ] **EXPL-06**: Lists and detail panes handle empty, loading, and error states explicitly
 - [x] **EXPL-07**: Selection and active filters are reflected in the URL (deep-linkable, shareable)
