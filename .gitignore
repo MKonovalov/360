@@ -7,7 +7,11 @@ node_modules/
 dist/
 .vercel/
 .output/
-.astro/
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
 
 # Env / secrets  <-- your real keys live in .env.local, never commit it
 .env
