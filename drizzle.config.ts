@@ -1,5 +1,8 @@
-import 'dotenv/config';
+import { config } from 'dotenv';
 import { defineConfig } from 'drizzle-kit';
+
+// Repo only has `.env.local` (no `.env`); dotenv/config's default path misses it.
+config({ path: '.env.local' });
 
 export default defineConfig({
   out: './drizzle',
