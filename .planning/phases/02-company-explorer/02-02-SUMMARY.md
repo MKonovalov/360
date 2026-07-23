@@ -159,3 +159,7 @@ None - no external service configuration required. Same Neon Postgres instance a
 ---
 *Phase: 02-company-explorer*
 *Completed: 2026-07-23*
+
+## Self-Check: PASSED
+
+All created files confirmed present on disk (`app-sidebar.tsx`, `sidebar-resize-handle.tsx`, `companies/layout.tsx`, `companies/page.tsx`, `companies/loading.tsx`, `company-list.tsx`, `signal-badge.tsx`, `components.json`, `src/lib/utils.ts`); all task commits (`476dc4f8`, `de3f9e75`, `aff7b07f`) and the SUMMARY commit (`dd970a5e`) confirmed present in `git log --all`.
