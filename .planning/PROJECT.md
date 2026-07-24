@@ -2,7 +2,7 @@
 
 ## What This Is
 
-ArcLumen 360 is an end-to-end demand generation pipeline for ArcLumen Partners, giving the team a 360-degree overview of potential ICPs — target Companies and their Key Personas — surfaced through buying/intent signals (financial cost pressure, no mature GBS/SSC org, new CFO/GBS head, announcement of a large transformation program). Milestone 1 delivers a scalable explorer UI, modeled on the recall.ai dashboard explorer (collapsible left nav, searchable/filterable lists, master-detail pane), sitting behind the existing Clerk auth already running in this repo.
+ArcLumen 360 is an end-to-end demand generation pipeline for ArcLumen Partners, giving the team a 360-degree overview of potential ICPs — target Companies and their Key Personas — surfaced through buying/intent signals (financial cost pressure, no mature GBS/SSC org, new CFO/GBS head, announcement of a large transformation program). Milestone 1 (shipped v1.0) delivered a scalable explorer UI, modeled on the recall.ai dashboard explorer (collapsible left nav, searchable/filterable lists, master-detail pane), sitting behind the existing Clerk auth already running in this repo, plus a read-only knowledge integration with Arcpedia (ArcLumen Partners' internal wiki).
 
 ## Core Value
 
@@ -46,7 +46,26 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 
 ## Current State
 
-Phase 4 complete (2026-07-24) — Milestone 1's last two open requirements are closed. `fetchArcpediaArticles()` (`src/lib/arcpedia.ts`) is a read-only, never-throws, GET-only client capped at 3 results; wired into a "Related Knowledge" section on both Company and Persona 360 detail views. Both detail panes also gained the same inline DB-fetch error card pattern the list panes already had (EXPL-06). Cloudflare Access Service Token (`arclumen-360-server`) provisioned for `arcpedia.arclumen.de` — the production Arcpedia deployment sits behind a Cloudflare Zero Trust Access gate at the edge, invisible to Arcpedia's own "public GET routes" docs (see Key Decisions). Live end-to-end verification passed 8/9 automated checks; the one open item is a data gap, not a code gap — the current seed Persona dataset has no name matching real Arcpedia content, so the Persona-side "shows real articles" case is unproven pending better seed data (tracked in `04-HUMAN-UAT.md`). Code review found and fixed one Critical issue (a malformed-but-set `ARCPEDIA_BASE_URL` could crash the whole app at import time — now degrades gracefully via `.catch(undefined)`). This is Milestone 1's last phase — all 3 phases (2, 3, 4) that deliver the explorer are now complete against seed data.
+**Milestone v1.0 (MVP) shipped 2026-07-24.** All 4 phases complete: Foundation (Astro→Next.js/Neon/Drizzle migration), Company Explorer, Persona Explorer, and Arcpedia Integration & Resilience Polish. 24/24 v1.0 requirements validated. `fetchArcpediaArticles()` (`src/lib/arcpedia.ts`) is a read-only, never-throws, GET-only client capped at 3 results, wired into a "Related Knowledge" section on both Company and Persona 360 detail views; both detail panes also gained the same inline DB-fetch error card pattern the list panes already had (EXPL-06). Cloudflare Access Service Token (`arclumen-360-server`) provisioned for `arcpedia.arclumen.de` — the production Arcpedia deployment sits behind a Cloudflare Zero Trust Access gate at the edge, invisible to Arcpedia's own "public GET routes" docs (see Key Decisions).
+
+**Known debt carried into v1.1** (see `.planning/STATE.md` Deferred Items, acknowledged at milestone close rather than blocking ship):
+- Persona-side "Related Knowledge" — code path proven identical to the working Company path (8/9 seed companies show real matches live), but the current seed Persona dataset has no name matching real Arcpedia content, so this hasn't been observed working end-to-end for a Persona
+- 4 VERIFICATION.md files (Phases 1-4) remain `status: human_needed` — some of this is genuinely open UAT (Phase 1: 2 items, Phase 2: 4 items, Phase 4: 1 item — see respective `*-HUMAN-UAT.md` files), one (Phase 3) is likely a stale record since `03-HUMAN-UAT.md` itself already shows `status: complete`
+- No automated test suite exists anywhere in the repo — all verification to date has been manual UAT + live curl/build/tsc checks
+
+Milestone artifacts archived to `.planning/milestones/v1.0-*` (ROADMAP, REQUIREMENTS, phase directories). Repo is between milestones, awaiting `/gsd-new-milestone`.
+
+## Next Milestone Goals
+
+Not yet formally scoped — `/gsd-new-milestone` will run its own questioning/research/requirements process. Candidates surfaced during v1.0 (from `v1.0-REQUIREMENTS.md`'s deferred section and this milestone's known debt) that a next milestone should consider:
+
+- Closing the v1.0 debt above (Persona Arcpedia content gap, remaining human UAT items, no test suite)
+- Live commercial enrichment API integration (Clearbit/Apollo/ZoomInfo) — ENRC-01/02
+- Scoring/prioritization algorithm over Company signals, prioritized target list output — PIPE-01/02
+- CRM sync / outreach triggers — PIPE-03/04
+- Multi-user roles/permissions beyond the current binary "any authenticated Clerk user = staff" model — ACCS-01
+- Saved/custom filter views, bulk seed-data editing UX — VIEW-01/02
+- AI-drafted, persona-tailored outreach content informed by Arcpedia — ARCP-03
 
 ## Context
 
@@ -56,7 +75,8 @@ Phase 4 complete (2026-07-24) — Milestone 1's last two open requirements are c
 - Problem this solves: today, ICP/signal knowledge lives in individual heads and inboxes with no shared visibility across the team.
 - End users: a mixed/leadership audience — not just sales reps, but broader internal staff and execs reviewing the pipeline.
 - Full pipeline vision beyond milestone 1: a prioritized target list, outreach triggers pushed to sales, and CRM/export sync. Milestone 1 stops at the browsing/overview experience — the UI shell working end-to-end against seed data is the milestone-1 definition of done.
-- **Arcpedia** (`/Users/mkonovalov/Projects/arcpedia`, live at arcpedia.arclumen.de) is an existing, actively-built internal wiki ("a wiki for the agent age" — Next.js + Cloudflare Workers, Clerk-authenticated, LLM-powered ingest/query). It exposes a public (no-auth) REST read surface: `GET /api/wiki/search?q=`, `GET /api/wiki/browse?q=&scope=&tag=&page=`, `POST /api/wiki/dataview` (query by frontmatter), plus a session-gated `POST /api/query` (LLM-synthesized answers over the corpus) and an MCP server at `/api/mcp`. ArcLumen 360 milestone 1 should read from this API to surface related knowledge articles on Company/Persona 360 views — no write-back in milestone 1. Beyond milestone 1, the user's stated future direction includes AI-drafted, tailored outreach content (e.g. persona-specific LinkedIn DMs) — not in scope now, but worth keeping the data model open to it.
+- **Arcpedia** (`/Users/mkonovalov/Projects/arcpedia`, live at arcpedia.arclumen.de) is an existing, actively-built internal wiki ("a wiki for the agent age" — Next.js + Cloudflare Workers, Clerk-authenticated, LLM-powered ingest/query). It exposes a public (no-auth *at the application level*) REST read surface: `GET /api/wiki/search?q=`, `GET /api/wiki/browse?q=&scope=&tag=&page=`, `POST /api/wiki/dataview` (query by frontmatter), plus a session-gated `POST /api/query` (LLM-synthesized answers over the corpus) and an MCP server at `/api/mcp`. In production, the domain also sits behind a Cloudflare Zero Trust Access gate at the edge (see Key Decisions) — a Service Token is required regardless of the app-level "public" designation. ArcLumen 360 v1.0 reads from `/api/wiki/search` to surface related knowledge articles on Company/Persona 360 views — no write-back. Beyond v1.0, the user's stated future direction includes AI-drafted, tailored outreach content (e.g. persona-specific LinkedIn DMs, ARCP-03) — not in scope now, but worth keeping the data model open to it.
+- Codebase size at v1.0 ship: ~3,840 LOC across `src/**/*.{ts,tsx}`. No automated test suite (confirmed absent across all 4 phases) — verification has relied on `tsc`/`build`/`grep` acceptance criteria plus manual UAT.
 
 ## Constraints
 
@@ -94,4 +114,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-24 after Phase 4 completion*
+*Last updated: 2026-07-24 after v1.0 milestone completion*
