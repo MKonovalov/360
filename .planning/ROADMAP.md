@@ -128,7 +128,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 04-01-PLAN.md — Arcpedia service module (fetchArcpediaArticles) + Related Knowledge section wired into Company and Persona detail panes + DB-fetch resilience (EXPL-06)
+- [x] 04-01-PLAN.md — Arcpedia service module (fetchArcpediaArticles) + Related Knowledge section wired into Company and Persona detail panes + DB-fetch resilience (EXPL-06)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -146,4 +146,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Foundation — Platform Migration & Data Model | 4/4 | Complete    | 2026-07-23 |
 | 2. Company Explorer | 4/4 | Complete    | 2026-07-23 |
 | 3. Persona Explorer | 4/4 | Complete    | 2026-07-23 |
-| 4. Arcpedia Integration & Resilience Polish | 0/2 | Not started | - |
+| 4. Arcpedia Integration & Resilience Polish | 1/2 | In Progress|  |
