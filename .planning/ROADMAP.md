@@ -124,7 +124,16 @@ Plans:
   2. No write or ingest calls are made back to Arcpedia from ArcLumen 360 — the integration is strictly read-only.
   3. Every list and detail pane across both the Company and Persona explorers explicitly handles empty (no results), loading, and error states — verified, not assumed.
 
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+**Wave 1**
+
+- [ ] 04-01-PLAN.md — Arcpedia service module (fetchArcpediaArticles) + Related Knowledge section wired into Company and Persona detail panes + DB-fetch resilience (EXPL-06)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 04-02-PLAN.md — Cloudflare Access Service Token provisioning (checkpoint) + end-to-end verification of Arcpedia integration and resilience polish
+
 **UI hint**: yes
 
 ## Progress
@@ -137,4 +146,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Foundation — Platform Migration & Data Model | 4/4 | Complete    | 2026-07-23 |
 | 2. Company Explorer | 4/4 | Complete    | 2026-07-23 |
 | 3. Persona Explorer | 4/4 | Complete    | 2026-07-23 |
-| 4. Arcpedia Integration & Resilience Polish | 0/TBD | Not started | - |
+| 4. Arcpedia Integration & Resilience Polish | 0/2 | Not started | - |
