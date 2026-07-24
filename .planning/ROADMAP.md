@@ -146,4 +146,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Foundation — Platform Migration & Data Model | 4/4 | Complete    | 2026-07-23 |
 | 2. Company Explorer | 4/4 | Complete    | 2026-07-23 |
 | 3. Persona Explorer | 4/4 | Complete    | 2026-07-23 |
-| 4. Arcpedia Integration & Resilience Polish | 2/2 | Complete   | 2026-07-24 |
+| 4. Arcpedia Integration & Resilience Polish | 2/2 | Complete    | 2026-07-24 |
