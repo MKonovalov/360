@@ -10,7 +10,10 @@ const envSchema = z.object({
   // Optional — Arcpedia integration must degrade gracefully (D-10) if these
   // are unset (e.g. before the Cloudflare Access Service Token is
   // provisioned), so they cannot be fail-fast-required like the vars above.
-  ARCPEDIA_BASE_URL: z.string().url().optional(),
+  // .catch(undefined) also covers a MALFORMED value (not just unset) — a
+  // typo'd URL must not crash the whole app at import time (env.ts is
+  // imported app-wide via db/index.ts), only silently disable Arcpedia.
+  ARCPEDIA_BASE_URL: z.string().url().optional().catch(undefined),
   ARCPEDIA_ACCESS_CLIENT_ID: z.string().optional(),
   ARCPEDIA_ACCESS_CLIENT_SECRET: z.string().optional(),
 });
