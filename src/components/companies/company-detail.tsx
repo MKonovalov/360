@@ -4,6 +4,7 @@ import { listSignalsForCompany } from '@/lib/db/queries/signals';
 import { listPersonasForCompany } from '@/lib/db/queries/companyPersonaRoles';
 import { Badge } from '@/components/ui/badge';
 import { SignalBadge } from '@/components/companies/signal-badge';
+import { fetchArcpediaArticles } from '@/lib/arcpedia';
 
 // revenue_band/ownership_type are fixed-but-extensible pgEnums storing slug
 // values — humanize for display rather than showing the raw slug to a
@@ -32,17 +33,46 @@ function FirmographicField({ label, value }: { label: string; value: string }) {
 }
 
 export async function CompanyDetail({ id }: { id: number }) {
-  const company = await getCompanyById(id);
+  // EXPL-06/D-09: mirrors company-list.tsx's try/catch error-card pattern —
+  // a DB-fetch failure degrades to known-good UI, never Next.js's default
+  // 500 page. The not-found check below is deliberately OUTSIDE this
+  // try/catch: wrapping it in a try/catch would swallow Next.js's internal
+  // not-found signal and render the wrong UI.
+  let company: Awaited<ReturnType<typeof getCompanyById>>;
+  let signals: Awaited<ReturnType<typeof listSignalsForCompany>> = [];
+  let personaRoles: Awaited<ReturnType<typeof listPersonasForCompany>> = [];
+  try {
+    company = await getCompanyById(id);
+    if (company) {
+      [signals, personaRoles] = await Promise.all([
+        listSignalsForCompany(id),
+        listPersonasForCompany(id),
+      ]);
+    }
+  } catch {
+    return (
+      <div className="flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-8 text-center">
+        <p className="text-[18px] font-semibold leading-[1.2] text-slate-900">
+          {"Couldn't load company"}
+        </p>
+        <p className="text-sm text-slate-500">
+          Something went wrong fetching this data. Try refreshing the page.
+        </p>
+      </div>
+    );
+  }
+
   // RESEARCH.md Open Question #1 (RESOLVED): a structurally invalid/nonexistent
   // id is a real 404, distinct from the UI-SPEC's "fetch failed" error copy.
   if (!company) {
     notFound();
   }
 
-  const [signals, personaRoles] = await Promise.all([
-    listSignalsForCompany(id),
-    listPersonasForCompany(id),
-  ]);
+  // D-10: independent failure domain from the DB-fetch try/catch above —
+  // fetchArcpediaArticles never throws (Task 1), so an Arcpedia
+  // timeout/failure must never surface the DB error card above, and a
+  // DB failure must never be masked as "no articles".
+  const articles = await fetchArcpediaArticles(company.name);
 
   return (
     <div className="space-y-12 rounded-lg border border-slate-200 bg-white p-8">
@@ -125,6 +155,31 @@ export async function CompanyDetail({ id }: { id: number }) {
           </p>
         )}
       </section>
+
+      {articles.length > 0 ? (
+        <section>
+          <h2 className="mb-4 text-[18px] font-semibold leading-[1.2] text-slate-900">
+            Related Knowledge
+          </h2>
+          <ul className="space-y-4">
+            {articles.map((article) => (
+              <li key={article.slug}>
+                <a
+                  href={`https://arcpedia.arclumen.de/wiki/${encodeURIComponent(article.slug)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[14px] font-normal leading-[1.5] text-indigo-600"
+                >
+                  {article.title}
+                </a>
+                <p className="text-[14px] font-normal leading-[1.5] text-slate-500">
+                  {article.snippet}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </div>
   );
 }

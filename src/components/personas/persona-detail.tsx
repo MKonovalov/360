@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getPersonaById } from '@/lib/db/queries/personas';
 import { listCompanyRolesForPersona } from '@/lib/db/queries/companyPersonaRoles';
+import { fetchArcpediaArticles } from '@/lib/arcpedia';
 
 // seniority is a fixed-but-extensible pgEnum storing slug values
 // (e.g. "c_level") — humanize for display rather than showing the raw slug
@@ -30,17 +31,45 @@ function FirmographicField({ label, value }: { label: string; value: string }) {
 }
 
 export async function PersonaDetail({ id }: { id: number }) {
-  const persona = await getPersonaById(id);
+  // EXPL-06/D-09: mirrors CompanyDetail's try/catch error-card pattern — a
+  // DB-fetch failure degrades to known-good UI, never Next.js's default 500
+  // page. The not-found check below is deliberately OUTSIDE this try/catch:
+  // wrapping it in a try/catch would swallow Next.js's internal not-found
+  // signal and render the wrong UI.
+  let persona: Awaited<ReturnType<typeof getPersonaById>>;
+  let roles: Awaited<ReturnType<typeof listCompanyRolesForPersona>> = [];
+  try {
+    persona = await getPersonaById(id);
+    if (persona) {
+      roles = await listCompanyRolesForPersona(id);
+    }
+  } catch {
+    return (
+      <div className="flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-8 text-center">
+        <p className="text-[18px] font-semibold leading-[1.2] text-slate-900">
+          {"Couldn't load persona"}
+        </p>
+        <p className="text-sm text-slate-500">
+          Something went wrong fetching this data. Try refreshing the page.
+        </p>
+      </div>
+    );
+  }
+
   // Mirrors CompanyDetail's convention: a structurally invalid/nonexistent
   // id is a real 404, distinct from PersonaList's "fetch failed" error copy.
   if (!persona) {
     notFound();
   }
 
-  const roles = await listCompanyRolesForPersona(id);
   // D-04: Current Company is shown separate from Career History.
   const current = roles.find((r) => r.role.isCurrent);
   const history = roles.filter((r) => !r.role.isCurrent);
+
+  // D-03/D-10: sourced strictly from the persona's own name, never
+  // current.company.name — independent failure domain from the DB-fetch
+  // try/catch above (fetchArcpediaArticles never throws, Task 1).
+  const articles = await fetchArcpediaArticles(persona.name);
 
   return (
     <div className="space-y-12 rounded-lg border border-slate-200 bg-white p-8">
@@ -145,6 +174,31 @@ export async function PersonaDetail({ id }: { id: number }) {
           </p>
         )}
       </section>
+
+      {articles.length > 0 ? (
+        <section>
+          <h2 className="mb-4 text-[18px] font-semibold leading-[1.2] text-slate-900">
+            Related Knowledge
+          </h2>
+          <ul className="space-y-4">
+            {articles.map((article) => (
+              <li key={article.slug}>
+                <a
+                  href={`https://arcpedia.arclumen.de/wiki/${encodeURIComponent(article.slug)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[14px] font-normal leading-[1.5] text-indigo-600"
+                >
+                  {article.title}
+                </a>
+                <p className="text-[14px] font-normal leading-[1.5] text-slate-500">
+                  {article.snippet}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </div>
   );
 }
