@@ -35,13 +35,13 @@ Requirements for milestone 1 (explorer UI shell). Each maps to roadmap phases.
 - [x] **EXPL-03**: Staff sees a collapsible/resizable left nav with two sections — Companies and Key Personas
 - [x] **EXPL-04**: Clicking a list item opens its full detail in a master-detail pane; the list stays visible
 - [x] **EXPL-05**: List rows show status/signal badges for scan-and-triage without opening every record
-- [ ] **EXPL-06**: Lists and detail panes handle empty, loading, and error states explicitly
+- [x] **EXPL-06**: Lists and detail panes handle empty, loading, and error states explicitly
 - [x] **EXPL-07**: Selection and active filters are reflected in the URL (deep-linkable, shareable)
 
 ### Arcpedia Integration
 
-- [ ] **ARCP-01**: Company/Persona 360 views show related knowledge articles read from Arcpedia's public read API (`/api/wiki/search`, `/api/wiki/browse`, or `/api/wiki/dataview`)
-- [ ] **ARCP-02**: ArcLumen 360 only reads from Arcpedia in milestone 1 — no writes or ingestion back into Arcpedia
+- [x] **ARCP-01**: Company/Persona 360 views show related knowledge articles read from Arcpedia's public read API (`/api/wiki/search`, `/api/wiki/browse`, or `/api/wiki/dataview`)
+- [x] **ARCP-02**: ArcLumen 360 only reads from Arcpedia in milestone 1 — no writes or ingestion back into Arcpedia
 
 ### Data Model
 
