@@ -26,11 +26,13 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 - ✓ Persona list is searchable and filterable (seniority, current company, has-signals; AND-composed) — validated in Phase 3 (2026-07-23); the has-signals "No" leg shipped broken in the initial pass (silent no-op) and was gap-closed same-day, see Key Decisions
 - ✓ Clicking a Persona list item opens its full detail in a master-detail pane — validated in Phase 3 (2026-07-23)
 - ✓ Persona 360 view shows: role/title & seniority, career history (previous companies with dates), linked current company, and contact info (email/LinkedIn) — validated in Phase 3 (2026-07-23), PERS-01 through PERS-04
+- ✓ Company/Persona 360 views surface related knowledge articles read from Arcpedia's public `/api/wiki/search` — validated in Phase 4 (2026-07-24), ARCP-01/ARCP-02; read-only (grep-confirmed zero `method:` calls in `arcpedia.ts`), capped at 3 results, independent failure domain from the DB fetch. Company side proven live with real matches (8/9 seed companies); the current seed Persona dataset has no name matching real Arcpedia content, so the Persona "shows real articles" case is pending real data, not a code gap — tracked in `04-HUMAN-UAT.md`
+- ✓ Every list and detail pane across both explorers handles empty/loading/error states explicitly (EXPL-06) — validated in Phase 4 (2026-07-24); Company/Persona detail panes now have the same inline DB-fetch error card pattern the list panes already had
 
 ### Active
 
 - [ ] Milestone 1 runs on a manual/seed dataset for core Company/Persona fields — no live commercial enrichment API (Clearbit/Apollo/ZoomInfo) wired yet
-- [ ] Company/Persona 360 views ingest and display related knowledge articles read from Arcpedia (existing internal wiki at arcpedia.arclumen.de) — read-only in milestone 1, no writes back to Arcpedia
+- [ ] Persona 360 "Related Knowledge" showing real Arcpedia articles end-to-end — code path proven identical to the working Company path, but the current seed Persona dataset has no name that matches real Arcpedia content; needs either updated seed data or acceptance of the gap (see `04-HUMAN-UAT.md`)
 
 ### Out of Scope
 
@@ -44,7 +46,7 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 
 ## Current State
 
-Phase 3 complete (2026-07-23) — the Persona Explorer is live: gated `/personas` list with search/filters (seniority, current company, has-signals; AND-composed, URL-synced), `/personas/[id]` master-detail showing role/seniority, career history, linked current company, and contact info. AppSidebar converted to a `usePathname()`-driven Client Component so both Companies and Key Personas nav sections highlight correctly. Schema extended with `seniority`/`email`/`linkedinUrl` (D-01–D-03), seed dataset now 10 personas across all 5 seniority tiers with career history. Shipped with one same-day gap-closure: the has-signals "No" filter was a silent no-op at ship time (missing NOT EXISTS branch + a tri-state parsing bug duplicated across both persona pages) — fixed, code-reviewed, security-audited (13/13 threats closed), and re-verified 15/15 within the same session. 2 items deferred to manual browser QA (sidebar/filter interaction, click-through + mobile swap) — both passed, tracked in `03-HUMAN-UAT.md`. Deployed to production (360.arclumenpartners.com). Next: Phase 4 (Arcpedia Integration & Resilience Polish).
+Phase 4 complete (2026-07-24) — Milestone 1's last two open requirements are closed. `fetchArcpediaArticles()` (`src/lib/arcpedia.ts`) is a read-only, never-throws, GET-only client capped at 3 results; wired into a "Related Knowledge" section on both Company and Persona 360 detail views. Both detail panes also gained the same inline DB-fetch error card pattern the list panes already had (EXPL-06). Cloudflare Access Service Token (`arclumen-360-server`) provisioned for `arcpedia.arclumen.de` — the production Arcpedia deployment sits behind a Cloudflare Zero Trust Access gate at the edge, invisible to Arcpedia's own "public GET routes" docs (see Key Decisions). Live end-to-end verification passed 8/9 automated checks; the one open item is a data gap, not a code gap — the current seed Persona dataset has no name matching real Arcpedia content, so the Persona-side "shows real articles" case is unproven pending better seed data (tracked in `04-HUMAN-UAT.md`). Code review found and fixed one Critical issue (a malformed-but-set `ARCPEDIA_BASE_URL` could crash the whole app at import time — now degrades gracefully via `.catch(undefined)`). This is Milestone 1's last phase — all 3 phases (2, 3, 4) that deliver the explorer are now complete against seed data.
 
 ## Context
 
@@ -71,6 +73,8 @@ Phase 3 complete (2026-07-23) — the Persona Explorer is live: gated `/personas
 | Migrate Astro → Next.js App Router, Sanity → Neon Postgres + Drizzle, before building explorer UI | Research confirmed current stack fights master-detail state and relational data needs; Clerk/Vercel continuity preserved | Done — Phase 1 |
 | shadcn/ui installed with the `nova` preset (Geist/lucide, `neutral` base) instead of the originally-assumed New York/Slate flow | shadcn CLI's init flow replaced named-color prompts with a preset system between research and execution; `nova` was the closest match to UI-SPEC's locked style | Done — Phase 2 |
 | `PersonaFilters.hasSignals` must be a genuine tri-state (`true`/`false`/`undefined`), not a plain boolean | Phase 3 shipped with `false` and `undefined` collapsed into the same value at both the URL-parsing layer (duplicated across two page files) and the query layer (`listPersonas` had no `NOT EXISTS` branch) — the "No" filter silently returned all 10 personas instead of 0. Caught by code review (CR-01) and independently reproduced by verification against live data before shipping further | Done — Phase 3 gap closure; `parsePersonaFilters` also consolidated into one shared module (`src/lib/params/personaFilters.ts`) to prevent the duplicate-fix risk recurring |
+| Arcpedia's production domain requires a Cloudflare Access Service Token, not just app-level "public GET routes" | `arcpedia.arclumen.de` sits behind a Cloudflare Zero Trust Access application at the edge — confirmed via direct curl, all paths 302'd to a Zero Trust login page. Arcpedia's own first-party caller (`task-consumer`) already uses this pattern. A domain can also have *multiple* Access apps scoped to different path patterns; the token must be added to the specific app's policy that actually gates the requested path, not just a root-domain app | Done — Phase 4; token scoped to the app gating `/api/wiki/search`, mirroring `task-consumer`'s placement |
+| Local dev needs a Clerk *development* instance, not the production `pk_live_` key | Production Clerk instances restrict the Frontend API to configured allowed origins (`arclumenpartners.com`/`360.arclumenpartners.com`); `localhost` was never on that list, so local sign-in silently failed (`_baseFetch` error, stuck on `/sign-in`) — discovered during Phase 4's live UAT pass | Done — Phase 4; `.env.local` now uses `pk_test_`/`sk_test_` dev-instance keys locally, which allow `localhost` by default |
 
 ## Evolution
 
@@ -90,4 +94,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-23 after Phase 3 completion*
+*Last updated: 2026-07-24 after Phase 4 completion*
