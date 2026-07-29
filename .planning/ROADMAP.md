@@ -43,7 +43,11 @@ Full details: [`.planning/milestones/v1.0-ROADMAP.md`](milestones/v1.0-ROADMAP.m
   3. The expanded row is reflected in the URL — reloading that URL, or using the browser back button, re-opens the same row (deep-linkable, back-safe), extending the existing filter URL-sync convention
   4. Opening a row scrolls it into view, and an explicit close control collapses the detail panel back to list-only
   5. Arrow keys move focus between list rows and Enter expands the focused row — the list is fully keyboard-navigable
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 05-01-PLAN.md — Shared foundation: selected-param parsing utilities, ExplorerAccordionTable (server), ExplorerTableBehavior (client: keyboard nav, scroll-into-view, close control)
+- [ ] 05-02-PLAN.md — Wire Company explorer onto the shared foundation (company-list.tsx, company-detail.tsx, companies/page.tsx, companies/[id]/page.tsx redirect)
+- [ ] 05-03-PLAN.md — Wire Persona explorer onto the shared foundation (persona-list.tsx, persona-detail.tsx, personas/page.tsx, personas/[id]/page.tsx redirect)
 **UI hint**: yes
 
 ### Phase 6: Shared Menu Component + Start Page
@@ -110,7 +114,7 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9
 | 2. Company Explorer | v1.0 | 4/4 | Complete | 2026-07-23 |
 | 3. Persona Explorer | v1.0 | 4/4 | Complete | 2026-07-23 |
 | 4. Arcpedia Integration & Resilience Polish | v1.0 | 2/2 | Complete | 2026-07-24 |
-| 5. Layout Consolidation + Rework | v1.1 | 0/TBD | Not started | - |
+| 5. Layout Consolidation + Rework | v1.1 | 0/3 | Not started | - |
 | 6. Shared Menu Component + Start Page | v1.1 | 0/TBD | Not started | - |
 | 7. CSV Import | v1.1 | 0/TBD | Not started | - |
 | 8. Enrichment API | v1.1 | 0/TBD | Not started | - |
@@ -118,4 +122,4 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9
 
 ---
 
-*Roadmap for v1.1 created 2026-07-29 — 31/31 v1.1 requirements mapped across 5 phases. Ready for `/gsd-plan-phase 5`.*
+*Roadmap for v1.1 created 2026-07-29 — 31/31 v1.1 requirements mapped across 5 phases. Phase 5 planned 2026-07-30 (3 plans, 2 waves) — ready for `/gsd-execute-phase 5`.*
