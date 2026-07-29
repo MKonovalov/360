@@ -107,6 +107,10 @@ None - no external service configuration required.
 - Verified via `grep -rl "explorer-accordion-table\|explorer-table-behavior" src/app src/components/companies src/components/personas` (no matches) that this plan introduced zero user-visible change — pure foundation, confirming the plan's own stated scope boundary.
 - `npx tsc --noEmit` and `npx eslint` are both clean across all 4 changed files at the end of this plan.
 
+## Self-Check: PASSED
+
+All created files verified present on disk (`companyFilters.ts`, `explorer-accordion-table.tsx`, `explorer-table-behavior.tsx`, `05-01-SUMMARY.md`); all 4 task/docs commits (`1c0521bf`, `e6a1aaac`, `791653f1`, `f8d49b36`) verified present in `git log`.
+
 ---
 *Phase: 05-layout-consolidation-rework*
 *Completed: 2026-07-30*
