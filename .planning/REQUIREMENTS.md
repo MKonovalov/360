@@ -17,11 +17,11 @@ Requirements for v1.1. Each maps to roadmap phases.
 
 ### Layout Rework (LAYT)
 
-- [ ] **LAYT-01**: Company list+detail moves from side-by-side split to stacked full-width — list on top, detail expands full-width below on row click (single-expand accordion; opening a row closes any previously-open row)
-- [ ] **LAYT-02**: Persona list+detail gets the same stacked-layout treatment, mirroring Company
-- [ ] **LAYT-03**: The expanded/selected row is reflected in the URL (deep-linkable, back-button-safe), extending the existing filter URL-sync convention
-- [ ] **LAYT-04**: Opening a row scrolls it into view; an explicit control collapses/closes the expanded detail panel
-- [ ] **LAYT-05**: List supports keyboard navigation — arrow keys move between rows, Enter expands the focused row
+- [x] **LAYT-01**: Company list+detail moves from side-by-side split to stacked full-width — list on top, detail expands full-width below on row click (single-expand accordion; opening a row closes any previously-open row)
+- [x] **LAYT-02**: Persona list+detail gets the same stacked-layout treatment, mirroring Company
+- [x] **LAYT-03**: The expanded/selected row is reflected in the URL (deep-linkable, back-button-safe), extending the existing filter URL-sync convention
+- [x] **LAYT-04**: Opening a row scrolls it into view; an explicit control collapses/closes the expanded detail panel
+- [x] **LAYT-05**: List supports keyboard navigation — arrow keys move between rows, Enter expands the focused row
 
 ### Menu (MENU)
 
@@ -128,11 +128,11 @@ Populated during roadmap creation.
 | START-03 | Phase 6 | Pending |
 | START-04 | Phase 6 | Pending |
 | START-05 | Phase 6 | Pending |
-| LAYT-01 | Phase 5 | Pending |
-| LAYT-02 | Phase 5 | Pending |
-| LAYT-03 | Phase 5 | Pending |
-| LAYT-04 | Phase 5 | Pending |
-| LAYT-05 | Phase 5 | Pending |
+| LAYT-01 | Phase 5 | Complete |
+| LAYT-02 | Phase 5 | Complete |
+| LAYT-03 | Phase 5 | Complete |
+| LAYT-04 | Phase 5 | Complete |
+| LAYT-05 | Phase 5 | Complete |
 | MENU-01 | Phase 6 | Pending |
 | MENU-02 | Phase 6 | Pending |
 | IMPT-01 | Phase 7 | Pending |
