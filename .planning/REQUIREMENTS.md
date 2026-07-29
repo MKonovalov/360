@@ -1,0 +1,165 @@
+# Requirements: ArcLumen 360 — v1.1
+
+**Defined:** 2026-07-29
+**Core Value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
+
+## v1 Requirements
+
+Requirements for v1.1. Each maps to roadmap phases.
+
+### Start Page (START)
+
+- [ ] **START-01**: Staff sees an overview dashboard as the landing page (replacing the current `/` status page) with summary stat cards — Company count, Persona count, active Signal count
+- [ ] **START-02**: Dashboard shows a recent signals list — most recently added/detected signals, newest first, linked to their Company
+- [ ] **START-03**: Dashboard shows a recently-viewed list — Companies/Personas the current user opened recently, server-tracked so it works across the user's devices
+- [ ] **START-04**: Dashboard shows a "Needs attention" section — Companies with high-strength signals that haven't been recently reviewed by staff
+- [ ] **START-05**: Dashboard shows a signal-type breakdown widget — counts per the 4 named signal types
+
+### Layout Rework (LAYT)
+
+- [ ] **LAYT-01**: Company list+detail moves from side-by-side split to stacked full-width — list on top, detail expands full-width below on row click (single-expand accordion; opening a row closes any previously-open row)
+- [ ] **LAYT-02**: Persona list+detail gets the same stacked-layout treatment, mirroring Company
+- [ ] **LAYT-03**: The expanded/selected row is reflected in the URL (deep-linkable, back-button-safe), extending the existing filter URL-sync convention
+- [ ] **LAYT-04**: Opening a row scrolls it into view; an explicit control collapses/closes the expanded detail panel
+- [ ] **LAYT-05**: List supports keyboard navigation — arrow keys move between rows, Enter expands the focused row
+
+### Menu (MENU)
+
+- [ ] **MENU-01**: Company and Persona list pages have a "Menu" dropdown button in the top-right corner, containing at minimum an "Import" action
+- [ ] **MENU-02**: Company and Persona detail panels have a "Menu" dropdown button in the top-right corner, containing at minimum an "Analyze" action
+
+### CSV Import (IMPT)
+
+- [ ] **IMPT-01**: Staff can upload a CSV file for Companies or Personas via Menu → Import
+- [ ] **IMPT-02**: Import wizard auto-detects column-to-field mapping with manual override, including enum-value mapping (e.g. a CSV value like "50-250M" maps to the `revenueBand` enum)
+- [ ] **IMPT-03**: Import validates rows before commit and supports partial commit — valid rows are imported, invalid rows are reported with row number and reason
+- [ ] **IMPT-04**: Import dedups against existing records using a stable key (`company.domain` for Companies; email for Personas where present)
+- [ ] **IMPT-05**: Import shows a summary on completion — counts created, updated, and skipped/errored
+- [ ] **IMPT-06**: Staff can download a CSV template pre-filled with valid enum values, generated from the schema so it can't drift out of date
+- [ ] **IMPT-07**: Import history is logged (who imported what, when) with rollback capability
+
+### Enrichment API (ENRC)
+
+- [ ] **ENRC-01**: Staff can trigger commercial-API enrichment (Apollo.io) for a Company/Persona to pull real firmographic/contact data instead of manual seed data
+- [ ] **ENRC-02**: Enrichment merge policy auto-fills empty fields only — it never silently overwrites a field staff has already populated
+- [ ] **ENRC-03**: Each Company/Persona field carries a basic provenance marker (manual entry vs. enrichment-sourced)
+- [ ] **ENRC-04**: Staff can review field-level merge conflicts (current value vs. incoming value) and accept/reject per field before an enrichment write commits
+- [ ] **ENRC-05**: Enrichment shows the vendor's match-confidence score per field, when the vendor's API exposes one
+
+### Analytic Agent (ANLZ)
+
+- [ ] **ANLZ-01**: Staff can trigger on-demand, web-search-based signal analysis for a single Company via Menu → Analyze
+- [ ] **ANLZ-02**: The agent proposes candidate Signal records — typed to the existing `signalType`/`signalStrength` enums, with a source citation and reasoning — stored in a new review queue; it never auto-writes to the live Signal table under any circumstance
+- [ ] **ANLZ-03**: Staff sees a dedicated review queue listing all pending proposals with evidence/citation shown inline, and can Accept or Reject each
+- [ ] **ANLZ-04**: A pending-proposal count is shown as a badge on the Company detail page
+- [ ] **ANLZ-05**: The agent avoids re-proposing a signal that already exists as a live record for that Company (checks existing signals first)
+
+### Observability (OBSV)
+
+- [ ] **OBSV-01**: Every Analytic Agent run is traced in Langfuse, capturing the chain-of-thought/tool-call steps and cost (token usage)
+- [ ] **OBSV-02**: When staff rejects or edits a proposed signal, a structured correction reason (wrong signal type / missed inclusion-exclusion criteria / hallucinated-no real evidence / other) plus an optional free-text note is captured and linked to that run's Langfuse trace, to inform future agent/prompt tuning
+
+## v2 Requirements
+
+Deferred to future release. Tracked but not in current roadmap. Carried forward from v1.0's future candidates, still relevant after v1.1 ships.
+
+### Pipeline
+
+- **PIPE-01**: Automated scoring/prioritization algorithm over Company signals
+- **PIPE-02**: Prioritized target list output
+- **PIPE-03**: CRM sync / export of the prioritized list
+- **PIPE-04**: Outreach triggers pushed to sales
+
+### Access
+
+- **ACCS-01**: Multi-user roles/permissions (admin/rep/exec tiers) beyond the current binary "any authenticated Clerk user = staff" model
+
+### Views
+
+- **VIEW-01**: Saved/custom filter views per user or team
+
+### Arcpedia
+
+- **ARCP-03**: AI-drafted, persona-tailored outreach content (e.g. individual LinkedIn DMs), informed by Arcpedia knowledge
+
+### Import (deferred sub-features)
+
+- **IMPT-D01**: Fuzzy/probabilistic dedup matching (Levenshtein/similarity scoring) — deferred per anti-feature reasoning below
+- **IMPT-D02**: Recurring/scheduled CSV imports (SFTP drop, watched folder)
+
+### Analytic Agent (deferred sub-features)
+
+- **ANLZ-D01**: Scheduled/background Analyze sweeps across all Companies on a timer
+
+### Start Page (deferred sub-features)
+
+- **START-D01**: Team-wide activity feed (who viewed what, not just the current user) — pending a one-line product decision on cross-staff visibility of viewing activity
+
+## Out of Scope
+
+Explicitly excluded. Documented to prevent scope creep.
+
+| Feature | Reason |
+|---------|--------|
+| BI-style charts (trend lines, cohort/funnel analysis) on the Start Page | No meaningful trend to chart at ~10-20 records; adds a charting dependency for no payoff at this scale |
+| Customizable/draggable Start Page widget layout | Real engineering (per-user layout storage, drag-drop) for a page whose job is "show 4-5 fixed things fast" |
+| Real-time auto-refreshing dashboard (polling/websockets) | No concurrent-editing pressure exists yet; adds infra for a freshness need nobody has asked for |
+| Maintaining both side-by-side AND stacked list/detail layouts (user-toggleable) | Doubles build/test/maintenance surface for a milestone whose explicit ask is to replace side-by-side, not add an option |
+| Multiple simultaneously-expanded rows in the stacked layout | Breaks the full-width-detail premise; not requested |
+| Fuzzy/probabilistic dedup matching for Import | At this record volume, false positives from fuzzy matching cost more staff attention than they save — exact-match on a normalized/stable key is preferred |
+| In-wizard CSV transformation/formula engine | Massive scope increase for a tool serving one small internal team's own exports; CSV shape is controllable at the source |
+| Silent full overwrite of existing fields from the enrichment vendor | Directly conflicts with the product's "trustworthy 360 view" Core Value |
+| Enrichment vendor auto-creating new Company/Persona records from "similar company" suggestions | Scope creep from "enrich what we track" into prospecting/list-building, explicitly deferred to a later milestone (see PIPE-01/02) |
+| Confidence-threshold auto-approval for Analyze proposals | Directly contradicts the explicit "no auto-write, human reviews every proposal" constraint — no bypass, at any confidence level |
+| Open-ended chat interface for interacting with the Analytic Agent | Structured proposal cards (claim, evidence, accept/reject) are faster to review and safer than a free-form conversation that could wander off-task |
+| Free-text-only proposed signals (skip enum mapping) | Would break consistency with every existing typed signal — badges, filters, and the Start Page's signal-type breakdown all depend on the enum |
+| Auto-write of any Analyze proposal to the live Signal table, under any circumstance | Non-negotiable explicit constraint — approval is always a distinct staff action |
+| Writing/ingesting content back into Arcpedia | Still read-only in v1.1; AI-drafted outreach content is a stated future direction (ARCP-03), not now |
+| Existing short-link staff tool | Retired; not actively extended or migrated |
+
+## Traceability
+
+Populated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| START-01 | TBD | Pending |
+| START-02 | TBD | Pending |
+| START-03 | TBD | Pending |
+| START-04 | TBD | Pending |
+| START-05 | TBD | Pending |
+| LAYT-01 | TBD | Pending |
+| LAYT-02 | TBD | Pending |
+| LAYT-03 | TBD | Pending |
+| LAYT-04 | TBD | Pending |
+| LAYT-05 | TBD | Pending |
+| MENU-01 | TBD | Pending |
+| MENU-02 | TBD | Pending |
+| IMPT-01 | TBD | Pending |
+| IMPT-02 | TBD | Pending |
+| IMPT-03 | TBD | Pending |
+| IMPT-04 | TBD | Pending |
+| IMPT-05 | TBD | Pending |
+| IMPT-06 | TBD | Pending |
+| IMPT-07 | TBD | Pending |
+| ENRC-01 | TBD | Pending |
+| ENRC-02 | TBD | Pending |
+| ENRC-03 | TBD | Pending |
+| ENRC-04 | TBD | Pending |
+| ENRC-05 | TBD | Pending |
+| ANLZ-01 | TBD | Pending |
+| ANLZ-02 | TBD | Pending |
+| ANLZ-03 | TBD | Pending |
+| ANLZ-04 | TBD | Pending |
+| ANLZ-05 | TBD | Pending |
+| OBSV-01 | TBD | Pending |
+| OBSV-02 | TBD | Pending |
+
+**Coverage:**
+- v1 requirements: 31 total
+- Mapped to phases: 0
+- Unmapped: 31 ⚠️ (roadmap not yet created)
+
+---
+*Requirements defined: 2026-07-29*
+*Last updated: 2026-07-29 after initial v1.1 definition*
