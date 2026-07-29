@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { getPersonaById } from '@/lib/db/queries/personas';
 import { listCompanyRolesForPersona } from '@/lib/db/queries/companyPersonaRoles';
 import { fetchArcpediaArticles } from '@/lib/arcpedia';
+import { ExplorerCloseButton } from '@/components/explorer/explorer-table-behavior';
 
 // seniority is a fixed-but-extensible pgEnum storing slug values
 // (e.g. "c_level") — humanize for display rather than showing the raw slug
@@ -72,7 +73,8 @@ export async function PersonaDetail({ id }: { id: number }) {
   const articles = await fetchArcpediaArticles(persona.name);
 
   return (
-    <div className="space-y-12 rounded-lg border border-slate-200 bg-white p-8">
+    <div className="relative space-y-12 bg-white p-8">
+      <ExplorerCloseButton />
       <div>
         <h1 className="text-[24px] font-semibold leading-[1.2] text-slate-900">{persona.name}</h1>
         <p className="text-[14px] font-normal leading-[1.5] text-slate-500">
