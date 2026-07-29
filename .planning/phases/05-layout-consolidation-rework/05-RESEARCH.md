@@ -401,17 +401,19 @@ Note: `redirect()` throws internally — it must be called outside any `try/catc
 | A1 | Cross-tick (debounce-delayed) `shallow:false` nuqs updates from separate hook instances are handled safely by the shared `NuqsAdapter` without clobbering each other | Common Pitfalls #5 | If wrong, a rapid type-then-click sequence could silently drop either the search term or the row selection from the resulting URL — low severity (re-typing/re-clicking recovers), but should be manually verified during implementation, not assumed correct from docs alone |
 | A2 | Keeping focus on the row (not moving it into the detail panel) on expand is the right choice for this codebase's a11y bar | Anti-Patterns / Pattern 1 | This project has no documented accessibility/ARIA compliance requirement (CLAUDE.md is silent on it); if the team wants stricter WCAG conformance later, disclosure-widget conventions vary on this point and it's worth revisiting explicitly rather than assuming this research's choice is final |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should the shared component be a literal shared file, or a documented pattern duplicated once per entity?**
    - What we know: Both entities' list/detail shapes are structurally identical (columns differ, detail sections differ) but small in number (2 entities today, no third planned in v1.1's roadmap).
    - What's unclear: Whether a fully generic `<ExplorerAccordionTable<T>>` (with typed column/render-prop generics) is worth the added indirection versus a slightly-duplicated-but-simpler two-file approach (`company-explorer-table.tsx`, `persona-explorer-table.tsx`) that share only the behavior wrapper and the sibling-`<tr>` pattern via a small shared helper.
    - Recommendation: Lean toward the generic shared component (matches the phase's explicit goal — "built on one shared component instead of duplicated per-page markup" per the phase description) but let the planner size this as 1-2 tasks; the render-prop/slot API in Pattern 1/2 above is the concrete contract to implement either way.
+   - **RESOLVED:** Planning selected the generic shared component. Plan 05-01 Task 2 implements a fully generic `ExplorerAccordionTable<T>` (typed via `getRowId`/`renderRowCells`/`renderDetail` render-prop generics) as a single shared file in `src/components/explorer/explorer-accordion-table.tsx`, consumed identically by both Plan 05-02 (Companies) and Plan 05-03 (Personas) — no per-entity duplicate of the table shell was created.
 
 2. **Exact keyboard scope: does Enter on a focused, already-expanded row collapse it (toggle), or only expand?**
    - What we know: D-05 requires both "click already-open row collapses it" (toggle) AND a dedicated close button. LAYT-05 only explicitly requires "Enter expands the focused row."
    - What's unclear: Whether Enter should also toggle-collapse an already-expanded focused row for keyboard-only parity with the mouse toggle behavior, or whether keyboard users must use the close button.
    - Recommendation: For consistency (and lower support burden — "why doesn't Enter close it too" is a predictable question), make Enter toggle just like click does. Flag for planner/discuss-phase confirmation if strict LAYT-05 wording is preferred literally as "expand only."
+   - **RESOLVED:** Planning adopted the toggle behavior. Plan 05-01 Task 3's keydown handler applies the same toggle logic to Enter as to click (`setSelected(id === selected ? null : id)`), so Enter on an already-expanded, focused row collapses it — matching mouse-click parity rather than "expand only."
 
 ## Environment Availability
 
@@ -465,7 +467,7 @@ All five requirements are justified as manual-only: the project has zero test in
 
 | Pattern | STRIDE | Standard Mitigation |
 |---------|--------|----------------------|
-| Tampered `selected` query param (non-numeric, negative, or absurdly large value) causing a DB query with unexpected input | Tampering | Validate as a positive integer before passing to Drizzle query functions (mirrors existing `Number.isNaN` check in the old `[id]/page.tsx`); Drizzle's parameterized queries already prevent injection regardless, but input validation avoids wasted queries and confusing error states |
+| Tampered `selected` query param (non-numeric, malformed, or otherwise not a parseable number) causing a DB query with unexpected input | Tampering | Reject non-numeric values via the `Number(...)` + `Number.isNaN` guard in `parseSelectedId`, which returns `undefined` (never passed through as NaN or a raw string) — mirrors the existing `Number.isNaN` check already used in the old `[id]/page.tsx` exactly, a NaN-only guard, not a positive-integer/range check (matching pre-existing behavior; not a regression). Drizzle's parameterized queries already prevent injection regardless of numeric range; the guard's purpose is avoiding wasted queries and confusing error states for non-numeric input |
 | Redirect open-redirect risk in the old-route → new-route rewrite | Spoofing/Tampering | The redirect target is always a fixed, hardcoded path (`/companies?...` or `/personas?...`) built from the current route's own known base path — never derived from user-controlled input as a full URL, so no open-redirect surface is introduced |
 
 No new attack surface is introduced by this phase — it is a read-only UI rework of already-authenticated, already-validated data paths.
