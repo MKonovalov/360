@@ -123,43 +123,43 @@ Populated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| START-01 | TBD | Pending |
-| START-02 | TBD | Pending |
-| START-03 | TBD | Pending |
-| START-04 | TBD | Pending |
-| START-05 | TBD | Pending |
-| LAYT-01 | TBD | Pending |
-| LAYT-02 | TBD | Pending |
-| LAYT-03 | TBD | Pending |
-| LAYT-04 | TBD | Pending |
-| LAYT-05 | TBD | Pending |
-| MENU-01 | TBD | Pending |
-| MENU-02 | TBD | Pending |
-| IMPT-01 | TBD | Pending |
-| IMPT-02 | TBD | Pending |
-| IMPT-03 | TBD | Pending |
-| IMPT-04 | TBD | Pending |
-| IMPT-05 | TBD | Pending |
-| IMPT-06 | TBD | Pending |
-| IMPT-07 | TBD | Pending |
-| ENRC-01 | TBD | Pending |
-| ENRC-02 | TBD | Pending |
-| ENRC-03 | TBD | Pending |
-| ENRC-04 | TBD | Pending |
-| ENRC-05 | TBD | Pending |
-| ANLZ-01 | TBD | Pending |
-| ANLZ-02 | TBD | Pending |
-| ANLZ-03 | TBD | Pending |
-| ANLZ-04 | TBD | Pending |
-| ANLZ-05 | TBD | Pending |
-| OBSV-01 | TBD | Pending |
-| OBSV-02 | TBD | Pending |
+| START-01 | Phase 6 | Pending |
+| START-02 | Phase 6 | Pending |
+| START-03 | Phase 6 | Pending |
+| START-04 | Phase 6 | Pending |
+| START-05 | Phase 6 | Pending |
+| LAYT-01 | Phase 5 | Pending |
+| LAYT-02 | Phase 5 | Pending |
+| LAYT-03 | Phase 5 | Pending |
+| LAYT-04 | Phase 5 | Pending |
+| LAYT-05 | Phase 5 | Pending |
+| MENU-01 | Phase 6 | Pending |
+| MENU-02 | Phase 6 | Pending |
+| IMPT-01 | Phase 7 | Pending |
+| IMPT-02 | Phase 7 | Pending |
+| IMPT-03 | Phase 7 | Pending |
+| IMPT-04 | Phase 7 | Pending |
+| IMPT-05 | Phase 7 | Pending |
+| IMPT-06 | Phase 7 | Pending |
+| IMPT-07 | Phase 7 | Pending |
+| ENRC-01 | Phase 8 | Pending |
+| ENRC-02 | Phase 8 | Pending |
+| ENRC-03 | Phase 8 | Pending |
+| ENRC-04 | Phase 8 | Pending |
+| ENRC-05 | Phase 8 | Pending |
+| ANLZ-01 | Phase 9 | Pending |
+| ANLZ-02 | Phase 9 | Pending |
+| ANLZ-03 | Phase 9 | Pending |
+| ANLZ-04 | Phase 9 | Pending |
+| ANLZ-05 | Phase 9 | Pending |
+| OBSV-01 | Phase 9 | Pending |
+| OBSV-02 | Phase 9 | Pending |
 
 **Coverage:**
 - v1 requirements: 31 total
-- Mapped to phases: 0
-- Unmapped: 31 ⚠️ (roadmap not yet created)
+- Mapped to phases: 31
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-07-29*
-*Last updated: 2026-07-29 after initial v1.1 definition*
+*Last updated: 2026-07-29 after ROADMAP.md creation — 31/31 mapped across Phases 5-9*

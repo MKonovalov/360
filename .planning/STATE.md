@@ -6,7 +6,7 @@ status: planning
 last_updated: "2026-07-29T12:11:44.348Z"
 last_activity: 2026-07-29
 progress:
-  total_phases: 0
+  total_phases: 5
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -20,14 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-24)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** Planning next milestone
+**Current focus:** v1.1 Phase 5 — Layout Consolidation + Rework
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-07-29 — Milestone v1.1 started
+Phase: 5 of 9 (Layout Consolidation + Rework) — first phase of v1.1
+Plan: — (not yet planned)
+Status: Roadmap created, ready to plan Phase 5
+Last activity: 2026-07-29 — v1.1 ROADMAP.md created, 31/31 requirements mapped across Phases 5-9
+
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -45,14 +47,18 @@ Last activity: 2026-07-29 — Milestone v1.1 started
 | 02 | 4 | - | - |
 | 03 | 4 | - | - |
 | 04 | 2 | - | - |
+| 05 | TBD | - | - |
+| 06 | TBD | - | - |
+| 07 | TBD | - | - |
+| 08 | TBD | - | - |
+| 09 | TBD | - | - |
 
 **Recent Trend:**
 
-- Last 5 plans: none yet
+- Last 5 plans: none yet this milestone
 - Trend: N/A
 
 *Updated after each plan completion*
-| Phase 01 P03 | 20m | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -61,9 +67,11 @@ Last activity: 2026-07-29 — Milestone v1.1 started
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- Roadmap: Migrate Astro → Next.js (App Router) and Sanity → Neon Postgres + Drizzle ORM in Phase 1, before any Company/Persona UI — framework and data-model choices are the highest-leverage, hardest-to-reverse decisions per research/SUMMARY.md.
-- Roadmap: Company Explorer (Phase 2) built before Persona Explorer (Phase 3) — establishes the master-detail/URL-state pattern once, reused rather than duplicated.
-- Roadmap: Arcpedia read-integration and empty/loading/error-state hardening deliberately sequenced last (Phase 4), after both explorers exist, so it's verified against complete features.
+- Roadmap: Phase numbering continues from v1.0 (ended Phase 4) — v1.1 starts at Phase 5, no restart.
+- Roadmap: Layout rework (Phase 5) sequenced first — both Import's and Analyze's Menu buttons anchor to page regions this phase restructures, and the side-by-side grid duplication across 6 files must be consolidated as part of the rework, not after (research Pitfall 1, echoes Phase 3's `hasSignals` duplication-drift bug from v1.0).
+- Roadmap: Shared Menu dropdown + Start Page bundled into one phase (Phase 6) — the `dropdown-menu` primitive is a one-time investment reused by both later Import and Analyze phases; Start Page is additive/low-risk and rides along.
+- Roadmap: CSV Import (Phase 7) and Enrichment API (Phase 8) split into two phases rather than research's single combined phase, to fit standard granularity — both share the `company.domain` dedup-key foundation (built in Phase 7, reused in Phase 8) but are otherwise distinct capabilities with their own success criteria.
+- Roadmap: Analytic Agent + Langfuse Observability (Phase 9) sequenced last and combined into one phase — OBSV requirements are structurally dependent on ANLZ (tracing an agent run, capturing a correction reason on reject/edit of a proposal), not separable; this phase carries the milestone's highest risk (first Route Handler, first AI/tool-calling dependency, first agent-write-path).
 
 ### Pending Todos
 
@@ -71,29 +79,32 @@ None yet.
 
 ### Blockers/Concerns
 
-- Phase 1 research flag: Next.js 16 App Router + Clerk integration specifics (e.g. `middleware.ts` → `proxy.ts` rename), Drizzle+Neon schema/migration tooling, and the shadcn CLI's Radix-vs-Base-UI default are LOW-MEDIUM confidence single-source findings — verify at implementation time, not assumed (see research/SUMMARY.md).
-- Carried from codebase CONCERNS.md: "any authenticated Clerk user = full access" model has no role system; acceptable for v1 per PROJECT.md scope, but flagged for re-examination before any milestone 2 work (CRM sync, external access).
+- **Phase 9 open architecture question (flagged, not yet resolved):** the Analytic Agent's async execution strategy (synchronous Route Handler call to `generateText` vs. a fire-and-poll pattern) is blocked on confirming this Vercel plan tier's function `maxDuration` ceiling — not verified during milestone research (no `vercel.json`/plan info available). Must be resolved via `/gsd-plan-phase 9 --research-phase` before Phase 9 implementation begins; a fire-and-poll answer would also need reconciling with this project's explicit "no background workers/queues" architectural constraint.
+- Phase 9 also carries this milestone's highest-severity, hardest-to-detect risk class: approval-bypass at the propose→approve boundary in a zero-automated-test codebase. Research recommends treating propose→approve→signal as the one place worth a minimal automated test despite the no-test-suite status quo — worth raising again during Phase 9 planning.
+- Carried from v1.0: "any authenticated Clerk user = full access" model has no role system; acceptable for v1.1 per PROJECT.md scope (ACCS-01 remains v2), but re-examine before any milestone with external/CRM access.
+- Carried from v1.0: no automated test suite exists anywhere in the repo — all verification to date has been manual UAT + live curl/build/tsc checks.
 
 ## Deferred Items
 
-Items acknowledged and deferred at v1.0 milestone close on 2026-07-24:
+Items acknowledged and deferred at v1.0 milestone close on 2026-07-24, still open:
 
 | Category | Item | Status |
 |----------|------|--------|
+| uat_gap | Persona-side "Related Knowledge" (Arcpedia) end-to-end with real matches | pending — code path proven identical to Company, seed data lacks a matching name |
 | uat_gap | 01-HUMAN-UAT.md | partial — 2 pending scenarios |
 | uat_gap | 02-HUMAN-UAT.md | partial — 4 pending scenarios |
 | uat_gap | 04-HUMAN-UAT.md | partial — 1 pending scenario (Persona-side Arcpedia content gap) |
 | verification_gap | 01-VERIFICATION.md | human_needed |
 | verification_gap | 02-VERIFICATION.md | human_needed |
-| verification_gap | 03-VERIFICATION.md | human_needed (03-HUMAN-UAT.md itself is status: complete — this entry is likely stale, VERIFICATION.md was never re-stamped) |
+| verification_gap | 03-VERIFICATION.md | human_needed (03-HUMAN-UAT.md itself is status: complete — likely stale, never re-stamped) |
 | verification_gap | 04-VERIFICATION.md | human_needed |
 
 ## Session Continuity
 
-Last session: 2026-07-23T23:15:50.863Z
-Stopped at: Phase 04 UI-SPEC approved
-Resume file: .planning/phases/04-arcpedia-integration-resilience-polish/04-UI-SPEC.md
+Last session: 2026-07-29T12:11:44.348Z
+Stopped at: v1.1 ROADMAP.md created and approved for planning
+Resume file: None
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Start Phase 5 with `/gsd-plan-phase 5`
