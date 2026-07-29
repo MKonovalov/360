@@ -8,6 +8,16 @@ ArcLumen 360 is an end-to-end demand generation pipeline for ArcLumen Partners, 
 
 Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds, replacing signal knowledge that today lives scattered across individual heads and inboxes.
 
+## Current Milestone: v1.1 Start Page + Import + Analytic Agent
+
+**Goal:** Give staff a dashboard entry point, a Menu-driven import workflow, an in-panel signal-detection agent, and a reworked stacked list/detail layout across both explorers.
+
+**Target features:**
+- **Start Page** — overview dashboard (summary stats, recent signals, recently-viewed) as the new landing view before Companies/Personas
+- **Layout rework (Companies + Personas)** — detail panel moves from side-by-side to stacked full-width (list on top; clicking a row expands the detail panel full-width below it), replacing the current right-side master-detail split on both explorers
+- **Import** — new "Menu" button, top-right of the Companies (and Personas) list page, containing an "Import" action → CSV upload for Companies/Personas (replacing the manual seed-script pipeline) + commercial enrichment API integration (vendor TBD — Clearbit/Apollo/ZoomInfo/Clay, candidate for research)
+- **Analytic Agent ("Analyze")** — new "Menu" button, top-right of the individual Company (and Persona) detail panel, containing an "Analyze" action → web-search-based signal-detection agent that monitors news/press for buying-signal patterns (CFO change, transformation announcement, cost pressure, immature GBS org) and proposes candidate Signal records into a review queue — staff approves before they become live records, no auto-write to DB
+
 ## Requirements
 
 ### Validated
@@ -31,16 +41,19 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 
 ### Active
 
-- [ ] Milestone 1 runs on a manual/seed dataset for core Company/Persona fields — no live commercial enrichment API (Clearbit/Apollo/ZoomInfo) wired yet
 - [ ] Persona 360 "Related Knowledge" showing real Arcpedia articles end-to-end — code path proven identical to the working Company path, but the current seed Persona dataset has no name that matches real Arcpedia content; needs either updated seed data or acceptance of the gap (see `04-HUMAN-UAT.md`)
+- [ ] Start Page overview dashboard (v1.1)
+- [ ] Companies/Personas list+detail layout rework: side-by-side → stacked full-width (v1.1)
+- [ ] Menu-driven CSV import + commercial enrichment API integration (v1.1) — supersedes the old "no live enrichment API" gap from v1.0
+- [ ] Analytic Agent ("Analyze") — web-search signal-detection agent with human-review queue (v1.1)
 
 ### Out of Scope
 
 - Persona list row-level status/signal badges — EXPL-05 (list rows show signal badges) maps only to Phase 2's Company list per REQUIREMENTS.md's phase-mapping table; never a Phase 3 requirement despite an earlier PROJECT.md draft implying otherwise
-- Commercial enrichment API integration (Clearbit/Apollo/ZoomInfo, etc.) — deferred; milestone 1 is seed/manual data only (Arcpedia read-integration is in scope, see Active requirements)
-- Writing/ingesting content back into Arcpedia from ArcLumen 360 — milestone 1 is read-only; AI-drafted content (e.g. tailored persona LinkedIn DMs) is a stated future direction, not milestone 1
-- Scoring/prioritization algorithm — milestone 1 is browsing/viewing only, ranking logic is a later milestone
-- CRM sync / automated outreach triggers — the pipeline's action stage (prioritized list → outreach → CRM sync) comes after the explorer is validated
+- Writing/ingesting content back into Arcpedia from ArcLumen 360 — still read-only; AI-drafted content (e.g. tailored persona LinkedIn DMs) is a stated future direction, not v1.1
+- Auto-writing Analytic Agent signal proposals directly to the DB — v1.1's agent proposes into a review queue only, staff approves before a Signal record goes live
+- Full scoring/prioritization algorithm and prioritized target list output — v1.1's Analytic Agent detects/proposes signals, it does not rank or prioritize Companies; ranking logic is a later milestone
+- CRM sync / automated outreach triggers — the pipeline's action stage (prioritized list → outreach → CRM sync) comes after scoring exists
 - Multi-user roles/permissions — any authenticated staff user sees everything for now (matches existing app's current auth model)
 - Existing short-link staff tool — being retired soon; not actively extended or migrated as part of this build
 
@@ -55,13 +68,11 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 
 Milestone artifacts archived to `.planning/milestones/v1.0-*` (ROADMAP, REQUIREMENTS, phase directories). Repo is between milestones, awaiting `/gsd-new-milestone`.
 
-## Next Milestone Goals
+## Future Candidates (Beyond v1.1)
 
-Not yet formally scoped — `/gsd-new-milestone` will run its own questioning/research/requirements process. Candidates surfaced during v1.0 (from `v1.0-REQUIREMENTS.md`'s deferred section and this milestone's known debt) that a next milestone should consider:
+Not yet scoped. Carried forward from v1.0's deferred list, still relevant after v1.1 lands:
 
-- Closing the v1.0 debt above (Persona Arcpedia content gap, remaining human UAT items, no test suite)
-- Live commercial enrichment API integration (Clearbit/Apollo/ZoomInfo) — ENRC-01/02
-- Scoring/prioritization algorithm over Company signals, prioritized target list output — PIPE-01/02
+- Full scoring/prioritization algorithm over Company signals, prioritized target list output — PIPE-01/02
 - CRM sync / outreach triggers — PIPE-03/04
 - Multi-user roles/permissions beyond the current binary "any authenticated Clerk user = staff" model — ACCS-01
 - Saved/custom filter views, bulk seed-data editing UX — VIEW-01/02
@@ -114,4 +125,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-24 after v1.0 milestone completion*
+*Last updated: 2026-07-24 — v1.1 milestone started*
