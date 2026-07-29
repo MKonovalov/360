@@ -1,63 +1,10 @@
 # Stack Research
 
-**Domain:** Data-heavy B2B ICP/account-intelligence explorer (admin/dashboard-style internal tool — recall.ai bot explorer / Clay / CRM-lite record browser pattern)
-**Researched:** 2026-07-22
-**Confidence:** MEDIUM-HIGH (framework/data-layer direction verified via current npm registry + official docs + multiple independent sources; some CLI-behavior details are single-source and flagged LOW)
+**Domain:** v1.1 additions — Start Page, layout rework, CSV Import + enrichment API, Analytic ("Analyze") signal-detection agent
+**Researched:** 2026-07-29
+**Confidence:** HIGH (Context7-verified library/version data for AI SDK, Next.js, shadcn/ui, PapaParse; multi-source cross-checked vendor pricing for enrichment APIs)
 
-## Answering the Core Questions
-
-### 1. Is Astro SSR still a reasonable choice for this dashboard, or does React/Next.js fit better?
-
-**Recommendation: migrate to Next.js (App Router).** Confidence: MEDIUM-HIGH.
-
-Astro's own documentation draws the line explicitly: Astro is a **content-focused, multi-page** framework (marketing sites, docs, blogs); frameworks like Next.js/SvelteKit are built for **application-like** experiences — "logged-in admin dashboards, inboxes, social networks" are named as the class of thing Astro is *not* optimized for ([Why Astro — docs.astro.build](https://docs.astro.build/en/concepts/why-astro/)). ArcLumen 360 is precisely that: a fully-authenticated, no-SEO-value, highly-interactive master-detail UI (collapsible nav + live search/filter + selected-row detail pane) with state that must flow between multiple UI regions on every interaction.
-
-Astro's islands-architecture is the specific mismatch. Each interactive region (nav, list, detail pane) would need to be its own hydrated island (`client:load`), and keeping "which company is selected" in sync between the list island and the detail-pane island requires reaching for an external store (nanostores, or a hand-rolled event bus) rather than the ordinary single-component-tree state a React app gets for free. This is a well-documented friction point for exactly this UI shape, not a hypothetical one (multiple independent sources agree on this specific limitation — see Sources). There is also no content/SEO requirement here to justify Astro's zero-JS-by-default tradeoff — the entire surface sits behind Clerk auth, so "ship less JS to anonymous visitors" isn't a real constraint on this build.
-
-Practically for this codebase: the existing Astro app is a thin 4-page redirect bridge with no shared component library and no client-side framework usage today (confirmed in `.planning/codebase/ARCHITECTURE.md`) — there is very little Astro-specific investment to preserve. The two things worth explicitly carrying forward are **Clerk** (same Clerk project/dashboard config, swap `@clerk/astro` → `@clerk/nextjs`) and **Vercel** (same project, but drop the Astro adapter entirely — Next.js is Vercel's native, zero-adapter framework).
-
-**Bonus fix:** this migration also resolves the Node-runtime pin bug that was worked around in commit `4e8b9a04` (`@astrojs/vercel` forcing `nodejs18.x`). Next.js on Vercel has no adapter layer — the Node version is set directly in Vercel Project Settings (or `engines` in `package.json`), with no framework-specific runtime translation to fight. See the Node version note in Platform section below — Node 20 is being deprecated on Vercel Oct 1, 2026, so this is also a chance to move off it.
-
-**If the team prefers to minimize churn and stay on Astro:** it's not impossible — use React islands for nav/list/detail via `@astrojs/react`, share selection state through `nanostores` (`@nanostores/react`), and accept the added indirection. This is listed as the explicit alternative below, but is not the primary recommendation.
-
-### 2. Is Sanity CMS appropriate for structured Company/Persona records with relations, or does this call for a real database?
-
-**Recommendation: Postgres (Neon, via Vercel's native integration) + Drizzle ORM.** Confidence: HIGH.
-
-Sanity is a headless CMS built around an editorial workflow: a Studio UI for content editors, document drafts/publish states, and GROQ as a content-query language. It *can* model references between document types (a Persona document referencing a Company document), so "relations" alone aren't a hard blocker — but the shape of this data and its trajectory argue strongly for a real relational database instead:
-
-- **Milestone 1 already implies structured, filterable, joinable data**: Company ↔ Persona is a real one-to-many/many-to-many relationship that needs to support search, filtering by signal type/strength, and "linked personas"/"linked company" lookups — this is exactly what SQL joins and indexes are for, and exactly what GROQ reference-dereferencing is a workaround for.
-- **The stated pipeline beyond milestone 1** (scoring/prioritization algorithm, enrichment API writes from Clearbit/Apollo/ZoomInfo-style sources, CRM sync) is a programmatic-write-heavy, aggregation-heavy workload. That's a database problem, not a content-editing problem — Sanity's per-document mutation API and rate limits are the wrong shape for high-frequency enrichment writes, and there's no SQL aggregation for building a scoring layer later.
-- **No editorial/collaboration need**: nobody is drafting/reviewing marketing copy for a Company record — this is structured business data, not content.
-
-Use **Neon Postgres via the Vercel Marketplace integration** (Vercel's own "Vercel Postgres" product was sunset in 2025; Neon is its direct technical successor and is now the first-class Postgres option in the Vercel dashboard — one-click provision, auto-sets `DATABASE_URL`/`DATABASE_URL_UNPOOLED`) with **Drizzle ORM** (TypeScript-first schema + query builder, lightweight/serverless-friendly, pairs naturally with `@neondatabase/serverless`'s HTTP driver for low cold-start latency on Vercel functions). Prisma is a reasonable alternative but its engine binary adds cold-start weight that Drizzle avoids — not a hard blocker, just a worse fit for a serverless-per-request model.
-
-For milestone 1's stated "manual/seed dataset," Postgres full-text search (`tsvector`/`ILIKE`) is sufficient for search/filter — do not reach for Algolia/Meilisearch/Elasticsearch until real data volume or fuzzy-matching needs justify it.
-
-**Sanity's fate:** retire it from this app's core data model. If there's ever a genuine editorial-content need later (e.g., a "playbooks" or internal-docs surface), Sanity could be reintroduced for *that* narrow purpose — but it should not hold Company/Persona records going forward.
-
-### 3. UI/component libraries for collapsible-nav + searchable-list + detail-pane layout
-
-**Recommendation: shadcn/ui + TanStack Table + TanStack Virtual (add when needed) + cmdk + nuqs.** Confidence: MEDIUM-HIGH.
-
-- **shadcn/ui's `Sidebar` component/blocks** are built for exactly this layout — `SidebarProvider` manages collapsed/expanded state, with `SidebarHeader`/`SidebarContent`/`SidebarGroup`/`SidebarMenu` sub-components and ready-made dashboard-sidebar blocks (`ui.shadcn.com/blocks/sidebar`). This is the single best-fit off-the-shelf match for the "collapsible left nav" requirement.
-- **TanStack Table** for the searchable/filterable Company and Persona lists — headless, so it pairs directly with shadcn's table primitives (shadcn's own docs demonstrate this combination) and gives sorting/filtering/column-state for free while you own the markup/styling.
-- **TanStack Virtual** — add only once a list is large enough to need it (rule of thumb: a few hundred+ rows rendered at once, or an infinite-scroll list). Milestone 1's seed dataset almost certainly doesn't need it yet; treat it as the answer when real enrichment data grows the Company/Persona tables, not a day-1 dependency.
-- **cmdk** — command-palette-style fast search/jump-to-record (the shadcn `Command` component wraps this) — a strong fit for "anyone on the team can pull up a company or persona in seconds," matching the stated Core Value.
-- **nuqs** — type-safe URL search-param state. Use it to drive "which record is selected" (e.g. `?company=acme-corp`) so the master-detail selection is shareable/bookmarkable/back-button-safe, without a custom global store.
-- **TanStack Query** — client-side data fetching/caching for the interactive parts (live search-as-you-type, filter changes, detail-pane swap) sitting on top of Next.js Route Handlers/Server Actions; Server Components still own the first-paint data fetch.
-- Supporting: **Zod** for validating API/query-param shapes (the existing codebase has zero runtime validation today — this closes that gap for the new data layer); **date-fns** for "last-updated" badge formatting; **sonner** (shadcn's recommended toast) for any async-action feedback; **lucide-react** for icons (shadcn's default icon set).
-
-**Note on shadcn/ui internals (LOW confidence, single-source, verify at implementation time):** recent shadcn CLI versions have started defaulting new inits to Base UI primitives instead of Radix UI. Radix remains fully supported and has a much larger base of examples/tutorials — unless there's a specific reason to try Base UI, explicitly choose Radix when running `shadcn init` for stability.
-
-### 4. Keeping Clerk auth + Vercel deploy (Node 20 pinned) without disruption
-
-**Recommendation: same Clerk project/config, swap SDK; same Vercel project, drop the adapter, move off Node 20.** Confidence: HIGH.
-
-- **Clerk**: this is a config/dashboard-level integration (publishable key, secret key, domain/subdomain cookie scoping for `arclumenpartners.com` + `360`/`go` subdomains — all documented in `.planning/codebase/STACK.md` and `ARCHITECTURE.md`). None of that changes. Only the SDK package changes: `@clerk/astro` → `@clerk/nextjs` (current: `7.5.22`). Next.js is Clerk's original and most mature integration — `clerkMiddleware()` exists for Next.js exactly as it does for Astro, with the same `auth()`/route-protection model, so this is a like-for-like swap, not a re-implementation of auth logic.
-  - **Next.js 16 renamed `middleware.ts` to `proxy.ts`** (old filename still works but is deprecated) — Clerk's `clerkMiddleware()` works under either name; only the file name changes. Worth flagging so whoever scaffolds the app doesn't get tripped up by outdated Clerk tutorials still showing `middleware.ts`.
-- **Vercel**: same Vercel project (`360-arclumen`, already linked via `.vercel/project.json`), same custom domain (`360.arclumenpartners.com`). What goes away: `@astrojs/vercel` and its runtime-pinning workaround entirely — Next.js deploys on Vercel natively with no adapter, so the whole class of bug fixed in commit `4e8b9a04` (adapter forcing `nodejs18.x`) cannot recur.
-  - **Node version**: don't re-pin to Node 20. Vercel is deprecating Node 20 in Project Settings on **October 1, 2026** (per Vercel's own changelog) — since this is a fresh build, set the Vercel Project Settings Node version to **22.x** (current LTS) via `package.json` `engines` (`"node": "22.x"`) and let Vercel pick it up directly — there's no adapter-level override to fight anymore.
+> This file supersedes the v1.0 `STACK.md` (Astro→Next.js/Sanity→Neon migration research, now fully implemented — see `CLAUDE.md` Constraints). It covers **only the net-new stack needed for v1.1**. Everything already validated (Next.js 16 App Router, Neon + Drizzle, `@clerk/nextjs` + `requireStaffAccess()`, shadcn/ui `nova`/`radix-nova` preset, `nuqs`, `zod`, the never-throws GET-only Arcpedia fetch pattern) stays as-is and is not re-litigated here.
 
 ## Recommended Stack
 
@@ -65,118 +12,128 @@ For milestone 1's stated "manual/seed dataset," Postgres full-text search (`tsve
 
 | Technology | Version | Purpose | Why Recommended |
 |------------|---------|---------|-----------------|
-| Next.js (App Router) | 16.2.11 | Full-stack React framework, hosting for the explorer | Native Vercel framework (no adapter/runtime-pin issues); Server Components for first-paint data + Client Components for interactive master-detail; App Router is the stable, default pattern |
-| React | 19.2.8 | UI library | Required by Next.js 16; shadcn/ui, TanStack libraries all target React 19 |
-| TypeScript | 5.6+ | Language | Already the project's language; carries over unchanged |
-| Tailwind CSS | 4.3.3 | Styling | Already in use in this repo (v3); v4's CSS-first config (`@theme`) is what current shadcn/ui targets |
-| @clerk/nextjs | 7.5.22 | Auth SDK | Direct swap for `@clerk/astro`; same Clerk project/dashboard config, no auth re-implementation |
-| Neon Postgres (via Vercel Marketplace) | — (managed service) | Primary datastore for Company/Persona records | Relational data with real joins/filters; direct successor to the sunset "Vercel Postgres" product; one-click Vercel integration auto-wires `DATABASE_URL` |
-| Drizzle ORM | 0.45.2 | Typed query builder / schema | TypeScript-first, serverless-friendly (no heavy engine binary), pairs with Neon's HTTP driver for low cold-start latency |
-| drizzle-kit | 0.31.10 | Migrations/schema tooling | Companion CLI to Drizzle ORM for generating/running SQL migrations |
-| @neondatabase/serverless | 1.1.0 | Postgres driver | HTTP-based driver purpose-built for serverless/edge functions on Vercel |
+| `csv-parse` | **7.0.1** (already installed) | CSV → row parsing for Import | Already in `package.json` as a devDependency, already used in `src/scripts/seed.ts` (`parse(content, { columns: true, skip_empty_lines: true, trim: true })`) against the exact same `companyRowSchema`/`personaRowSchema` Zod schemas Import needs. Reusing it means the CSV import Server Action can call the identical validated-row pipeline the seed script already exercises — no new parsing library, no schema duplication. **Action needed:** move it from `devDependencies` to `dependencies` — it currently only runs under `tsx` at dev/seed time, but Import will execute it inside a production Server Action bundled into the app. |
+| Apollo.io REST API (no SDK package) | API v1 (`api.apollo.io/api/v1`) | Commercial enrichment vendor for Import | Best fit of the four candidates for this stack — see full comparison below. Called via native `fetch()`, matching the existing `src/lib/arcpedia.ts` client pattern (module-level client fn, Zod-validated response, server-only API key). No official or credible community npm SDK worth adding — a thin typed wrapper (~40 lines) is simpler and matches project convention better than pulling in a third-party package for two endpoints. |
+| `ai` | **^7.0.41** | AI SDK core — agent loop, tool calling, multi-step orchestration for the Analytic Agent | Current stable major (v7, GA — not the v5/v6 tags Context7 still lists as legacy channels). This repo is already an early-adopter stack (Next 16.2.11, React 19.2.4, Tailwind v4, shadcn v4) so pinning the current major here is consistent, not risky. v7 adds first-class multi-step `stopWhen`/timeout config and stabilized structured-output repair — both directly used by the signal-detection agent's search → propose loop. |
+| `@ai-sdk/openai` | **^4.0.23** | Model provider + built-in `openai.tools.webSearch()` tool | See "AI SDK web search" analysis below — recommended default provider for the Analytic Agent. Version-aligned with `ai@7.0.41` (both pin `@ai-sdk/provider@4.0.4` + `@ai-sdk/provider-utils@5.0.14` — confirmed via npm registry metadata, not assumed). |
+| shadcn/ui `dropdown-menu` | shadcn/ui `radix-nova` registry (matches installed `components.json` style) | The "Menu" button pattern (top-right of both list pages and both detail panels) | Not yet installed in `src/components/ui/` (confirmed — only `badge`, `button`, `input`, `scroll-area`, `select`, `separator`, `sheet`, `sidebar`, `skeleton`, `table`, `tooltip` exist today). Add via `npx shadcn@latest add dropdown-menu`; it generates against the already-configured `radix-nova` style (`components.json: "style": "radix-nova"`) and imports from the **already-installed** consolidated `radix-ui` package (`^1.6.5` in `package.json`) — no new Radix primitive dependency, this repo already migrated off individual `@radix-ui/react-*` packages. |
 
 ### Supporting Libraries
 
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| shadcn/ui (CLI: `shadcn`) | CLI 4.14.0 | Component source (Sidebar, Table, Command, Badge, etc.) | Scaffold collapsible nav (`Sidebar` block), status badges, and base primitives at project start |
-| @tanstack/react-table | 8.21.3 | Headless table logic | Company/Persona list sorting, filtering, column state |
-| @tanstack/react-virtual | 3.14.8 | List virtualization | Add once a list renders hundreds+ rows at once or uses infinite scroll — not needed for milestone-1 seed data |
-| @tanstack/react-query | 5.101.4 | Client data fetching/caching | Search-as-you-type, filter changes, detail-pane swap without full navigation |
-| cmdk | 1.1.1 | Command palette | Fast "jump to company/persona" search (powers shadcn's `Command` component) |
-| nuqs | 2.9.1 | URL search-param state | Drive master-detail selection (`?company=slug`) so it's shareable/bookmarkable |
-| zod | 4.4.3 | Runtime validation | Validate API/query inputs and Drizzle query results at the boundary — closes the "no validation" gap noted in the current codebase |
-| date-fns | 4.4.0 | Date formatting | "Last updated" badges, signal timestamps |
-| lucide-react | 1.25.0 | Icons | shadcn/ui's default icon set |
-| sonner | 2.0.7 | Toasts | Async action feedback (shadcn's recommended toast library) |
-| @clerk/themes | 2.4.57 | Clerk UI theming | Match Clerk's hosted `<SignIn/>`/`<UserButton/>` to the app's Tailwind theme |
+| `@ai-sdk/anthropic` | ^4.0.23 | Alternative single-vendor model + built-in `anthropic.tools.webSearch_20250305()` | Use instead of `@ai-sdk/openai` if the team prefers to consolidate AI spend/billing on Anthropic, or if OpenAI's web search results prove weaker for GBS/SSC-transformation-specific press. Functionally equivalent pattern; requires enabling web search in the Anthropic Console first (an extra one-time setup step OpenAI doesn't have). |
+| `zod` | ^4.4.3 (already installed) | Structured-output schema for the agent's `proposeSignal` tool, Apollo response validation, CSV row validation | Already the project's validation library everywhere (Arcpedia response schema, seed row schemas). Reuse directly — AI SDK's tool `inputSchema` and Apollo response parsing both take a Zod schema exactly like `arcpediaSearchResponseSchema` already does. |
 
 ### Development Tools
 
 | Tool | Purpose | Notes |
 |------|---------|-------|
-| ESLint + Next.js config | Linting | Ships with `create-next-app`; keep TypeScript strict mode from the existing `tsconfig.json` |
-| Vercel CLI | Deploy/preview | Already a devDependency in this repo; usage pattern carries over unchanged |
-| Vitest or Playwright (pick one when tests are prioritized) | Testing | Current codebase has zero tests (flagged in `.planning/codebase/CONCERNS.md`) — not a milestone-1 blocker, but flag for roadmap |
+| `npx @ai-sdk/codemod v7` | One-time migration helper if a lower AI SDK version ever gets installed by mistake | Not needed for a fresh install — only relevant if `ai@5`/`ai@6` gets pinned first and needs upgrading later. |
+| `npx shadcn@latest add dropdown-menu` | Pulls the `DropdownMenu*` component set into `src/components/ui/dropdown-menu.tsx` | Not a runtime dependency — CLI-generated source file, same as every other file in `src/components/ui/`. |
 
 ## Installation
 
 ```bash
-# Core (fresh Next.js app inside this repo, replacing the Astro app)
-npx create-next-app@latest --typescript --tailwind --app --eslint
+# Core: Analytic Agent (AI SDK + primary model/search provider)
+npm install ai@^7.0.41 @ai-sdk/openai@^4.0.23
 
-# Auth
-npm install @clerk/nextjs @clerk/themes
+# Optional: single-vendor alternative if consolidating on Anthropic instead
+npm install @ai-sdk/anthropic@^4.0.23
 
-# Data layer
-npm install drizzle-orm @neondatabase/serverless
-npm install -D drizzle-kit
+# csv-parse is already installed as a devDependency — reinstall as a
+# production dependency since Import runs it inside a bundled Server Action,
+# not just the standalone seed script
+npm uninstall csv-parse
+npm install csv-parse@^7.0.1
 
-# UI / dashboard
-npx shadcn@latest init
-npx shadcn@latest add sidebar table badge command sonner
-npm install @tanstack/react-table @tanstack/react-query cmdk nuqs zod date-fns lucide-react
+# Menu button UI (uses the already-installed `radix-ui` package)
+npx shadcn@latest add dropdown-menu
 
-# Add later, only once list sizes require it
-npm install @tanstack/react-virtual
+# No package install for Apollo.io — plain fetch() client in src/lib/apollo.ts,
+# following the existing src/lib/arcpedia.ts convention
+```
+
+New env vars (add to `src/lib/env.ts` following the existing optional/`.catch(undefined)` degrade pattern used for the Arcpedia vars — enrichment and the agent are both user-triggered features, not core-path, so they must not fail-fast the whole app if unset):
+
+```ts
+APOLLO_API_KEY: z.string().optional(),
+OPENAI_API_KEY: z.string().optional(), // or ANTHROPIC_API_KEY if that path is chosen
+```
+
+`next.config.ts` needs one addition for the CSV Import Server Action — Next.js defaults Server Action request bodies to **1MB** (confirmed via Next.js source: `defaultActionBodySizeLimit = '1 MB'`), which a few-hundred-to-few-thousand-row Company/Persona CSV can realistically exceed:
+
+```ts
+const nextConfig: NextConfig = {
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '5mb',
+    },
+  },
+  // ...existing config
+};
 ```
 
 ## Alternatives Considered
 
 | Recommended | Alternative | When to Use Alternative |
 |-------------|-------------|--------------------------|
-| Next.js (App Router) | Stay on Astro + React islands + nanostores | Team strongly prioritizes minimizing framework churn over developer ergonomics for the interactive master-detail UI; accept added state-sharing complexity |
-| Next.js (App Router) | Plain Vite + React Router SPA + Vercel serverless functions | If there's a strong preference to avoid Next.js's opinionated caching/RSC model for an internal-only, auth-gated tool with no SEO need — viable but loses Next's built-in Server Components/streaming and Vercel's zero-config framework preset |
-| Neon Postgres + Drizzle | Prisma ORM | Team has existing Prisma expertise; accept slightly higher cold-start latency from Prisma's engine binary on serverless |
-| Neon Postgres + Drizzle | Supabase (Postgres + built-in auth/storage) | If the team later wants a bundled Postgres+Storage+Realtime platform instead of Clerk+Neon separately — not recommended here since Clerk auth is already a hard constraint |
-| shadcn/ui (Radix) | shadcn/ui (Base UI, new CLI default) | Team wants to try shadcn's newer primitive layer; Radix has a larger base of examples/tutorials today, so default to Radix unless there's a specific reason to switch |
+| `csv-parse` (already installed) | PapaParse | Never for this project — PapaParse (`5.5.4` latest) is a browser-first library (worker threads, `download: true` over HTTP) whose Node story is a secondary use case; `csv-parse` is already in the stack, Node-native, RFC 4180 compliant, and already wired to the exact Zod row schemas Import needs. Adding PapaParse would mean two CSV parsers doing the same job. |
+| Apollo.io | Clearbit / HubSpot Breeze Intelligence | Only if ArcLumen Partners already has a **paid HubSpot subscription** they want to route enrichment spend through — HubSpot acquired Clearbit in late 2023 and, as of 2026, its enrichment API is sold exclusively as a credit-based add-on **on top of** a paid HubSpot plan (~$65/mo realistic floor: $20/mo HubSpot + $45/mo for 100 credits), and the standalone Clearbit API is being sunset. Not usable as an independent API for a non-HubSpot app. |
+| Apollo.io | ZoomInfo | Only at much larger scale/budget. No self-serve signup, no public trial without a sales call, and annual contracts starting around $15K/yr (most teams pay $25K–$60K/yr). Wrong shape entirely for a small internal tool. |
+| Apollo.io | Clay | Only if the team wants a no-code enrichment-waterfall **workbook UI** (spreadsheet-style, multi-provider cascading) rather than a simple API call from inside this app. Clay's own programmatic "Clay API" is gated to its Enterprise tier (custom pricing); the $495/mo Growth tier's "HTTP API integrations" is Clay *consuming* other APIs inside its tables, not Clay exposing a simple lookup endpoint for us to call. Higher price floor ($185–495/mo) for a capability (no-code waterfalls) this app doesn't need — it already has its own DB/UI. |
+| `@ai-sdk/openai` + built-in `webSearch()` | `@ai-sdk/anthropic` + built-in `webSearch_20250305()` | Equally valid — pick this if consolidating AI vendor billing on Anthropic, or if the team already has Claude usage elsewhere. Slightly more setup (must enable web search in the Anthropic Console first). |
+| Built-in provider web search tool | Dedicated search provider (`@exalabs/ai-sdk` / Exa, `@tavily/ai-sdk` / Tavily, `@perplexity-ai/ai-sdk` / Perplexity Search) | Add one of these **only if** the built-in OpenAI/Anthropic web search proves too generic for ArcLumen's niche vocabulary (GBS/SSC transformation, CFO/GBS-head changes, cost-pressure signals). They plug in as an additional AI SDK tool alongside the custom `proposeSignal` tool with no change to the agent's control flow — the SDK's model-agnostic tool interface makes swapping search providers a low-cost experiment later, not an architecture decision now. Exa in particular is worth trying first if this happens — its neural/semantic search tends to do better on niche B2B terminology than keyword-oriented search. |
+| Built-in-search + custom `proposeSignal` tool | Perplexity Sonar as the **primary model** (not just a search tool) | Sonar's native web-grounding is excellent for synthesized-answer use cases, but it is less proven for the mixed workload this agent needs (native search **plus** a custom `proposeSignal` structured tool call in the same turn). OpenAI/Anthropic's mature function-calling + built-in-search combo is the safer default for a review-queue-producing agent; Perplexity remains a fine fallback search *tool* (not model) if needed later. |
 
 ## What NOT to Use
 
 | Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| Sanity CMS for Company/Persona records | Built for editorial content workflows (drafts, Studio UI), not structured/relational business data that needs joins, aggregation, and high-frequency programmatic writes from future enrichment APIs | Neon Postgres + Drizzle ORM |
-| Astro islands for the whole master-detail UI | Cross-island state sharing (list selection → detail pane) requires external stores and manual wiring for a pattern React handles natively; no SEO/content benefit exists behind Clerk auth to justify the tradeoff | Next.js App Router (Client Components share state via ordinary React state/URL params) |
-| `@astrojs/vercel` adapter / Node 20 pin | The adapter forced `nodejs18.x` requiring a manual pin workaround (commit `4e8b9a04`); Node 20 is also being deprecated on Vercel Oct 1, 2026 | Next.js deploys natively on Vercel with no adapter; pin Node 22.x via `engines` |
-| Algolia/Meilisearch/Elasticsearch (for milestone 1) | Overkill for a manual/seed dataset with no live enrichment yet — adds infra and cost with no current data-volume justification | Postgres full-text search (`tsvector`)/`ILIKE` filtering; revisit if data volume or fuzzy-match needs grow |
-| TanStack Virtual on day one | Adds complexity (fixed-height rows, scroll-container plumbing) before there's data volume to justify it | Plain rendered lists/tables for milestone-1 seed data; add virtualization when a list crosses a few hundred rows |
-| Prisma (unless team preference) | Engine-binary cold starts are a worse fit for Vercel's per-request serverless functions than Drizzle's lightweight query builder | Drizzle ORM + `@neondatabase/serverless` |
+|-------|-----|--------------|
+| Clearbit standalone API | Sunset since Dec 2023; folded into HubSpot Breeze Intelligence, requires a paid HubSpot subscription as a prerequisite. Not independently usable. | Apollo.io |
+| ZoomInfo (for this project's scale) | No self-serve tier, sales-gated, $15K+/yr contracts — wrong cost/complexity class for a small internal team tool. | Apollo.io |
+| Clay (as the enrichment *API*) | It's a workflow/orchestration product, not a simple lookup API; its own API access sits behind the Enterprise tier. Wrong shape for "call an endpoint from a Server Action." | Apollo.io |
+| A custom multipart/form-data parser (`busboy`, `formidable`) | Next.js Server Actions and Route Handlers already parse `FormData` (including `File` entries) natively via the standard `Request`/`FormData` Web APIs — confirmed in Next.js's own action-handler source (`fakeRequest.formData()`). Adding a multipart parser library duplicates built-in functionality. | Native `request.formData()` / Server Action `FormData` argument, then `await file.text()` into `csv-parse` |
+| PapaParse alongside `csv-parse` | Two CSV parsers with overlapping responsibility; `csv-parse` is already installed and already wired to this project's row-validation schemas. | `csv-parse` (existing) |
+| Defaulting straight to a third-party search provider (Exa/Tavily/Perplexity) for the Analytic Agent | Adds a second vendor account/API key/bill for a low-volume, internal, click-triggered feature before the built-in provider tool has even been tried. Built-in `webSearch()`/`webSearch_20250305()` tools already return `sources` (URL list) suitable for the review queue, at roughly one cent per search. | Start with the built-in OpenAI (or Anthropic) web search tool; add a dedicated provider only if result quality demonstrably falls short on ArcLumen's niche terms |
+| Individual `@radix-ui/react-dropdown-menu` package | This repo already migrated to the consolidated `radix-ui` package (`^1.6.5`) — adding the per-primitive package back would reintroduce the exact duplication shadcn's own `migrate radix` codemod was built to eliminate. | `npx shadcn@latest add dropdown-menu` (imports from the already-installed `radix-ui` package) |
 
 ## Stack Patterns by Variant
 
-**If the team decides to keep Astro despite the recommendation above:**
-- Use `@astrojs/react` for islands hosting shadcn/ui components, `@nanostores/react` for cross-island selection state
-- Keep `@clerk/astro` (no SDK swap needed)
-- Data layer recommendation (Neon + Drizzle) is unaffected by this choice — it's independent of the frontend framework
+**If the team wants the lowest-friction, single-vendor Analytic Agent setup:**
+- Use `@ai-sdk/openai` + `openai.tools.webSearch({ searchContextSize: 'high' })` paired with a custom `proposeSignal` tool (Zod `inputSchema` matching the review-queue row shape: signal type, headline, source URL, published date, rationale/confidence). Run as a single `generateText` call with `stopWhen: isStepCount(4–6)` so the model can search, re-search with a refined query, and then emit one or more `proposeSignal` tool calls.
+- Because: one API key (`OPENAI_API_KEY`), no extra search vendor, and the agent's structured output *is* the tool-call arguments — no separate `generateObject` pass needed. Critically, `proposeSignal` should have **no `execute`** that writes to the live `signals` table — the Server Action reads `result.toolCalls` and inserts into a separate review-queue table, which is what actually enforces "no auto-write" (per PROJECT.md's v1.1 scope), not the AI SDK layer itself.
 
-**If milestone 2+ adds live enrichment API integration:**
-- Postgres becomes even more clearly the right call — enrichment writes (Clearbit/Apollo/ZoomInfo-style) are exactly the high-frequency, structured-write workload Sanity is a poor fit for
-- Consider a background job runner (Vercel Cron + Route Handlers, or Inngest/Trigger.dev) for enrichment sync — out of scope for this research pass but worth flagging for that phase
+**If ArcLumen already has (or plans) a paid HubSpot subscription for other reasons:**
+- Use HubSpot Breeze Intelligence instead of Apollo.io for enrichment.
+- Because: it may already be a sunk cost, and the credit pricing model is broadly similar. Otherwise Apollo.io is strictly simpler to integrate (plain REST + API key, no HubSpot object model to map Company/Persona into).
+
+**If Import volume grows well beyond "a few thousand rows per upload":**
+- Move CSV parsing from a Server Action (subject to Next's request-body handling even after raising `bodySizeLimit`) to a Route Handler (`src/app/api/import/route.ts`) reading `request.formData()` directly, and consider streaming (`csv-parse` supports a streaming/Node-stream mode, not just `csv-parse/sync`) instead of buffering the whole file into memory.
+- Because: `csv-parse/sync` (used by the seed script and fine for CSV import at ArcLumen's current data scale) buffers the entire parsed result in memory — acceptable for hundreds/low-thousands of ICP rows, not for arbitrarily large imports.
 
 ## Version Compatibility
 
 | Package A | Compatible With | Notes |
 |-----------|------------------|-------|
-| next@16.2.11 | react@19.2.8 / react-dom@19.2.8 | Next.js 16 requires React 19 |
-| @clerk/nextjs@7.5.22 | next@16.x (App Router) | Clerk's Next.js SDK tracks current Next.js majors closely; confirm no pinned peer-dep ceiling at implementation time |
-| tailwindcss@4.3.3 | shadcn CLI 4.14.0 | shadcn's current CLI generates Tailwind v4 CSS-first config (`@theme`); do not mix with the repo's existing Tailwind v3 config — this is a breaking migration, not additive |
-| drizzle-orm@0.45.2 | @neondatabase/serverless@1.1.0 | Use Drizzle's `neon-http` (or `neon-serverless`) driver adapter to pair the two |
-| Next.js 16 | `middleware.ts` → `proxy.ts` rename | Old filename still functions but is deprecated; new Clerk/Next.js tutorials may reference either name — Clerk's `clerkMiddleware()` works unchanged under both |
+| `ai@7.0.41` | `@ai-sdk/openai@4.0.23`, `@ai-sdk/anthropic@4.0.23` | Confirmed via npm registry metadata: all three resolve to the same underlying `@ai-sdk/provider@4.0.4` + `@ai-sdk/provider-utils@5.0.14` — not just "same major," actually version-pinned identical. |
+| `@ai-sdk/openai@4.0.23` / `@ai-sdk/anthropic@4.0.23` | `zod@^4.4.3` (already installed) | Both providers declare `peerDependencies: { zod: "^3.25.76 \|\| ^4.1.8" }` — the project's existing zod install satisfies this without a bump. |
+| `csv-parse@7.0.1` | Node 22.x (this project's runtime) | Pure Node/JS parser, no native bindings, no runtime constraint beyond what's already pinned in `package.json` `engines`. |
+| `radix-ui@1.6.5` (already installed) | shadcn `dropdown-menu` (radix-nova style) | The `dropdown-menu` component generated by `npx shadcn@latest add dropdown-menu` imports from the consolidated `radix-ui` package this repo already uses (confirmed via shadcn's own `migrate radix` tooling, which moved this exact ecosystem from per-primitive `@radix-ui/react-*` packages to the single `radix-ui` package) — no version conflict, no new primitive dependency. |
+| Next.js 16.2.11 (already installed) | `experimental.serverActions.bodySizeLimit` | Config key confirmed current in Next.js canary/stable docs; default is 1MB, string sizes like `'5mb'` are accepted. |
 
 ## Sources
 
-- [Why Astro — docs.astro.build](https://docs.astro.build/en/concepts/why-astro/) — official framing of content-focused vs. application use cases (HIGH confidence)
-- npm registry (`npm view <pkg> version`, executed 2026-07-22) — ground-truth current versions for `next`, `react`, `@clerk/nextjs`, `@clerk/astro`, `astro`, `@astrojs/vercel`, `tailwindcss`, `shadcn`, `drizzle-orm`, `drizzle-kit`, `@neondatabase/serverless`, `@vercel/postgres`, `@tanstack/react-table`, `@tanstack/react-virtual`, `@tanstack/react-query`, `cmdk`, `nuqs`, `zod`, `date-fns`, `lucide-react`, `sonner`, `@clerk/themes` (HIGH confidence — verified live, not training data)
-- [Vercel: Node.js 20 is being deprecated — changelog](https://vercel.com/changelog/node-js-20-is-being-deprecated) — official deprecation date (Oct 1, 2026) (HIGH confidence)
-- [Vercel: Supported Node.js versions](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions) — current supported versions (24.x default, 22.x, 20.x) (HIGH confidence)
-- [Neon: Vercel Postgres transition guide](https://neon.com/docs/guides/vercel-postgres-transition-guide) — official confirmation Neon is the successor to the sunset Vercel Postgres product (HIGH confidence)
-- [Neon for Vercel — Marketplace](https://vercel.com/marketplace/neon) — current integration path (HIGH confidence)
-- [shadcn/ui: Sidebar component](https://ui.shadcn.com/docs/components/radix/sidebar) and [Sidebar blocks](https://ui.shadcn.com/blocks/sidebar) — official docs for the collapsible-nav component (HIGH confidence)
-- [shadcn/ui: Tailwind v4 docs](https://ui.shadcn.com/docs/tailwind-v4) — official CLI/Tailwind v4 integration notes (HIGH confidence)
-- [Clerk: clerkMiddleware() SDK reference](https://clerk.com/docs/reference/nextjs/clerk-middleware) and [Next.js Quickstart](https://clerk.com/docs/nextjs/getting-started/quickstart) — official Next.js integration pattern (HIGH confidence)
-- WebSearch synthesis on "Astro vs Next.js for dashboards," "shadcn base default," and "Next.js 16 proxy.ts rename" — cross-referenced across multiple independent articles; individual blog-post sources not independently fetched, so treated as MEDIUM confidence except where corroborated by the official docs above; the Base-UI-default CLI claim is flagged explicitly as LOW confidence pending verification at implementation time
-- `.planning/codebase/STACK.md`, `.planning/codebase/ARCHITECTURE.md`, `.planning/PROJECT.md` — existing repo state and constraints (ground truth for this repo)
+- Context7 `/vercel/ai` — web search tool patterns (OpenAI `webSearch()`, Anthropic `webSearch_20250305()`, Exa/Tavily/Perplexity dedicated provider packages, AI Gateway `gateway.tools.*`), HIGH confidence
+- Context7 `/mholt/papaparse` — Node streaming API, used to confirm PapaParse's browser-first orientation vs. `csv-parse`'s Node fit, HIGH confidence
+- Context7 `/shadcn-ui/ui` — `dropdown-menu` component composition, `radix-ui` unified-package migration path, HIGH confidence
+- Context7 `/vercel/next.js` — Server Actions `FormData`/`File` handling (native, no multipart library needed) and `bodySizeLimit` default (1MB) + config shape, HIGH confidence
+- npm registry (`npm view`) — exact version/peer-dependency alignment for `ai@7.0.41`, `@ai-sdk/openai@4.0.23`, `@ai-sdk/anthropic@4.0.23`, `csv-parse@7.0.1`, HIGH confidence
+- WebFetch `docs.apollo.io/docs/enrich-people-data`, `docs.apollo.io/reference/organization-enrichment` — auth model (`x-api-key` header), request/response JSON shape, credit cost, HIGH confidence
+- WebSearch (multiple independent sources cross-checked: Landbase, Cognism, Cleanlist, MarketBetter, UpLead, Lindy, Warmly) — Clearbit/HubSpot Breeze pricing and sunset status, Apollo.io pricing tiers/free-tier credits, ZoomInfo enterprise-only pricing, Clay pricing/API tier gating — MEDIUM confidence (pricing pages change; vendor *fit/shape* conclusions are HIGH confidence, exact dollar figures should be re-verified at implementation time)
+- WebFetch `raw.githubusercontent.com/vercel/ai/main/content/cookbook/05-node/56-web-search-agent.mdx` — native-vs-tool-based search tradeoff framing, multi-step `stopWhen`/`isStepCount` mechanics, MEDIUM confidence (cookbook doc, not core API reference)
+- Direct repo inspection (`package.json`, `components.json`, `src/lib/env.ts`, `src/lib/arcpedia.ts`, `src/scripts/seed.ts`, `src/app/actions.ts`) — confirmed existing installed versions, established patterns to extend rather than replace, HIGH confidence
 
 ---
-*Stack research for: Data-heavy B2B ICP/account-intelligence explorer dashboard*
-*Researched: 2026-07-22*
+*Stack research for: ArcLumen 360 v1.1 (Start Page + Import + Analytic Agent)*
+*Researched: 2026-07-29*

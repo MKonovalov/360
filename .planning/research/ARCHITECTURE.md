@@ -1,251 +1,221 @@
-# Architecture Research
+# Architecture Research: v1.1 Feature Integration
 
-**Domain:** Data-heavy explorer/admin dashboard (list-nav + master-detail, e.g. Recall.ai's Explorer Dashboard) built on an existing Astro + Clerk SSR app
-**Researched:** 2026-07-22
-**Confidence:** MEDIUM-HIGH (pattern itself is well-established and confirmed via Recall.ai's own docs; Astro-specific integration choices are a reasoned recommendation, not a single canonical "Astro dashboard" reference architecture — flagged where opinion vs. verified fact)
+**Domain:** Integration architecture for 4 new features onto an existing Next.js 16 App Router + Neon/Drizzle + Clerk app
+**Researched:** 2026-07-29
+**Confidence:** HIGH for integration points/file locations (read directly from source), MEDIUM for AI SDK exact API surface (skill explicitly warns training data is stale — flagged below), MEDIUM for Vercel platform limits (function duration, plan tiers)
 
-## Standard Architecture
+**Supersedes:** the previous version of this file (2026-07-22), which covered the v1.0 Astro→Next.js/Sanity→Neon migration architecture. That migration shipped; this file now covers v1.1's four new features against the *actual, implemented* v1.0 architecture (read directly from source, not from the earlier pre-migration plan).
 
-### System Overview
-
-```
-┌───────────────────────────────────────────────────────────────────────┐
-│                     Browser (staff user, signed in)                    │
-├───────────────────────────────────────────────────────────────────────┤
-│  ┌───────────────────────────────────────────────────────────────┐    │
-│  │  App Shell (persisted across navigation via Astro ClientRouter) │    │
-│  │  ┌───────────────┐  ┌──────────────────────────────────────┐  │    │
-│  │  │  Left Nav      │  │  List + Filter Island (client:load)   │  │    │
-│  │  │  Companies /   │  │  search box, filter chips, sort       │  │    │
-│  │  │  Key Personas  │  │  URL-param driven                     │  │    │
-│  │  │  (collapsible) │  └──────────────────┬───────────────────┘  │    │
-│  │  └───────────────┘                     │                      │    │
-│  └─────────────────────────────────────────┼──────────────────────┘    │
-│                                            ▼                           │
-│                              ┌──────────────────────────┐              │
-│                              │  Detail Pane (server-      │              │
-│                              │  rendered, no client JS)   │              │
-│                              │  Company 360 / Persona 360 │              │
-│                              └──────────────────────────┘              │
-└───────────────────────────────────────────┬───────────────────────────┘
-                                             │ HTTP request per route
-                                             ▼
-┌───────────────────────────────────────────────────────────────────────┐
-│         Clerk Middleware — src/middleware.ts (UNCHANGED)               │
-│         Populates Astro.locals.auth() on every request                 │
-└───────────────────────────┬────────────────────────────┬──────────────┘
-                            ▼                            ▼
-                ┌───────────────────────┐    ┌─────────────────────────┐
-                │  Astro SSR Pages       │    │  Data-Fetching Layer     │
-                │  /companies            │───▶│  src/lib/data/           │
-                │  /companies/[id]       │    │  companies.ts            │
-                │  /personas             │    │  personas.ts             │
-                │  /personas/[id]        │    │  (typed query functions) │
-                └───────────────────────┘    └────────────┬─────────────┘
-                                                            ▼
-                                              ┌──────────────────────────┐
-                                              │  Backing data store       │
-                                              │  (Sanity, retained or     │
-                                              │  replaced — see STACK.md) │
-                                              │  Company / Persona docs,  │
-                                              │  seed/manual for M1       │
-                                              └──────────────────────────┘
-```
-
-### Component Responsibilities
-
-| Component | Responsibility | Typical Implementation |
-|-----------|----------------|-------------------------|
-| Left nav | Section switcher (Companies / Key Personas), collapsible | Astro server component, static per-request, no client JS needed for collapse/expand (CSS + tiny script, not a full framework island) |
-| List + Filter island | Renders the item list, owns search input + filter controls, keeps selected-item highlight in sync | Single interactive island (React/Preact/Svelte — whichever framework STACK.md lands on), hydrated with initial SSR data + URL state as props |
-| Detail pane | Renders full Company 360 / Persona 360 view for the selected id | Plain server-rendered Astro component — no interactivity needed, cheapest possible implementation |
-| Data-fetching layer | Typed functions that query the backing store and shape results into domain types (`Company`, `Persona`), decoupled from the CMS/DB record shape | `src/lib/data/companies.ts`, `src/lib/data/personas.ts` — mirrors the existing `src/lib/sanity.ts` convention, expanded with filter/search params and relation-expansion (linked personas ↔ company) |
-| URL/filter state | Single source of truth for search text, active filters, sort, and (for master-detail) the selected item id | Query string (`?q=&signal=&sort=`) + route param (`/companies/[id]`) — never client-only state, so state survives refresh/share/back-button |
-| Auth guard | Redirect unauthenticated staff to `/sign-in`, reuse existing binary `userId` check | Continue existing per-page `Astro.locals.auth()` pattern; consider extracting a shared `requireAuth(Astro)` helper into `src/lib/auth.ts` now that there will be 4+ protected pages instead of 1 (addresses the "business logic in frontmatter" anti-pattern already flagged in `CONCERNS.md`) |
-
-## Recommended Project Structure
+## Existing Architecture (ground truth, read from source)
 
 ```
-src/
-├── middleware.ts                # UNCHANGED — Clerk auth wiring
-├── lib/
-│   ├── sanity.ts                 # existing shared client (retained or superseded per STACK.md)
-│   ├── auth.ts                   # NEW — requireAuth(Astro) helper, extracted from per-page duplication
-│   └── data/
-│       ├── companies.ts          # listCompanies(filters), getCompanyById(id) — returns domain types
-│       └── personas.ts           # listPersonas(filters), getPersonaById(id)
-├── types/
-│   └── domain.ts                 # Company, Persona, Signal, LinkedPersona/Company interfaces — decoupled from CMS schema
-├── layouts/
-│   └── AppLayout.astro           # NEW — left nav + shell chrome, wraps every explorer page
-├── components/
-│   ├── nav/
-│   │   └── SectionNav.astro      # Companies / Key Personas switcher, collapsible
-│   ├── list/
-│   │   ├── ListFilterIsland.tsx  # the one interactive island: search + filter + list rendering
-│   │   └── ListItemBadge.astro   # signal-strength / last-updated badges (static)
-│   └── detail/
-│       ├── CompanyDetail.astro   # Company 360 view (firmographics, tech stack, signals, linked personas)
-│       └── PersonaDetail.astro   # Persona 360 view (role, seniority, prior companies, linked company)
-└── pages/
-    ├── companies/
-    │   ├── index.astro           # list-only state (no selection)
-    │   └── [id].astro            # list + detail (master-detail)
-    └── personas/
-        ├── index.astro
-        └── [id].astro
+┌─────────────────────────────────────────────────────────────────┐
+│ src/app/**/page.tsx, layout.tsx  — Server Components              │
+│   requireStaffAccess() called FIRST in every layout AND page      │
+│   (belt-and-suspenders, not layout-only)                          │
+│   Direct Drizzle queries, no API/service layer                    │
+├─────────────────────────────────────────────────────────────────┤
+│ src/components/{companies,personas}/*.tsx                         │
+│   *-list.tsx, *-detail.tsx: async Server Components                │
+│   *-search-input.tsx, *-filters.tsx: 'use client' + nuqs           │
+│   (search/filter state only — NOT selection state)                │
+├─────────────────────────────────────────────────────────────────┤
+│ src/lib/db/queries/{companies,personas,signals,companyPersonaRoles}.ts │
+│   Named exports, parameterized Drizzle conditions, never raw SQL   │
+│   Return undefined/[] on not-found, do NOT themselves try/catch    │
+├─────────────────────────────────────────────────────────────────┤
+│ src/lib/arcpedia.ts — never-throws external-service module        │
+│ src/lib/env.ts — zod-validated env, fail-fast for required vars   │
+│ src/lib/db/schema.ts — pgEnum + pgTable, Drizzle                  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### Structure Rationale
+**Critical correction to the milestone brief's framing:** selection state (which company/persona is "open") is **not** nuqs/client state — it is the Next.js dynamic route segment (`/companies/[id]`). nuqs (`useQueryState`, `shallow: false`) drives only `search`/`industry`/`signal`/`revenueBand`/`ownershipType`/`seniority`/`currentCompany`/`hasSignals`. Each of `/companies` and `/companies/[id]` is a **separate page file** that both render `<CompanyList>` + either a placeholder or `<CompanyDetail>`, side by side via `grid-cols-[minmax(320px,1fr)_2fr]`. `CompanyList`/`PersonaList` hide themselves on mobile (`hidden md:block`) once a row is selected, via a `selectedId` prop compared against each row's id — no client state anywhere in the selection path. This matters directly for question (b) below.
 
-- **`lib/data/`:** Isolates the query/shape layer from both the UI and the specific backing store, directly extending the existing `lib/sanity.ts` convention documented in `STRUCTURE.md`. This is the layer that changes if the team swaps Sanity for another store later (per PROJECT.md's open stack question) — UI components should never import `@sanity/client` directly.
-- **`types/domain.ts`:** Domain types (`Company`, `Persona`) are kept separate from any one backing store's record shape (unlike the current `ShortLinkRecord`, which is really a Sanity-shaped type used directly by pages). This separation matters more here because the stack itself may change under this data model.
-- **`components/list/ListFilterIsland`** is deliberately singular — one interactive component owns list rendering + search + filter, rather than splitting search/filter/list into three separately-hydrated islands that would need to coordinate state across island boundaries (Astro islands don't share state automatically; cross-island coordination is a common Astro dashboard pitfall).
-- **`pages/companies/[id].astro` vs `pages/companies/index.astro`:** kept as two routes (not one route with conditional rendering) so each is independently SSR-cacheable/shareable and matches Astro's file-based routing convention already established in this repo.
+There are currently **zero Route Handlers** (`app/api/**/route.ts`) and **zero shadcn dropdown/menu components** installed (`src/components/ui/` has badge, button, input, scroll-area, select, separator, sheet, sidebar, skeleton, table, tooltip — no `dropdown-menu`). Both are new patterns this milestone introduces.
 
-## Architectural Patterns
-
-### Pattern 1: URL-as-state-of-record for master-detail
-
-**What:** The selected item's id lives in the route (`/companies/[id]`), and all filters/search/sort live in the query string. No client-only state holds anything that would be lost on refresh.
-**When to use:** Any list+detail explorer where users need to bookmark, share, or refresh a specific view — which is explicitly true here (leadership/execs "pulling up a company... in seconds").
-**Trade-offs:** Requires slightly more upfront plumbing (reading/writing query params) than plain component state, but eliminates an entire class of bugs (stale view after refresh, unshareable links) and is exactly the pattern Recall.ai's own Explorer Dashboard uses — bot detail is addressed as `/dashboard/explorer/bot/{BOT_ID}`, a path parameter, confirming this is the real-world convention for this exact type of tool.
-
-**Example:**
-```
-GET /companies/acme-corp?signal=high&sort=updated_desc
-→ SSR reads searchParams + [id] from Astro.url / Astro.params
-→ calls listCompanies({ signal: 'high', sort: 'updated_desc' }) for the list pane
-→ calls getCompanyById('acme-corp') for the detail pane
-→ both rendered in one response
-```
-
-### Pattern 2: SSR-first list, client island only for interactivity
-
-**What:** The list is always fetched and rendered server-side on the initial request (fast, works without JS, auth already resolved by middleware). A single client island hydrates on top of that server-rendered list to handle search-as-you-type and filter-chip toggling, either by filtering the already-fetched array client-side (fine at M1's seed-data scale) or by triggering a client-side re-fetch to a small JSON API route as data grows.
-**When to use:** Astro's core strength is cheap SSR HTML; reserve client JS for the one piece of the page that genuinely needs it (live filtering) rather than converting the whole dashboard into a client-rendered SPA.
-**Trade-offs:** Keeps bundle size small and preserves the existing Clerk-per-request auth model without a SPA rewrite. Trade-off: keystroke-by-keystroke filtering that also needs to update the URL requires care to avoid a full-page navigation per keystroke (debounce + `history.replaceState`, not a full Astro route transition, for the query-string updates; only navigate on selection change or explicit submit).
-
-**Example:**
-```typescript
-// src/pages/companies/index.astro (frontmatter)
-const filters = parseFilters(Astro.url.searchParams);
-const companies = await listCompanies(filters); // SSR fetch
 ---
-<ListFilterIsland client:load initialItems={companies} initialFilters={filters} />
+
+## (a) Start Page aggregate/stats queries
+
+**New file:** `src/lib/db/queries/stats.ts`, sibling to `companies.ts`/`personas.ts`/`signals.ts`, same conventions (named exports, Drizzle `count()`/`sql`, no try/catch inside the query function itself — callers catch, per every existing query file).
+
+```ts
+// src/lib/db/queries/stats.ts (shape, not final code)
+import { count, desc, eq } from 'drizzle-orm';
+import { db } from '../index';
+import { company, persona, signal } from '../schema';
+
+export async function getDashboardCounts() {
+  const [[{ companies }], [{ personas }], [{ signals }]] = await Promise.all([
+    db.select({ companies: count() }).from(company),
+    db.select({ personas: count() }).from(persona),
+    db.select({ signals: count() }).from(signal),
+  ]);
+  return { companies, personas, signals };
+}
+
+export async function listRecentSignals(limit = 10) {
+  return db
+    .select({ signal, companyName: company.name })
+    .from(signal)
+    .innerJoin(company, eq(signal.companyId, company.id))
+    .orderBy(desc(signal.detectedAt))
+    .limit(limit);
+}
 ```
 
-### Pattern 3: Persisted nav/list shell across navigation (Astro View Transitions)
+Consumed by a new `src/app/(start)/page.tsx` or repurposed `src/app/page.tsx` (see Build Order — root `/` currently has bespoke unauthenticated-vs-staff copy; decide whether Start Page **replaces** `src/app/page.tsx`'s signed-in branch or becomes a new authenticated-only route the sidebar links to first). Follow `CompanyList`'s try/catch-in-the-component pattern (not in the query file) for the DB-fetch error card.
 
-**What:** Add `<ClientRouter />` (Astro's built-in view-transitions router) to the shared layout, and mark the left nav + list island with `transition:persist`. Astro's router then does client-side navigation between `/companies/[id]` routes without a full page reload/flash, and persisted elements keep their DOM state (scroll position, open filter dropdowns) across those navigations — the same experience Recall.ai's explorer gives you, without needing a client-side SPA router or a framework migration.
-**When to use:** Specifically for the master-detail navigation between list items, where a full-page reload per click would feel worse than the file-based-routing default.
-**Trade-offs:** This is a genuine Astro feature (confirmed via official docs), not experimental, but it does add the constraint that any client-side script/state on persisted islands must be written to tolerate being *not* re-initialized between navigations (Astro's own docs note this as a known adjustment cost). Verify current Astro version behavior against `docs.astro.build/en/guides/view-transitions/` before implementing, since the API was renamed from `<ViewTransitions />` to `<ClientRouter />` in a past major version — confirm which name applies to the version pinned in this repo's `package.json`.
+**"Recently viewed" has no backing data today.** There is no user-scoped activity table, and `requireStaffAccess()`/schema nowhere store a Clerk `userId` against Company/Persona records. Two options:
+1. **Client-side, localStorage-backed** (recommended for v1.1): `CompanyDetail`/`PersonaDetail` pages write `{id, name, type, viewedAt}` to `localStorage` on mount via a small Client Component; the Start Page reads it back client-side. Zero schema changes, matches the "any authenticated staff user sees everything" / no-per-user-model constraint (PROJECT.md Out of Scope: "Multi-user roles/permissions"), and avoids adding a write on every detail-page view (which the current architecture treats as a pure read path).
+2. **DB-backed shared "recently viewed" log** (`recentlyViewedLog` table, no user scoping — just "last N entities opened by anyone on staff") — only worth it if the product wants a *team-shared* recent list rather than a personal one. This is a product decision, not an architecture blocker; flag it for roadmap/requirements clarification rather than deciding here. Recommend defaulting to option 1 unless the roadmap phase confirms team-shared is required.
 
-## Data Flow
+## (b) Layout rework: side-by-side → stacked
 
-### Request Flow
+**This is a layout/composition change, not a new client-state requirement.** Because selection already flows through the route (`/companies/[id]`), stacking list-above-detail requires:
 
+- **Modified:** `src/app/companies/page.tsx`, `src/app/companies/[id]/page.tsx`, `src/app/personas/page.tsx`, `src/app/personas/[id]/page.tsx` — change the outer `grid-cols-[minmax(320px,1fr)_2fr]` wrapper to a single-column stacked layout (`flex flex-col gap-8` or `grid grid-rows-[auto_auto]`). The two page variants (`/companies` vs `/companies/[id]`) still exist and still each render `<CompanyList>` plus (placeholder | `<CompanyDetail>`) — no new component split needed to satisfy "list on top, detail expands below it."
+- **Modified:** `src/components/companies/company-list.tsx`, `src/components/personas/persona-list.tsx` — remove the `selectedId ? 'hidden md:block' : 'block'` conditional. That conditional exists because side-by-side desktop showed both panes while mobile could only fit one; in a stacked layout the list should **always** stay visible above the detail, on every viewport. This is a straightforward class simplification, not new logic.
+- **Modified:** `company-detail.tsx`/`persona-detail.tsx` — no internal changes required beyond adding the new Menu-button header row (see feature 4 below); their content/data-fetching is orthogonal to layout.
+- **Removed:** the desktop-only "Select a company to view details" placeholder pane on the index (`/companies`, `/personas`) pages — in a stacked layout there's no second column for it to occupy; simplest is to drop it and let the list alone fill the page until a row is clicked.
+
+**Ambiguity to flag for the roadmap phase:** PROJECT.md says "clicking a row expands the detail panel full-width below it," which reads two ways — (1) detail renders below the *entire* list (what the current component split naturally supports, recommended), or (2) an accordion-style expand *directly under the clicked row* (would require new client state — e.g., `useState`/URL-synced expanded-row-id in a Client Component wrapping the table rows — and would complicate/break the existing plain `<Link href="/companies/{id}">`-based navigation that makes `/companies/{id}` directly shareable/bookmarkable). **Recommendation: implement (1).** It requires zero new state, preserves shareable URLs, and matches the recall.ai-explorer precedent this app is already modeled on. If the product genuinely wants per-row inline accordion, that's a materially bigger change (new Client Component wrapping `<Table>`, loses server-only rendering for the list, needs its own decision on whether the URL still updates) — call this out explicitly as an open question rather than silently picking the harder interpretation.
+
+## (c) CSV upload via Server Action
+
+Yes — special handling needed, all solvable within Server Actions (no Route Handler required for this one):
+
+1. **Body size limit.** Next.js Server Actions default to a **1MB** request body cap. `next.config.ts` has no `experimental.serverActions.bodySizeLimit` override today — must add one (e.g. `'5mb'`) sized to realistic CSV volumes (hundreds–low-thousands of rows of Company/Persona/Signal data). [Source: Next.js docs `serverActions` config reference; MEDIUM confidence on exact Next 16 config path — verify the option hasn't moved out of `experimental` before implementing, Next 16 has graduated some previously-experimental Server Actions options.]
+2. **Receiving the file.** A `<form action={importAction}>` (or a Client Component calling the action with a manually-built `FormData`) delivers the `File` as a standard web `File`/`Blob` inside the Server Action — read via `await file.text()`. No special multipart parsing needed (Next.js handles this), no streaming needed at this data scale — reading the whole file into memory mirrors `seed.ts`'s `readFileSync(...).toString()` approach exactly.
+3. **Reuse, don't duplicate, validation.** `src/lib/validation/seed.ts` already has CSV-injection-hardened, Drizzle-enum-piped zod schemas (`companyRowSchema`, `personaRowSchema`, `signalRowSchema`, `companyPersonaRoleRowSchema`) and `src/scripts/seed.ts` already has the `parse()` (csv-parse) + row-by-row `validateRows()` pattern. The Import feature's Server Action should call `parse()` (from `csv-parse/sync`, already a devDependency — **move to a runtime `dependency`**, it currently sits in `devDependencies` because only the seed script used it) and the *same* row schemas, not a parallel validator.
+4. **Do not reuse seed.ts's destructive delete-then-insert.** `seed.ts` wipes `companyPersonaRole` → `signal` → `persona` → `company` before every run — correct for a full reseed, **wrong** for a staff-triggered incremental import (it would silently delete all existing data on every CSV upload). Import needs new **additive upsert** query functions (e.g. `upsertCompanyByName`, `upsertPersonaByName` in `companies.ts`/`personas.ts`) keyed on `name` (the only natural key today), distinct from `seed.ts`'s destructive path.
+5. **Fail-loud, not fail-silent, for this write path.** Every other external-facing pattern in this codebase (Arcpedia fetch, DB-fetch error cards) intentionally degrades silently to a safe UI state because those are *read* paths where the user didn't initiate the specific call. Import is a staff-initiated *write* — it should surface **per-row validation errors** back to the UI (mirror `seed.ts`'s `errors: string[]` collection, returned from the Server Action as structured state, e.g. via `useActionState`), not swallow them. This is a deliberate, correct deviation from the "arcpedia never throws" convention — document it as such so a future reviewer doesn't "fix" it to match the read-path convention.
+6. **Enrichment API integration** (vendor TBD, per PROJECT.md) — new module `src/lib/enrichment.ts` (or `src/lib/enrichment/<vendor>.ts` if a specific vendor SDK is chosen later). It should **not** blindly copy `arcpedia.ts`'s "any failure → `[]`" shape: for Import, a staff member needs to know *enrichment failed and should be retried* vs. *enrichment ran and genuinely found nothing* — those are different states for a write flow, unlike Arcpedia's "related articles" read flow where they're equivalent. Recommend a discriminated return per row, e.g. `{ ok: true, data: {...} } | { ok: false, reason: string }`, surfaced in the import summary UI. This is a new pattern (not a copy of the never-throws convention) — flag it explicitly rather than assume it inherits Arcpedia's shape.
+
+## (d) "Proposed signal" data model
+
+**Recommendation: new table `signalProposal`, not a status column on `signal`.**
+
+Reasons, grounded in the actual current query surface:
+- `signal` is read **unconditionally** in multiple places today — `listSignalsForCompany()` (no filter), `listCompanies()`'s `signalType` `EXISTS` subquery, and `listPersonas()`'s two-hop `hasSignals` `EXISTS`/`NOT EXISTS` subquery. Adding a status column to `signal` means retrofitting a `status = 'approved'` predicate into every one of these call sites. This codebase's own Key Decisions log already documents exactly this class of bug once (the `hasSignals` tri-state collapsing bug in Phase 3) — a forgotten status filter on any of the three existing query sites would leak an unreviewed/rejected proposal straight into a live Company/Persona 360 view. A separate table makes that class of bug structurally impossible (there's no shared query surface to forget to filter).
+- The review workflow needs fields the live `signal` table has no natural home for and shouldn't be polluted with: an evidence URL/snippet from the web search (so staff can verify before approving — `signal.source`/`signal.note` are short free-text fields, not built for "here's the article that triggered this"), `proposedAt`, `reviewedBy` (Clerk `userId`), `reviewedAt`. Bolting these onto `signal` means every live signal row carries nullable review-workflow columns forever.
+- Approval flow stays simple: a Server Action inserts a new row via the **existing, unchanged** `insertSignal()` and then marks (or deletes) the `signalProposal` row — `signal` itself never needs a migration and stays exactly as immutable/append-only as it is today.
+
+**Shape (new `src/lib/db/schema.ts` additions):**
+```ts
+export const signalProposalStatusEnum = pgEnum('signal_proposal_status', [
+  'pending', 'approved', 'rejected',
+]);
+
+export const signalProposal = pgTable('signal_proposal', {
+  id: serial('id').primaryKey(),
+  companyId: integer('company_id').notNull().references(() => company.id),
+  signalType: signalTypeEnum('signal_type').notNull(),      // reuse existing enum
+  strength: signalStrengthEnum('strength').notNull(),        // reuse existing enum
+  source: text('source'),                                    // e.g. "analytic_agent"
+  detectedAt: date('detected_at').notNull(),
+  note: text('note'),
+  evidenceUrl: text('evidence_url'),        // NEW — the web search source
+  evidenceSnippet: text('evidence_snippet'), // NEW — quoted supporting text
+  status: signalProposalStatusEnum('status').notNull().default('pending'),
+  proposedAt: timestamp('proposed_at').defaultNow().notNull(),
+  reviewedBy: text('reviewed_by'),   // Clerk userId, nullable until reviewed
+  reviewedAt: timestamp('reviewed_at'),
+});
 ```
-Browser: click "Acme Corp" in list
-    ↓
-Astro ClientRouter intercepts navigation (client-side)
-    ↓
-GET /companies/acme-corp?signal=high  (query string carried over from current view)
-    ↓
-src/middleware.ts → Astro.locals.auth() populated (unchanged from today)
-    ↓
-src/pages/companies/[id].astro frontmatter:
-    - requireAuth(Astro) → redirect to /sign-in if no userId
-    - parseFilters(Astro.url.searchParams)
-    - listCompanies(filters)      → for the (persisted) list pane
-    - getCompanyById(params.id)   → for the detail pane, incl. linked personas
-    ↓
-Astro renders full HTML response (list pane content unchanged/persisted client-side,
-detail pane content swapped in)
-    ↓
-Response ← rendered HTML (no client-side JSON fetch required for this flow)
+New query file: `src/lib/db/queries/signalProposals.ts` (mirrors `signals.ts`'s shape: `insertSignalProposal`, `listPendingSignalProposals(companyId?)`, `approveSignalProposal(id)` → inserts into `signal` + updates status, `rejectSignalProposal(id)` → updates status only).
+
+## (e) Analytic Agent shape (Vercel AI SDK)
+
+**Recommendation: Route Handler, not a Server Action, and not a background job.**
+
+- **New file:** `src/app/api/companies/[id]/analyze/route.ts` (POST) — this is the **first Route Handler in the codebase**; call this out explicitly as a new architectural pattern, not folded silently into the existing "no API layer" description. It still follows the existing rules that apply everywhere else: `requireStaffAccess()` is the first call inside the handler (same single gating check used by every page/layout/Server Action today — nothing about "Route Handler" exempts it), and DB access is direct Drizzle (no separate service layer), matching the rest of the app.
+- **Why not a Server Action:** Server Actions in this codebase are used for fast mutations tied to a form/click that the caller awaits synchronously (`refreshCompanyCount`, future `importAction`). A web-search-driven multi-step agent loop can run well past that shape — the UI needs a pending/loading state on the "Analyze" button while a Client Component `fetch()`s the Route Handler, which keeps the rest of the detail page interactive rather than blocking on a Server Action's page-revalidation-oriented lifecycle. Route Handlers also make the execution-duration knob explicit and idiomatic (`export const maxDuration = <n>`) rather than inheriting it implicitly from whatever page invoked the action.
+- **Why not a background job/queue:** no queue or worker infrastructure exists anywhere in this repo today (per CLAUDE.md's own Architectural Constraints: "Single-request-per-invocation serverless model... No background workers, queues, or long-running processes"). Introducing one (Inngest, trigger.dev, Vercel Queues) is a real infra decision that isn't justified for "one staff member clicks Analyze on one company at a time" — that fits inside a single Route Handler invocation's duration budget. Flag as a Future Candidate only if usage patterns later demand bulk/"Analyze all companies" behavior.
+- **maxDuration:** set explicitly on the route (`export const maxDuration = 60` or higher) — confirm against the actual Vercel plan tier before picking a number; Hobby/Pro/Fluid-compute have different ceilings and this wasn't something I could verify from the repo (no `vercel.json`/plan info present). **MEDIUM confidence, flag for verification before implementation.**
+- **Independent failure domains, same pattern as `company-detail.tsx`:** the web-search/AI call and the DB insert of proposal rows must be in **separate try/catch scopes**, so an LLM/tool-call failure is never reported to the UI as "database error" or vice versa — this directly mirrors the existing DB-fetch vs. Arcpedia-fetch separation already established in `CompanyDetail`.
+- **Do not silently swallow errors the way `arcpedia.ts` does.** This is a staff-initiated action expecting a visible result ("Agent proposed 3 signals" / "Search failed, try again") — return a real error status/body on failure so the Client Component can render it, consistent with the fail-loud stance recommended for Import above (both are write/action paths, not passive reads).
+
+**Agent construction — verify exact API at implementation time, do not trust this document's syntax as final.** The `ai` package is not yet a dependency in `package.json`; per the project's own `vercel:ai-sdk` skill instructions ("Everything you know about the AI SDK is outdated or wrong... always verify against `node_modules/ai/docs` or current docs before writing code"), the following is the *shape* to implement, confirmed against the skill's bundled v6 reference docs, but tool names for web search specifically (native provider search tool vs. a custom `tool()` wrapping a third-party search API like Exa/Tavily) were **not** confirmed in this research pass and must be resolved by grepping `node_modules/ai/docs/` (or the chosen provider's `@ai-sdk/<provider>/docs/`) once `ai` is installed:
+
+```ts
+// src/lib/agents/signal-detection-agent.ts (shape — verify at implementation time)
+import { ToolLoopAgent } from 'ai'; // v6: always ToolLoopAgent, not Experimental_Agent
+import { z } from 'zod';
+import { signalTypeEnum, signalStrengthEnum } from '@/lib/db/schema';
+
+const proposedSignalSchema = z.object({
+  signalType: z.enum(signalTypeEnum.enumValues),   // same enum-piping convention as validation/seed.ts
+  strength: z.enum(signalStrengthEnum.enumValues),
+  detectedAt: z.string(),
+  note: z.string().optional(),
+  evidenceUrl: z.string().url(),
+  evidenceSnippet: z.string(),
+});
+
+export const signalDetectionAgent = new ToolLoopAgent({
+  model: 'anthropic/claude-sonnet-4.5', // verify against `curl ai-gateway.vercel.sh/v1/models` at build time, not from memory
+  instructions: '...GBS/SSC buying-signal detection prompt...',
+  tools: { webSearch: /* native provider search tool OR custom tool() — verify */ },
+});
 ```
+Structured extraction of the final proposal list should use `generateText({ output: Output.object({ schema: z.object({ proposals: z.array(proposedSignalSchema) }) }) })` — **not** `generateObject` (removed in AI SDK v6) and **not** `maxSteps` (renamed to `stopWhen: stepCountIs(n)`). Route model calls through the Vercel AI Gateway (`model: 'provider/model-id'` string, or explicit `gateway(...)`) rather than a direct provider SDK/API key, per the skill's default guidance — confirm with existing `env.ts`'s zod-fail-fast convention if an `AI_GATEWAY_API_KEY` needs to be added there.
 
-### State Management
+**Client side:** a new `AnalyzeMenu` Client Component (same `'use client'` + `useState`/`useTransition` shape as the existing `RefreshCompanyCount.tsx`), calling `fetch('/api/companies/[id]/analyze', { method: 'POST' })`, showing a pending state, then either revalidating/refetching the pending-proposals list or navigating to a review-queue view.
 
-```
-URL (query string + route param)
-    ↓ read on every SSR request
-Astro page frontmatter (server, per-request, stateless)
-    ↓ passed as props
-ListFilterIsland (client component)
-    ↓ user types/toggles filter
-Local component state (debounced) ←→ history.replaceState (updates URL, no navigation)
-    ↓ on Enter / item click
-Full navigation (ClientRouter) → new SSR request → state loop repeats
-```
+---
 
-### Key Data Flows
+## New vs. Modified — explicit inventory
 
-1. **Initial load (`/companies`):** middleware → auth check → `listCompanies({})` → SSR list rendered → island hydrates with that data as its starting state.
-2. **Filter/search interaction:** user input → island updates local render (client-side filter of in-memory list at M1 scale) → URL query string updated via `history.replaceState` (no navigation) so the current view remains bookmarkable without a round trip per keystroke.
-3. **Item selection (master-detail):** click → ClientRouter navigation to `/companies/[id]?<same filters>` → new SSR response fetches both list (persisted, likely unchanged) and detail (new) → detail pane swapped in, list pane state preserved via `transition:persist`.
-4. **Linked-entity traversal:** from a Company detail pane, clicking a linked Persona navigates to `/personas/[id]` — the data-fetching layer resolves the relation (Sanity reference or foreign key) inside `getCompanyById`/`getPersonaById`, so the UI never needs to fetch relations separately.
+**New files:**
+| File | Purpose |
+|---|---|
+| `src/lib/db/queries/stats.ts` | Start Page aggregate counts + recent signals |
+| `src/lib/db/queries/signalProposals.ts` | CRUD for the review queue |
+| `src/lib/enrichment.ts` (or `src/lib/enrichment/<vendor>.ts`) | Enrichment API client, discriminated-result pattern |
+| `src/lib/agents/signal-detection-agent.ts` | `ToolLoopAgent` definition + web-search tool |
+| `src/app/(start)/page.tsx` or repurposed `src/app/page.tsx` | Start Page route |
+| `src/app/api/companies/[id]/analyze/route.ts` | Analytic Agent trigger (first Route Handler in repo) |
+| `src/app/api/personas/[id]/analyze/route.ts` | Same, Persona side (if Analyze applies to both — confirm in requirements) |
+| `src/app/companies/import/...` (Server Action, likely colocated in `src/app/actions.ts` or a new `src/app/companies/actions.ts`) | CSV import Server Action |
+| `src/components/{companies,personas}/import-menu.tsx` | Client Component, Menu → Import |
+| `src/components/{companies,personas}/analyze-menu.tsx` | Client Component, Menu → Analyze |
+| `src/components/signal-proposals/*` | Review-queue list/approve/reject UI |
+| `src/components/ui/dropdown-menu.tsx` | `npx shadcn add dropdown-menu` (nova preset, matches existing shadcn convention) |
+| Drizzle migration | `signalProposal` table + `signalProposalStatusEnum` |
 
-## Scaling Considerations
+**Modified files:**
+| File | Change |
+|---|---|
+| `src/app/companies/page.tsx`, `src/app/companies/[id]/page.tsx`, `src/app/personas/page.tsx`, `src/app/personas/[id]/page.tsx` | Grid → stacked layout; add Menu button header row |
+| `src/components/companies/company-list.tsx`, `src/components/personas/persona-list.tsx` | Remove `hidden md:block` selection-hiding conditional |
+| `src/components/companies/company-detail.tsx`, `src/components/personas/persona-detail.tsx` | Add header row with Analyze Menu |
+| `src/lib/db/queries/companies.ts`, `src/lib/db/queries/personas.ts` | Add `upsertCompanyByName`/`upsertPersonaByName` (additive, distinct from seed.ts's destructive path) |
+| `src/lib/db/schema.ts` | Add `signalProposal` table + `signalProposalStatusEnum` |
+| `next.config.ts` | Add `experimental.serverActions.bodySizeLimit` |
+| `package.json` | Move `csv-parse` from `devDependencies` to `dependencies`; add `ai` (+ provider package(s)) |
+| `src/lib/env.ts` | Add enrichment API key(s), possibly `AI_GATEWAY_API_KEY`, following existing fail-fast-vs-optional-degrade split already established for Arcpedia's keys |
 
-| Scale | Architecture Adjustments |
-|-------|---------------------------|
-| Milestone 1 (seed/manual data, dozens–low hundreds of records) | Client-side filtering of a fully-fetched list is fine and simplest — fetch all Companies/Personas once per page load, filter in the island. No pagination needed. |
-| Post-enrichment (thousands of records, live API data) | Move filtering/search server-side: paginate `listCompanies`, add a real search index (Sanity's built-in search, Postgres full-text, or Algolia/Meilisearch depending on what STACK.md lands on). Client island switches from filtering in-memory to debounced fetch-on-change against a JSON endpoint. |
-| Large scale (10k+ records, heavy concurrent staff usage) | Add caching at the data-fetching layer (short-TTL cache per filter combination), consider server-driven virtualization for the list pane. Not a milestone-1 concern — flag as a later-milestone research item, not something to build speculatively now. |
+**Unmodified but load-bearing (verify no regression):** `src/lib/db/queries/signals.ts`'s `insertSignal()` is reused as-is by the proposal-approval flow; `src/lib/validation/seed.ts`'s row schemas are reused as-is by Import.
 
-### Scaling Priorities
+---
 
-1. **First bottleneck:** client-side "fetch everything, filter locally" stops working once the dataset is large enough that the initial list payload is slow/heavy — this is a *near-certain* post-M1 concern once enrichment APIs are wired in, but explicitly out of scope for M1 per PROJECT.md.
-2. **Second bottleneck:** relation resolution (Company ↔ Persona joins) done naively per-request could get slow with many-to-many links at scale — the data-fetching layer's join logic is the place to optimize (batch fetch, not N+1 queries) if/when this becomes measurable.
+## Build order recommendation
 
-## Anti-Patterns
-
-### Anti-Pattern 1: Filter/selection state living only in client component state
-
-**What people do:** Store the search text, active filters, and "which item is selected" purely in React/framework component state (e.g. `useState`), with no URL sync.
-**Why it's wrong:** Breaks the exact use case this project cares about most — "pull up a company... in seconds" and share it with a colleague. A refresh or a shared link loses the view entirely. This is also the #1 reason master-detail dashboards get rebuilt later.
-**Do this instead:** URL query string + route param is the state of record (see Pattern 1); component state is just a debounced local mirror of it.
-
-### Anti-Pattern 2: Splitting search box, filter chips, and list into separate Astro islands
-
-**What people do:** Hydrate the search input as one island, the filter sidebar as another, and the list as a third, assuming they'll naturally stay in sync.
-**Why it's wrong:** Astro islands are isolated by default — they don't share state unless you wire up an explicit store (nanostores, a shared context, or custom events). Three independently-hydrated islands trying to coordinate filter state is a well-known Astro dashboard footgun and adds real complexity for no benefit here.
-**Do this instead:** One island (`ListFilterIsland`) owns search input, filter controls, and list rendering together. If the search/filter UI later needs to be reused elsewhere independently of the list, share state via a single small store (e.g., nanostores, which Astro ships first-party support for), not via prop-drilling across independently mounted islands.
-
-### Anti-Pattern 3: Coupling UI components directly to the CMS/DB record shape
-
-**What people do:** Import `@sanity/client` types (or ORM row types) directly into page/component code, the way `ShortLinkRecord` is used directly today.
-**Why it's wrong:** PROJECT.md explicitly leaves the backing store open for re-evaluation (Sanity "may be repurposed or replaced"). If UI code is written against Sanity's GROQ projection shape, changing the store means touching every page.
-**Do this instead:** Define `Company`/`Persona` domain types in `src/types/domain.ts` and have `src/lib/data/*.ts` be the only place that knows about the actual backing store, translating its records into domain types before returning them.
-
-## Integration Points
-
-### External Services
-
-| Service | Integration Pattern | Notes |
-|---------|----------------------|-------|
-| Clerk (auth) | Unchanged — `src/middleware.ts` continues to populate `Astro.locals.auth()` on every request; each new protected page destructures `{ userId }` (or, better, a new shared `requireAuth(Astro)` helper) | No new Clerk config needed for M1 — PROJECT.md confirms no role/permission model is in scope, so the existing binary signed-in/not-signed-in check is sufficient |
-| Backing data store (Sanity, retained or replaced) | Accessed exclusively through `src/lib/data/*.ts`, never directly from pages/components | Decision on whether to keep Sanity is a STACK.md concern, not an architecture concern — the data-fetching-layer boundary works the same either way |
-
-### Internal Boundaries
-
-| Boundary | Communication | Notes |
-|----------|----------------|-------|
-| Astro pages ↔ `lib/data/*` | Direct function calls (server-side, no HTTP) | Same pattern as existing `bridge.astro` → `lib/sanity.ts`, just with typed query functions instead of inline GROQ |
-| Astro pages ↔ ClientRouter/islands | Props passed at hydration (`client:load` etc.) + URL as shared state channel | Islands never call `lib/data/*` directly on the client for M1 (no client-side data fetching needed if server-side filtering isn't yet implemented); if/when server-side search is added post-M1, expose it via a thin JSON API route (`src/pages/api/companies.json.ts`), not by exposing `lib/data` to the client bundle |
-| Company detail ↔ linked Personas (and vice versa) | Resolved inside the data-fetching layer (`getCompanyById` returns `linkedPersonas`, `getPersonaById` returns `linkedCompany`) | Keeps relation-resolution logic in one place rather than duplicated per page |
+1. **Layout rework first.** Both Import's "Menu, top-right of list" and Analyze's "Menu, top-right of detail panel" anchor to page regions this task restructures. Doing either feature before the stacked-layout lands means placing/re-placing header buttons twice.
+2. **Shared `dropdown-menu` shadcn component**, added once, used by both Import and Analyze — no reason to hand-roll two separate menu implementations.
+3. **Start Page** — fully additive (new query file, new route, zero schema changes, no dependency on the other three features). Can run in parallel with #1/#2, or first, if the team wants a low-risk win to validate the aggregate-query pattern before the heavier lifts.
+4. **Import** and **Analytic Agent** have no dependency on each other and can proceed in parallel once #1/#2 land. Import is lower-risk (no new external AI dependency, reuses existing validation code) — sequencing it before Analyze de-risks the "new Menu action + new write path" pattern before adding AI-specific complexity (agent construction, Route Handler duration limits, structured-output schema) on top of it.
+5. **Analytic Agent last** — depends on the `signalProposal` table (new migration) and is the only feature introducing a wholly new pattern (Route Handler, `ai` package, provider/model selection, web-search tool). Highest research/verification surface at implementation time (exact `ai` v6 API, web-search tool name, Vercel plan's `maxDuration` ceiling) — budget explicit phase-level research here per the roadmap's "flag deeper research" guidance.
 
 ## Sources
 
-- [View transitions - Astro Docs](https://docs.astro.build/en/guides/view-transitions/) — confirms `transition:persist`, `<ClientRouter />` (renamed from `<ViewTransitions />`), and cross-navigation state persistence. HIGH confidence, official docs.
-- [Islands architecture - Astro Docs](https://docs.astro.build/en/concepts/islands/) — confirms islands are isolated by default and hydrate independently. HIGH confidence.
-- [Explorer Dashboard - Recall.ai Docs](https://docs.recall.ai/docs/explorer-dashboard) — confirms the reference product's own explorer supports path-param-based deep links (`/dashboard/explorer/bot/{BOT_ID}`), validating the URL-as-state-of-record pattern against the named reference product. MEDIUM-HIGH confidence (direct doc reference, single source).
-- [Master–detail interface - Wikipedia](https://en.wikipedia.org/wiki/Master%E2%80%93detail_interface) — general pattern definition, side-by-side vs. stacked layout variants. MEDIUM confidence, general reference.
-- [Building a multi-framework dashboard with Astro - LogRocket](https://blog.logrocket.com/building-multi-framework-dashboard-with-astro/) and [Boost Performance with Astro Islands Architecture - Strapi](https://strapi.io/blog/astro-islands-architecture-explained-complete-guide) — community guidance on treating islands as the interactive layer over server-rendered dashboard shells. MEDIUM confidence, community sources, cross-checked against official islands docs.
-- `.planning/codebase/ARCHITECTURE.md`, `.planning/codebase/STRUCTURE.md` (this repo, 2026-07-22) — existing Clerk middleware, page-per-route convention, `lib/` client pattern that this architecture extends rather than replaces.
+- Direct repository inspection: `src/**/*.ts(x)`, `package.json`, `next.config.ts`, `drizzle.config.ts`, `.planning/PROJECT.md` (all read 2026-07-29, HIGH confidence — these are ground truth, not inference).
+- `~/.claude/plugins/cache/claude-plugins-official/vercel/0.44.0/skills/ai-sdk/SKILL.md` and bundled `references/common-errors.md`, `references/ai-gateway.md`, `references/type-safe-agents.md` — AI SDK v6 API shape (`ToolLoopAgent`, `generateText` + `Output.object`, `stepCountIs`, AI Gateway model-string convention). HIGH confidence on what's documented there; the skill itself flags that web-search-tool-specific naming needs runtime verification once `ai` is installed — carried into this doc as a flagged gap, not asserted as fact.
+- [next.config.js: serverActions | Next.js](https://nextjs.org/docs/app/api-reference/config/next-config-js/serverActions) — `bodySizeLimit` config, default 1MB. MEDIUM confidence on whether this option has graduated out of `experimental` in Next 16 specifically — verify before implementing.
+- [AI SDK 6 - Vercel](https://vercel.com/blog/ai-sdk-6) — confirms `generateObject`/`streamObject` deprecated in favor of `generateText`/`streamText` + `Output.object()` in v6. MEDIUM confidence (announcement-level source, cross-checked against the bundled skill docs above which agree).
 
 ---
-*Architecture research for: data-heavy explorer/admin dashboard (list-nav + master-detail) on Astro + Clerk*
-*Researched: 2026-07-22*
+*Architecture research for: ArcLumen 360 v1.1 (Start Page + Import + Analytic Agent + Layout rework)*
+*Researched: 2026-07-29*

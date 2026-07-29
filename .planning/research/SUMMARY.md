@@ -1,171 +1,157 @@
 # Project Research Summary
 
-**Project:** ArcLumen 360 (milestone 1 — B2B ICP / account-intelligence explorer)
-**Domain:** Data-heavy B2B ICP/account-intelligence explorer — internal, Clerk-authenticated master-detail dashboard (recall.ai Explorer Dashboard / Clay / CRM-lite record browser pattern) for GBS/SSC transformation advisory
-**Researched:** 2026-07-22
-**Confidence:** MEDIUM-HIGH
+**Project:** ArcLumen 360 — v1.1 (Start Page + Layout Rework + CSV/Enrichment Import + Analytic Agent)
+**Domain:** Internal sales-intelligence/CRM-adjacent tooling — dashboard, data import/enrichment, and human-reviewed AI agent proposals for a small-team (~10-20 record) B2B ICP explorer
+**Researched:** 2026-07-29
+**Confidence:** MEDIUM-HIGH overall (codebase-grounded findings are HIGH confidence throughout; external vendor/ecosystem claims are MEDIUM; exact AI SDK API surface and Vercel platform limits are explicitly flagged as needing implementation-time verification)
 
 ## Executive Summary
 
-ArcLumen 360 milestone 1 is a browsing/viewing layer for Company and Persona records — the same "look at records, search, filter, drill into detail" shell that Apollo, ZoomInfo, 6sense, Clay, and ChartHop all started as, before layering in enrichment, scoring, and CRM sync. Research across stack, features, architecture, and pitfalls converges on one clear build strategy: model the data properly and completely from day one (typed signals, many-to-many Company↔Persona relationships, nullable/array fields shaped like a real enrichment API), while deliberately keeping the *functional* scope to manual/seed data, badges-not-scores, and no roles — matching PROJECT.md's explicit v1 exclusions. The data-model decisions are the highest-leverage, hardest-to-reverse choices in this project; the UI-scope decisions are comparatively low-risk because they're explicitly deferred rather than under-researched.
+ArcLumen 360 v1.1 adds four features on top of the already-shipped v1.0 explorer (Next.js 16/Neon/Drizzle/Clerk): a Start Page dashboard, a stacked-layout rework of the Company/Persona master-detail views, a CSV + commercial-enrichment-API Import flow, and an "Analytic Agent" that proposes buying signals from web research into a human-reviewed queue. All four features are well-precedented individually — dashboards, CSV import wizards, and human-in-the-loop AI approval queues are each converged-on industry patterns (HubSpot/Salesforce import UX, Clay's Claygent as the closest agent analog, AWS's agentic-AI HITL guidance) — but this milestone is the first time the codebase takes on a paid external API, a first Route Handler, a first AI/tool-calling dependency, and its first *write-heavy*, repeatable, staff-triggered data path. Every existing convention in this codebase (Arcpedia's silent-fail pattern, `seed.ts`'s wipe-and-reload idempotency, side-by-side layout duplicated across 6 files) was built for a read-only, single-operator, seed-data world and is actively the wrong template to copy for at least three of these four features.
 
-The stack research makes a strong, well-sourced case for migrating off the existing thin Astro shell to Next.js (App Router) — Astro's own documentation explicitly names "logged-in admin dashboards" as the class of app it isn't optimized for, and the specific UI shape here (collapsible nav + list + detail pane sharing selection state) is exactly the cross-island state-coordination problem Astro forces you to solve manually. It also recommends retiring Sanity from the Company/Persona data model in favor of Neon Postgres + Drizzle ORM, since milestone 1 already implies joinable, filterable, aggregatable relational data and the stated pipeline (scoring, enrichment writes, CRM sync) is a database workload, not a content-editing workload. Clerk and Vercel carry forward with minimal disruption (SDK swap only; dropping the Astro adapter also permanently fixes the Node-runtime-pin bug from commit `4e8b9a04`).
+The recommended approach is disciplined reuse with explicit, called-out deviations: reuse `csv-parse` and the existing Zod row schemas for Import rather than adding a second parser; reuse the `ai`/`@ai-sdk/openai` (or Anthropic) SDK's built-in web-search tool rather than adding a third-party search vendor up front; reuse the existing named-export/query-file/`requireStaffAccess()`-per-action conventions for all new code. But explicitly *diverge* from Arcpedia's "never throws, never logs" pattern for both Import and the Analytic Agent (these are paid and/or write-adjacent, and silent failure hides cost and PII risk); explicitly avoid `seed.ts`'s destructive wipe-and-reload approach for live import (needs real upsert/dedup semantics); and structurally separate agent-proposed signals from live `signal` rows via a dedicated `signalProposal` table rather than a status flag, so an approval-boundary regression is structurally impossible rather than merely policy-enforced.
 
-The most important risk this research surfaces is schema debt, not feature debt: pitfalls research (grounded partly in this repo's own `CONCERNS.md`) flags that hand-seeding data tempts teams into unstructured signal blobs, rigid 1:1 Company-Persona links, and "always complete" seed shapes — all of which are cheap to avoid now (typed signal records, a join/history table, nullable/array fields) and expensive to retrofit once UI and seed data both assume the wrong shape. A second, lower-urgency risk is the "any authenticated Clerk user = full access" model carried forward unexamined into a product now surfacing competitive-intelligence data for a broader audience — acceptable for v1 if centralized and documented, but must be revisited before milestone 2 adds external access or CRM sync.
+The two biggest risks are cost/trust risk in Import (a paid enrichment vendor called in a loop, or a silent overwrite of staff-curated data) and integrity risk in the Analytic Agent (prompt injection from untrusted web content reaching a DB-write-adjacent tool-call, in a codebase with zero automated tests to catch a regression in the propose→approve boundary). Both are addressed by the same structural pattern: give the untrusted/costly path its own narrow, auditable table and write function, never let it touch the live table directly, and make failure states visible rather than silently degraded. A secondary, lower-risk-but-certain issue is Pitfall 1: the layout rework must consolidate the already-duplicated 6-file side-by-side markup into a shared component as part of the rework, not after — this is the same duplication-drift bug class the codebase's own Key Decisions log already documents once (Phase 3's `hasSignals` bug).
 
 ## Key Findings
 
 ### Recommended Stack
 
-Migrate the existing thin Astro/Clerk/Sanity app to **Next.js (App Router)** for the frontend/hosting layer, replace **Sanity** with **Neon Postgres + Drizzle ORM** as the Company/Persona datastore, and build the UI on **shadcn/ui** (Sidebar, Table, Command) plus the **TanStack** ecosystem. Clerk and Vercel carry forward with only an SDK swap (`@clerk/astro` → `@clerk/nextjs`) and adapter removal (no more Astro-Vercel Node-version workaround).
+The stack additions are narrow and mostly reuse-existing-pattern: `csv-parse` (already installed as a dev dependency, needs promotion to a runtime dependency) for CSV parsing against the same Zod schemas the seed script already uses; a plain `fetch()`-based Apollo.io client (recommended enrichment vendor — cheapest/simplest fit vs. Clearbit/HubSpot Breeze [sunset as standalone], ZoomInfo [sales-gated, $15K+/yr], and Clay [workflow product, not a lookup API]) following the existing `arcpedia.ts` client convention; the Vercel `ai` SDK (`^7.0.41`) + `@ai-sdk/openai` (`^4.0.23`, or `@ai-sdk/anthropic` as a single-vendor alternative) for the Analytic Agent's tool-calling loop, using the provider's *built-in* web-search tool rather than a dedicated search vendor (Exa/Tavily/Perplexity) as a first cut; and the shadcn `dropdown-menu` component (imports from the already-installed consolidated `radix-ui` package) for the shared "Menu" affordance both Import and Analyze hang off of. `next.config.ts` needs `experimental.serverActions.bodySizeLimit` raised from the 1MB default to handle realistic CSV volumes.
 
 **Core technologies:**
-- Next.js 16 (App Router) — native Vercel framework, no adapter/runtime-pin issues, Server Components for first-paint + Client Components for interactive master-detail
-- Neon Postgres (via Vercel Marketplace) + Drizzle ORM — relational data with real joins/filters; serverless-friendly, low cold-start vs. Prisma
-- @clerk/nextjs — direct swap for `@clerk/astro`, same Clerk project/dashboard config, no auth re-implementation
-- shadcn/ui (Sidebar, Table, Command blocks) + TanStack Table/Query + nuqs + cmdk — collapsible nav, searchable lists, URL-driven master-detail selection, fast command-palette search
-- Postgres full-text search (`tsvector`/`ILIKE`) for milestone-1 scale — do not reach for Algolia/Meilisearch/Elasticsearch until real data volume justifies it; same logic applies to TanStack Virtual (add only once lists grow past a few hundred rows)
+- `csv-parse` (existing, promote to `dependencies`) — CSV row parsing, reuses seed script's validated pipeline
+- Apollo.io REST API (no SDK, plain `fetch()`) — commercial enrichment vendor, best cost/shape fit at this team's scale
+- `ai` (^7.0.41) + `@ai-sdk/openai` (^4.0.23) — agent loop, tool calling, built-in web search for the Analytic Agent
+- shadcn `dropdown-menu` (radix-nova style) — shared "Menu" button UI for both Import and Analyze triggers
+- `zod` (existing) — reused for CSV row validation, Apollo response validation, and the agent's structured-output schema
 
 ### Expected Features
 
-ArcLumen 360 v1 sits squarely at the "browsing shell" layer every category leader (Apollo, ZoomInfo, 6sense, Clay, ChartHop) started from, deliberately deferring the data-pipeline layer that differentiates them commercially.
-
 **Must have (table stakes):**
-- Company record: firmographics, tech stack, buying/intent signal badges (source + last-updated), linked personas
-- Persona record: role/seniority, career history, linked company
-- Search + filter across both lists; master-detail pane (list stays visible, detail fills main area)
-- Signal/status badges visible in list rows (not just detail) for scan-and-triage
-- Collapsible left nav (Companies / Key Personas); empty/loading/error states
+- Start Page: summary stat cards, recent-signals list, recently-viewed list, replacing the current landing view
+- Stacked list/detail layout (single-expand accordion, URL-syncable, scroll-to-expand) for both Companies and Personas
+- Shared Menu-button dropdown on list pages (→ Import) and detail panels (→ Analyze)
+- CSV Import: upload → column/enum-value mapping → row-level validate/preview with partial-import support → commit → summary
+- A resolved dedup key at the schema level (`company.domain` recommended) before Import ships — `name` alone is too fragile
+- Commercial enrichment integration: staff-triggered, vendor-agnostic adapter, auto-fill-empty-fields-only merge (never silent overwrite), basic field-level provenance marker
+- Analytic Agent: on-demand web-search signal detection per Company, proposals in a new `signalProposal` table, dedicated review queue with inline evidence/citation and Accept/Reject, pending-count badge — no auto-write to `signal` under any circumstance
 
-**Should have (differentiators, model now even if not fully built):**
-- GBS/SSC-specific signal taxonomy (cost pressure, immature GBS org, new CFO/GBS head, transformation announcement) as first-class structured fields — this is the actual "360 view" differentiator vs. generic sales-intelligence tools
-- Shared team visibility of tribal knowledge (the whole point of centralizing signals that currently live in scattered inboxes) — arguably v1's real differentiator, not a "future" one
-- Saved/custom filter views (v1.x, once real usage shows repeated filter patterns)
+**Should have (competitive differentiators):**
+- "Needs attention" dashboard section (high-strength signals without recent review)
+- Downloadable CSV template pre-filled with valid enum values
+- Duplicate-aware proposing in the Analyze agent (skip re-proposing already-recorded signals)
+- Field-level merge-review UI for enrichment conflicts (shares UI shape with the signal review queue)
 
-**Defer (v2+, explicit anti-features):**
-- Live enrichment API integration (Clearbit/Apollo/ZoomInfo/Clay-style)
-- Scoring/prioritization algorithm
-- CRM sync / automated outreach
-- Multi-user roles/permissions
-- Automated career-history/org sync
+**Defer (v2+):**
+- BI-style charts, customizable dashboard widgets, real-time auto-refresh (no volume/need justifies this at ~10-20 records)
+- Scheduled/background Analyze sweeps across all Companies (stay on-demand until the manual flow is proven)
+- Recurring/scheduled CSV import (SFTP, watched folder)
+- Team-wide "who viewed what" activity feed (pending a one-line product decision on cross-staff visibility)
+- Confidence-threshold auto-approval for agent proposals and any chat-style agent interface (both explicitly contradict PROJECT.md's review-gate constraint)
 
 ### Architecture Approach
 
-The core pattern — collapsible nav + searchable/filterable list + master-detail pane, with the URL as the single source of truth for selection/filters/search — is well-established (confirmed against Recall.ai's own Explorer Dashboard, which uses path-param deep links) and is **framework-agnostic**. Architecture research was conducted against the existing Astro stack (islands, `<ClientRouter />`, `transition:persist`), but per the Stack recommendation to migrate to Next.js, its patterns translate directly: one interactive region (not three) owns search+filter+list rendering, URL search params (via `nuqs`) and route params drive selection state, a `lib/data/*` layer isolates domain types (`Company`, `Persona`) from the backing store so a future data-source swap doesn't ripple into UI code, and relation resolution (Company↔Persona) happens inside that data layer, not per-page.
+v1.1 layers cleanly onto the existing Server-Component/direct-Drizzle-query/no-service-layer architecture, with three genuinely new patterns introduced for the first time: a Route Handler (`src/app/api/companies/[id]/analyze/route.ts` — the first in the repo, needed because the Analyze feature's multi-step agent loop doesn't fit the Server-Action-tied-to-a-form shape), a new `signalProposal` table structurally separate from `signal` (not a status flag — this makes the approval-bypass failure class structurally impossible rather than policy-dependent), and a new client-vs-server split where Import/Analyze deliberately *fail loud* (surface per-row/per-call errors to the UI) rather than following Arcpedia's silent-degrade convention, because both are paid and/or write-initiated actions where silent failure hides cost or data-integrity problems.
 
 **Major components:**
-1. Left nav (section switcher, collapsible) — Companies / Key Personas
-2. List + filter region (single interactive owner of search/filter/list state) — feeds off SSR/Server-Component data, syncs to URL
-3. Detail pane (Company 360 / Persona 360) — firmographics, signals, linked records; minimal own interactivity needed
-4. Data-fetching layer (`lib/data/companies.ts`, `personas.ts`) — typed query functions shaping DB/CMS records into domain types, resolving Company↔Persona relations in one place
-5. Auth guard — centralized `requireAuth`/`requireStaffAccess` helper (replaces today's scattered inline `if (userId)` checks)
+1. `src/lib/db/queries/stats.ts` — new aggregate-query module for Start Page counts/recent-signals, same named-export/no-try-catch-in-query convention as existing query files
+2. `src/lib/db/queries/signalProposals.ts` + `signalProposal` table — CRUD for the review queue, kept structurally isolated from the live `signal` table and its three existing unconditional read sites
+3. `src/lib/enrichment.ts` — vendor-agnostic enrichment client using a discriminated `{ok:true,data} | {ok:false,reason}` result shape (deliberately not copying Arcpedia's `catch → []` pattern)
+4. `src/lib/agents/signal-detection-agent.ts` + `src/app/api/companies/[id]/analyze/route.ts` — the agent construction and its Route Handler, `requireStaffAccess()` still called first per existing convention
+5. Shared layout/menu components — a consolidated `<ExplorerLayout>`-style component (net-new, currently absent) to stop the 6-file duplication pattern, plus one shared `dropdown-menu` used by both Import and Analyze
 
 ### Critical Pitfalls
 
-1. **Signals modeled as unstructured text/notes instead of typed, sourced, dated facts** — model each signal as its own record (`signal_type`, `company_id`, `detected_at`, `source`, `strength`), never a freeform blob; badges/filtering (explicit v1 requirements) depend on this structure.
-2. **Company-Persona relationship modeled as a rigid 1:1 FK instead of many-to-many with history** — use a `PersonaCompanyRole`/employment join table (`is_current`, `start_date`/`end_date`) from day one; "previous companies" and multi-company relevance are already in scope and a 1:1 FK cannot represent them without a later migration.
-3. **Seed data shaped for hand-entry convenience, not for the future enrichment API's real shape** — make enrichment-sourced fields nullable/array-typed and add a `source`/`enriched_at` field now (even if always `"manual"`/`null`); spike-read one real enrichment API's schema before finalizing the seed schema.
-4. **"Any authenticated Clerk user = full access" carried forward unexamined** — this repo's own `CONCERNS.md` already flags this pattern; acceptable for v1 if centralized into one `requireStaffAccess()` function with an explicit code comment, but must be re-verified before milestone 2 (CRM sync, external/partner access).
-5. **List/detail UI built without URL-as-state-of-record or virtualization, assuming seed-data scale forever** — both are cheap to build in from the start (URL sync for selection/filters; a virtualized list component) and expensive to retrofit once real enrichment data grows the dataset.
+1. **Layout rework repeating Phase 3's exact duplication bug** — the side-by-side grid markup is already hand-duplicated across 6 files with no shared component; reworking to stacked layout by editing all 6 independently reproduces the same "drift independently" failure this codebase's own Key Decisions log already documents. Avoid by extracting a shared layout component (and a `companyFilters.ts` mirroring the existing `personaFilters.ts`) *before or as part of* the rework, not as follow-up cleanup.
+2. **Import reusing `seed.ts`'s wipe-and-reload idempotency strategy** — safe for a full-dataset-replace dev script, unsafe for live incremental import (deletes real signals/roles added since last import, or creates silent duplicate rows since no unique constraint exists on `company.name`/`persona.name`). Avoid via an explicit dedup key + DB-level uniqueness constraint + real upsert semantics (`onConflictDoUpdate`), never delete-then-reinsert.
+3. **All-or-nothing CSV validation UX** — `validateRows()` throws on any bad row, appropriate for a CLI script, wrong for an interactive staff upload of a hundreds-of-rows real-world export. Avoid by partitioning valid/invalid rows and supporting partial commit with row-level error reporting.
+4. **Copying Arcpedia's silent-fail/never-log pattern onto a paid, PII-bearing enrichment API** — hides billed-call failures (staff can't tell "no vendor match" from "our integration broke") and risks logging real PII if debugging temptation strikes. Avoid by logging call metadata only (never response bodies/PII) and surfacing distinct failure vs. no-match states to the UI.
+5. **Approval-bypass risk at the Analytic Agent's propose/approve boundary, in a zero-automated-test codebase** — the single most consequential trust boundary this milestone adds; a refactor that lets the agent's tool call reach `insertSignal` directly, or a single shared status-flag table instead of a structurally separate `signalProposal` table, would silently let unapproved/fabricated signals into the "trustworthy 360 view" with nothing to catch it. Avoid via structural table separation, independent `requireStaffAccess()` calls on both propose and approve actions, and treating the propose→approve→signal path as the highest-priority manual UAT scenario (worth considering as the one place to add a minimal automated test despite the no-test-suite status quo).
 
 ## Implications for Roadmap
 
-Based on combined research, suggested phase structure:
+Based on combined research (architecture's explicit Build Order recommendation, cross-checked against feature dependencies and pitfall sequencing), suggested phase structure:
 
-### Phase 1: Foundation — Framework Migration, Auth, Data Model
-**Rationale:** Framework choice (Next.js vs. Astro) and datastore choice (Postgres vs. Sanity) are the highest-leverage, hardest-to-reverse decisions in this project and block every other phase. Doing schema modeling correctly here (typed signals, many-to-many relations, nullable/array fields) avoids the most expensive pitfalls in the whole research set.
-**Delivers:** Next.js App Router app scaffolded on the existing Vercel project (adapter dropped, Node 22 pinned); `@clerk/nextjs` wired with a centralized `requireAuth`/`requireStaffAccess` helper; Neon Postgres + Drizzle schema for `Company`, `Persona`, `Signal` (typed, sourced, dated), and `PersonaCompanyRole` (join/history table); seed dataset loaded via scripted/structured data (not hand-typed CMS entries).
-**Addresses:** Underpins every P1 feature in FEATURES.md; no user-facing feature ships yet, but nothing else can be built correctly without it.
-**Avoids:** Pitfalls 1, 2, and 3 (signal/relationship/seed-shape modeling) and lays groundwork for Pitfall 4 (centralized auth check); also eliminates the Node-20/Astro-adapter bug class from STACK.md.
+### Phase 1: Layout Consolidation + Rework
+**Rationale:** Both Import's and Analyze's Menu buttons anchor to page regions this phase restructures — doing it first avoids placing/re-placing header UI twice, and Pitfall 1 requires the duplication fix to happen *as part of* this work, not after.
+**Delivers:** Shared layout component replacing the 6 duplicated side-by-side files; stacked full-width list/detail for Companies and Personas; consolidated `companyFilters.ts` mirroring the existing `personaFilters.ts`.
+**Addresses:** FEATURES.md's "Layout Rework" table stakes (single-expand accordion, URL-synced, scroll-to-expand).
+**Avoids:** Pitfall 1 (duplication drift across page files and loading skeletons).
 
-### Phase 2: Company Explorer (list + detail)
-**Rationale:** Company is named first in PROJECT.md's Core Value and establishes the master-detail/URL-state pattern once, to be reused for Persona in Phase 3.
-**Delivers:** Collapsible left nav (shadcn `Sidebar`); Company list with search + filter (TanStack Table) and master-detail selection driven by URL params (`nuqs`); Company detail view (firmographics, tech stack, signal badges with source/date, linked personas).
-**Addresses:** FEATURES P1 — company list/detail, signal badges in list rows, collapsible nav, source/note field.
-**Avoids:** Pitfall 5 (build list with virtualization-ready structure and a `filterCompanies(params)` seam even if unused at seed scale) and Pitfall 6 (URL as source of truth for selection/filters from day one, not bolted on later).
+### Phase 2: Shared Menu Component + Start Page
+**Rationale:** The `dropdown-menu` primitive is a one-time investment reused by both later features; Start Page is fully additive (new query file, new route, zero schema dependency on anything else) and can run in parallel or first as a low-risk validation of the aggregate-query pattern.
+**Delivers:** `dropdown-menu` component installed; Start Page with stat cards, recent-signals list, recently-viewed list (localStorage-backed recommended for v1.1 — no user-scoped activity table exists today).
+**Uses:** shadcn `dropdown-menu` (radix-nova), new `src/lib/db/queries/stats.ts`.
+**Implements:** Menu button architecture component reused by Phase 3 and Phase 4.
 
-### Phase 3: Persona Explorer (list + detail)
-**Rationale:** Mirrors Phase 2's pattern almost exactly, so incremental risk and research need are low once the Company loop is validated.
-**Delivers:** Persona list with search/filter/master-detail; Persona detail view (role/title/seniority, career history via the `PersonaCompanyRole` join, linked company).
-**Addresses:** FEATURES P1 — persona list/detail.
-**Uses:** Same list+filter+detail architecture component from Phase 2; `PersonaCompanyRole` join table from Phase 1 for "previous companies."
+### Phase 3: CSV Import + Enrichment API
+**Rationale:** Lower-risk than the Analytic Agent (no new AI dependency, reuses existing validated Zod schemas) — sequencing before Analyze de-risks the "new Menu action + new write path" pattern before adding AI-specific complexity on top.
+**Delivers:** Upload → map → validate/preview → partial commit → summary wizard for Companies/Personas; `company.domain` schema addition for dedup; staff-triggered enrichment with auto-fill-only merge policy and basic provenance marker.
+**Uses:** `csv-parse` (promoted to runtime dependency), Apollo.io `fetch()` client, new `upsertCompanyByName`/`upsertPersonaByName` query functions.
+**Avoids:** Pitfalls 2, 3, 4, 5, 6 (wipe-and-reload, all-or-nothing validation, uncapped billed calls, silent-fail-on-paid-call, missing provenance/staleness tracking).
 
-### Phase 4: Cross-Record Search & Resilience Polish
-**Rationale:** Once both explorers exist, the stated Core Value ("pull up a company or persona in seconds," shareable/bookmarkable) needs a unified fast-search layer and needs its promises actually verified end-to-end, not just built.
-**Delivers:** `cmdk`-powered command palette for jump-to-any-record; empty/loading/error states across all lists and detail panes; explicit verification that pasting a company/persona detail URL into a new tab reproduces the exact view (deep-linking acceptance test).
-**Addresses:** FEATURES differentiator (fast shared lookup / centralizing tribal knowledge).
-**Avoids:** The UX pitfalls table (undated/unsourced badges, missing partial-data states) and closes out Pitfall 6's acceptance criteria explicitly rather than assuming Phase 2/3 already satisfied it.
+### Phase 4: Analytic Agent (Analyze)
+**Rationale:** Depends on the new `signalProposal` table migration and is the only feature introducing wholly new architectural patterns (first Route Handler, `ai` package, provider/model selection, web-search tool-calling) — highest research/verification surface, sequenced last so Phases 1-3 establish the Menu/write-path conventions it builds on.
+**Delivers:** `signalProposal` table + enum; `POST /api/companies/[id]/analyze` Route Handler with `requireStaffAccess()` gating; agent construction with a constrained `proposeSignal`-only tool surface; dedicated review queue view with inline evidence/citation, Accept/Reject, pending-count badge.
+**Uses:** `ai` (^7.0.41) + `@ai-sdk/openai` (or Anthropic), reused `signalTypeEnum`/`signalStrengthEnum` Zod validation.
+**Avoids:** Pitfalls 7, 8, 9, 10 (prompt injection, untrusted-text rendering, approval-bypass, latency/cost vs. Vercel function duration limits).
 
 ### Phase Ordering Rationale
 
-- Framework/data-model decisions (Phase 1) must precede any UI work because both FEATURES.md and PITFALLS.md agree the schema shape (typed signals, many-to-many relations, nullable/array fields) is expensive to retrofit once seed data and UI both assume a shape.
-- Company before Persona (Phase 2 before 3) follows PROJECT.md's own Core Value framing and lets the master-detail/URL-state pattern be built once and validated before being reused, rather than building two list/detail implementations in parallel and risking drift.
-- Search/polish is deliberately last (Phase 4) because it depends on both explorers existing and is where the "looks done but isn't" checklist items (deep-linking, dated badges, empty states) get verified against real, complete features rather than partial ones.
-- Scoring, enrichment, CRM sync, and roles are explicitly out of this roadmap's scope per PROJECT.md and FEATURES.md's anti-features list — do not create a phase for them; they depend on production usage data from these four phases first.
+- Layout must come first because it's the shared surface both Menu-driven features attach to — doing it last would mean re-touching every file Import/Analyze just modified.
+- Import before Analyze because Import is lower-risk (proven validation code, no new AI dependency) and establishes the "new Menu action + fail-loud write path" pattern the Agent can then reuse rather than invent alongside its own AI-specific complexity.
+- The Analytic Agent is last and isolated because it is the only phase requiring a genuinely new architectural primitive (Route Handler) and carries this milestone's highest-severity, hardest-to-detect risk class (approval-bypass in a zero-test codebase) — it benefits most from every other convention (Menu, fail-loud errors, provenance-marker precedent) already being settled before it's tackled.
+- Dedup-key and provenance schema decisions are grouped into the Import phase because both CSV and enrichment import share the identical "does this record already exist" problem — solving it once here avoids Enrichment reinventing divergent matching logic later.
 
 ### Research Flags
 
-Needs deeper research during planning:
-- **Phase 1:** Greenfield migration territory — Next.js 16 App Router + Clerk integration specifics (the `middleware.ts` → `proxy.ts` rename), Drizzle+Neon schema/migration tooling, and the shadcn CLI's Radix-vs-Base-UI default are all flagged LOW-MEDIUM confidence single-source findings in STACK.md that should be verified at implementation time, not assumed.
+Phases likely needing deeper research during planning (`--research-phase`):
+- **Phase 4 (Analytic Agent):** ARCHITECTURE.md explicitly flags the `ai` SDK's exact API surface (tool names for web search, `ToolLoopAgent` vs. current equivalent, `stopWhen`/`Output.object` syntax) as needing verification against `node_modules/ai/docs` at implementation time — training-data-stale per the project's own AI SDK skill. Also needs explicit verification of the Vercel plan's function duration ceiling (`maxDuration`) before choosing sync-Server-Action vs. fire-and-poll architecture.
+- **Phase 3 (Import/Enrichment):** Vendor selection (Apollo.io recommended, but pricing/credit-tier details are MEDIUM confidence and should be re-verified before contracting) and the exact `next.config.ts` `serverActions.bodySizeLimit` config path (may have graduated out of `experimental` in Next 16) need confirmation at implementation time.
 
-Standard patterns (skip research-phase):
-- **Phase 2 & 3:** Master-detail UI, shadcn `Sidebar`/`Table`/`Command`, TanStack Table/Query, URL state via `nuqs` are all well-documented, HIGH-confidence patterns (official docs + a named reference product, Recall.ai's Explorer Dashboard) — standard implementation, not novel research.
-- **Phase 4:** `cmdk`/command-palette integration is a well-documented shadcn pattern; the deep-linking acceptance check is a verification task, not a research task.
+Phases with standard, well-documented patterns (skip research-phase):
+- **Phase 1 (Layout Consolidation):** Pure component/state refactor of an already-built pattern; no new external dependencies or unresolved API questions.
+- **Phase 2 (Menu + Start Page):** shadcn component installation and aggregate `COUNT`/`GROUP BY` queries are both extremely well-trodden patterns already used elsewhere in this exact codebase.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | MEDIUM-HIGH | Framework/data-layer direction verified via official Astro docs + live npm registry versions + official Vercel/Neon/Clerk/shadcn docs; a few CLI-behavior details (shadcn's Base-UI-default claim) are single-source and explicitly flagged LOW |
-| Features | MEDIUM-HIGH | Feature landscape corroborated across multiple category leaders (Apollo, ZoomInfo, 6sense, Clay, ChartHop); the GBS/SSC-specific signal taxonomy is project-supplied domain knowledge, not independently verified against a live competitor in that niche |
-| Architecture | MEDIUM-HIGH | Master-detail/URL-state pattern confirmed via official Astro docs and Recall.ai's own Explorer Dashboard docs; however, this research was conducted assuming Astro is retained, while STACK.md recommends migrating to Next.js — patterns transfer conceptually but need explicit re-mapping during planning (see Gaps below) |
-| Pitfalls | MEDIUM | Data-modeling and UI pitfalls well-documented across CRM/CDP literature (MEDIUM); the Clerk-reuse and seed-to-integration pitfalls are grounded directly in this repo's own `CONCERNS.md` audit (HIGH, first-party evidence) |
+| Stack | HIGH | Context7-verified library/version data (AI SDK, Next.js, shadcn, csv-parse) cross-checked against npm registry metadata; enrichment-vendor pricing is MEDIUM (multiple independent sources, but pricing pages change) |
+| Features | MEDIUM-HIGH | CSV import and HITL-approval patterns corroborated across multiple official sources (HubSpot/Salesforce docs, AWS Agentic AI Lens); small-internal-tool dashboard conventions are thinner in public literature, reasoned more from established CRM convention + this codebase's schema |
+| Architecture | HIGH for integration points/file locations (read directly from source); MEDIUM for exact AI SDK API surface and Vercel platform limits (explicitly flagged as unverified, training-data-stale for the AI SDK specifically) |
+| Pitfalls | HIGH for codebase-specific findings (read directly from source, including one already-documented recurrence — Phase 3's duplication bug); MEDIUM/LOW for general AI-agent/enrichment-ecosystem claims (prompt injection, vendor rate-limiting norms) — industry-standard guidance, not independently re-verified against current-dated external sources this pass |
 
-**Overall confidence:** MEDIUM-HIGH
+**Overall confidence:** MEDIUM-HIGH — the codebase-grounded portions of this research (existing conventions, file locations, schema gaps, duplication risks) are HIGH confidence and directly actionable. The genuinely novel portions (exact `ai` SDK API surface, Vercel function duration ceiling, exact enrichment vendor pricing) are explicitly flagged as needing verification at implementation time rather than treated as settled.
 
 ### Gaps to Address
 
-- **Framework research/architecture mismatch:** STACK.md recommends migrating to Next.js (App Router); ARCHITECTURE.md's diagrams and code examples are written against the existing Astro stack (islands, `<ClientRouter />`, `transition:persist`). The underlying patterns (URL-as-state-of-record, single interactive region owning list+filter, domain-type decoupling from the backing store) apply regardless of framework, but the Astro-specific implementation details in ARCHITECTURE.md need translation to Next.js equivalents (Server Components + one Client Component + `nuqs`) during Phase 1/2 planning — do not apply ARCHITECTURE.md's code samples literally if the Next.js migration is adopted.
-- **Sanity retirement decision:** STACK.md recommends dropping Sanity for Company/Persona records in favor of Neon+Drizzle; ARCHITECTURE.md's system diagram still shows Sanity as the backing store (written before/independent of that recommendation). Confirm and document this decision explicitly at the start of Phase 1 rather than defaulting to "keep what's already integrated."
-- **shadcn CLI default primitive (Radix vs. Base UI):** LOW confidence, single source — explicitly choose Radix at `shadcn init` time unless there's a specific reason to try Base UI; verify current CLI behavior at implementation time.
-- **GBS/SSC signal taxonomy market validation:** The four named signals are project-supplied domain framing, not independently verified against a live competitor targeting this same niche — fine to build as v1's differentiator, but don't treat the taxonomy itself as externally validated; expect it to evolve once the team uses the tool.
-- **No test framework in place today:** Flagged in the existing codebase's `CONCERNS.md` and carried into STACK.md's dev-tools table — not a milestone-1 blocker, but the roadmap should pick (Vitest or Playwright) before scope grows past these four phases.
+- **Exact `ai` SDK API surface** (tool construction, web-search tool naming, structured-output syntax) — must be verified against `node_modules/ai/docs` or current provider docs once the package is installed, not trusted from this research pass's syntax examples. Address during Phase 4 planning/research-phase.
+- **Vercel function duration limit for this project's specific plan tier** — no `vercel.json`/plan info was available to inspect; affects the sync-vs-fire-and-poll architecture decision for the Analytic Agent. Address during Phase 4 planning, before implementation begins.
+- **Enrichment vendor final selection and exact pricing** — Apollo.io is the research recommendation, but PROJECT.md lists it as one of several TBD candidates (Clearbit/Apollo/ZoomInfo/Clay); dollar figures cited are MEDIUM confidence and should be re-verified against current vendor pricing pages before committing. Address during Phase 3 planning.
+- **"Recently viewed" storage model (localStorage vs. DB-backed team-shared log)** — flagged in both FEATURES.md and ARCHITECTURE.md as a product decision, not purely a technical one; research recommends localStorage for v1.1 (matches "no per-user model" constraint) but a team-shared version is a real differentiator worth a one-line product decision before Phase 2 starts.
+- **"Full-width detail below entire list" vs. "inline accordion under the clicked row"** — ARCHITECTURE.md flags this as a genuine ambiguity in PROJECT.md's phrasing; research recommends the simpler, zero-new-state interpretation (detail renders below the whole list), but this should be confirmed as a design decision before Phase 1 implementation, not assumed silently.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- [Why Astro — docs.astro.build](https://docs.astro.build/en/concepts/why-astro/) — official framing of content-focused vs. application use cases
-- [Islands architecture - Astro Docs](https://docs.astro.build/en/concepts/islands/) — islands are isolated by default
-- [View transitions - Astro Docs](https://docs.astro.build/en/guides/view-transitions/) — `transition:persist`, `<ClientRouter />` rename
-- [Explorer Dashboard - Recall.ai Docs](https://docs.recall.ai/docs/explorer-dashboard) — reference product's path-param deep-link pattern
-- npm registry (executed 2026-07-22) — ground-truth current versions for the full recommended stack
-- [Vercel: Node.js 20 is being deprecated](https://vercel.com/changelog/node-js-20-is-being-deprecated); [Vercel: Supported Node.js versions](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions)
-- [Neon: Vercel Postgres transition guide](https://neon.com/docs/guides/vercel-postgres-transition-guide); [Neon for Vercel — Marketplace](https://vercel.com/marketplace/neon)
-- [shadcn/ui: Sidebar component](https://ui.shadcn.com/docs/components/radix/sidebar) / [Sidebar blocks](https://ui.shadcn.com/blocks/sidebar); [Tailwind v4 docs](https://ui.shadcn.com/docs/tailwind-v4)
-- [Clerk: clerkMiddleware() reference](https://clerk.com/docs/reference/nextjs/clerk-middleware); [Next.js Quickstart](https://clerk.com/docs/nextjs/getting-started/quickstart); [Role based access control with Clerk Organizations](https://clerk.com/blog/role-based-access-control-with-clerk-orgs); [B2B/B2C Roles and Permissions with Clerk Organizations](https://clerk.com/docs/guides/organizations/control-access/roles-and-permissions)
-- `.planning/codebase/STACK.md`, `.planning/codebase/ARCHITECTURE.md`, `.planning/codebase/STRUCTURE.md`, `.planning/codebase/CONCERNS.md`, `.planning/PROJECT.md` — first-party, ground truth for this repo's existing state and constraints
+- Direct repository inspection (`src/**/*.ts(x)`, `package.json`, `next.config.ts`, `drizzle.config.ts`, `.planning/PROJECT.md`, `src/lib/db/schema.ts`, `src/lib/validation/seed.ts`, `src/scripts/seed.ts`, `src/lib/arcpedia.ts`, `src/lib/auth/requireStaffAccess.ts`) — ground truth for existing conventions, schema gaps, and duplication patterns
+- Context7 `/vercel/ai`, `/shadcn-ui/ui`, `/vercel/next.js`, `/mholt/papaparse` — library API/version verification
+- npm registry (`npm view`) — exact version/peer-dependency alignment for `ai`, `@ai-sdk/openai`, `@ai-sdk/anthropic`, `csv-parse`
+- WebFetch `docs.apollo.io` — Apollo.io auth model, request/response shape, credit cost
+- `[AGENTSEC04-BP02] Human-in-the-loop for critical decisions | AWS Agentic AI Lens` — official AWS guidance on auto-approval scoping to low-risk/reversible actions only
 
 ### Secondary (MEDIUM confidence)
-- [What Is Firmographic Data | Apollo](https://www.apollo.io/insights/what-is-firmographic-data-and-why-does-it-matter-for-outbound-prospecting); [Building an ICP with Sales Intelligence | Apollo](https://www.apollo.io/insights/how-do-i-build-an-ideal-customer-profile-using-data-from-a-sales-intelligence-platform)
-- [ZoomInfo Data Overview](https://www.zoominfo.com/data); [ZoomInfo Intent Data](https://www.zoominfo.com/features/intent-data); [Buyer Intent Signals: 2026 Guide](https://pipeline.zoominfo.com/sales/intent-data-signals-that-matter)
-- [6sense Signalverse](https://6sense.com/signalverse/); [How 6sense Turns Buying Signals into Account Priorities](https://6sense.com/guides/account-prioritization/)
-- [Clay Waterfall enrichment](https://www.clay.com/waterfall-enrichment); [Enriching Company Data | Clay University](https://university.clay.com/lessons/enriching-company-data)
-- [Common Room — Signals product page](https://www.commonroom.io/product/signals/); [Capture every signal, everywhere | Common Room blog](https://www.commonroom.io/blog/capture-every-signal-everywhere/)
-- [ChartHop org chart resources](https://www.charthop.com/resource/what-is-org-chart-software), [buying considerations](https://www.charthop.com/resources/considerations-when-buying-org-chart-software), [docs](https://docs.charthop.com/org-chart)
-- [Transforming finance with GBS | EY](https://www.ey.com/en_us/services/consulting/finance-consulting-services/transforming-finance-with-global-business-services); [10 Shared Services Trends 2025 | Auxis](https://www.auxis.com/10-shared-services-trends-shaping-the-gbs-industry-in-2025/)
-- [Custom CRM Data Modeling](https://www.lowcode.agency/blog/custom-crm-objects-data-modeling); [CRM Data Model Explained](https://mriacrm.com/crm-data-model-explained-contacts-companies-deals-and-beyond/); [Normalizing Data Models Across CRMs](https://truto.one/blog/what-is-the-best-way-to-normalize-data-models-across-different-crms)
-- [CDP Event Schema Versioning](https://www.pathtoproject.com/blog/20260413-cdp-event-schema-versioning-without-breaking-activation); [Customer Data Processing for Intent Signals](https://www.datawhistl.com/blog/customer-data-processing-for-capturing-intent-signals-in-outbound-marketing-why-packaged-cdps-struggle-and-warehouse-native-architectures-win/)
-- [Rendering large lists without virtualization](https://rishandigital.com/reactjs/rendering-large-lists-without-virtualization-causing-slow-ui/); [10 Ways to Optimize Large List Rendering](https://www.fegno.com/10-proven-ways-to-optimize-large-list-rendering-in-react/)
-- [Sync React state with the URL](https://carlogino.com/blog/react-sync-state-with-url); [State Management | React Router](https://reactrouter.com/explanation/state-management)
-- [Multi-tenant authentication | Clerk](https://clerk.com/blog/multi-tenant-authentication-what-you-need-to-know)
-- [Master–detail interface - Wikipedia](https://en.wikipedia.org/wiki/Master%E2%80%93detail_interface)
-- [Building a multi-framework dashboard with Astro - LogRocket](https://blog.logrocket.com/building-multi-framework-dashboard-with-astro/); [Boost Performance with Astro Islands - Strapi](https://strapi.io/blog/astro-islands-architecture-explained-complete-guide)
+- WebSearch (Landbase, Cognism, Cleanlist, MarketBetter, UpLead, Lindy, Warmly) — enrichment vendor pricing/positioning cross-checked across multiple sources
+- CSVBox blog series, HubSpot/Salesforce import guides (Topo, ImportCSV, usecarly) — CSV import UX convergence pattern
+- Clay/Claygent vendor docs, OpenAI's Clay case study — closest real-world analog to the Analytic Agent
+- `~/.claude/plugins/.../ai-sdk/SKILL.md` bundled reference docs — AI SDK v6/v7 API shape, self-flagged as needing runtime verification
 
 ### Tertiary (LOW confidence)
-- WebSearch synthesis on "Astro vs Next.js for dashboards," "shadcn CLI Base UI default," and "Next.js 16 proxy.ts rename" — cross-referenced but individual blog posts not independently fetched; the Base-UI-default CLI claim explicitly needs verification at implementation time
-- [DEV Community: seed data quality](https://dev.to/joeauty/how-to-stop-living-with-your-seed-data-sucking-4lej) — single source, directionally consistent with general experience
-- Clearbit/Apollo enrichment API field-mapping patterns (Explorium.ai, ZoomInfo pipeline comparisons, Clearbit Help Center) — general shape reference only, not independently verified per-field
+- General AI-agent prompt-injection and HITL-security guidance — reflects well-established industry practice as of training data, not independently re-verified against current-dated external sources this pass; validate against the specific agent framework/SDK chosen at implementation time
+- Vercel serverless function duration limits for this project's specific plan tier — not independently verified in this research pass, flagged as an open item
 
 ---
-*Research completed: 2026-07-22*
+*Research completed: 2026-07-29*
 *Ready for roadmap: yes*
