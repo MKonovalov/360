@@ -1,14 +1,10 @@
-import Link from 'next/link';
+import { ChevronDownIcon } from 'lucide-react';
 import { listPersonas, type PersonaFilters } from '@/lib/db/queries/personas';
 import { listCompanyRolesForPersona } from '@/lib/db/queries/companyPersonaRoles';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { TableCell } from '@/components/ui/table';
+import { ExplorerAccordionTable } from '@/components/explorer/explorer-accordion-table';
+import { ExplorerTableBehavior } from '@/components/explorer/explorer-table-behavior';
+import { PersonaDetail } from '@/components/personas/persona-detail';
 import { cn } from '@/lib/utils';
 
 // seniority is a fixed-but-extensible pgEnum storing slug values
@@ -113,39 +109,33 @@ export async function PersonaList({
         selectedId ? 'hidden md:block' : 'block'
       )}
     >
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Title</TableHead>
-            <TableHead>Seniority</TableHead>
-            <TableHead>Current Company</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rowsWithCurrentCompany.map(({ persona, currentCompanyName }) => (
-            <TableRow
-              key={persona.id}
-              className={cn(
-                'min-h-12',
-                // Accent (indigo-600) selected-row indicator per UI-SPEC's
-                // Color section — accent marks selection state only
-                // (matches company-list.tsx's exact class shape).
-                persona.id === selectedId && 'border-l-2 border-l-indigo-600 bg-indigo-50/50'
-              )}
-            >
+      <ExplorerTableBehavior selectedId={selectedId}>
+        <ExplorerAccordionTable
+          columnLabels={['Name', 'Title', 'Seniority', 'Current Company']}
+          rows={rowsWithCurrentCompany}
+          getRowId={(row) => row.persona.id}
+          selectedId={selectedId}
+          renderRowCells={({ persona, currentCompanyName }, isExpanded) => (
+            <>
               <TableCell className="font-medium text-slate-900">
-                <Link href={`/personas/${persona.id}`} className="block">
+                <span className="flex items-center gap-1">
+                  <ChevronDownIcon
+                    className={cn(
+                      'size-4 shrink-0 text-slate-400 transition-transform',
+                      isExpanded && 'rotate-180'
+                    )}
+                  />
                   {persona.name}
-                </Link>
+                </span>
               </TableCell>
               <TableCell>{persona.title}</TableCell>
               <TableCell>{humanizeEnum(persona.seniority)}</TableCell>
               <TableCell>{currentCompanyName}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+            </>
+          )}
+          renderDetail={(row) => <PersonaDetail id={row.persona.id} />}
+        />
+      </ExplorerTableBehavior>
     </div>
   );
 }
