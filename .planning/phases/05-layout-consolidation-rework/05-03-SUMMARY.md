@@ -108,6 +108,10 @@ None - no external service configuration required.
 - `npx tsc --noEmit` and `npm run build` both clean
 - No blockers for Phase 6
 
+## Self-Check: PASSED
+
+All claimed files exist on disk (persona-list.tsx, persona-detail.tsx, personas/page.tsx, personas/[id]/page.tsx, this SUMMARY.md). All 4 commit hashes (a9967803, 9077225b, 14d1769c, and this file's own commit c66989e6) verified present in `git log`.
+
 ---
 *Phase: 05-layout-consolidation-rework*
 *Completed: 2026-07-30*
