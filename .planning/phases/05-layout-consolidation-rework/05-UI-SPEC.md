@@ -107,6 +107,8 @@ Inherited from `02-UI-SPEC.md`/`03-UI-SPEC.md` with two changes: (1) the old "Se
 
 This section exists because Phase 5 introduces interaction patterns (accordion expand, keyboard roving-tabindex, scroll-on-expand, explicit close) that Phase 2/3's browse-only master-detail pane never needed. Locked decisions below come from `05-CONTEXT.md` (D-01 through D-07); visual specifics are this session's additions.
 
+**Focal point:** Before expand, the primary visual anchor per row is the Name cell (chevron + entity name). After expand, the anchor shifts to the expanded detail panel — its Display-size entity name heading and the accent-bordered (`border-l-2 border-l-indigo-600`) expanded row above it — drawing the eye down into the now-visible detail content rather than leaving attention split across the still-visible list.
+
 | Behavior | Contract |
 |----------|----------|
 | Row expand affordance | A `ChevronDownIcon` (16px / `size-4`, slate-400) sits immediately before the entity name text inside the existing Name cell — **not a new column** (preserves D-04's "same columns" constraint). Rotates 180° (`rotate-180` via `transition-transform`) when `aria-expanded="true"`. |
