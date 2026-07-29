@@ -6,6 +6,11 @@ export function firstValue(value: string | string[] | undefined): string | undef
   return Array.isArray(value) ? value[0] : value;
 }
 
+// `selected` is a shared param name across both /companies and /personas
+// (D-02) — companyFilters.ts owns the one definition, re-exported here so
+// /personas pages can import it from their own entity's filters module.
+export { parseSelectedId } from './companyFilters';
+
 // Single shared implementation for both /personas and /personas/[id] — was
 // previously duplicated per-page, which let the hasSignals tri-state bug
 // (03-REVIEW.md CR-01) drift independently in each copy.
