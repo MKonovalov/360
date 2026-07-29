@@ -1,15 +1,11 @@
-import Link from 'next/link';
+import { ChevronDownIcon } from 'lucide-react';
 import { listCompanies, type CompanyFilters } from '@/lib/db/queries/companies';
 import { listSignalsForCompany } from '@/lib/db/queries/signals';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { TableCell } from '@/components/ui/table';
 import { SignalBadge } from '@/components/companies/signal-badge';
+import { CompanyDetail } from '@/components/companies/company-detail';
+import { ExplorerAccordionTable } from '@/components/explorer/explorer-accordion-table';
+import { ExplorerTableBehavior } from '@/components/explorer/explorer-table-behavior';
 import { cn } from '@/lib/utils';
 
 // revenue_band/ownership_type are fixed-but-extensible pgEnums storing
@@ -113,33 +109,32 @@ export async function CompanyList({
         selectedId ? 'hidden md:block' : 'block'
       )}
     >
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Industry</TableHead>
-            <TableHead>Employee Count</TableHead>
-            <TableHead>HQ Location</TableHead>
-            <TableHead>Revenue Band</TableHead>
-            <TableHead>Ownership Type</TableHead>
-            <TableHead>Signals</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rowsWithSignals.map(({ company, distinctSignalTypes }) => (
-            <TableRow
-              key={company.id}
-              className={cn(
-                'min-h-12',
-                // Accent (indigo-600) selected-row indicator per UI-SPEC's
-                // Color section — accent marks selection state only.
-                company.id === selectedId && 'border-l-2 border-l-indigo-600 bg-indigo-50/50'
-              )}
-            >
+      <ExplorerTableBehavior selectedId={selectedId}>
+        <ExplorerAccordionTable
+          columnLabels={[
+            'Name',
+            'Industry',
+            'Employee Count',
+            'HQ Location',
+            'Revenue Band',
+            'Ownership Type',
+            'Signals',
+          ]}
+          rows={rowsWithSignals}
+          getRowId={(row) => row.company.id}
+          selectedId={selectedId}
+          renderRowCells={({ company, distinctSignalTypes }, isExpanded) => (
+            <>
               <TableCell className="font-medium text-slate-900">
-                <Link href={`/companies/${company.id}`} className="block">
+                <span className="flex items-center gap-1">
+                  <ChevronDownIcon
+                    className={cn(
+                      'size-4 shrink-0 text-slate-400 transition-transform',
+                      isExpanded && 'rotate-180'
+                    )}
+                  />
                   {company.name}
-                </Link>
+                </span>
               </TableCell>
               <TableCell>{company.industry ?? '—'}</TableCell>
               <TableCell>{company.employeeCountBand ?? '—'}</TableCell>
@@ -153,10 +148,11 @@ export async function CompanyList({
                   ))}
                 </div>
               </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+            </>
+          )}
+          renderDetail={(row) => <CompanyDetail id={row.company.id} />}
+        />
+      </ExplorerTableBehavior>
     </div>
   );
 }

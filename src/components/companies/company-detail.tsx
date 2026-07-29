@@ -5,6 +5,7 @@ import { listPersonasForCompany } from '@/lib/db/queries/companyPersonaRoles';
 import { Badge } from '@/components/ui/badge';
 import { SignalBadge } from '@/components/companies/signal-badge';
 import { fetchArcpediaArticles } from '@/lib/arcpedia';
+import { ExplorerCloseButton } from '@/components/explorer/explorer-table-behavior';
 
 // revenue_band/ownership_type are fixed-but-extensible pgEnums storing slug
 // values — humanize for display rather than showing the raw slug to a
@@ -75,7 +76,8 @@ export async function CompanyDetail({ id }: { id: number }) {
   const articles = await fetchArcpediaArticles(company.name);
 
   return (
-    <div className="space-y-12 rounded-lg border border-slate-200 bg-white p-8">
+    <div className="relative space-y-12 bg-white p-8">
+      <ExplorerCloseButton />
       <div>
         <h1 className="text-[24px] font-semibold leading-[1.2] text-slate-900">{company.name}</h1>
         <p className="text-[14px] font-normal leading-[1.5] text-slate-500">
