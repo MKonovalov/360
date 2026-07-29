@@ -118,3 +118,7 @@ None - no external service configuration required.
 ---
 *Phase: 05-layout-consolidation-rework*
 *Completed: 2026-07-29*
+
+## Self-Check: PASSED
+
+All claimed files exist on disk and all claimed commit hashes (`8d3c5835`, `9830976d`, `12f22438`, `0918b091`) are present in `git log --oneline --all`.
