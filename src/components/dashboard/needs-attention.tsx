@@ -38,15 +38,31 @@ export async function NeedsAttention() {
 
   // N+1 acceptable at this scale — matches company-list.tsx's existing
   // precedent for resolving per-row signal badges.
-  const rowsWithHighSignals = await Promise.all(
-    companies.map(async (company) => {
-      const signals = await listSignalsForCompany(company.id);
-      const highStrengthTypes = Array.from(
-        new Set(signals.filter((s) => s.strength === 'high').map((s) => s.signalType))
-      );
-      return { company, highStrengthTypes };
-    })
-  );
+  // Guarded like the initial fetch above — a failure here must also not
+  // blank the rest of the page.
+  let rowsWithHighSignals: { company: (typeof companies)[number]; highStrengthTypes: string[] }[];
+  try {
+    rowsWithHighSignals = await Promise.all(
+      companies.map(async (company) => {
+        const signals = await listSignalsForCompany(company.id);
+        const highStrengthTypes = Array.from(
+          new Set(signals.filter((s) => s.strength === 'high').map((s) => s.signalType))
+        );
+        return { company, highStrengthTypes };
+      })
+    );
+  } catch {
+    return (
+      <div className="flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-6 text-center">
+        <p className="text-[18px] font-semibold leading-[1.2] text-slate-900">
+          {"Couldn't load needs attention"}
+        </p>
+        <p className="text-sm text-slate-500">
+          Something went wrong fetching this data. Try refreshing the page.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-6">

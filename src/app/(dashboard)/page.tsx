@@ -15,14 +15,21 @@ export default async function StartPage() {
 
   // A1 (06-RESEARCH.md): "Active Signals" is a plain COUNT(*) FROM signal —
   // no status/soft-delete column exists on the signal table today.
-  const counts = await getDashboardCounts();
+  // Guarded like every widget below it — a stats-query failure must not
+  // crash the whole Start Page (no error.tsx exists under src/app).
+  let counts: Awaited<ReturnType<typeof getDashboardCounts>> | null;
+  try {
+    counts = await getDashboardCounts();
+  } catch {
+    counts = null;
+  }
 
   return (
     <div className="flex flex-col gap-8 p-8">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Companies" value={counts.companies} />
-        <StatCard label="Personas" value={counts.personas} />
-        <StatCard label="Active Signals" value={counts.signals} />
+        <StatCard label="Companies" value={counts?.companies ?? '—'} />
+        <StatCard label="Personas" value={counts?.personas ?? '—'} />
+        <StatCard label="Active Signals" value={counts?.signals ?? '—'} />
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <RecentSignals />

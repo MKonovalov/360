@@ -52,15 +52,31 @@ export async function RecentlyViewed() {
   // N+1 acceptable at this scale (max 5 rows) — matches company-list.tsx's
   // existing "N+1 acceptable at this seed-data scale" precedent for
   // resolving related-row display names.
-  const resolvedRows = await Promise.all(
-    rows.map(async (row) => {
-      const name =
-        row.recordType === 'company'
-          ? (await getCompanyById(row.recordId))?.name
-          : (await getPersonaById(row.recordId))?.name;
-      return { ...row, name };
-    })
-  );
+  // Guarded like the initial fetch above — a failure here must also not
+  // blank the rest of the page.
+  let resolvedRows: ((typeof rows)[number] & { name: string | undefined })[];
+  try {
+    resolvedRows = await Promise.all(
+      rows.map(async (row) => {
+        const name =
+          row.recordType === 'company'
+            ? (await getCompanyById(row.recordId))?.name
+            : (await getPersonaById(row.recordId))?.name;
+        return { ...row, name };
+      })
+    );
+  } catch {
+    return (
+      <div className="flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-6 text-center">
+        <p className="text-[18px] font-semibold leading-[1.2] text-slate-900">
+          {"Couldn't load recently viewed"}
+        </p>
+        <p className="text-sm text-slate-500">
+          Something went wrong fetching this data. Try refreshing the page.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-6">
