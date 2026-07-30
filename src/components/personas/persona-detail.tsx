@@ -6,6 +6,14 @@ import { fetchArcpediaArticles } from '@/lib/arcpedia';
 import { ExplorerCloseButton } from '@/components/explorer/explorer-table-behavior';
 import { humanizeEnum, dateFormatter, FirmographicField } from '@/components/explorer/explorer-format';
 
+// WR-06: enrichment/programmatic writes into persona data are on the
+// near-term roadmap (CLAUDE.md Constraints) — once linkedinUrl is populated
+// by an automated pipeline rather than typed in by staff, a non-http(s)
+// scheme (e.g. `javascript:`) must never render as a clickable anchor href.
+function isSafeUrl(url: string): boolean {
+  return /^https?:\/\//i.test(url);
+}
+
 export async function PersonaDetail({ id }: { id: number }) {
   // EXPL-06/D-09: mirrors CompanyDetail's try/catch error-card pattern — a
   // DB-fetch failure degrades to known-good UI, never Next.js's default 500
@@ -132,7 +140,7 @@ export async function PersonaDetail({ id }: { id: number }) {
                 </a>
               </p>
             ) : null}
-            {persona.linkedinUrl ? (
+            {persona.linkedinUrl && isSafeUrl(persona.linkedinUrl) ? (
               <p>
                 <a
                   href={persona.linkedinUrl}
