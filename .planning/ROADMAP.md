@@ -97,7 +97,30 @@ Plans:
   4. Re-importing a record that already exists (matched on `company.domain` for Companies, email for Personas) updates it rather than creating a duplicate
   5. On completion staff sees a summary of counts created/updated/skipped-errored, can download a schema-generated CSV template pre-filled with valid enum values, and can see/roll back a past import from a logged import history (who imported what, when)
 
-**Plans**: TBD
+**Plans**: 11 plans, 5 waves
+
+Plans:
+**Wave 1**
+- [ ] 07-01-PLAN.md — Schema foundation: company.domain, persona.email unique, import_batch/import_log tables + [BLOCKING] drizzle-kit push
+- [ ] 07-02-PLAN.md — Test harness (Vitest) bootstrap + dedupKeys.ts (normalizeDomain/normalizeEmail/buildUpdatePatch) + next.config.ts bodySizeLimit
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 07-03-PLAN.md — columnMapping.ts (auto-mapping) + csvTemplate.ts (schema-generated template)
+- [ ] 07-04-PLAN.md — partitionRows partial-commit validator + companyRowSchema domain field
+- [ ] 07-05-PLAN.md — Query layer: upsertCompanyByDomain/upsertPersonaByEmail + importBatches.ts (CRUD + rollback dependent-row checks)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 07-06-PLAN.md — Server Actions: uploadImportFile, downloadImportTemplate, validateImportBatch, commitImportBatch, previewRollback, executeRollback
+
+**Wave 4** *(blocked on Wave 3 completion)*
+- [ ] 07-07-PLAN.md — Wizard steps: Upload + Map (step indicator, dropzone, mapping table)
+- [ ] 07-08-PLAN.md — Wizard steps: Validate & Confirm + Done
+- [ ] 07-09-PLAN.md — shadcn dialog install + Import History table + Rollback confirmation dialog
+
+**Wave 5** *(blocked on Wave 4 completion)*
+- [ ] 07-10-PLAN.md — Wizard shell (ImportWizard) + entry routes (/companies/import, /personas/import)
+- [ ] 07-11-PLAN.md — Menu wiring (live Import link) + History routes (/companies/import/history, /personas/import/history)
+
 **UI hint**: yes
 
 ### Phase 8: Enrichment API
