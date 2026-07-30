@@ -74,7 +74,7 @@ export async function PersonaDetail({ id }: { id: number }) {
         {current ? (
           <div>
             <Link
-              href={`/companies/${current.company.id}`}
+              href={`/companies?selected=${current.company.id}`}
               className="text-[14px] font-normal leading-[1.5] text-indigo-600"
             >
               {current.company.name}
