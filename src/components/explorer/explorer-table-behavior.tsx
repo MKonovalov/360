@@ -141,8 +141,10 @@ export function ExplorerTableBehavior({
   return <div ref={containerRef}>{children}</div>;
 }
 
-// Dedicated close control (D-05) — placed top-right of the expanded detail
-// panel by the caller, which must wrap it in a relative-positioned parent.
+// Dedicated close control (D-05) — the caller wraps this together with
+// ExplorerMenu in a shared positioned button-group container (MENU-02,
+// Plan 06-03: absolute-positioned top-right corner, flex row with gap), so
+// positioning lives on that wrapper rather than on this button itself.
 export function ExplorerCloseButton() {
   const [, setSelected] = useSelectedRow();
 
@@ -150,7 +152,7 @@ export function ExplorerCloseButton() {
     <Button
       variant="ghost"
       size="icon"
-      className="absolute top-3 right-3"
+      className="flex items-center"
       aria-label="Close"
       onClick={() => setSelected(null)}
     >

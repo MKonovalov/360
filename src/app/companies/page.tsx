@@ -2,6 +2,7 @@ import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { CompanyList } from '@/components/companies/company-list';
 import { CompanySearchInput } from '@/components/companies/company-search-input';
 import { CompanyFilters } from '@/components/companies/company-filters';
+import { ExplorerMenu } from '@/components/explorer/explorer-menu';
 import { listDistinctIndustries } from '@/lib/db/queries/companies';
 import { parseCompanyFilters, parseSelectedId } from '@/lib/params/companyFilters';
 
@@ -23,6 +24,9 @@ export default async function CompaniesPage({
 
   return (
     <div className="flex flex-col gap-4 p-8">
+      <div className="flex items-center justify-end">
+        <ExplorerMenu variant="labeled" items={[{ label: 'Import', disabled: true }]} />
+      </div>
       <div className="flex flex-wrap items-center gap-3">
         <CompanySearchInput />
         <CompanyFilters industries={industries} />
