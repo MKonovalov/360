@@ -99,8 +99,23 @@ export async function CompanyList({
     })
   );
 
+  // CR-02: `selectedId` (from `?selected=<id>`) may not match any row in the
+  // current filtered set — nonexistent id, deleted row, or filtered-out by
+  // the active filters. `renderDetail`/`notFound()` are only ever reached
+  // for a row already present in `rowsWithSignals`, so that case would
+  // otherwise silently render the plain list with nothing selected and no
+  // indication the D-03 legacy bookmark it came from pointed at something
+  // that's gone.
+  const selectedRowMissing =
+    selectedId != null && !rowsWithSignals.some((r) => r.company.id === selectedId);
+
   return (
     <div className="rounded-lg border border-slate-200 bg-white">
+      {selectedRowMissing ? (
+        <div className="border-b border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          {"The selected company couldn't be found — it may have been deleted or no longer matches your filters."}
+        </div>
+      ) : null}
       <ExplorerTableBehavior selectedId={selectedId}>
         <ExplorerAccordionTable
           columnLabels={[
