@@ -71,7 +71,17 @@ Full details: [`.planning/milestones/v1.0-ROADMAP.md`](milestones/v1.0-ROADMAP.m
   4. Company and Persona list pages show a "Menu" dropdown button top-right containing an Import action
   5. Company and Persona detail panels show a "Menu" dropdown button top-right containing an Analyze action
 
-**Plans**: TBD
+**Plans**: 4 plans, 2 waves
+
+Plans:
+- [ ] 06-01-PLAN.md — DB foundation: recentlyViewed schema + drizzle-kit push, dashboard aggregate queries (stats.ts), recordView Server Action
+- [ ] 06-02-PLAN.md — Shared AppShellLayout extraction (dedupes companies/personas layout), shadcn dropdown-menu install + shared ExplorerMenu component, "Start" sidebar nav item
+- [ ] 06-03-PLAN.md — Wire Menu (Import/Analyze) into both explorers + recently-viewed mount-effect tracker (depends on 06-01, 06-02)
+- [ ] 06-04-PLAN.md — Start Page dashboard: 5 widgets + (dashboard) route group replacing / (depends on 06-01, 06-02)
+
+**Wave 1** — 06-01, 06-02 (no shared files, run in parallel)
+**Wave 2** *(blocked on Wave 1 completion)* — 06-03, 06-04 (no shared files, run in parallel)
+
 **UI hint**: yes
 
 ### Phase 7: CSV Import
@@ -135,11 +145,11 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9
 | 3. Persona Explorer | v1.0 | 4/4 | Complete | 2026-07-23 |
 | 4. Arcpedia Integration & Resilience Polish | v1.0 | 2/2 | Complete | 2026-07-24 |
 | 5. Layout Consolidation + Rework | v1.1 | 3/3 | Complete    | 2026-07-30 |
-| 6. Shared Menu Component + Start Page | v1.1 | 0/TBD | Not started | - |
+| 6. Shared Menu Component + Start Page | v1.1 | 0/4 | Not started | - |
 | 7. CSV Import | v1.1 | 0/TBD | Not started | - |
 | 8. Enrichment API | v1.1 | 0/TBD | Not started | - |
 | 9. Analytic Agent + Observability | v1.1 | 0/TBD | Not started | - |
 
 ---
 
-*Roadmap for v1.1 created 2026-07-29 — 31/31 v1.1 requirements mapped across 5 phases. Phase 5 planned 2026-07-30 (3 plans, 2 waves) — ready for `/gsd-execute-phase 5`.*
+*Roadmap for v1.1 created 2026-07-29 — 31/31 v1.1 requirements mapped across 5 phases. Phase 5 planned 2026-07-30 (3 plans, 2 waves) — completed 2026-07-30. Phase 6 planned 2026-07-30 (4 plans, 2 waves) — ready for `/gsd-execute-phase 6`.*
