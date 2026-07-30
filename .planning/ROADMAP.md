@@ -25,7 +25,7 @@ Full details: [`.planning/milestones/v1.0-ROADMAP.md`](milestones/v1.0-ROADMAP.m
 
 **Phase Numbering:** Continues from v1.0 (which ended at Phase 4) — v1.1 starts at Phase 5.
 
-- [ ] **Phase 5: Layout Consolidation + Rework** - Companies and Personas both move to a shared, stacked full-width list/detail layout, replacing 6 files' worth of duplicated side-by-side markup
+- [x] **Phase 5: Layout Consolidation + Rework** - Companies and Personas both move to a shared, stacked full-width list/detail layout, replacing 6 files' worth of duplicated side-by-side markup (completed 2026-07-30)
 - [ ] **Phase 6: Shared Menu Component + Start Page** - One-time dropdown-menu investment reused by Import and Analyze; new dashboard landing page with stats, recent signals, recently-viewed, and needs-attention
 - [ ] **Phase 7: CSV Import** - Menu → Import CSV upload wizard for Companies/Personas with column/enum mapping, partial-commit validation, dedup, template download, and import history/rollback
 - [ ] **Phase 8: Enrichment API** - Menu → Import-adjacent commercial enrichment (Apollo.io) with auto-fill-empty-only merge policy, field-level provenance, and merge-conflict review
@@ -53,8 +53,8 @@ Full details: [`.planning/milestones/v1.0-ROADMAP.md`](milestones/v1.0-ROADMAP.m
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 05-02-PLAN.md — Wire Company explorer onto the shared foundation (company-list.tsx, company-detail.tsx, companies/page.tsx, companies/[id]/page.tsx redirect)
-- [ ] 05-03-PLAN.md — Wire Persona explorer onto the shared foundation (persona-list.tsx, persona-detail.tsx, personas/page.tsx, personas/[id]/page.tsx redirect)
+- [x] 05-02-PLAN.md — Wire Company explorer onto the shared foundation (company-list.tsx, company-detail.tsx, companies/page.tsx, companies/[id]/page.tsx redirect)
+- [x] 05-03-PLAN.md — Wire Persona explorer onto the shared foundation (persona-list.tsx, persona-detail.tsx, personas/page.tsx, personas/[id]/page.tsx redirect)
 
 **UI hint**: yes
 
@@ -134,7 +134,7 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9
 | 2. Company Explorer | v1.0 | 4/4 | Complete | 2026-07-23 |
 | 3. Persona Explorer | v1.0 | 4/4 | Complete | 2026-07-23 |
 | 4. Arcpedia Integration & Resilience Polish | v1.0 | 2/2 | Complete | 2026-07-24 |
-| 5. Layout Consolidation + Rework | v1.1 | 1/3 | In Progress|  |
+| 5. Layout Consolidation + Rework | v1.1 | 3/3 | Complete   | 2026-07-30 |
 | 6. Shared Menu Component + Start Page | v1.1 | 0/TBD | Not started | - |
 | 7. CSV Import | v1.1 | 0/TBD | Not started | - |
 | 8. Enrichment API | v1.1 | 0/TBD | Not started | - |
