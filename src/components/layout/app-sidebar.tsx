@@ -27,6 +27,18 @@ export function AppSidebar() {
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
+                // Exact equality, not .startsWith('/') — every route in this
+                // app is a string-prefix match for '/', so a naive prefix
+                // check would highlight "Start" on every single page.
+                isActive={pathname === '/'}
+                className="data-active:bg-indigo-50 data-active:text-indigo-600 data-active:hover:bg-indigo-50 data-active:hover:text-indigo-600"
+              >
+                <Link href="/">Start</Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
                 isActive={pathname.startsWith('/companies')}
                 className="data-active:bg-indigo-50 data-active:text-indigo-600 data-active:hover:bg-indigo-50 data-active:hover:text-indigo-600"
               >
