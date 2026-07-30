@@ -1,4 +1,4 @@
-import { pgTable, pgEnum, serial, text, integer, boolean, date, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, pgEnum, serial, text, integer, boolean, date, timestamp, unique } from 'drizzle-orm/pg-core';
 
 // D-07: fixed-but-extensible enum, seeded with the 4 known signal types.
 // Adding a 5th type is a `drizzle-kit generate` migration (ALTER TYPE ... ADD VALUE),
@@ -96,3 +96,29 @@ export const companyPersonaRole = pgTable('company_persona_role', {
   startDate: date('start_date'),
   endDate: date('end_date'),
 });
+
+// D-03: discriminates which table recordId points into. No FK — a single
+// recordId column can validly reference either company.id or persona.id,
+// and Postgres FKs can't target "one of two tables" directly.
+export const recordTypeEnum = pgEnum('record_type', ['company', 'persona']);
+
+// D-03/D-04/D-05: per-user, server-tracked, upserted on re-view.
+export const recentlyViewed = pgTable(
+  'recently_viewed',
+  {
+    id: serial('id').primaryKey(),
+    userId: text('user_id').notNull(), // Clerk userId, opaque string — no FK (Clerk is external)
+    recordType: recordTypeEnum('record_type').notNull(),
+    recordId: integer('record_id').notNull(),
+    viewedAt: timestamp('viewed_at').defaultNow().notNull(),
+  },
+  (table) => [
+    // D-05: upsert target — re-opening the same record updates viewedAt
+    // instead of appending a duplicate row.
+    unique('recently_viewed_user_record_unique').on(
+      table.userId,
+      table.recordType,
+      table.recordId
+    ),
+  ]
+);
