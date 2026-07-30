@@ -101,14 +101,7 @@ export async function PersonaList({
   );
 
   return (
-    <div
-      className={cn(
-        'rounded-lg border border-slate-200 bg-white',
-        // D-07 mobile pattern: a selected persona hides the list on narrow
-        // viewports so only the detail pane shows.
-        selectedId ? 'hidden md:block' : 'block'
-      )}
-    >
+    <div className="rounded-lg border border-slate-200 bg-white">
       <ExplorerTableBehavior selectedId={selectedId}>
         <ExplorerAccordionTable
           columnLabels={['Name', 'Title', 'Seniority', 'Current Company']}

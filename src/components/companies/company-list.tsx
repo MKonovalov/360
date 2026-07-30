@@ -100,15 +100,7 @@ export async function CompanyList({
   );
 
   return (
-    <div
-      className={cn(
-        'rounded-lg border border-slate-200 bg-white',
-        // D-07 mobile pattern: a selected company hides the list on narrow
-        // viewports so only the detail pane shows (RESEARCH.md "Mobile/
-        // Narrow-Viewport Behavior").
-        selectedId ? 'hidden md:block' : 'block'
-      )}
-    >
+    <div className="rounded-lg border border-slate-200 bg-white">
       <ExplorerTableBehavior selectedId={selectedId}>
         <ExplorerAccordionTable
           columnLabels={[

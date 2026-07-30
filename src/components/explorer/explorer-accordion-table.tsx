@@ -34,7 +34,15 @@ export function ExplorerAccordionTable<T>({
   return (
     <Table>
       <TableHeader>
-        <TableRow>
+        <TableRow
+          className={cn(
+            // D-07 mobile pattern (CR-01 fix): once a row is expanded, the
+            // detail lives inside this same <Table> (not a separate pane),
+            // so only non-expanded siblings — including the header row —
+            // hide on mobile, never the whole table.
+            selectedId != null && 'hidden md:table-row'
+          )}
+        >
           {columnLabels.map((label) => (
             <TableHead key={label}>{label}</TableHead>
           ))}
@@ -51,13 +59,17 @@ export function ExplorerAccordionTable<T>({
                 data-row-id={rowId}
                 aria-expanded={isExpanded}
                 tabIndex={
-                  isExpanded || (selectedId == null && rowId === getRowId(rows[0])) ? 0 : -1
+                  isExpanded || (selectedId == null && rows.length > 0 && rowId === getRowId(rows[0])) ? 0 : -1
                 }
                 className={cn(
                   'min-h-12 cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-inset',
                   // Accent (indigo-600) expanded-row indicator, reused verbatim
                   // from company-list.tsx's pre-Phase-5 "selected" accent class.
-                  isExpanded && 'border-l-2 border-l-indigo-600 bg-indigo-50/50'
+                  isExpanded && 'border-l-2 border-l-indigo-600 bg-indigo-50/50',
+                  // CR-01: hide only non-expanded rows on mobile once
+                  // something is selected — the expanded row (which contains
+                  // the detail) stays visible.
+                  selectedId != null && !isExpanded && 'hidden md:table-row'
                 )}
               >
                 {renderRowCells(row, isExpanded)}
