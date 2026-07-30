@@ -102,6 +102,15 @@ None - no external service configuration required by this plan itself. (The pre-
 - `AppShellLayout`, `ExplorerMenu`, and the vendored `dropdown-menu` primitive are ready for Plan 06-03 (wiring Menu buttons into both explorers' list pages and detail panels) and Plan 06-04 (Start Page route, which will consume `AppShellLayout` via a new `(dashboard)/layout.tsx`).
 - No blockers. The only open item is the worktree's missing env vars for a full `npm run build`, which does not affect Plan 06-02's own correctness (verified via `tsc --noEmit` + acceptance-criteria greps) and should resolve automatically once merged to a checkout with `.env.local` present.
 
+## Self-Check: PASSED
+
+- FOUND: src/components/layout/app-shell-layout.tsx
+- FOUND: src/components/ui/dropdown-menu.tsx
+- FOUND: src/components/explorer/explorer-menu.tsx
+- FOUND commit: c4ed749e (Task 1)
+- FOUND commit: 41f9f550 (Task 2)
+- FOUND commit: 05100b14 (Task 3)
+
 ---
 *Phase: 06-shared-menu-component-start-page*
 *Completed: 2026-07-30*
