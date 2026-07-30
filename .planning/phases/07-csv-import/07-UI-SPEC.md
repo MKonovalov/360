@@ -66,11 +66,11 @@ Usage this phase:
 - Wizard step title ("Upload CSV", "Map Columns", "Validate & Confirm", "Import Complete") → **Heading** (18px/600), same role as detail-panel section headers.
 - Step-indicator pill labels ("Upload", "Map", "Validate & Confirm", "Done") → **Label** (12px/400).
 - Done-screen and validate-step count numbers (Created / Updated / Errored / Skipped) → **Display** (24px/600), identical role to the Start Page's stat-card numbers — same component, same visual weight, so a staff member reads "3 created" with the same instant legibility as "12 Companies" on the dashboard.
-- Dropzone primary copy ("Drag and drop your CSV, or click to browse") → **Body, font-medium** (14px/500 — the one place this phase borrows the existing `font-medium` treatment already used for list-row primary text/company names, signaling this is the dropzone's main actionable label).
+- Dropzone primary copy ("Drag and drop your CSV, or click to browse") → **Body** (14px/400, slate-900) — emphasis over the helper copy below it comes from color contrast (slate-900 vs. Label's slate-500), not a third font weight, keeping this phase within the app's 2-weight system.
 - Dropzone helper copy ("Only .csv files, up to 5MB") → **Label** (12px/400, slate-500).
-- Mapping-table "CSV Column" cell → **Body, font-medium** (mirrors `TableCell className="font-medium"` already used for the Name column in `company-list.tsx`).
+- Mapping-table "CSV Column" cell → **Body** (14px/400, slate-900) — distinguished from the "Sample Value" cell by color (slate-900 vs. Label's slate-500), not weight.
 - Mapping-table "Sample Value" cell → **Label** (12px/400, slate-500, truncated with `truncate`).
-- Error-table "Row" cell → **Body, font-medium, slate-900** (same weight convention as any primary identifying cell in this app's tables).
+- Error-table "Row" cell → **Body** (14px/400, slate-900) — the primary identifying cell in this table, made to stand out via color rather than weight, consistent with the "CSV Column" cell above.
 - Error-table "Reason" cell → **Body** (14px/400, slate-600 — one shade darker than Label's slate-500, since this is the actionable content of the row, not a caption).
 - History-table cells (Date, Entity, Uploaded by, Counts, Status) → **Body**, same weight/role as every other data table in the app (`company-list.tsx`, `persona-list.tsx`).
 
@@ -83,7 +83,7 @@ No third weight, no fifth size introduced.
 Inherited verbatim (slate neutrals + indigo-600 accent + amber warning):
 
 | Role | Value | Usage |
-|------|-------|-------|
+|------|------|-------|
 | Dominant (60%) | white / slate-50 (`#f8fafc`) | Page background, dropzone background, stat-mini-card surface, table surface |
 | Secondary (30%) | slate-100 / slate-200 (`#f1f5f9` / `#e2e8f0`) | Table borders, dropzone border (`slate-300`), history-table row hover, step-indicator connector line |
 | Accent (10%) | indigo-600 (`#4f46e5`) | Focus rings, inline text links (history-table "View" link, Done-screen "View imported companies" link), the current step's step-indicator pill (text + bottom border), dropzone's drag-active state border/background tint |
@@ -148,7 +148,7 @@ Accent reserved for: focus-visible rings, inline text links, the active step-ind
 | Behavior | Contract |
 |----------|----------|
 | Layout | Full-width `p-8` shell (no `max-w`), reusing `Table`/`TableHeader`/`TableBody`/`TableRow`/`TableCell` verbatim. |
-| Table columns | **CSV Column** (Body, font-medium) · **Sample Value** (Label, slate-500, `truncate max-w-48`) · **Maps To** (`Select` — options: schema field names + a `"— Don't import —"` null option, pre-selected via `suggestColumnMapping`'s alias match; unmatched columns show the "Unmapped" outline badge instead of a pre-selection, forcing an explicit staff pick per D-08). |
+| Table columns | **CSV Column** (Body, slate-900) · **Sample Value** (Label, slate-500, `truncate max-w-48`) · **Maps To** (`Select` — options: schema field names + a `"— Don't import —"` null option, pre-selected via `suggestColumnMapping`'s alias match; unmatched columns show the "Unmapped" outline badge instead of a pre-selection, forcing an explicit staff pick per D-08). |
 | Enum-value sub-mapping | For any column mapped to an enum field (`revenue_band`, `ownership_type`, `seniority`), an expandable row (`ChevronDownIcon` toggle, same rotation treatment as the accordion table's expand chevron from Phase 5) reveals a nested 2-column mini-table: raw CSV value → `Select` of valid enum values, pre-filled via `suggestValueMapping`'s alias match, unmapped raw values shown with the same "Unmapped" outline badge. |
 | Continue | `Button variant="default"` (near-black, per `--primary` — this app's first default-variant button) reading **"Continue to Validation"**, disabled until every enum column's every distinct raw value has an explicit mapping selection (never silently defaults an unmapped enum value into commit). |
 
@@ -158,7 +158,7 @@ Accent reserved for: focus-visible rings, inline text links, the active step-ind
 |----------|----------|
 | Layout | Full-width `p-8` shell. Counts row first, then (conditionally) the error banner + error table, then the Commit button. |
 | Counts row | 3 stat-mini-cards in a `grid grid-cols-1 gap-4 sm:grid-cols-3` — identical visual component to the Start Page's stat cards (`rounded-lg border border-slate-200 bg-white p-6`, Label caption above Display number): **"Will create"**, **"Will update"**, **"Errors"**. |
-| Error table (shown only if `errored > 0`) | Amber warning banner (Copywriting Contract) directly above a `Table`: **Row** (Body, font-medium, slate-900) · **Reason** (Body, slate-600). "Download error report" outline button top-right of this table section. |
+| Error table (shown only if `errored > 0`) | Amber warning banner (Copywriting Contract) directly above a `Table`: **Row** (Body, slate-900) · **Reason** (Body, slate-600). "Download error report" outline button top-right of this table section. |
 | Commit | `Button variant="default"` reading **"Commit Import"** — always enabled if `created + updated > 0`, even when `errored > 0` (partial commit, IMPT-03 — a bad row never blocks the rest). If `created + updated === 0` (every row errored), the button is disabled with helper text "Fix the errors above before importing." |
 
 ### Done step
