@@ -23,14 +23,14 @@ Requirements: IMPT-01 through IMPT-07 (`.planning/REQUIREMENTS.md`). No new capa
 
 ### Import file scope
 - **D-05:** One upload = one entity type. Company-list Import accepts only a Companies CSV; Persona-list Import accepts only a Personas CSV. No auto-detection, no combined-file mode.
-- **D-06:** Persona CSV rows **cannot** create or update `company_persona_role` links in this phase — importing flat Company/Persona attributes only. Cross-entity role/career-history import is out of scope (deferred idea, see below).
-- **D-07:** The wizard accepts **exactly one file per import run**. Multi-file batch upload is not supported — importing both Companies and Personas is two separate runs.
+- **D-06 [informational]:** Persona CSV rows **cannot** create or update `company_persona_role` links in this phase — importing flat Company/Persona attributes only. Cross-entity role/career-history import is out of scope (deferred idea, see below).
+- **D-07 [informational]:** The wizard accepts **exactly one file per import run**. Multi-file batch upload is not supported — importing both Companies and Personas is two separate runs.
 - **D-08:** Column mapping is **not persisted** across imports. Auto-map by header-name match every run; staff manually corrects mismatches fresh each time. No mapping-profile storage.
 
 ### Update-on-match semantics
 - **D-09:** When a CSV row matches an existing record (via D-01–D-04's key), mapped fields **fully overwrite** the existing value. CSV import is staff-authoritative data — a different trust tier from Phase 8's untrusted-vendor auto-fill-empty-only policy, which does NOT apply here.
 - **D-10:** A **blank cell in a mapped column on a matched row leaves the existing field untouched** (blank means "no new data supplied," not "clear this field"). This is the one exception carved out of D-09's "full overwrite" — overwrite applies to non-blank supplied values only.
-- **D-11:** No `data_source`/provenance column is added in this phase. That's Phase 8's responsibility (ENRC-03) — adding it here would duplicate schema work for a marker this phase doesn't consume.
+- **D-11 [informational]:** No `data_source`/provenance column is added in this phase. That's Phase 8's responsibility (ENRC-03) — adding it here would duplicate schema work for a marker this phase doesn't consume.
 - **D-12:** The preview/validate step (before commit) shows counts of rows that will be **created vs. updated vs. errored** — not just an after-the-fact summary. Matches the industry-standard wizard shape (`FEATURES.md`).
 
 ### Rollback mechanics
