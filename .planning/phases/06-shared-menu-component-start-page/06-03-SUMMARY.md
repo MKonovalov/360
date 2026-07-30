@@ -135,3 +135,12 @@ None — no external service configuration required by this plan. The `.env.loca
 ---
 *Phase: 06-shared-menu-component-start-page*
 *Completed: 2026-07-30*
+
+## Self-Check: PASSED
+
+- FOUND: src/components/dashboard/record-view-tracker.tsx
+- FOUND: .planning/phases/06-shared-menu-component-start-page/06-03-SUMMARY.md
+- FOUND commit: 636f4d12 (Task 1)
+- FOUND commit: 85784fd3 (Task 2)
+- FOUND commit: 127f9e0f (Task 3)
+- FOUND commit: 7dc361c4 (docs: SUMMARY.md)
