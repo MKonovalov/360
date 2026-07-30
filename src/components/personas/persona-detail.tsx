@@ -4,6 +4,8 @@ import { getPersonaById } from '@/lib/db/queries/personas';
 import { listCompanyRolesForPersona } from '@/lib/db/queries/companyPersonaRoles';
 import { fetchArcpediaArticles } from '@/lib/arcpedia';
 import { ExplorerCloseButton } from '@/components/explorer/explorer-table-behavior';
+import { ExplorerMenu } from '@/components/explorer/explorer-menu';
+import { RecordViewTracker } from '@/components/dashboard/record-view-tracker';
 import { humanizeEnum, dateFormatter, FirmographicField } from '@/components/explorer/explorer-format';
 
 // WR-06: enrichment/programmatic writes into persona data are on the
@@ -46,6 +48,9 @@ export async function PersonaDetail({ id }: { id: number }) {
     notFound();
   }
 
+  // D-04/Pitfall 4: fired only after the confirmed-exists check above — a
+  // broken/deleted-record deep link must never write a recentlyViewed row
+  // for a nonexistent id.
   // D-04: Current Company is shown separate from Career History.
   const current = roles.find((r) => r.role.isCurrent);
   const history = roles.filter((r) => !r.role.isCurrent);
@@ -57,7 +62,11 @@ export async function PersonaDetail({ id }: { id: number }) {
 
   return (
     <div className="relative space-y-12 bg-white p-8">
-      <ExplorerCloseButton />
+      <RecordViewTracker recordType="persona" recordId={persona.id} />
+      <div className="absolute top-3 right-3 flex items-center gap-1">
+        <ExplorerMenu variant="icon" items={[{ label: 'Analyze', disabled: true }]} />
+        <ExplorerCloseButton />
+      </div>
       <div>
         <h1 className="text-[24px] font-semibold leading-[1.2] text-slate-900">{persona.name}</h1>
         <p className="text-[14px] font-normal leading-[1.5] text-slate-500">

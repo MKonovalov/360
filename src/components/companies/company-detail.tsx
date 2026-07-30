@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { SignalBadge } from '@/components/companies/signal-badge';
 import { fetchArcpediaArticles } from '@/lib/arcpedia';
 import { ExplorerCloseButton } from '@/components/explorer/explorer-table-behavior';
+import { ExplorerMenu } from '@/components/explorer/explorer-menu';
+import { RecordViewTracker } from '@/components/dashboard/record-view-tracker';
 import { humanizeEnum, dateFormatter, FirmographicField } from '@/components/explorer/explorer-format';
 
 export async function CompanyDetail({ id }: { id: number }) {
@@ -44,6 +46,9 @@ export async function CompanyDetail({ id }: { id: number }) {
     notFound();
   }
 
+  // D-04/Pitfall 4: fired only after the confirmed-exists check above — a
+  // broken/deleted-record deep link must never write a recentlyViewed row
+  // for a nonexistent id.
   // D-10: independent failure domain from the DB-fetch try/catch above —
   // fetchArcpediaArticles never throws (Task 1), so an Arcpedia
   // timeout/failure must never surface the DB error card above, and a
@@ -52,7 +57,11 @@ export async function CompanyDetail({ id }: { id: number }) {
 
   return (
     <div className="relative space-y-12 bg-white p-8">
-      <ExplorerCloseButton />
+      <RecordViewTracker recordType="company" recordId={company.id} />
+      <div className="absolute top-3 right-3 flex items-center gap-1">
+        <ExplorerMenu variant="icon" items={[{ label: 'Analyze', disabled: true }]} />
+        <ExplorerCloseButton />
+      </div>
       <div>
         <h1 className="text-[24px] font-semibold leading-[1.2] text-slate-900">{company.name}</h1>
         <p className="text-[14px] font-normal leading-[1.5] text-slate-500">
