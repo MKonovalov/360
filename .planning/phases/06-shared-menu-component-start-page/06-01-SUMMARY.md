@@ -133,3 +133,12 @@ None - no external service configuration required. `DATABASE_URL` was already pr
 ---
 *Phase: 06-shared-menu-component-start-page*
 *Completed: 2026-07-30*
+
+## Self-Check: PASSED
+
+- FOUND: src/lib/db/queries/stats.ts
+- FOUND: src/lib/db/queries/recentlyViewed.ts
+- FOUND: .planning/phases/06-shared-menu-component-start-page/06-01-SUMMARY.md
+- FOUND commit: 4ef0ffd4 (Task 1)
+- FOUND commit: 32ca34f5 (Task 3)
+- FOUND commit: c28906a0 (docs: SUMMARY.md)
