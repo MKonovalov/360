@@ -9,11 +9,11 @@ Requirements for v1.1. Each maps to roadmap phases.
 
 ### Start Page (START)
 
-- [ ] **START-01**: Staff sees an overview dashboard as the landing page (replacing the current `/` status page) with summary stat cards — Company count, Persona count, active Signal count
-- [ ] **START-02**: Dashboard shows a recent signals list — most recently added/detected signals, newest first, linked to their Company
-- [ ] **START-03**: Dashboard shows a recently-viewed list — Companies/Personas the current user opened recently, server-tracked so it works across the user's devices
-- [ ] **START-04**: Dashboard shows a "Needs attention" section — Companies with high-strength signals that haven't been recently reviewed by staff
-- [ ] **START-05**: Dashboard shows a signal-type breakdown widget — counts per the 4 named signal types
+- [x] **START-01**: Staff sees an overview dashboard as the landing page (replacing the current `/` status page) with summary stat cards — Company count, Persona count, active Signal count
+- [x] **START-02**: Dashboard shows a recent signals list — most recently added/detected signals, newest first, linked to their Company
+- [x] **START-03**: Dashboard shows a recently-viewed list — Companies/Personas the current user opened recently, server-tracked so it works across the user's devices
+- [x] **START-04**: Dashboard shows a "Needs attention" section — Companies with high-strength signals that haven't been recently reviewed by staff
+- [x] **START-05**: Dashboard shows a signal-type breakdown widget — counts per the 4 named signal types
 
 ### Layout Rework (LAYT)
 
@@ -25,8 +25,8 @@ Requirements for v1.1. Each maps to roadmap phases.
 
 ### Menu (MENU)
 
-- [ ] **MENU-01**: Company and Persona list pages have a "Menu" dropdown button in the top-right corner, containing at minimum an "Import" action
-- [ ] **MENU-02**: Company and Persona detail panels have a "Menu" dropdown button in the top-right corner, containing at minimum an "Analyze" action
+- [x] **MENU-01**: Company and Persona list pages have a "Menu" dropdown button in the top-right corner, containing at minimum an "Import" action
+- [x] **MENU-02**: Company and Persona detail panels have a "Menu" dropdown button in the top-right corner, containing at minimum an "Analyze" action
 
 ### CSV Import (IMPT)
 
@@ -123,18 +123,18 @@ Populated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| START-01 | Phase 6 | Pending |
-| START-02 | Phase 6 | Pending |
-| START-03 | Phase 6 | Pending |
-| START-04 | Phase 6 | Pending |
-| START-05 | Phase 6 | Pending |
+| START-01 | Phase 6 | Complete |
+| START-02 | Phase 6 | Complete |
+| START-03 | Phase 6 | Complete |
+| START-04 | Phase 6 | Complete |
+| START-05 | Phase 6 | Complete |
 | LAYT-01 | Phase 5 | Complete |
 | LAYT-02 | Phase 5 | Complete |
 | LAYT-03 | Phase 5 | Complete |
 | LAYT-04 | Phase 5 | Complete |
 | LAYT-05 | Phase 5 | Complete |
-| MENU-01 | Phase 6 | Pending |
-| MENU-02 | Phase 6 | Pending |
+| MENU-01 | Phase 6 | Complete |
+| MENU-02 | Phase 6 | Complete |
 | IMPT-01 | Phase 7 | Pending |
 | IMPT-02 | Phase 7 | Pending |
 | IMPT-03 | Phase 7 | Pending |
