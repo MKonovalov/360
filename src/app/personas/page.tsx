@@ -2,6 +2,7 @@ import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { PersonaList } from '@/components/personas/persona-list';
 import { PersonaSearchInput } from '@/components/personas/persona-search-input';
 import { PersonaFilters } from '@/components/personas/persona-filters';
+import { ExplorerMenu } from '@/components/explorer/explorer-menu';
 import { listDistinctCurrentCompanyNames } from '@/lib/db/queries/personas';
 import { parsePersonaFilters, parseSelectedId } from '@/lib/params/personaFilters';
 
@@ -21,6 +22,9 @@ export default async function PersonasPage({
 
   return (
     <div className="flex flex-col gap-4 p-8">
+      <div className="flex items-center justify-end">
+        <ExplorerMenu variant="labeled" items={[{ label: 'Import', disabled: true }]} />
+      </div>
       <div className="flex flex-wrap items-center gap-3">
         <PersonaSearchInput />
         <PersonaFilters currentCompanies={currentCompanies} />
