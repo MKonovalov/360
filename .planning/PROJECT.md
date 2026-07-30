@@ -39,11 +39,12 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 - ✓ Company/Persona 360 views surface related knowledge articles read from Arcpedia's public `/api/wiki/search` — validated in Phase 4 (2026-07-24), ARCP-01/ARCP-02; read-only (grep-confirmed zero `method:` calls in `arcpedia.ts`), capped at 3 results, independent failure domain from the DB fetch. Company side proven live with real matches (8/9 seed companies); the current seed Persona dataset has no name matching real Arcpedia content, so the Persona "shows real articles" case is pending real data, not a code gap — tracked in `04-HUMAN-UAT.md`
 - ✓ Every list and detail pane across both explorers handles empty/loading/error states explicitly (EXPL-06) — validated in Phase 4 (2026-07-24); Company/Persona detail panes now have the same inline DB-fetch error card pattern the list panes already had
 - ✓ Companies/Personas list+detail layout rework: side-by-side → stacked full-width, single-expand accordion, URL-synced/deep-linkable, keyboard-navigable (LAYT-01 through LAYT-05) — validated in Phase 5 (2026-07-30); shared `ExplorerAccordionTable`/`ExplorerTableBehavior` components replace 6 files' worth of duplicated per-page markup. Code-review pass found and fixed a mobile-viewport regression (detail panel hidden below `md`) and a silent-failure case for stale/invalid `?selected=` ids; 6 live-browser interaction checks (click-to-expand, URL reload/Back, scroll-into-view, keyboard nav, roving-tabindex, mobile visibility) approved by user, tracked in `05-HUMAN-UAT.md`
+- ✓ Shared `ExplorerMenu` dropdown on both explorers' list and detail surfaces, ready to host Import/Analyze (MENU-01, MENU-02) — validated in Phase 6 (2026-07-30); `AppShellLayout` also extracted to de-duplicate the Companies/Personas sidebar shell for the third and final time
+- ✓ Start Page dashboard: 3 stat cards + 4 independently-failing widgets (Recent Signals, Recently Viewed, Needs Attention, Signal Breakdown), replacing the old anonymous-access root page (START-01 through START-05) — validated in Phase 6 (2026-07-30); a code-review + verification pass found 3 unguarded fetches that could still crash the whole page on a transient DB error, fixed same-day (commit `f00a43a7`) before phase close
 
 ### Active
 
 - [ ] Persona 360 "Related Knowledge" showing real Arcpedia articles end-to-end — code path proven identical to the working Company path, but the current seed Persona dataset has no name that matches real Arcpedia content; needs either updated seed data or acceptance of the gap (see `04-HUMAN-UAT.md`)
-- [ ] Start Page overview dashboard (v1.1)
 - [ ] Menu-driven CSV import + commercial enrichment API integration (v1.1) — supersedes the old "no live enrichment API" gap from v1.0
 - [ ] Analytic Agent ("Analyze") — web-search signal-detection agent with human-review queue (v1.1)
 
@@ -58,6 +59,8 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 - Existing short-link staff tool — being retired soon; not actively extended or migrated as part of this build
 
 ## Current State
+
+**Phase 6 (Shared Menu Component + Start Page) complete 2026-07-30** — second phase of v1.1. New `(dashboard)` route group fully replaces `src/app/page.tsx` with a Start Page (3 stat cards + 4 independently-failing widgets), backed by a new `recentlyViewed` table and 4 dashboard aggregate queries pushed live to Neon. Both explorers gained a shared `ExplorerMenu` dropdown (list + detail surfaces) wired to a `recordView` Server Action, and the Companies/Personas sidebar shell was extracted into one `AppShellLayout` component. 7/7 requirements (MENU-01, MENU-02, START-01 through START-05) validated; code review + verification both caught the same gap — 3 unguarded DB fetches that could crash the whole page instead of just one widget — fixed same-day before phase close.
 
 **Phase 5 (Layout Consolidation + Rework) complete 2026-07-30** — first phase of v1.1. Both Companies and Personas explorers moved from side-by-side master-detail to a single shared stacked accordion layout (`ExplorerAccordionTable`/`ExplorerTableBehavior`), consolidating `/companies` + `/companies/[id]` and `/personas` + `/personas/[id]` into single pages with thin redirect stubs for legacy bookmarks. 5/5 requirements (LAYT-01 through LAYT-05) validated; a code-review pass caught and fixed a mobile-viewport regression and a silent-failure case for invalid `?selected=` ids before the phase closed.
 
@@ -127,4 +130,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-30 — Phase 5 (Layout Consolidation + Rework) complete*
+*Last updated: 2026-07-30 — Phase 6 (Shared Menu Component + Start Page) complete*
