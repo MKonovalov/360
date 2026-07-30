@@ -37,7 +37,7 @@ export async function CompanyList({
       <div
         className={cn(
           'flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-8 text-center',
-          selectedId ? 'hidden md:flex' : 'flex'
+          selectedId != null ? 'hidden md:flex' : 'flex'
         )}
       >
         <p className="text-[18px] font-semibold leading-[1.2] text-slate-900">
@@ -63,7 +63,7 @@ export async function CompanyList({
           'flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-8 text-center',
           // D-07 mobile pattern: hide the list pane once a company is
           // selected on narrow viewports so only the detail pane shows.
-          selectedId ? 'hidden md:flex' : 'flex'
+          selectedId != null ? 'hidden md:flex' : 'flex'
         )}
       >
         {hasActiveFilters ? (
