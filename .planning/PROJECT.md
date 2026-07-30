@@ -38,12 +38,12 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 - ✓ Persona 360 view shows: role/title & seniority, career history (previous companies with dates), linked current company, and contact info (email/LinkedIn) — validated in Phase 3 (2026-07-23), PERS-01 through PERS-04
 - ✓ Company/Persona 360 views surface related knowledge articles read from Arcpedia's public `/api/wiki/search` — validated in Phase 4 (2026-07-24), ARCP-01/ARCP-02; read-only (grep-confirmed zero `method:` calls in `arcpedia.ts`), capped at 3 results, independent failure domain from the DB fetch. Company side proven live with real matches (8/9 seed companies); the current seed Persona dataset has no name matching real Arcpedia content, so the Persona "shows real articles" case is pending real data, not a code gap — tracked in `04-HUMAN-UAT.md`
 - ✓ Every list and detail pane across both explorers handles empty/loading/error states explicitly (EXPL-06) — validated in Phase 4 (2026-07-24); Company/Persona detail panes now have the same inline DB-fetch error card pattern the list panes already had
+- ✓ Companies/Personas list+detail layout rework: side-by-side → stacked full-width, single-expand accordion, URL-synced/deep-linkable, keyboard-navigable (LAYT-01 through LAYT-05) — validated in Phase 5 (2026-07-30); shared `ExplorerAccordionTable`/`ExplorerTableBehavior` components replace 6 files' worth of duplicated per-page markup. Code-review pass found and fixed a mobile-viewport regression (detail panel hidden below `md`) and a silent-failure case for stale/invalid `?selected=` ids; 6 live-browser interaction checks (click-to-expand, URL reload/Back, scroll-into-view, keyboard nav, roving-tabindex, mobile visibility) approved by user, tracked in `05-HUMAN-UAT.md`
 
 ### Active
 
 - [ ] Persona 360 "Related Knowledge" showing real Arcpedia articles end-to-end — code path proven identical to the working Company path, but the current seed Persona dataset has no name that matches real Arcpedia content; needs either updated seed data or acceptance of the gap (see `04-HUMAN-UAT.md`)
 - [ ] Start Page overview dashboard (v1.1)
-- [ ] Companies/Personas list+detail layout rework: side-by-side → stacked full-width (v1.1)
 - [ ] Menu-driven CSV import + commercial enrichment API integration (v1.1) — supersedes the old "no live enrichment API" gap from v1.0
 - [ ] Analytic Agent ("Analyze") — web-search signal-detection agent with human-review queue (v1.1)
 
@@ -58,6 +58,8 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 - Existing short-link staff tool — being retired soon; not actively extended or migrated as part of this build
 
 ## Current State
+
+**Phase 5 (Layout Consolidation + Rework) complete 2026-07-30** — first phase of v1.1. Both Companies and Personas explorers moved from side-by-side master-detail to a single shared stacked accordion layout (`ExplorerAccordionTable`/`ExplorerTableBehavior`), consolidating `/companies` + `/companies/[id]` and `/personas` + `/personas/[id]` into single pages with thin redirect stubs for legacy bookmarks. 5/5 requirements (LAYT-01 through LAYT-05) validated; a code-review pass caught and fixed a mobile-viewport regression and a silent-failure case for invalid `?selected=` ids before the phase closed.
 
 **Milestone v1.0 (MVP) shipped 2026-07-24.** All 4 phases complete: Foundation (Astro→Next.js/Neon/Drizzle migration), Company Explorer, Persona Explorer, and Arcpedia Integration & Resilience Polish. 24/24 v1.0 requirements validated. `fetchArcpediaArticles()` (`src/lib/arcpedia.ts`) is a read-only, never-throws, GET-only client capped at 3 results, wired into a "Related Knowledge" section on both Company and Persona 360 detail views; both detail panes also gained the same inline DB-fetch error card pattern the list panes already had (EXPL-06). Cloudflare Access Service Token (`arclumen-360-server`) provisioned for `arcpedia.arclumen.de` — the production Arcpedia deployment sits behind a Cloudflare Zero Trust Access gate at the edge, invisible to Arcpedia's own "public GET routes" docs (see Key Decisions).
 
@@ -125,4 +127,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-24 — v1.1 milestone started*
+*Last updated: 2026-07-30 — Phase 5 (Layout Consolidation + Rework) complete*
