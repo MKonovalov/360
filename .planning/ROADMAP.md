@@ -134,7 +134,7 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9
 | 2. Company Explorer | v1.0 | 4/4 | Complete | 2026-07-23 |
 | 3. Persona Explorer | v1.0 | 4/4 | Complete | 2026-07-23 |
 | 4. Arcpedia Integration & Resilience Polish | v1.0 | 2/2 | Complete | 2026-07-24 |
-| 5. Layout Consolidation + Rework | v1.1 | 3/3 | Complete   | 2026-07-30 |
+| 5. Layout Consolidation + Rework | v1.1 | 3/3 | Complete    | 2026-07-30 |
 | 6. Shared Menu Component + Start Page | v1.1 | 0/TBD | Not started | - |
 | 7. CSV Import | v1.1 | 0/TBD | Not started | - |
 | 8. Enrichment API | v1.1 | 0/TBD | Not started | - |
