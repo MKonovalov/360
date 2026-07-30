@@ -6,17 +6,7 @@ import { ExplorerAccordionTable } from '@/components/explorer/explorer-accordion
 import { ExplorerTableBehavior } from '@/components/explorer/explorer-table-behavior';
 import { PersonaDetail } from '@/components/personas/persona-detail';
 import { cn } from '@/lib/utils';
-
-// seniority is a fixed-but-extensible pgEnum storing slug values
-// (e.g. "c_level") — humanize for display rather than showing the raw slug
-// to a mixed/leadership audience.
-function humanizeEnum(value: string | null): string {
-  if (!value) return '—';
-  return value
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-}
+import { humanizeEnum } from '@/components/explorer/explorer-format';
 
 export async function PersonaList({
   filters,

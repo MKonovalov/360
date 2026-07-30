@@ -6,32 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { SignalBadge } from '@/components/companies/signal-badge';
 import { fetchArcpediaArticles } from '@/lib/arcpedia';
 import { ExplorerCloseButton } from '@/components/explorer/explorer-table-behavior';
-
-// revenue_band/ownership_type are fixed-but-extensible pgEnums storing slug
-// values — humanize for display rather than showing the raw slug to a
-// mixed/leadership audience (mirrors company-list.tsx's convention).
-function humanizeEnum(value: string | null): string {
-  if (!value) return '—';
-  return value
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-}
-
-const dateFormatter = new Intl.DateTimeFormat('en-US', {
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric',
-});
-
-function FirmographicField({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-[12px] font-normal leading-[1.4] text-slate-500">{label}</p>
-      <p className="text-[14px] font-normal leading-[1.5] text-slate-900">{value}</p>
-    </div>
-  );
-}
+import { humanizeEnum, dateFormatter, FirmographicField } from '@/components/explorer/explorer-format';
 
 export async function CompanyDetail({ id }: { id: number }) {
   // EXPL-06/D-09: mirrors company-list.tsx's try/catch error-card pattern —

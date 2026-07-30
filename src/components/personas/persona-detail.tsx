@@ -4,32 +4,7 @@ import { getPersonaById } from '@/lib/db/queries/personas';
 import { listCompanyRolesForPersona } from '@/lib/db/queries/companyPersonaRoles';
 import { fetchArcpediaArticles } from '@/lib/arcpedia';
 import { ExplorerCloseButton } from '@/components/explorer/explorer-table-behavior';
-
-// seniority is a fixed-but-extensible pgEnum storing slug values
-// (e.g. "c_level") — humanize for display rather than showing the raw slug
-// to a mixed/leadership audience (mirrors company-detail.tsx's convention).
-function humanizeEnum(value: string | null): string {
-  if (!value) return '—';
-  return value
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-}
-
-const dateFormatter = new Intl.DateTimeFormat('en-US', {
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric',
-});
-
-function FirmographicField({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-[12px] font-normal leading-[1.4] text-slate-500">{label}</p>
-      <p className="text-[14px] font-normal leading-[1.5] text-slate-900">{value}</p>
-    </div>
-  );
-}
+import { humanizeEnum, dateFormatter, FirmographicField } from '@/components/explorer/explorer-format';
 
 export async function PersonaDetail({ id }: { id: number }) {
   // EXPL-06/D-09: mirrors CompanyDetail's try/catch error-card pattern — a

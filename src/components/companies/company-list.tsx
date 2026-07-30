@@ -7,17 +7,7 @@ import { CompanyDetail } from '@/components/companies/company-detail';
 import { ExplorerAccordionTable } from '@/components/explorer/explorer-accordion-table';
 import { ExplorerTableBehavior } from '@/components/explorer/explorer-table-behavior';
 import { cn } from '@/lib/utils';
-
-// revenue_band/ownership_type are fixed-but-extensible pgEnums storing
-// slug values (e.g. "under_50m", "pe_backed") — humanize for display
-// rather than showing the raw slug to a mixed/leadership audience.
-function humanizeEnum(value: string | null): string {
-  if (!value) return '—';
-  return value
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-}
+import { humanizeEnum } from '@/components/explorer/explorer-format';
 
 export async function CompanyList({
   filters,
