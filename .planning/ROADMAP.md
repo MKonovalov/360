@@ -26,7 +26,7 @@ Full details: [`.planning/milestones/v1.0-ROADMAP.md`](milestones/v1.0-ROADMAP.m
 **Phase Numbering:** Continues from v1.0 (which ended at Phase 4) — v1.1 starts at Phase 5.
 
 - [x] **Phase 5: Layout Consolidation + Rework** - Companies and Personas both move to a shared, stacked full-width list/detail layout, replacing 6 files' worth of duplicated side-by-side markup (completed 2026-07-30)
-- [ ] **Phase 6: Shared Menu Component + Start Page** - One-time dropdown-menu investment reused by Import and Analyze; new dashboard landing page with stats, recent signals, recently-viewed, and needs-attention
+- [x] **Phase 6: Shared Menu Component + Start Page** - One-time dropdown-menu investment reused by Import and Analyze; new dashboard landing page with stats, recent signals, recently-viewed, and needs-attention (completed 2026-07-30)
 - [ ] **Phase 7: CSV Import** - Menu → Import CSV upload wizard for Companies/Personas with column/enum mapping, partial-commit validation, dedup, template download, and import history/rollback
 - [ ] **Phase 8: Enrichment API** - Menu → Import-adjacent commercial enrichment (Apollo.io) with auto-fill-empty-only merge policy, field-level provenance, and merge-conflict review
 - [ ] **Phase 9: Analytic Agent + Observability** - Menu → Analyze web-search signal-detection agent with a human-reviewed proposal queue, plus full Langfuse tracing and correction-reason capture
@@ -76,8 +76,8 @@ Full details: [`.planning/milestones/v1.0-ROADMAP.md`](milestones/v1.0-ROADMAP.m
 Plans:
 - [x] 06-01-PLAN.md — DB foundation: recentlyViewed schema + drizzle-kit push, dashboard aggregate queries (stats.ts), recordView Server Action
 - [x] 06-02-PLAN.md — Shared AppShellLayout extraction (dedupes companies/personas layout), shadcn dropdown-menu install + shared ExplorerMenu component, "Start" sidebar nav item
-- [ ] 06-03-PLAN.md — Wire Menu (Import/Analyze) into both explorers + recently-viewed mount-effect tracker (depends on 06-01, 06-02)
-- [ ] 06-04-PLAN.md — Start Page dashboard: 5 widgets + (dashboard) route group replacing / (depends on 06-01, 06-02)
+- [x] 06-03-PLAN.md — Wire Menu (Import/Analyze) into both explorers + recently-viewed mount-effect tracker (depends on 06-01, 06-02)
+- [x] 06-04-PLAN.md — Start Page dashboard: 5 widgets + (dashboard) route group replacing / (depends on 06-01, 06-02)
 
 **Wave 1** — 06-01, 06-02 (no shared files, run in parallel)
 **Wave 2** *(blocked on Wave 1 completion)* — 06-03, 06-04 (no shared files, run in parallel)
@@ -145,7 +145,7 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9
 | 3. Persona Explorer | v1.0 | 4/4 | Complete | 2026-07-23 |
 | 4. Arcpedia Integration & Resilience Polish | v1.0 | 2/2 | Complete | 2026-07-24 |
 | 5. Layout Consolidation + Rework | v1.1 | 3/3 | Complete    | 2026-07-30 |
-| 6. Shared Menu Component + Start Page | v1.1 | 2/4 | In Progress|  |
+| 6. Shared Menu Component + Start Page | v1.1 | 4/4 | Complete   | 2026-07-30 |
 | 7. CSV Import | v1.1 | 0/TBD | Not started | - |
 | 8. Enrichment API | v1.1 | 0/TBD | Not started | - |
 | 9. Analytic Agent + Observability | v1.1 | 0/TBD | Not started | - |
