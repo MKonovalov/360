@@ -74,8 +74,8 @@ Full details: [`.planning/milestones/v1.0-ROADMAP.md`](milestones/v1.0-ROADMAP.m
 **Plans**: 4 plans, 2 waves
 
 Plans:
-- [ ] 06-01-PLAN.md — DB foundation: recentlyViewed schema + drizzle-kit push, dashboard aggregate queries (stats.ts), recordView Server Action
-- [ ] 06-02-PLAN.md — Shared AppShellLayout extraction (dedupes companies/personas layout), shadcn dropdown-menu install + shared ExplorerMenu component, "Start" sidebar nav item
+- [x] 06-01-PLAN.md — DB foundation: recentlyViewed schema + drizzle-kit push, dashboard aggregate queries (stats.ts), recordView Server Action
+- [x] 06-02-PLAN.md — Shared AppShellLayout extraction (dedupes companies/personas layout), shadcn dropdown-menu install + shared ExplorerMenu component, "Start" sidebar nav item
 - [ ] 06-03-PLAN.md — Wire Menu (Import/Analyze) into both explorers + recently-viewed mount-effect tracker (depends on 06-01, 06-02)
 - [ ] 06-04-PLAN.md — Start Page dashboard: 5 widgets + (dashboard) route group replacing / (depends on 06-01, 06-02)
 
@@ -145,7 +145,7 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9
 | 3. Persona Explorer | v1.0 | 4/4 | Complete | 2026-07-23 |
 | 4. Arcpedia Integration & Resilience Polish | v1.0 | 2/2 | Complete | 2026-07-24 |
 | 5. Layout Consolidation + Rework | v1.1 | 3/3 | Complete    | 2026-07-30 |
-| 6. Shared Menu Component + Start Page | v1.1 | 0/4 | Not started | - |
+| 6. Shared Menu Component + Start Page | v1.1 | 2/4 | In Progress|  |
 | 7. CSV Import | v1.1 | 0/TBD | Not started | - |
 | 8. Enrichment API | v1.1 | 0/TBD | Not started | - |
 | 9. Analytic Agent + Observability | v1.1 | 0/TBD | Not started | - |
