@@ -1,24 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // 09-01-01 anchor: runAgent is the mockable seam (D-16 — zero live calls in
-// tests). Mock 'ai' (generateText only, keep real Output/tool/isStepCount),
-// '@ai-sdk/anthropic' (model constructor), 'firecrawl', and '@/lib/env'.
+// tests). Mock 'ai' (generateText + Output.object spy; keep real
+// tool/isStepCount), '@ai-sdk/anthropic' (model constructor), 'firecrawl',
+// and '@/lib/env'.
 const mocks = vi.hoisted(() => ({
   generateText: vi.fn(),
   anthropic: vi.fn(),
   initLangfuse: vi.fn(),
+  outputObject: vi.fn(),
 }));
 
 vi.mock('ai', async (importOriginal) => {
   const actual = await importOriginal<typeof import('ai')>();
-  return { ...actual, generateText: mocks.generateText };
+  return {
+    ...actual,
+    generateText: mocks.generateText,
+    // Output.object's runtime spec has no top-level `schema` key (the schema is
+    // consumed into responseFormat) — spy the factory itself so the test can
+    // assert the schema wiring (plan Test 1).
+    Output: { ...actual.Output, object: mocks.outputObject },
+  };
 });
 vi.mock('@ai-sdk/anthropic', () => ({ anthropic: mocks.anthropic }));
 vi.mock('@/lib/telemetry/langfuse', () => ({ initLangfuse: mocks.initLangfuse }));
 vi.mock('@/lib/env', () => ({ env: { FIRECRAWL_API_KEY: 'test-key' } }));
 vi.mock('firecrawl', () => ({ Firecrawl: vi.fn() }));
 
-import { Output } from 'ai';
 import { runAgent } from './runAgent';
 import { buildAnalyzePrompt } from './prompt';
 import { outputSchema } from './types';
@@ -45,24 +53,36 @@ const resolvedRun = {
   steps: [],
 };
 
+// Plausible Output.object() spec — the v7 runtime spec is
+// { name, responseFormat, parseCompleteOutput, ... } with NO top-level
+// `schema` key, so the schema wiring is pinned on the factory call instead.
+const outputSpec = { name: 'object', responseFormat: {} };
+
 describe('runAgent (09-01-01)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.anthropic.mockReturnValue({ provider: 'anthropic', modelId: 'claude-sonnet-4-20250514' });
     mocks.generateText.mockResolvedValue(resolvedRun);
+    mocks.outputObject.mockReturnValue(outputSpec);
   });
 
   it('invokes generateText with the structured output schema and returns { output, usage, steps }', async () => {
     const result = await runAgent({ company, liveSignals: [] });
 
     expect(mocks.generateText).toHaveBeenCalledTimes(1);
+    // The v7 runtime Output.object spec has no top-level `schema` key — pin
+    // the schema wiring on the factory call and assert the returned spec
+    // flows into generateText's `output` option.
+    expect(mocks.outputObject).toHaveBeenCalledWith(
+      expect.objectContaining({ schema: outputSchema }),
+    );
     const call = mocks.generateText.mock.calls[0][0];
     expect(call).toMatchObject({
       model: expect.anything(),
       tools: { webSearch: expect.anything() },
       prompt: expect.any(String),
       stopWhen: expect.anything(),
-      output: expect.objectContaining({ schema: outputSchema }),
+      output: outputSpec,
     });
     expect(result).toEqual(resolvedRun);
   });
