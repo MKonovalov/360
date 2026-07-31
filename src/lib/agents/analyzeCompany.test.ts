@@ -5,7 +5,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // the runAgent seam, the gate, and env. dedupProposals stays REAL (pure, no
 // deps) so the post-run filter is exercised, not stubbed.
 const mocks = vi.hoisted(() => ({
-  env: { ANTHROPIC_API_KEY: 'test-key', FIRECRAWL_API_KEY: 'test-key' },
+  // string | undefined so the not_configured test can clear a key at runtime
+  env: {
+    ANTHROPIC_API_KEY: 'test-key' as string | undefined,
+    FIRECRAWL_API_KEY: 'test-key' as string | undefined,
+  },
   getCompanyById: vi.fn(),
   listSignalsForCompany: vi.fn(),
   insertSignal: vi.fn(),
