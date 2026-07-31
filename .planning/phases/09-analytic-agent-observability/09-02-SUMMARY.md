@@ -125,6 +125,10 @@ None - no external service configuration required (all tests stubbed per D-16; n
 - The accept/reject write paths deliberately have NO server-route protection yet — 09-03 must gate them behind Clerk session + staff check before exposing to the browser.
 - `analyzeCompany` intentionally does not persist; 09-03's Server Action must call `createRun` + `insertProposals` after the orchestration returns.
 
+## Self-Check: PASSED
+
+All 8 files verified present on disk; all 7 commits (833f5a1b, 117eb8d1, 5f09fe84, 5a2c33d7, 81ba5516, ec0c9395, a9102784) verified in git log.
+
 ---
 *Phase: 09-analytic-agent-observability*
 *Completed: 2026-07-31*

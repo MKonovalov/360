@@ -50,14 +50,14 @@ Requirements for v1.1. Each maps to roadmap phases.
 
 - [x] **ANLZ-01**: Staff can trigger on-demand, web-search-based signal analysis for a single Company via Menu → Analyze
 - [x] **ANLZ-02**: The agent proposes candidate Signal records — typed to the existing `signalType`/`signalStrength` enums, with a source citation and reasoning — stored in a new review queue; it never auto-writes to the live Signal table under any circumstance
-- [ ] **ANLZ-03**: Staff sees a dedicated review queue listing all pending proposals with evidence/citation shown inline, and can Accept or Reject each
-- [ ] **ANLZ-04**: A pending-proposal count is shown as a badge on the Company detail page
+- [x] **ANLZ-03**: Staff sees a dedicated review queue listing all pending proposals with evidence/citation shown inline, and can Accept or Reject each
+- [x] **ANLZ-04**: A pending-proposal count is shown as a badge on the Company detail page
 - [x] **ANLZ-05**: The agent avoids re-proposing a signal that already exists as a live record for that Company (checks existing signals first)
 
 ### Observability (OBSV)
 
-- [ ] **OBSV-01**: Every Analytic Agent run is traced in Langfuse, capturing the chain-of-thought/tool-call steps and cost (token usage)
-- [ ] **OBSV-02**: When staff rejects or edits a proposed signal, a structured correction reason (wrong signal type / missed inclusion-exclusion criteria / hallucinated-no real evidence / other) plus an optional free-text note is captured and linked to that run's Langfuse trace, to inform future agent/prompt tuning
+- [x] **OBSV-01**: Every Analytic Agent run is traced in Langfuse, capturing the chain-of-thought/tool-call steps and cost (token usage)
+- [x] **OBSV-02**: When staff rejects or edits a proposed signal, a structured correction reason (wrong signal type / missed inclusion-exclusion criteria / hallucinated-no real evidence / other) plus an optional free-text note is captured and linked to that run's Langfuse trace, to inform future agent/prompt tuning
 
 ## v2 Requirements
 
@@ -149,11 +149,11 @@ Populated during roadmap creation.
 | ENRC-05 | Phase 8 | Complete |
 | ANLZ-01 | Phase 9 | Complete |
 | ANLZ-02 | Phase 9 | Complete |
-| ANLZ-03 | Phase 9 | Pending |
-| ANLZ-04 | Phase 9 | Pending |
+| ANLZ-03 | Phase 9 | Complete |
+| ANLZ-04 | Phase 9 | Complete |
 | ANLZ-05 | Phase 9 | Complete |
-| OBSV-01 | Phase 9 | Pending |
-| OBSV-02 | Phase 9 | Pending |
+| OBSV-01 | Phase 9 | Complete |
+| OBSV-02 | Phase 9 | Complete |
 
 **Coverage:**
 - v1 requirements: 31 total
