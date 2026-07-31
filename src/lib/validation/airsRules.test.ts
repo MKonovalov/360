@@ -8,7 +8,8 @@ import sampleValid from './fixtures/sample-valid.json';
 // valid signalType per signal; the ported rules do not validate signalType.
 function toHybridInput(report: typeof sampleValid): RunArtifactsInput {
   return {
-    verdict: report.bluf.verdict,
+    // JSON imports widen string literals — cast back to the strict enums
+    verdict: report.bluf.verdict as 'active' | 'emerging' | 'no_intent',
     keyUncertainties: report.key_uncertainties,
     evidenceAppendix: report.evidence_appendix.map((e) => ({
       url: e.url,
@@ -20,8 +21,8 @@ function toHybridInput(report: typeof sampleValid): RunArtifactsInput {
       strength: (sig.weight ?? 0) >= 7 ? 'high' : 'medium',
       detectedAt: sig.observed_at,
       evidenceUrl: sig.source_url,
-      reliability: sig.reliability,
-      confidence: sig.confidence,
+      reliability: sig.reliability as 'R1' | 'R2' | 'R3',
+      confidence: sig.confidence as 'C1' | 'C2' | 'C3',
       evidenceSnippet: sig.evidence_snippet,
       reasoning: sig.evidence_snippet,
     })),
