@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Start Page + Import + Analytic Agent
-status: executing
-last_updated: "2026-07-30T19:43:30.015Z"
-last_activity: 2026-07-30 -- Phase 07 planning complete
+status: completed
+last_updated: "2026-07-31T18:21:59.708Z"
+last_activity: "2026-07-31 -- Phase 8 live UAT passed: Apollo company enrichment and Prospeo persona enrichment verified in isolated QA (review -> commit -> provenance -> re-enrich idempotency -> no-match branch)"
 progress:
   total_phases: 5
-  completed_phases: 2
-  total_plans: 18
-  completed_plans: 7
-  percent: 39
+  completed_phases: 4
+  total_plans: 24
+  completed_plans: 24
+  percent: 80
 ---
 
 # Project State
@@ -20,22 +20,37 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-24)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** Phase 7 — csv import
+**Current focus:** Phase 8 Enrichment API complete (Apollo companies + Prospeo personas, live UAT passed). Next: Phase 9 Analytic Agent + Observability.
 
 ## Current Position
 
-Phase: 7
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-07-30 -- Phase 07 planning complete
+Phase: 8 (complete)
+Plan: 08-06 (last), 6/6 plans implemented and live-UAT-verified
+Status: Complete — ROADMAP checked 2026-07-31
+Last activity: 2026-07-31 -- Phase 8 live UAT passed: Apollo company enrichment and Prospeo persona enrichment verified in isolated QA (review -> commit -> provenance -> re-enrich idempotency -> no-match branch)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [████████░░] 80%
+
+> Phase 8 closed (2026-07-31): 6/6 plans implemented. Live UAT passed in isolated
+> QA for both providers — Apollo companies (review/commit/provenance/idempotency)
+> and Prospeo personas (the configured Apollo key lacks `people_match` access, so
+> the persona path moved to Prospeo: live match on `brian@airbnb.com`, no-match
+> branch on `mark@sumware.com`, rate-limit semantics verified). Full suite: 162
+> passed / 2 skipped; tsc and production build clean; dialog copy is provider-neutral.
+> Evidence in `.planning/phases/08-enrichment-api/08-06-UAT.md` and
+> `phase-8-persona-review.png`. Git commit remains deferred.
+> Phase 9 is the next (and final) v1.1 phase.
+
+> Note (2026-07-31): Phase 7 was executed to completion (all 11 plans have summaries; import
+> code present; tsc + 104 vitest tests + next build all green) but its ROADMAP/STATE markers
+> and git commit were pending. Reconciled markers here; **git commit intentionally deferred**
+> pending explicit authorization. Working tree still holds uncommitted Phase 7 changes.
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 21
+- Total plans implemented: 24
 - Average duration: - min
 - Total execution time: 0 hours
 
@@ -49,8 +64,8 @@ Progress: [░░░░░░░░░░] 0%
 | 04 | 2 | - | - |
 | 05 | 3 | - | - |
 | 06 | 4 | - | - |
-| 07 | TBD | - | - |
-| 08 | TBD | - | - |
+| 07 | 11 | - | - |
+| 08 | 6 | - | - |
 | 09 | TBD | - | - |
 
 **Recent Trend:**
@@ -59,6 +74,12 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: N/A
 
 *Updated after each plan completion*
+
+## Quick Tasks Completed
+
+| Date | Task | Result |
+|------|------|--------|
+| 2026-07-31 | Ownership Type values | Added `cooperative` and `state_owned`, canonicalized seven-value order, expanded CSV aliases, and verified isolated QA/browser behavior |
 
 ## Accumulated Context
 
@@ -82,7 +103,7 @@ None yet.
 - **Phase 9 open architecture question (flagged, not yet resolved):** the Analytic Agent's async execution strategy (synchronous Route Handler call to `generateText` vs. a fire-and-poll pattern) is blocked on confirming this Vercel plan tier's function `maxDuration` ceiling — not verified during milestone research (no `vercel.json`/plan info available). Must be resolved via `/gsd-plan-phase 9 --research-phase` before Phase 9 implementation begins; a fire-and-poll answer would also need reconciling with this project's explicit "no background workers/queues" architectural constraint.
 - Phase 9 also carries this milestone's highest-severity, hardest-to-detect risk class: approval-bypass at the propose→approve boundary in a zero-automated-test codebase. Research recommends treating propose→approve→signal as the one place worth a minimal automated test despite the no-test-suite status quo — worth raising again during Phase 9 planning.
 - Carried from v1.0: "any authenticated Clerk user = full access" model has no role system; acceptable for v1.1 per PROJECT.md scope (ACCS-01 remains v2), but re-examine before any milestone with external/CRM access.
-- Carried from v1.0: no automated test suite exists anywhere in the repo — all verification to date has been manual UAT + live curl/build/tsc checks.
+- The repository now has an automated Vitest suite. Phase 8 final verification passed all 139 tests, including isolated Neon database integration coverage.
 
 ## Deferred Items
 
@@ -101,10 +122,12 @@ Items acknowledged and deferred at v1.0 milestone close on 2026-07-24, still ope
 
 ## Session Continuity
 
-Last session: 2026-07-30T15:59:23.890Z
-Stopped at: Phase 07 UI-SPEC approved
-Resume file: .planning/phases/07-csv-import/07-UI-SPEC.md
+Last session: 2026-07-31T18:21:59.691Z
+Stopped at: Phase 9 context gathered
+Resume file: .planning/phases/09-analytic-agent-observability/09-CONTEXT.md
 
 ## Operator Next Steps
 
-- Start Phase 5 with `/gsd-plan-phase 5`
+- Phase 8 is closed and ROADMAP is checked. Git commit of the working tree (Phases 7-8 changes) remains deferred pending explicit authorization.
+- Next milestone work: plan Phase 9 (Analytic Agent + Observability) — resolve the open `maxDuration`/async-strategy question first (see Blockers/Concerns).
+- Note: `05/06/07-VALIDATION.md` frontmatter still says `status: draft` despite those phases being complete in ROADMAP — worth stamping `complete` when next touching those phase dirs.
