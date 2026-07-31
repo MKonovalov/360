@@ -7,47 +7,27 @@
 // FAILS CLOSED: every rule returns a list of violations; validateRunArtifacts
 // in validateReport.ts rejects when any rule reports a violation (Pitfall 4).
 import { z } from 'zod';
+import { reliabilitySchema, confidenceSchema, outputSchema } from '../agents/types';
 
 // ── Hybrid artifact shapes (D-01) ─────────────────────────────────────────
-// Single source of truth moves to src/lib/agents/types.ts in Task 4; these
-// definitions mirror the RESEARCH.md L349-361 sketch + Task 4 types contract.
-export const signalTypeValues = [
-  'cost_pressure',
-  'immature_gbs_org',
-  'new_cfo_or_gbs_head',
-  'transformation_announcement',
-] as const;
-export const signalStrengthValues = ['low', 'medium', 'high'] as const;
-export const reliabilitySchema = z.enum(['R1', 'R2', 'R3']);
-export const confidenceSchema = z.enum(['C1', 'C2', 'C3']);
+// Single source of truth is src/lib/agents/types.ts (plan 09-01 L158) — the
+// gate validates the SAME schemas the agent emits against. These shapes are
+// re-exported here so this module's consumers (validateReport.ts, the rules
+// below) keep one import surface; only the gate-specific verdict schema and
+// RunArtifactsInput stay defined in this file.
+export {
+  signalTypeValues,
+  signalStrengthValues,
+  reliabilitySchema,
+  confidenceSchema,
+  proposalSignalSchema,
+  evidenceAppendixSchema,
+  outputSchema,
+} from '../agents/types';
+export type { EvidenceAppendix } from '../agents/types';
+
 export const verdictSchema = z.enum(['active', 'emerging', 'no_intent']);
 export type Verdict = z.infer<typeof verdictSchema>;
-
-export const proposalSignalSchema = z.object({
-  signalType: z.enum(signalTypeValues),
-  strength: z.enum(signalStrengthValues),
-  detectedAt: z.string(), // ISO date
-  evidenceUrl: z.string().url(),
-  reliability: reliabilitySchema,
-  confidence: confidenceSchema,
-  evidenceSnippet: z.string(),
-  reasoning: z.string(),
-});
-
-export const evidenceAppendixSchema = z.array(
-  z.object({
-    url: z.string().url(),
-    title: z.string(),
-    snippet: z.string(),
-  }),
-);
-export type EvidenceAppendix = z.infer<typeof evidenceAppendixSchema>;
-
-export const outputSchema = z.object({
-  proposals: z.array(proposalSignalSchema).min(0),
-  keyUncertainties: z.array(z.string()),
-  evidenceAppendix: evidenceAppendixSchema,
-});
 
 // The full artifact set the gate validates: agent output (outputSchema) plus
 // the run record's lightweight verdict (D-04 — required by the
