@@ -477,24 +477,28 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 | A5 | `signal.source` free-text column is sufficient provenance (no `fieldSources`-style extension) | D-10 | If provenance needs structured fields later, a migration adds them; minimal-first recommended by D-10 |
 | A6 | `signal_proposal`/`agent_run`/`correction` table names + status enum (`pending/accepted/rejected`) | Architecture | Names are discretion; planner may adjust, must stay consistent with D-09/D-14 semantics |
 
-## Open Questions
+## Open Questions (RESOLVED at plan time 2026-07-31)
 
 1. **Anthropic model string — which exact fast model?**
+   - **RESOLVED:** default constant `claude-sonnet-4-20250514` baked in `src/lib/agents/constants.ts`; verify at implementation against `@ai-sdk/anthropic` docs; swappable constant (per 09-01-PLAN.md Task 2/4).
    - What we know: fast family preferred (D-07 budget); `@ai-sdk/anthropic@4.0.26` current.
    - What's unclear: the exact model ID that is current, fastest, and fits a ~60s run with 1 Firecrawl round.
    - Recommendation: at plan time, check `@ai-sdk/anthropic` docs (Context7) for the current fast model string (e.g., Sonnet-line or Haiku-line); bake the string as a constant in `lib/agents/` so it's swappable without code surgery.
 
 2. **Langfuse region — `cloud.langfuse.com` vs EU base URL?**
+   - **RESOLVED:** optional `LANGFUSE_TRACE_BASE_URL` env override included (09-01-PLAN.md Task 2, env.ts); region confirmed at execution start during OBSV-01 verification (manual UAT).
    - What we know: D-15 allows a `LANGFUSE_TRACE_BASE_URL` override; user confirmed keys provisioned.
    - What's unclear: whether the project uses the US or EU cloud region.
    - Recommendation: include the optional env key; confirm region with user at plan/execution start (one question, unblocks OBSV-01 verification).
 
 3. **Dedup enforcement depth — DB unique index as belt-and-suspenders?**
+   - **RESOLVED:** partial unique index on live `signal(company_id, signal_type)` added (09-01-PLAN.md Task 1, [BLOCKING] schema push).
    - What we know: D-11 mandates server-side filter before + after run.
    - What's unclear: whether to add a partial unique index on live `signal(company_id, signal_type)` to make duplicate insertion impossible even under races.
    - Recommendation: planner decision — add the partial unique index (cheap, prevents a whole bug class); the accept path already serializes via the proposal status check.
 
 4. **Queue route placement — inside `(dashboard)` route group?**
+   - **RESOLVED:** nested as `src/app/(dashboard)/reviews/` reusing the existing layout gate + `AppShellLayout` (09-03-PLAN.md Task 3 §1).
    - What we know: D-12 prefers a route consistent with explorer patterns; `(dashboard)` layout provides `requireStaffAccess` + `AppShellLayout`; `/companies` and `/personas` use identical per-subtree layouts.
    - What's unclear: whether the reviews route should be a sibling of `(dashboard)` (own layout, same gate) or nested within it.
    - Recommendation: sibling route (`src/app/reviews/` or `src/app/(dashboard)/reviews/`) reusing the same layout pattern — planner/UI decision; no new design language.
