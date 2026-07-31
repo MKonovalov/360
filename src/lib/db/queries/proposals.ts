@@ -57,6 +57,20 @@ export async function listPendingProposals() {
     .orderBy(desc(signalProposal.createdAt));
 }
 
+// Single-proposal lookup for the reject flow (09-03 additive): resolves the
+// proposal's run traceId — correction.trace_id is NOT NULL (schema.ts), so the
+// reject action must read the traceId from the DB (via this join), never from
+// the client. Mirrors the listPendingProposals join; runId is nullable
+// (proposals can outlive a run) — callers surface no_trace when absent.
+export async function getProposalById(proposalId: number) {
+  const rows = await db
+    .select({ traceId: agentRun.traceId })
+    .from(signalProposal)
+    .leftJoin(agentRun, eq(signalProposal.runId, agentRun.id))
+    .where(eq(signalProposal.id, proposalId));
+  return rows[0];
+}
+
 // ANLZ-04: pending-proposal count for the Company-detail badge.
 export async function countPendingProposals() {
   const [row] = await db
