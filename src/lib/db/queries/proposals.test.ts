@@ -19,8 +19,9 @@ import {
   acceptProposal,
 } from './proposals';
 import { agentRun, signal, signalProposal } from '../schema';
+import type { ProposalSignal } from '@/lib/agents/types';
 
-const costProposal = {
+const costProposal: ProposalSignal = {
   signalType: 'cost_pressure',
   strength: 'medium',
   detectedAt: '2026-07-31',
@@ -30,7 +31,7 @@ const costProposal = {
   evidenceSnippet: 'Acme faces cost pressure',
   reasoning: 'News coverage indicates cost pressure',
 };
-const gbsProposal = {
+const gbsProposal: ProposalSignal = {
   signalType: 'immature_gbs_org',
   strength: 'low',
   detectedAt: '2026-07-31',
