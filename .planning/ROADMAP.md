@@ -27,8 +27,8 @@ Full details: [`.planning/milestones/v1.0-ROADMAP.md`](milestones/v1.0-ROADMAP.m
 
 - [x] **Phase 5: Layout Consolidation + Rework** - Companies and Personas both move to a shared, stacked full-width list/detail layout, replacing 6 files' worth of duplicated side-by-side markup (completed 2026-07-30)
 - [x] **Phase 6: Shared Menu Component + Start Page** - One-time dropdown-menu investment reused by Import and Analyze; new dashboard landing page with stats, recent signals, recently-viewed, and needs-attention (completed 2026-07-30)
-- [ ] **Phase 7: CSV Import** - Menu → Import CSV upload wizard for Companies/Personas with column/enum mapping, partial-commit validation, dedup, template download, and import history/rollback
-- [ ] **Phase 8: Enrichment API** - Menu → Import-adjacent commercial enrichment (Apollo.io) with auto-fill-empty-only merge policy, field-level provenance, and merge-conflict review
+- [x] **Phase 7: CSV Import** - Menu → Import CSV upload wizard for Companies/Personas with column/enum mapping, partial-commit validation, dedup, template download, and import history/rollback (completed 2026-07-31)
+- [x] **Phase 8: Enrichment API** - Menu → Import-adjacent commercial enrichment (Apollo.io companies / Prospeo personas) with auto-fill-empty-only merge policy, field-level provenance, and merge-conflict review
 - [ ] **Phase 9: Analytic Agent + Observability** - Menu → Analyze web-search signal-detection agent with a human-reviewed proposal queue, plus full Langfuse tracing and correction-reason capture
 
 ## Phase Details
@@ -101,25 +101,25 @@ Plans:
 
 Plans:
 **Wave 1**
-- [ ] 07-01-PLAN.md — Schema foundation: company.domain, persona.email unique, import_batch/import_log tables + [BLOCKING] drizzle-kit push
-- [ ] 07-02-PLAN.md — Test harness (Vitest) bootstrap + dedupKeys.ts (normalizeDomain/normalizeEmail/buildUpdatePatch) + next.config.ts bodySizeLimit
+- [x] 07-01-PLAN.md — Schema foundation: company.domain, persona.email unique, import_batch/import_log tables + [BLOCKING] drizzle-kit push
+- [x] 07-02-PLAN.md — Test harness (Vitest) bootstrap + dedupKeys.ts (normalizeDomain/normalizeEmail/buildUpdatePatch) + next.config.ts bodySizeLimit
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 07-03-PLAN.md — columnMapping.ts (auto-mapping) + csvTemplate.ts (schema-generated template)
-- [ ] 07-04-PLAN.md — partitionRows partial-commit validator + companyRowSchema domain field
-- [ ] 07-05-PLAN.md — Query layer: upsertCompanyByDomain/upsertPersonaByEmail + importBatches.ts (CRUD + rollback dependent-row checks)
+- [x] 07-03-PLAN.md — columnMapping.ts (auto-mapping) + csvTemplate.ts (schema-generated template)
+- [x] 07-04-PLAN.md — partitionRows partial-commit validator + companyRowSchema domain field
+- [x] 07-05-PLAN.md — Query layer: upsertCompanyByDomain/upsertPersonaByEmail + importBatches.ts (CRUD + rollback dependent-row checks)
 
 **Wave 3** *(blocked on Wave 2 completion)*
-- [ ] 07-06-PLAN.md — Server Actions: uploadImportFile, downloadImportTemplate, validateImportBatch, commitImportBatch, previewRollback, executeRollback
+- [x] 07-06-PLAN.md — Server Actions: uploadImportFile, downloadImportTemplate, validateImportBatch, commitImportBatch, previewRollback, executeRollback
 
 **Wave 4** *(blocked on Wave 3 completion)*
-- [ ] 07-07-PLAN.md — Wizard steps: Upload + Map (step indicator, dropzone, mapping table)
-- [ ] 07-08-PLAN.md — Wizard steps: Validate & Confirm + Done
-- [ ] 07-09-PLAN.md — shadcn dialog install + Import History table + Rollback confirmation dialog
+- [x] 07-07-PLAN.md — Wizard steps: Upload + Map (step indicator, dropzone, mapping table)
+- [x] 07-08-PLAN.md — Wizard steps: Validate & Confirm + Done
+- [x] 07-09-PLAN.md — shadcn dialog install + Import History table + Rollback confirmation dialog
 
 **Wave 5** *(blocked on Wave 4 completion)*
-- [ ] 07-10-PLAN.md — Wizard shell (ImportWizard) + entry routes (/companies/import, /personas/import)
-- [ ] 07-11-PLAN.md — Menu wiring (live Import link) + History routes (/companies/import/history, /personas/import/history)
+- [x] 07-10-PLAN.md — Wizard shell (ImportWizard) + entry routes (/companies/import, /personas/import)
+- [x] 07-11-PLAN.md — Menu wiring (live Import link) + History routes (/companies/import/history, /personas/import/history)
 
 **UI hint**: yes
 
@@ -136,7 +136,23 @@ Plans:
   4. When enrichment finds a conflicting value for an already-populated field, staff sees a merge-review UI (current vs. incoming) and accepts/rejects per field before anything commits
   5. Where the vendor's API exposes one, staff sees a match-confidence score per enriched field
 
-**Plans**: TBD
+**Plans**: 6 plans, 4 waves
+
+Plans:
+**Wave 1**
+- [x] 08-01-PLAN.md — Schema foundation: fieldSources jsonb + lastEnrichedAt on company/persona + APOLLO_API_KEY env + drizzle-kit push
+- [x] 08-02-PLAN.md — Pure core: apolloMap.ts (response→field mapping + bucketing) + mergePlan.ts (fill-vs-conflict) + tests
+
+**Wave 2** *(blocked on Wave 1)*
+- [x] 08-03-PLAN.md — apollo.ts client (discriminated result, no-match≠200, metadata-only logging)
+- [x] 08-04-PLAN.md — Query layer: applyCompanyEnrichment/applyPersonaEnrichment (targeted UPDATE + provenance merge)
+
+**Wave 3** *(blocked on Wave 2)*
+- [x] 08-05-PLAN.md — Server Actions: runEnrichment (plan) + commitEnrichment (write accepted only), auth-gated
+
+**Wave 4** *(blocked on Wave 3)*
+- [x] 08-06-PLAN.md — EnrichmentReviewDialog + Enrich menu wiring in both detail panels + live Apollo smoke test
+
 **UI hint**: yes
 
 ### Phase 9: Analytic Agent + Observability
@@ -152,9 +168,18 @@ Plans:
   4. Re-running Analyze on a Company does not re-propose a signal that already exists as a live record for that Company
   5. Every agent run appears as a trace in Langfuse (tool-call/reasoning steps, token cost); rejecting or editing a proposal captures a structured correction reason (wrong signal type / missed inclusion-exclusion criteria / hallucinated-no evidence / other) plus an optional free-text note, linked to that run's Langfuse trace
 
-**Plans**: TBD
+**Plans**: 3 plans
 
-**Research flag**: ARCHITECTURE.md and PITFALLS.md both leave the agent's async execution strategy (sync Server-Action/Route-Handler call vs. fire-and-poll) as an open question, blocked on confirming this Vercel plan tier's function `maxDuration` ceiling — no `vercel.json`/plan info was available during milestone research. Treat this as a **phase-level research task at `/gsd-plan-phase 9 --research-phase`**, not an assumption to build against; the answer determines whether the Route Handler can call `generateText` synchronously or needs a background-job/poll pattern (the latter would also need reconciling with this project's explicit "no background workers/queues" architectural constraint).
+**Wave 1**
+- [ ] 09-01-PLAN.md — Foundation: schema push (signal_proposal/agent_run/correction + unique index) + AI SDK v7/Langfuse/Firecrawl deps + env keys + telemetry bootstrap + AIRS gate port + agent core (runAgent/dedup/tools/prompt/types)
+
+**Wave 2** *(blocked on Wave 1)*
+- [ ] 09-02-PLAN.md — Service + persistence: analyzeCompany orchestration (gate fail-closed + pre/post dedup) + runs/proposals/corrections queries (idempotent guarded Accept, correction capture)
+
+**Wave 3** *(blocked on Wave 2)*
+- [ ] 09-03-PLAN.md — Delivery: first Route Handler POST /api/companies/[id]/analyze + reviews server actions + /reviews review queue UI + Analyze wiring + pending badge + sidebar entry
+
+**Research flag**: RESOLVED at plan time — Vercel Hobby `maxDuration` ceiling confirmed = 60s (D-07, user-confirmed). Route Handler calls `generateText` synchronously (no background-job/poll pattern needed; stays within the "no background workers/queues" constraint).
 
 ## Progress
 
@@ -169,10 +194,10 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9
 | 4. Arcpedia Integration & Resilience Polish | v1.0 | 2/2 | Complete | 2026-07-24 |
 | 5. Layout Consolidation + Rework | v1.1 | 3/3 | Complete    | 2026-07-30 |
 | 6. Shared Menu Component + Start Page | v1.1 | 4/4 | Complete    | 2026-07-30 |
-| 7. CSV Import | v1.1 | 0/TBD | Not started | - |
-| 8. Enrichment API | v1.1 | 0/TBD | Not started | - |
+| 7. CSV Import | v1.1 | 11/11 | Complete | 2026-07-31 |
+| 8. Enrichment API | v1.1 | 6/6 | Complete | 2026-07-31 |
 | 9. Analytic Agent + Observability | v1.1 | 0/TBD | Not started | - |
 
 ---
 
-*Roadmap for v1.1 created 2026-07-29 — 31/31 v1.1 requirements mapped across 5 phases. Phase 5 planned 2026-07-30 (3 plans, 2 waves) — completed 2026-07-30. Phase 6 planned 2026-07-30 (4 plans, 2 waves) — ready for `/gsd-execute-phase 6`.*
+*Roadmap for v1.1 created 2026-07-29. All 31 v1.1 requirements remain mapped across 5 phases. Phase 8 passed live UAT on 2026-07-31 (Apollo companies + Prospeo personas, full evidence in `08-enrichment-api/08-06-UAT.md`).*
