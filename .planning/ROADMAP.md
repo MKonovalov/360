@@ -171,7 +171,7 @@ Plans:
 **Plans**: 3 plans
 
 **Wave 1**
-- [ ] 09-01-PLAN.md — Foundation: schema push (signal_proposal/agent_run/correction + unique index) + AI SDK v7/Langfuse/Firecrawl deps + env keys + telemetry bootstrap + AIRS gate port + agent core (runAgent/dedup/tools/prompt/types)
+- [x] 09-01-PLAN.md — Foundation: schema push (signal_proposal/agent_run/correction + unique index) + AI SDK v7/Langfuse/Firecrawl deps + env keys + telemetry bootstrap + AIRS gate port + agent core (runAgent/dedup/tools/prompt/types)
 
 **Wave 2** *(blocked on Wave 1)*
 - [ ] 09-02-PLAN.md — Service + persistence: analyzeCompany orchestration (gate fail-closed + pre/post dedup) + runs/proposals/corrections queries (idempotent guarded Accept, correction capture)
@@ -196,7 +196,7 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9
 | 6. Shared Menu Component + Start Page | v1.1 | 4/4 | Complete    | 2026-07-30 |
 | 7. CSV Import | v1.1 | 11/11 | Complete | 2026-07-31 |
 | 8. Enrichment API | v1.1 | 6/6 | Complete | 2026-07-31 |
-| 9. Analytic Agent + Observability | v1.1 | 0/TBD | Not started | - |
+| 9. Analytic Agent + Observability | v1.1 | 1/3 | In Progress|  |
 
 ---
 

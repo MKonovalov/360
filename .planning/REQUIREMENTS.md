@@ -30,29 +30,29 @@ Requirements for v1.1. Each maps to roadmap phases.
 
 ### CSV Import (IMPT)
 
-- [ ] **IMPT-01**: Staff can upload a CSV file for Companies or Personas via Menu → Import
-- [ ] **IMPT-02**: Import wizard auto-detects column-to-field mapping with manual override, including enum-value mapping (e.g. a CSV value like "50-250M" maps to the `revenueBand` enum)
-- [ ] **IMPT-03**: Import validates rows before commit and supports partial commit — valid rows are imported, invalid rows are reported with row number and reason
-- [ ] **IMPT-04**: Import dedups against existing records using a stable key (`company.domain` for Companies; email for Personas where present)
-- [ ] **IMPT-05**: Import shows a summary on completion — counts created, updated, and skipped/errored
-- [ ] **IMPT-06**: Staff can download a CSV template pre-filled with valid enum values, generated from the schema so it can't drift out of date
-- [ ] **IMPT-07**: Import history is logged (who imported what, when) with rollback capability
+- [x] **IMPT-01**: Staff can upload a CSV file for Companies or Personas via Menu → Import
+- [x] **IMPT-02**: Import wizard auto-detects column-to-field mapping with manual override, including enum-value mapping (e.g. a CSV value like "50-250M" maps to the `revenueBand` enum)
+- [x] **IMPT-03**: Import validates rows before commit and supports partial commit — valid rows are imported, invalid rows are reported with row number and reason
+- [x] **IMPT-04**: Import dedups against existing records using a stable key (`company.domain` for Companies; email for Personas where present)
+- [x] **IMPT-05**: Import shows a summary on completion — counts created, updated, and skipped/errored
+- [x] **IMPT-06**: Staff can download a CSV template pre-filled with valid enum values, generated from the schema so it can't drift out of date
+- [x] **IMPT-07**: Import history is logged (who imported what, when) with rollback capability
 
 ### Enrichment API (ENRC)
 
-- [ ] **ENRC-01**: Staff can trigger commercial-API enrichment (Apollo.io) for a Company/Persona to pull real firmographic/contact data instead of manual seed data
-- [ ] **ENRC-02**: Enrichment merge policy auto-fills empty fields only — it never silently overwrites a field staff has already populated
-- [ ] **ENRC-03**: Each Company/Persona field carries a basic provenance marker (manual entry vs. enrichment-sourced)
-- [ ] **ENRC-04**: Staff can review field-level merge conflicts (current value vs. incoming value) and accept/reject per field before an enrichment write commits
-- [ ] **ENRC-05**: Enrichment shows the vendor's match-confidence score per field, when the vendor's API exposes one
+- [x] **ENRC-01**: Staff can trigger commercial-API enrichment (Apollo.io) for a Company/Persona to pull real firmographic/contact data instead of manual seed data
+- [x] **ENRC-02**: Enrichment merge policy auto-fills empty fields only — it never silently overwrites a field staff has already populated
+- [x] **ENRC-03**: Each Company/Persona field carries a basic provenance marker (manual entry vs. enrichment-sourced)
+- [x] **ENRC-04**: Staff can review field-level merge conflicts (current value vs. incoming value) and accept/reject per field before an enrichment write commits
+- [x] **ENRC-05**: Enrichment shows the vendor's match-confidence score per field, when the vendor's API exposes one
 
 ### Analytic Agent (ANLZ)
 
-- [ ] **ANLZ-01**: Staff can trigger on-demand, web-search-based signal analysis for a single Company via Menu → Analyze
-- [ ] **ANLZ-02**: The agent proposes candidate Signal records — typed to the existing `signalType`/`signalStrength` enums, with a source citation and reasoning — stored in a new review queue; it never auto-writes to the live Signal table under any circumstance
+- [x] **ANLZ-01**: Staff can trigger on-demand, web-search-based signal analysis for a single Company via Menu → Analyze
+- [x] **ANLZ-02**: The agent proposes candidate Signal records — typed to the existing `signalType`/`signalStrength` enums, with a source citation and reasoning — stored in a new review queue; it never auto-writes to the live Signal table under any circumstance
 - [ ] **ANLZ-03**: Staff sees a dedicated review queue listing all pending proposals with evidence/citation shown inline, and can Accept or Reject each
 - [ ] **ANLZ-04**: A pending-proposal count is shown as a badge on the Company detail page
-- [ ] **ANLZ-05**: The agent avoids re-proposing a signal that already exists as a live record for that Company (checks existing signals first)
+- [x] **ANLZ-05**: The agent avoids re-proposing a signal that already exists as a live record for that Company (checks existing signals first)
 
 ### Observability (OBSV)
 
@@ -135,23 +135,23 @@ Populated during roadmap creation.
 | LAYT-05 | Phase 5 | Complete |
 | MENU-01 | Phase 6 | Complete |
 | MENU-02 | Phase 6 | Complete |
-| IMPT-01 | Phase 7 | Pending |
-| IMPT-02 | Phase 7 | Pending |
-| IMPT-03 | Phase 7 | Pending |
-| IMPT-04 | Phase 7 | Pending |
-| IMPT-05 | Phase 7 | Pending |
-| IMPT-06 | Phase 7 | Pending |
-| IMPT-07 | Phase 7 | Pending |
-| ENRC-01 | Phase 8 | Pending |
-| ENRC-02 | Phase 8 | Pending |
-| ENRC-03 | Phase 8 | Pending |
-| ENRC-04 | Phase 8 | Pending |
-| ENRC-05 | Phase 8 | Pending |
-| ANLZ-01 | Phase 9 | Pending |
-| ANLZ-02 | Phase 9 | Pending |
+| IMPT-01 | Phase 7 | Complete |
+| IMPT-02 | Phase 7 | Complete |
+| IMPT-03 | Phase 7 | Complete |
+| IMPT-04 | Phase 7 | Complete |
+| IMPT-05 | Phase 7 | Complete |
+| IMPT-06 | Phase 7 | Complete |
+| IMPT-07 | Phase 7 | Complete |
+| ENRC-01 | Phase 8 | Complete |
+| ENRC-02 | Phase 8 | Complete |
+| ENRC-03 | Phase 8 | Complete |
+| ENRC-04 | Phase 8 | Complete |
+| ENRC-05 | Phase 8 | Complete |
+| ANLZ-01 | Phase 9 | Complete |
+| ANLZ-02 | Phase 9 | Complete |
 | ANLZ-03 | Phase 9 | Pending |
 | ANLZ-04 | Phase 9 | Pending |
-| ANLZ-05 | Phase 9 | Pending |
+| ANLZ-05 | Phase 9 | Complete |
 | OBSV-01 | Phase 9 | Pending |
 | OBSV-02 | Phase 9 | Pending |
 
