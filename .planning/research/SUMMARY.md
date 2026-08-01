@@ -3,7 +3,8 @@
 **Project:** ArcLumen 360 — v1.2 "Exa-Style Left Panel" (redesign existing left nav to the dashboard.exa.ai design language; restyle current routes, no new routes)
 **Domain:** Light-only Next.js 16 App Router + shadcn (radix-nova) + Tailwind v4 app; sidebar redesign
 **Researched:** 2026-08-01
-**Confidence:** HIGH on mechanism (token swap, repo-verified) · HIGH on the reference design (live production CSS) · MEDIUM on the milestone premise
+**Decision resolved:** LIGHT panel, matching the reference (user-confirmed 2026-08-01 after the conflict surfaced)
+**Confidence:** HIGH on mechanism (token swap, repo-verified) · HIGH on the reference design (live production CSS) · RESOLVED on the milestone premise
 
 ## Research Overview
 
@@ -16,7 +17,7 @@
 
 ## Design Reference & Visual Language
 
-> **⚠️ HEADLINE CONFLICT — dark premise vs. actual reference.** The milestone (PROJECT.md) and the user's decision say **dark near-black sidebar**. FEATURES.md's primary evidence (live dashboard.exa.ai HTML/CSS, fetched 2026-08-01) shows the reference sidebar is **LIGHT `#fbfcfd`** with a 0.5px `gray-200` hairline right border. STACK/ARCHITECTURE/PITFALLS were all researched under the dark assumption and their *mechanisms* stay valid — but only FEATURES.md verified the reference's actual look (PITFALLS.md even lists "dark near-black rail" as MEDIUM/LOW unverified). **A dark panel cannot be presented as "matching dashboard.exa.ai"** — it must be a labeled, deliberate departure built from Exa's *marketing* dark-band vocabulary (`#181815` floor, white/10 hover pills, white/8 hairlines, scarce `#1F40ED` voltage). The light reference palette is fully specified in FEATURES.md if the user prefers true fidelity; the token-swap mechanism is identical either way.
+> **⚠️ CONFLICT RESOLVED — LIGHT is the reference, and the owner confirmed LIGHT.** The milestone (PROJECT.md) and the initial user decision said **dark near-black sidebar**. FEATURES.md's primary evidence (live dashboard.exa.ai HTML/CSS, fetched 2026-08-01) showed the reference sidebar is **LIGHT `#fbfcfd`** with a 0.5px `gray-200` hairline right border. STACK/ARCHITECTURE/PITFALLS were researched under the dark assumption and their *mechanisms* stay valid under either palette — but only FEATURES.md verified the reference's actual look (PITFALLS.md even lists "dark near-black rail" as MEDIUM/LOW unverified). **On 2026-08-01 the owner chose LIGHT (match reference).** The dark panel is dropped from scope; if it is ever wanted later, it must be a labeled, deliberate departure built from Exa's *marketing* dark-band vocabulary (`#181815` floor, white/10 hover pills, white/8 hairlines, scarce `#1F40ED` voltage). The light reference palette is fully specified in FEATURES.md and the token-swap mechanism is identical either way.
 
 **Actual reference anatomy (dashboard.exa.ai, light):** near-white `#fbfcfd` panel, 0.5px hairline right border; 36px top row = 16px `#1F40ED` logo mark + team name + chevron (radix dropdown); intent-grouped sections with 13px/500 `#888888` muted labels (API Playground / Management / Learn); nav rows = 30px height, 16px lucide icon + 15px/400 `#444444` label, 10px gap, 8px padding, monochrome `currentColor` icons; active state = 4px-radius `rgba(0,0,0,0.04)` gray fill + black text (live Aug 2026 CSS; Apr 2026 screenshots show *blue* — prefer live gray, flagged conflict); bottom zone = full-width "Give us feedback" pill → 0.6px divider → 24px `#C3ECFF` avatar + 15px/500 username; collapse button `panel-left-close` 24×24 top-right with 0.2s width animation; "NEW" badge = mono 10px/600 accent chip, `mix-blend-multiply`, right-aligned.
 
@@ -54,9 +55,9 @@
 
 ## Recommendations
 
-1. **Resolve the dark/light conflict explicitly before planning** (it is the one research-vs-premise contradiction). The user has already decided **dark** — honor it, but write it into the milestone as an **intentional departure** ("Exa dark-band vocabulary": `#181815`-family floor, white/10 hover, white/8 hairline, scarce `#1F40ED`), not as "matches dashboard.exa.ai." If the owner instead wants true reference fidelity, the light `#fbfcfd` palette is fully specified and the mechanism is identical — the delta from today's near-white nova token is tiny. **Do not silently proceed as if dark were the reference.**
-2. **Mechanism (locked):** one scoped `--sidebar-*` token block (on `[data-sidebar="sidebar"]`), zero new dependencies, zero vendored-primitive edits, `@theme inline` untouched. Keep STACK.md's starting palette (`--sidebar: oklch(0.16 0 0)`, accent `oklch(0.26 0 0)`, border `oklch(1 0 0 / 8%)`) as the UI-SPEC baseline.
-3. **Milestone scope (per user):** restyle the 4 current routes only — intent groups (Explore/Manage), Exa item anatomy, gray active treatment, mono-chip pending badge, top logo zone + bottom user zone (Clerk `useUser()`), collapse button coexisting with the existing drag-resize. Preserve routes, resize, `⌘B`, and badge gating.
+1. **Dark/light conflict — RESOLVED: ship LIGHT (matches the reference).** The owner confirmed the light `#fbfcfd` direction on 2026-08-01 after the conflict was surfaced. Milestone framing is now authentic: "matches dashboard.exa.ai," no departure label needed. The dark `--sidebar-*` palette from STACK.md is **not** used; instead apply the light reference values from FEATURES.md (near-white `#fbfcfd` panel, hairline `gray-200` border, `rgba(0,0,0,0.04)` active fill, `#888888` section labels, `#444444` item text).
+2. **Mechanism (locked):** one scoped `--sidebar-*` token block (on `[data-sidebar="sidebar"]`), zero new dependencies, zero vendored-primitive edits, `@theme inline` untouched. Apply the **light** reference values from FEATURES.md as the UI-SPEC baseline (panel `#fbfcfd`, border `gray-200` hairline, active `rgba(0,0,0,0.04)`, accent = current indigo family for the badge), not STACK.md's dark palette.
+3. **Milestone scope (per user):** restyle the 4 current routes only — **light Exa-style panel** (`#fbfcfd` + hairline border), intent groups (Explore/Manage), Exa item anatomy, subtle gray active treatment, mono-chip pending badge, top logo zone + bottom user zone (Clerk `useUser()`), collapse button coexisting with the existing drag-resize. Preserve routes, resize, `⌘B`, and badge gating.
 4. **Phase structure:** Phase 0 (planning decisions in UI-SPEC: dark-as-departure sign-off, logo treatment, portal policy) → Phase A token foundation + `getActiveNavKey` extraction/tests → Phase B consumer restyle → Phase C edge surfaces (conditional) → Phase D contrast audit + full live-browser UAT matrix.
 5. **Research flags:** no phase needs deeper external research — the design language is fully specified from primary evidence. The risk is *decision*, not discovery; use `/gsd-ui-phase` to lock palette + portal decision before Phase B.
 
@@ -73,7 +74,7 @@
 
 ### Gaps to Address
 
-- **Dark-vs-light premise gap:** the roadmap must record the dark choice as a documented departure (or flip to light) — unresolved before planning, this poisons the milestone's framing.
+- **Dark-vs-light premise gap — CLOSED:** owner chose light (match reference) on 2026-08-01; dark is out of scope. Roadmap applies the FEATURES.md light palette, not the STACK.md dark palette.
 - **Logo/wordmark:** no ArcLumen logo asset exists; a wordmark/letter-mark decision (and collapsed form) is the only hard design dependency.
 - **Collapse-vs-resize matrix:** decide collapse target width and whether the drag handle stays visible (both coexist via `--sidebar-width`).
 - **Portal policy + feedback destination + org-name source:** small open decisions, all gated into UI-SPEC / Phase 0.
@@ -86,4 +87,4 @@
 
 ---
 *Research completed: 2026-08-01*
-*Ready for roadmap: yes — pending the dark/light premise sign-off in Recommendations #1*
+*Ready for roadmap: yes — dark/light premise resolved (LIGHT, matches reference)*

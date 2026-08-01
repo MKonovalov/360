@@ -14,11 +14,11 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 
 ## Current Milestone: v1.2 Exa-Style Left Panel
 
-**Goal:** Redesign the app's left navigation panel to match the dashboard.exa.ai sidebar — its dark visual style, item treatment, and interaction pattern — while keeping the current routes and nav items.
+**Goal:** Redesign the app's left navigation panel to match the dashboard.exa.ai sidebar — its light near-white visual style, item treatment, grouping, and interaction pattern — while keeping the current routes and nav items.
 
 **Target features:**
-- Dark Exa-style sidebar panel (near-black) against the app's light content area
-- Restyle the current nav items (Start, Companies, Key Personas, Reviews) with Exa-like iconography, grouping, and active states — no new routes
+- Light Exa-style sidebar panel (near-white `#fbfcfd` + hairline border) matching the dashboard.exa.ai reference — verified from live production CSS; the "dark" idea was dropped after research (Exa's dark surfaces are its marketing site, not the dashboard sidebar)
+- Restyle the current nav items (Start, Companies, Key Personas, Reviews) with Exa-like iconography, intent-grouped sections, and subtle gray active states — no new routes
 - Logo/branding zone at top and user/settings zone at bottom, mirroring Exa's sidebar anatomy
 - Preserve existing collapse/resize behavior and the pending-reviews badge
 
