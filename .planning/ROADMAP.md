@@ -104,8 +104,12 @@ Plans:
   3. A full-width "Give us feedback" pill sits above the user zone and routes to the UI-SPEC-decided destination (team-inbox mailto / Arcpedia link)
   4. Branding and user zones use sidebar tokens only (`text-sidebar-foreground`, `bg-sidebar`, `hover:bg-sidebar-accent`, `border-sidebar-border`) and follow the panel theme in expanded, collapsed, and mobile states
 
-**Plans**: TBD
+**Plans**: 2 plans
 **UI hint**: yes
+Plans:
+
+- [ ] 12-01-PLAN.md — Branding zone (SidebarHeader wordmark + org label, Q4 fade) + user zone (SidebarFooter: feedback pill + divider + useUser identity + sign-out dropdown) + src/lib/user.ts pure functions with tests (BRND-01..04)
+- [ ] 12-02-PLAN.md — QLTY-04 sweep + fence gates + full regression battery (BRND-01..04, hard constraints)
 
 ### Phase 13: Collapse & Resize Coexistence
 
