@@ -105,9 +105,16 @@ export function AppSidebar({ pendingCount = 0 }: { pendingCount?: number }) {
               A
             </div>
             {/* Q4 wordmark block — class list VERBATIM from Phase 12 (do not edit) */}
-            <div className="group-data-[collapsible=icon]:opacity-0 transition-opacity duration-200">
-              <p className="text-[15px] font-semibold text-sidebar-foreground">ArcLumen 360</p>
-              <p className="text-xs font-normal text-sidebar-foreground/70">ArcLumen Partners</p>
+            <div className="group-data-[collapsible=icon]:opacity-0 transition-opacity duration-200 flex items-center gap-2">
+              <img
+                src="/arclumen-avatar-linen.png"
+                alt="ArcLumen"
+                className="size-8 rounded-full object-cover"
+              />
+              <div className="flex flex-col gap-1">
+                <p className="text-[15px] font-semibold text-sidebar-foreground">ArcLumen 360</p>
+                <p className="text-xs font-normal text-sidebar-foreground/70">ArcLumen Partners</p>
+              </div>
             </div>
           </div>
         </SidebarHeader>
