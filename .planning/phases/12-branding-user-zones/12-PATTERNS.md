@@ -91,7 +91,7 @@ This is the exact mechanism Phase 12 pre-wires: `group-data-[collapsible=icon]:`
   className="h-[30px] p-0 px-2 gap-2.5 rounded-[4px] text-[15px] font-normal"
 >
 ```
-The user trigger follows the same `SidebarMenuButton` composition but with `size="lg"` (primitive h-12) per Q1 — `asChild` is NOT used on the trigger (the button itself opens the dropdown; a child `<button>` would need the Radix trigger's aria-expanded forwarding).
+The user trigger follows the same `SidebarMenuButton` composition but with `size="lg"` (primitive h-12) per Q1 — wrapped via `<DropdownMenuTrigger asChild>` so Radix forwards `aria-expanded` to the `SidebarMenuButton` child (the canonical explorer-menu.tsx:24-50 precedent).
 
 **Error handling:** n/a beyond the `useUser()` guard chain — see Shared Patterns → Client-identity guard chain.
 
