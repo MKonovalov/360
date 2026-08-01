@@ -13,7 +13,7 @@
 | `src/lib/sidebar-collapse.ts` (NEW — optional) | utility (pure function) | transform (state/key/count → label string) | `src/lib/nav.ts` — same directory, same convention (NavKey union + pure function), same extraction motive | exact |
 | `src/lib/sidebar-collapse.test.ts` (NEW — optional) | test | unit | `src/lib/nav.test.ts` (11 cases) / `src/lib/user.test.ts` (8 cases) | exact |
 
-**Scope fence (hard):** the phase touches ONLY `app-sidebar.tsx` + `sidebar-resize-handle.tsx` (collapse-hide lines only) (+ the 2 optional `src/lib/sidebar-collapse*` files). `src/components/ui/sidebar.tsx`, `tooltip.tsx`, `button.tsx`, `dropdown-menu.tsx`, `src/app/globals.css`, `app-shell-layout.tsx`, `package.json`, `package-lock.json` are **consumers only — UNTOUCHED** (fence gates verify empty `git diff`). Zero new npm packages — `lucide-react` (`PanelLeftClose`/`PanelLeftOpen` verified at `node_modules/lucide-react/dist/lucide-react.d.ts:14590/14603`), `radix-ui`, `vitest` all already installed.
+**Scope fence (hard):** the phase touches ONLY `app-sidebar.tsx` + `sidebar-resize-handle.tsx` (collapse-hide lines only) (+ the 2 optional `src/lib/sidebar-collapse*` files). `src/components/ui/sidebar.tsx`, `tooltip.tsx`, `button.tsx`, `dropdown-menu.tsx`, `src/app/globals.css`, `src/app/(dashboard)/layout.tsx`, `app-shell-layout.tsx`, `package.json`, `package-lock.json` are **consumers only — UNTOUCHED** (fence gates verify empty `git diff`). Zero new npm packages — `lucide-react` (`PanelLeftClose`/`PanelLeftOpen` verified at `node_modules/lucide-react/dist/lucide-react.d.ts:14590/14603`), `radix-ui`, `vitest` all already installed.
 
 ---
 
@@ -136,15 +136,16 @@ const COOKIE_NAME = 'sidebar_width';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
 
 export function SidebarResizeHandle() {
-  const { state } = useSidebar();                       // NEW
-  if (state === 'collapsed') return null;               // NEW — D-04: no resize affordance in the 48px rail
   const startXRef = useRef(0);
   const startWidthRef = useRef(0);
   const wrapperRef = useRef<HTMLElement | null>(null);
-  // ...rest of the drag contract UNCHANGED (handlePointerMove/Up/Down, the 200-400 clamp,
-  //    the sidebar_width cookie write at line 45, the imperative --sidebar-width write at line 27)...
+  const { state } = useSidebar();                       // NEW — hook call, unconditional (with the other hooks)
+  // ...the three useCallback handlers (handlePointerMove/Up/Down, lines 21-70) UNCHANGED —
+  //    the 200-400 clamp, the sidebar_width cookie write at line 45, the imperative
+  //    --sidebar-width write at line 27: all byte-identical (COLR-02)...
+  if (state === 'collapsed') return null;               // NEW — D-04: no resize affordance in the 48px rail (AFTER all hooks)
 ```
-Everything from line 21 down stays byte-identical (COLR-02). **Early-return placement is BEFORE the refs** (hook order — `useSidebar()` is a hook and must not be conditional, but the early return after all hooks is fine; refs are hooks too, so the early return goes AFTER the three `useRef` declarations, i.e., after line 19). The handle's imperative `style.setProperty('--sidebar-width', ...)` (line 27) can never run while collapsed → the cookie-threaded var stays at its last persisted value → automatic D-05 width restore on expand. Layout stability: the sidebar's in-flow gap div reserves the width (sidebar.tsx:217-227), so the handle vanishing doesn't shift anything.
+Everything from line 21 down stays byte-identical (COLR-02). **Early-return placement — AFTER ALL hooks.** `useSidebar()` is a hook and must be called unconditionally alongside the other hooks (with the refs at lines 17-19); the early return is NOT a hook and must come after every hook call — the three `useRef` declarations (17-19) AND the three `useCallback` declarations (21-70) — i.e., immediately before the `return (` at line 72. Placing it earlier (e.g., right after the refs) would make a collapsed render skip the callback hooks and throw "Rendered fewer hooks" the next time the user toggles while the component is mounted. The handle's imperative `style.setProperty('--sidebar-width', ...)` (line 27) can never run while collapsed → the cookie-threaded var stays at its last persisted value → automatic D-05 width restore on expand. Layout stability: the sidebar's in-flow gap div reserves the width (sidebar.tsx:217-227), so the handle vanishing doesn't shift anything.
 
 **Why-comment for the hide (1-2 lines, above the early return, class-string-free):** explain that the rail is fixed-width (D-04) and the imperative width write must not run mid-collapse (Pitfall 5) — follow the existing file's comment density (lines 10-15, 73-78).
 
@@ -157,10 +158,11 @@ Everything from line 21 down stays byte-identical (COLR-02). **Early-return plac
 **Whole-file template — mirroring `nav.ts:1-6` + `user.ts:1-14` (why-comment + union type + named exports):**
 ```typescript
 // Tooltip-label copy for the collapsed rail (D-08). The labels are contract-
-// locked (10-UI-SPEC §Copywriting Contract: "Reviews (N)" when pendingCount
-// > 0, else "Reviews"), so the exact strings live here under Vitest — a
-// drive-by wording edit in the sidebar can never silently break the copy
-// contract. NavKey is reused from nav.ts for type-safe routing keys.
+// locked (10-UI-SPEC §Copywriting Contract — the reviews tooltip embeds the
+// pending count only when it is positive), so the exact strings live here
+// under Vitest — a drive-by wording edit in the sidebar can never silently
+// break the copy contract. The routing-key union is reused from nav.ts for
+// type-safe mapping.
 
 import type { NavKey } from '@/lib/nav';
 
@@ -316,7 +318,7 @@ Frozen. The provider's `...style` spread wins over its `16rem` default (sidebar.
 **Apply to:** `app-sidebar.tsx` (collapse button: `const { state, toggleSidebar } = useSidebar()`), `sidebar-resize-handle.tsx` (D-04 hide: `const { state } = useSidebar()`)
 - Legal because both components render inside `SidebarProvider` (app-shell-layout.tsx:35-42, verified)
 - Hook throws outside the provider (sidebar.tsx:49) — never call it in a server component
-- In the resize handle, the early return MUST come after all hook calls (refs at lines 17-19) to preserve hook order
+- In the resize handle, the early return MUST come after ALL hook calls — the three refs at lines 17-19 AND the three callbacks at lines 21-70 — to preserve hook order (an earlier return would make a collapsed render skip the callback hooks and throw "Rendered fewer hooks" on the next toggle)
 
 ### Dormant collapsed-rail classes (`group-data-[collapsible=icon]:`) — activation, not authoring
 **Source:** app-sidebar.tsx:130 (Reviews dot), 149 (pill icon), 58 (wordmark fade); sidebar.tsx:469/480 (menu-button variants), 404 (label fade)
@@ -354,7 +356,7 @@ Frozen. The provider's `...style` spread wins over its `16rem` default (sidebar.
 ### Verification gates (COLR-02 fence + COLR-01/03 grep)
 **Source:** Phases 10-12 (11-02-PLAN.md sweep precedent; 12-PATTERNS.md)
 **Apply to:** every Phase 13 task
-- Fence: `git diff <base> HEAD -- src/components/ui/sidebar.tsx src/components/ui/tooltip.tsx src/components/ui/button.tsx src/components/ui/dropdown-menu.tsx src/components/layout/app-shell-layout.tsx src/app/globals.css package.json package-lock.json` = empty
+- Fence: `git diff <base> HEAD -- src/components/ui/sidebar.tsx src/components/ui/tooltip.tsx src/components/ui/dropdown-menu.tsx src/components/ui/button.tsx src/app/globals.css 'src/app/(dashboard)/layout.tsx' src/components/layout/app-shell-layout.tsx package.json package-lock.json` = empty
 - Fence (resize contract): `git diff <base> HEAD -- src/components/layout/sidebar-resize-handle.tsx` = ONLY the `useSidebar` import + `const { state }` + early return; `MIN_WIDTH`/`MAX_WIDTH` = 200/400, `COOKIE_NAME = 'sidebar_width'`, the line-27 `setProperty` and line-45 cookie write unchanged
 - Grep: `grep -c 'collapsible="icon"' src/components/layout/app-sidebar.tsx` = 1; `grep -c 'tooltip=' src/components/layout/app-sidebar.tsx` ≥ 5 (6 SidebarMenuButtons); `grep -c 'PanelLeftClose'` ≥ 1 and `PanelLeftOpen` ≥ 1; `grep -c '<TooltipProvider'` = 1 — **line-scope new-content gates where strings already exist in the file** (Pitfall 3: `bg-sidebar-primary` already on the avatar at line 173; `group-data-[collapsible=icon]:block` already on the dot at 130 and pill icon at 149)
 - Static gates: `npx tsc --noEmit`; `npm test`; `npm run build`
