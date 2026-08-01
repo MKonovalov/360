@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Exa-Style Left Panel
-status: executing
-last_updated: "2026-08-01T17:54:01.395Z"
+status: verifying
+last_updated: "2026-08-01T18:00:40.612Z"
 last_activity: 2026-08-01
 progress:
   total_phases: 5
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 6
-  completed_plans: 5
-  percent: 40
+  completed_plans: 6
+  percent: 60
 ---
 
 # Project State
@@ -26,10 +26,10 @@ See: .planning/PROJECT.md (updated 2026-08-01)
 
 Phase: 12
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-01
 
-Progress: [████████░░] 83%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ Progress: [████████░░] 83%
 | Phase 10 P02 | 2 | - tasks | - files |
 | Phase 11-nav-items-restyle P02 | 2min | 2 tasks | 1 files |
 | Phase 12-branding-user-zones P01 | 5 min | 3 tasks | 3 files |
+| Phase 12-branding-user-zones P02 | 2min | 2 tasks | 0 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,8 @@ Recent decisions affecting current work:
 - [Phase 12-branding-user-zones]: Used SignOutButton redirectUrl="/sign-in" (primary sanctioned form) — the redirectUrl[=:].*sign-in gate = 1; no useClerk fallback needed
 - [Phase 12-branding-user-zones]: Kept standard multi-line JSX formatting for SidebarFooter (open/close tags on separate lines), making its grep count 3 (import + open + close) not the plan's expected 2 — plan arithmetic discrepancy, no acceptance criterion asserts it
 - [Phase 12-branding-user-zones]: Substituted --bail=1 for the plan's -x flag in vitest commands — Vitest 4 removed the -x alias (unknown option error); --bail=1 is the functional equivalent (stop on first failure)
+- [Phase 12-branding-user-zones]: PHASE_BASE_SHA resolved to d8795a11 (the commit immediately before 12-01 Task 1's first source commit 07d455d6), not the plan text's stale a79cd5ac reference — verified via git log; d8795a11 is the parent of the first Phase-12 source commit — Verified via git log: first Phase-12 source commit is 07d455d6 (feat 12-01), parent d8795a11; base-vs-HEAD range proves phase scope
+- [Phase 12-branding-user-zones]: Substituted --bail=1 for the plan's -x flag in vitest commands (Vitest 4 removed the -x alias — same substitution 12-01 documented); --bail=1 is the functional equivalent (stop on first failure) — Vitest 4.1.10 removed the -x alias; --bail=1 is the functional equivalent (stop on first failure)
 
 ### Pending Todos
 
@@ -111,7 +114,7 @@ Items acknowledged and deferred at v1.1 milestone close on 2026-08-01, still ope
 
 ## Session Continuity
 
-Last session: 2026-08-01T17:49:55.927Z
+Last session: 2026-08-01T17:59:52.218Z
 Stopped at: Completed 12-01-PLAN.md
 Resume file: None
 
