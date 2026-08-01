@@ -21,6 +21,13 @@ export async function AppShellLayout({ children }: { children: React.ReactNode }
       ? rawWidth
       : DEFAULT_SIDEBAR_WIDTH;
 
+  // The vendored provider only WRITES sidebar_state on toggle — it never reads
+  // it back on mount (useState(defaultOpen) with defaultOpen=true). Without
+  // this, navigating across route groups (/companies, /personas have their own
+  // layouts) remounts AppShellLayout and silently re-expands a collapsed rail.
+  // Read the cookie here so collapse survives remounts and reloads.
+  const defaultOpen = cookieStore.get('sidebar_state')?.value !== 'false';
+
   // 09-03 (Reviews sidebar badge): the count is fetched here in the server
   // shell — AppSidebar is a client component and cannot query the DB. A DB
   // failure degrades to 0 (no badge) rather than failing the whole shell.
@@ -32,7 +39,10 @@ export async function AppShellLayout({ children }: { children: React.ReactNode }
   }
 
   return (
-    <SidebarProvider style={{ '--sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}>
+    <SidebarProvider
+      defaultOpen={defaultOpen}
+      style={{ '--sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}
+    >
       <AppSidebar pendingCount={pendingCount} />
       <SidebarResizeHandle />
       <SidebarInset>
