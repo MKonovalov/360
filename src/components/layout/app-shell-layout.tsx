@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
+import { SidebarProvider, SidebarTrigger, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/app-sidebar';
 import { SidebarResizeHandle } from '@/components/layout/sidebar-resize-handle';
 import { countPendingProposals } from '@/lib/db/queries/proposals';
@@ -36,6 +36,11 @@ export async function AppShellLayout({ children }: { children: React.ReactNode }
       <AppSidebar pendingCount={pendingCount} />
       <SidebarResizeHandle />
       <SidebarInset>
+        {/* Mobile-only sidebar opener. The desktop header collapse button is
+            the desktop toggle (inside the panel); on small screens the whole
+            sidebar renders as a closed Sheet, so a trigger must live in the
+            content area (outside the Sheet) to open it. */}
+        <SidebarTrigger className="md:hidden" />
         {children}
       </SidebarInset>
     </SidebarProvider>
