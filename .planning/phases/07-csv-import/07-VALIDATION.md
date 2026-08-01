@@ -1,10 +1,11 @@
 ---
 phase: 07
 slug: csv-import
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: complete
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-07-30
+updated: 2026-08-01
 ---
 
 # Phase 07 — Validation Strategy
@@ -17,11 +18,11 @@ created: 2026-07-30
 
 | Property | Value |
 |----------|-------|
-| **Framework** | Vitest `^4.1.10` (new — not yet installed; zero test infra exists in this repo today) |
-| **Config file** | `vitest.config.ts` (new, Wave 0) — plain Node environment, no `jsdom`/React plugin needed |
-| **Quick run command** | `npx vitest run src/lib/import src/lib/validation/csvImport.test.ts` |
+| **Framework** | Vitest `4.1.10` (installed — 6 test files under `src/lib/import/` + `src/lib/validation/`) |
+| **Config file** | `vitest.config.ts` — plain Node environment, no `jsdom`/React plugin needed |
+| **Quick run command** | `npx vitest run src/lib/import src/lib/validation` |
 | **Full suite command** | `npx vitest run` |
-| **Estimated runtime** | ~2-5 seconds (small pure-function suite, no DB/browser in the loop) |
+| **Estimated runtime** | ~0.5s (127 tests across the import/validation unit suites) |
 
 ---
 
@@ -38,25 +39,25 @@ created: 2026-07-30
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 07-02-T2 | 07-02 | 1 | — | — | Test harness itself installed and runnable | Wave 0 | `npm install -D vitest && npx vitest run` | ❌ W0 | ⬜ pending |
-| 07-06-T1 | 07-06 | 3 | IMPT-01 | T-07-04 | Parse-failure branch never throws unhandled (inline try/catch in uploadImportFile, verified via tsc + grep, not a dedicated unit test) | tsc + grep | `npx tsc --noEmit` | n/a (inline, not extracted) | ⬜ pending |
-| 07-07-T2 | 07-07 | 4 | IMPT-01 | — | Upload round-trip (dropzone → Server Action) | manual | browser UAT (human-check in 07-07-T2) | ❌ n/a | ⬜ pending |
-| 07-03-T1 | 07-03 | 2 | IMPT-02 | — | `suggestColumnMapping` header-alias matching | unit | `npx vitest run src/lib/import/columnMapping.test.ts` | ✅ (created by 07-03-T1) | ⬜ pending |
-| 07-03-T1 | 07-03 | 2 | IMPT-02 | — | `suggestValueMapping` enum-value-alias matching | unit | `npx vitest run src/lib/import/columnMapping.test.ts` | ✅ (created by 07-03-T1) | ⬜ pending |
-| 07-07-T3 | 07-07 | 4 | IMPT-02 | T-07-05 | Manual mapping override in UI, incl. Continue-button gating against the FULL uploaded file's distinct enum values (not a preview sample) | manual | browser UAT | ❌ n/a | ⬜ pending |
-| 07-06-T2 | 07-06 | 3 | IMPT-02 | T-07-07 | An enum raw value with no explicit `valueMapping` entry (client contract violation, defense-in-depth) is rejected as a per-row error via `UNMAPPED_ENUM_SENTINEL`, never silently imported blank (revision-added, closes checker Blocker 2) | tsc + grep | `npx tsc --noEmit` (grep for `UNMAPPED_ENUM_SENTINEL` in `src/app/actions/import.ts`) | n/a (inline, not extracted) | ⬜ pending |
-| 07-04-T2 | 07-04 | 2 | IMPT-03 | T-07-04 | `partitionRows` valid/invalid split, correct row numbers, never throws | unit | `npx vitest run src/lib/validation/csvImport.test.ts` | ✅ (created by 07-04-T2) | ⬜ pending |
-| 07-08-T1 / 07-10-T2 | 07-08 / 07-10 | 4 / 5 | IMPT-03 | — | Partial-commit end-to-end in real browser flow | manual | browser UAT (fixture CSV w/ bad rows) | ❌ n/a | ⬜ pending |
-| 07-02-T3 | 07-02 | 1 | IMPT-04 | T-07-01 | `normalizeDomain`/`normalizeEmail` edge cases | unit | `npx vitest run src/lib/import/dedupKeys.test.ts` | ✅ (created by 07-02-T3) | ⬜ pending |
-| 07-02-T3 | 07-02 | 1 | IMPT-04 | T-07-01 | Blank-cell-untouched merge patch building (`buildUpdatePatch`) | unit | `npx vitest run src/lib/import/dedupKeys.test.ts` | ✅ (created by 07-02-T3) | ⬜ pending |
-| 07-06-T2 | 07-06 | 3 | IMPT-04 | T-07-01 | `rowMapper.ts`'s snake_case-to-camelCase field mapping, incl. `tech_stack` string-to-array split (revision-added — closes checker Blocker 1, where mapped fields were previously silently dropped on every import with no automated test to catch it) | unit | `npx vitest run src/lib/import/rowMapper.test.ts` | ✅ (created by 07-06-T2) | ⬜ pending |
-| 07-05-T1 | 07-05 | 2 | IMPT-04 | T-07-01 | Actual upsert DB round-trip (unique constraint enforcement) | manual | manual UAT + SQL check — **compare every mapped field on the resulting row against the source CSV's cell values field-by-field, not just row presence/count** (strengthened per checker Warning 2: a passing row count can mask a silently-dropped field) | ❌ n/a | ⬜ pending |
-| 07-06-T2 | 07-06 | 3 | IMPT-05 | — | Created/updated/errored tally from real commit outcomes (inline in commitImportBatch, not extracted as a standalone reducer — optional extraction per RESEARCH.md, skipped to keep the plan set within budget) | tsc + grep | `npx tsc --noEmit` | n/a (inline, optional extraction not taken) | ⬜ pending |
-| 07-08-T2 | 07-08 | 4 | IMPT-05 | — | Summary screen visual display | manual | browser UAT | ❌ n/a | ⬜ pending |
-| 07-03-T2 | 07-03 | 2 | IMPT-06 | — | Template generator header/enum-value correctness (never drifts from schema) | unit | `npx vitest run src/lib/import/csvTemplate.test.ts` | ✅ (created by 07-03-T2) | ⬜ pending |
-| 07-05-T3 | 07-05 | 2 | IMPT-07 | T-07-02 | `findRollbackableRows` deletable-vs-skipped partitioning | integration-shaped (DB reads, no test DB this phase — verified via tsc + manual, not vitest) | `npx tsc --noEmit` | n/a (DB-touching, out of Vitest's node-only scope per Validation Architecture) | ⬜ pending |
-| 07-05-T2 | 07-05 | 2 | IMPT-07 | — | `listImportBatchesWithRollbackStatus` correctly aggregates `import_log` into `isFullyRolledBack` (revision-added — closes checker Blocker 3, where History's "Rolled back" status had no data source) | tsc + grep | `npx tsc --noEmit` (grep for `isFullyRolledBack`) | n/a (DB-touching, out of Vitest's node-only scope) | ⬜ pending |
-| 07-09-T3 / 07-11-T2/T3 | 07-09 / 07-11 | 4 / 5 | IMPT-07 | T-07-02, T-07-05 | Full rollback flow incl. FK-violation-as-skip fallback, race tolerance, and the History table correctly flipping to "Rolled back" only once every created row in a batch is actually rolled back | manual | browser UAT (batch w/ and w/o dependents) | ❌ n/a | ⬜ pending |
+| 07-02-T2 | 07-02 | 1 | — | — | Test harness itself installed and runnable | Wave 0 | `npm install -D vitest && npx vitest run` | ✅ | ✅ green |
+| 07-06-T1 | 07-06 | 3 | IMPT-01 | T-07-04 | Parse-failure branch never throws unhandled (inline try/catch in uploadImportFile, verified via tsc + grep, not a dedicated unit test) | tsc + grep | `npx tsc --noEmit` | ✅ | ✅ green (tsc exit 0) |
+| 07-07-T2 | 07-07 | 4 | IMPT-01 | — | Upload round-trip (dropzone → Server Action) | manual | browser UAT (human-check in 07-07-T2) | n/a | ⬜ manual-only |
+| 07-03-T1 | 07-03 | 2 | IMPT-02 | — | `suggestColumnMapping` header-alias matching | unit | `npx vitest run src/lib/import/columnMapping.test.ts` | ✅ | ✅ green (49 tests) |
+| 07-03-T1 | 07-03 | 2 | IMPT-02 | — | `suggestValueMapping` enum-value-alias matching | unit | `npx vitest run src/lib/import/columnMapping.test.ts` | ✅ | ✅ green (49 tests) |
+| 07-07-T3 | 07-07 | 4 | IMPT-02 | T-07-05 | Manual mapping override in UI, incl. Continue-button gating against the FULL uploaded file's distinct enum values (not a preview sample) | manual | browser UAT | n/a | ⬜ manual-only |
+| 07-06-T2 | 07-06 | 3 | IMPT-02 | T-07-07 | An enum raw value with no explicit `valueMapping` entry (client contract violation, defense-in-depth) is rejected as a per-row error via `UNMAPPED_ENUM_SENTINEL`, never silently imported blank (revision-added, closes checker Blocker 2) | tsc + grep | `npx tsc --noEmit` (grep for `UNMAPPED_ENUM_SENTINEL` in `src/app/actions/import.ts`) | ✅ | ✅ green (tsc exit 0) |
+| 07-04-T2 | 07-04 | 2 | IMPT-03 | T-07-04 | `partitionRows` valid/invalid split, correct row numbers, never throws | unit | `npx vitest run src/lib/validation/csvImport.test.ts` | ✅ | ✅ green (5 tests) |
+| 07-08-T1 / 07-10-T2 | 07-08 / 07-10 | 4 / 5 | IMPT-03 | — | Partial-commit end-to-end in real browser flow | manual | browser UAT (fixture CSV w/ bad rows) | n/a | ⬜ manual-only |
+| 07-02-T3 | 07-02 | 1 | IMPT-04 | T-07-01 | `normalizeDomain`/`normalizeEmail` edge cases | unit | `npx vitest run src/lib/import/dedupKeys.test.ts` | ✅ | ✅ green (16 tests) |
+| 07-02-T3 | 07-02 | 1 | IMPT-04 | T-07-01 | Blank-cell-untouched merge patch building (`buildUpdatePatch`) | unit | `npx vitest run src/lib/import/dedupKeys.test.ts` | ✅ | ✅ green (16 tests) |
+| 07-06-T2 | 07-06 | 3 | IMPT-04 | T-07-01 | `rowMapper.ts`'s snake_case-to-camelCase field mapping, incl. `tech_stack` string-to-array split (revision-added — closes checker Blocker 1, where mapped fields were previously silently dropped on every import with no automated test to catch it) | unit | `npx vitest run src/lib/import/rowMapper.test.ts` | ✅ | ✅ green (12 tests) |
+| 07-05-T1 | 07-05 | 2 | IMPT-04 | T-07-01 | Actual upsert DB round-trip (unique constraint enforcement) | manual | manual UAT + SQL check — **compare every mapped field on the resulting row against the source CSV's cell values field-by-field, not just row presence/count** (strengthened per checker Warning 2: a passing row count can mask a silently-dropped field) | n/a | ⬜ manual-only |
+| 07-06-T2 | 07-06 | 3 | IMPT-05 | — | Created/updated/errored tally from real commit outcomes (inline in commitImportBatch, not extracted as a standalone reducer — optional extraction per RESEARCH.md, skipped to keep the plan set within budget) | tsc + grep | `npx tsc --noEmit` | n/a (inline, optional extraction not taken) | ✅ green (tsc exit 0; tally present in import.ts) |
+| 07-08-T2 | 07-08 | 4 | IMPT-05 | — | Summary screen visual display | manual | browser UAT | n/a | ⬜ manual-only |
+| 07-03-T2 | 07-03 | 2 | IMPT-06 | — | Template generator header/enum-value correctness (never drifts from schema) | unit | `npx vitest run src/lib/import/csvTemplate.test.ts` | ✅ | ✅ green (25 tests) |
+| 07-05-T3 | 07-05 | 2 | IMPT-07 | T-07-02 | `findRollbackableRows` deletable-vs-skipped partitioning | integration-shaped (DB reads, no test DB this phase — verified via tsc + manual, not vitest) | `npx tsc --noEmit` | ✅ | ✅ green (tsc exit 0; DB-touching stays manual) |
+| 07-05-T2 | 07-05 | 2 | IMPT-07 | — | `listImportBatchesWithRollbackStatus` correctly aggregates `import_log` into `isFullyRolledBack` (revision-added — closes checker Blocker 3, where History's "Rolled back" status had no data source) | tsc + grep | `npx tsc --noEmit` (grep for `isFullyRolledBack`) | ✅ | ✅ green (tsc exit 0; DB-touching stays manual) |
+| 07-09-T3 / 07-11-T2/T3 | 07-09 / 07-11 | 4 / 5 | IMPT-07 | T-07-02, T-07-05 | Full rollback flow incl. FK-violation-as-skip fallback, race tolerance, and the History table correctly flipping to "Rolled back" only once every created row in a batch is actually rolled back | manual | browser UAT (batch w/ and w/o dependents) | n/a | ⬜ manual-only |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 *Backfilled by the planner (`/gsd-plan-phase 7`) once all 11 plans (07-01 through 07-11) and their waves were assigned. `File Exists` reflects the state at planning time (before execution) — unit test files marked ✅ are created by the referenced task itself, not pre-existing. Revised in revision iteration 1 (gsd-plan-checker feedback) to add rowMapper.ts's unit coverage, the enum-sentinel backstop, and the rollback-status aggregation query — none of these add new Task IDs, since all three land inside existing tasks (07-05-T2, 07-06-T2).*
@@ -65,11 +66,11 @@ created: 2026-07-30
 
 ## Wave 0 Requirements
 
-- [ ] Install Vitest: `npm install -D vitest` (verify resolves: `npm view vitest version`) — **07-02-T1 adds a blocking package-legitimacy checkpoint before this install**, since vitest is not covered by RESEARCH.md's Package Legitimacy Audit table (only csv-parse/csv-stringify are)
-- [ ] `vitest.config.ts` — minimal config, Node environment (07-02-T2)
-- [ ] Add `"test": "vitest run"` to `package.json` `scripts` (07-02-T2)
-- [ ] First stub test file `src/lib/import/dedupKeys.test.ts` covering `normalizeDomain`/`normalizeEmail` — proves the harness runs; becomes real IMPT-04 coverage once `dedupKeys.ts` exists (07-02-T3, combined with the real implementation per this plan's economy of scope)
-- [ ] Explicitly **not** installed this phase: DB-mocking library, test-database provisioning, component-testing setup (`@testing-library/react`, `jsdom`, Playwright) — DB-touching and UI-rendering behavior stays manual UAT
+- [x] Install Vitest: `npm install -D vitest` (verify resolves: `npm view vitest version`) — **installed: vitest 4.1.10** (07-02-T2)
+- [x] `vitest.config.ts` — minimal config, Node environment (07-02-T2) — **present**
+- [x] Add `"test": "vitest run"` to `package.json` `scripts` (07-02-T2) — **present**
+- [x] First stub test file `src/lib/import/dedupKeys.test.ts` — **present, 16 tests green** (07-02-T3)
+- [x] Explicitly **not** installed this phase: DB-mocking library, test-database provisioning, component-testing setup (`@testing-library/react`, `jsdom`, Playwright) — DB-touching and UI-rendering behavior stays manual UAT
 
 ---
 
@@ -94,6 +95,24 @@ created: 2026-07-30
 - [x] Wave 0 covers all MISSING references (vitest harness + dedupKeys.test.ts, both in Plan 07-02, Wave 1)
 - [x] No watch-mode flags (`vitest run`, never bare `vitest`)
 - [x] Feedback latency < 10s
-- [ ] `nyquist_compliant: true` — left `false` until Wave 0 (Plan 07-02) actually executes and the harness is confirmed green; execute-phase should flip this after 07-02 completes
+- [x] `nyquist_compliant: true` — set 2026-08-01 by /gsd-validate-phase 7 (harness green: 127 tests across 6 files, tsc exit 0)
 
-**Approval:** pending
+**Approval:** approved (2026-08-01, /gsd-validate-phase 7)
+
+---
+
+## Validation Audit 2026-08-01
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
+
+**Audit method:** `/gsd-validate-phase 7` (State A) — re-ran the full phase-7 test surface against the executed codebase:
+- `npx vitest run src/lib/import src/lib/validation` → **6 files, 127 tests, all passed** (csvTemplate 25, columnMapping 49, dedupKeys 16, rowMapper 12, csvImport 5, airsRules 20)
+- `npx tsc --noEmit` → exit 0
+- Inline/grep-verified markers present: `UNMAPPED_ENUM_SENTINEL` (src/app/actions/import.ts), `isFullyRolledBack` (src/lib/db/queries/importBatches.ts), `findRollbackableRows` (rollback.ts + importBatches.ts), `partitionRows` (csvImport.ts)
+- Wave 0 complete: vitest 4.1.10 installed, `vitest.config.ts` present, `"test": "vitest run"` script present
+
+**Result:** all planned unit tests green, no automated gaps found. Manual-only behaviors (dropzone visuals, browser upload round-trip, mapping UI, DB upsert, re-import idempotency, rollback flow, race tolerance) remain manual per the phase's validation architecture (no test DB / browser harness provisioned in Phase 7 — documented in the Manual-Only table above). `nyquist_compliant: true`.
