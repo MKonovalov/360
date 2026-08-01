@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Inbox } from 'lucide-react';
+import { Building2, Inbox, LayoutDashboard, Users } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
+  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -29,6 +30,7 @@ export function AppSidebar({ pendingCount = 0 }: { pendingCount?: number }) {
     <Sidebar>
       <SidebarContent>
         <SidebarGroup>
+          <SidebarGroupLabel className="text-[13px] font-semibold">Explore</SidebarGroupLabel>
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton
@@ -39,7 +41,10 @@ export function AppSidebar({ pendingCount = 0 }: { pendingCount?: number }) {
                 isActive={pathname === '/'}
                 className="data-active:bg-indigo-50 data-active:text-indigo-600 data-active:hover:bg-indigo-50 data-active:hover:text-indigo-600"
               >
-                <Link href="/">Start</Link>
+                <Link href="/">
+                  <LayoutDashboard />
+                  <span>Start</span>
+                </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
@@ -48,7 +53,10 @@ export function AppSidebar({ pendingCount = 0 }: { pendingCount?: number }) {
                 isActive={pathname.startsWith('/companies')}
                 className="data-active:bg-indigo-50 data-active:text-indigo-600 data-active:hover:bg-indigo-50 data-active:hover:text-indigo-600"
               >
-                <Link href="/companies">Companies</Link>
+                <Link href="/companies">
+                  <Building2 />
+                  <span>Companies</span>
+                </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
@@ -57,9 +65,17 @@ export function AppSidebar({ pendingCount = 0 }: { pendingCount?: number }) {
                 isActive={pathname.startsWith('/personas')}
                 className="data-active:bg-indigo-50 data-active:text-indigo-600 data-active:hover:bg-indigo-50 data-active:hover:text-indigo-600"
               >
-                <Link href="/personas">Key Personas</Link>
+                <Link href="/personas">
+                  <Users />
+                  <span>Key Personas</span>
+                </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
+        <SidebarGroup className="-mt-1">
+          <SidebarGroupLabel className="text-[13px] font-semibold">Manage</SidebarGroupLabel>
+          <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
