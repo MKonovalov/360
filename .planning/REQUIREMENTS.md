@@ -9,10 +9,10 @@ Requirements for v1.2 "Exa-Style Left Panel". Each maps to roadmap phases (conti
 
 ### Panel & Theme (PANE)
 
-- [ ] **PANE-01**: The left navigation panel matches the dashboard.exa.ai reference — a light near-white (`#fbfcfd`) panel with a 0.5px hairline right border, distinct from the flat-white panel of v1.1
-- [ ] **PANE-02**: The redesign is implemented via the `--sidebar-*` CSS custom-property token swap only — zero new npm packages, zero edits to the vendored shadcn `sidebar.tsx` primitive, `@theme inline` untouched
-- [ ] **PANE-03**: The sidebar theme applies consistently across all surfaces — desktop expanded, icon-collapsed rail, and the mobile sheet — with no `.dark` class, no `dark:` variants, and no global dark-mode activation
-- [ ] **PANE-04**: The light content area (pages, lists, detail panes) is unaffected by the sidebar redesign — sidebar tokens remain exclusively consumed by the sidebar subtree
+- [x] **PANE-01**: The left navigation panel matches the dashboard.exa.ai reference — a light near-white (`#fbfcfd`) panel with a 0.5px hairline right border, distinct from the flat-white panel of v1.1
+- [x] **PANE-02**: The redesign is implemented via the `--sidebar-*` CSS custom-property token swap only — zero new npm packages, zero edits to the vendored shadcn `sidebar.tsx` primitive, `@theme inline` untouched
+- [x] **PANE-03**: The sidebar theme applies consistently across all surfaces — desktop expanded, icon-collapsed rail, and the mobile sheet — with no `.dark` class, no `dark:` variants, and no global dark-mode activation
+- [x] **PANE-04**: The light content area (pages, lists, detail panes) is unaffected by the sidebar redesign — sidebar tokens remain exclusively consumed by the sidebar subtree
 
 ### Navigation Structure (NAV)
 
@@ -37,7 +37,7 @@ Requirements for v1.2 "Exa-Style Left Panel". Each maps to roadmap phases (conti
 ### Quality & Regression (QLTY)
 
 - [ ] **QLTY-01**: Active-route detection is extracted into a pure `getActiveNavKey(pathname)` function with unit tests (Start = exact `/`, others = prefix match) so a future "simplification" cannot silently break the `/companies/[id]` highlight
-- [ ] **QLTY-02**: The sidebar theme's 8 `--sidebar-*` tokens are set as a complete verified set meeting WCAG AA — text ≥4.5:1 on panel, active pill and ring ≥3:1, label text at /70 opacity still passing
+- [x] **QLTY-02**: The sidebar theme's 8 `--sidebar-*` tokens are set as a complete verified set meeting WCAG AA — text ≥4.5:1 on panel, active pill and ring ≥3:1, label text at /70 opacity still passing
 - [ ] **QLTY-03**: A live-browser UAT matrix replicates the v1.1 Phase-5 pattern — expanded / collapsed / mobile × the 4 routes × active/inactive state pairs, with screenshots
 - [ ] **QLTY-04**: No hardcoded light-only utilities remain in the sidebar subtree — the indigo/amber class sweep is complete and the `border-r` uses `border-sidebar-border` (not the global light `--border`)
 
@@ -62,10 +62,10 @@ Requirements for v1.2 "Exa-Style Left Panel". Each maps to roadmap phases (conti
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PANE-01 | Phase 10 | Pending |
-| PANE-02 | Phase 10 | Pending |
-| PANE-03 | Phase 10 | Pending |
-| PANE-04 | Phase 10 | Pending |
+| PANE-01 | Phase 10 | Complete |
+| PANE-02 | Phase 10 | Complete |
+| PANE-03 | Phase 10 | Complete |
+| PANE-04 | Phase 10 | Complete |
 | NAV-01 | Phase 11 | Pending |
 | NAV-02 | Phase 11 | Pending |
 | NAV-03 | Phase 11 | Pending |
@@ -78,6 +78,6 @@ Requirements for v1.2 "Exa-Style Left Panel". Each maps to roadmap phases (conti
 | COLR-02 | Phase 13 | Pending |
 | COLR-03 | Phase 13 | Pending |
 | QLTY-01 | Phase 10 | Pending |
-| QLTY-02 | Phase 10 | Pending |
+| QLTY-02 | Phase 10 | Complete |
 | QLTY-03 | Phase 14 | Pending |
 | QLTY-04 | Phase 11 | Pending |

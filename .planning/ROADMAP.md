@@ -66,7 +66,7 @@ Full details: [`.planning/milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.m
 **UI hint**: yes
 Plans:
 
-- [ ] 10-01-PLAN.md — Scoped `--sidebar-*` token block + companion rules in globals.css (PANE-01..04, QLTY-02)
+- [x] 10-01-PLAN.md — Scoped `--sidebar-*` token block + companion rules in globals.css (PANE-01..04, QLTY-02)
 - [ ] 10-02-PLAN.md — `getActiveNavKey` extraction + 11-case Vitest suite (QLTY-01)
 
 ### Phase 11: Nav Items Restyle
@@ -144,7 +144,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 7. CSV Import | v1.1 | 11/11 | Complete | 2026-07-31 |
 | 8. Enrichment API | v1.1 | 6/6 | Complete | 2026-07-31 |
 | 9. Analytic Agent + Observability | v1.1 | 3/3 | Complete | 2026-08-01 |
-| 10. Sidebar Token Foundation | v1.2 | 0/TBD | Not started | - |
+| 10. Sidebar Token Foundation | v1.2 | 1/2 | In Progress|  |
 | 11. Nav Items Restyle | v1.2 | 0/TBD | Not started | - |
 | 12. Branding & User Zones | v1.2 | 0/TBD | Not started | - |
 | 13. Collapse & Resize Coexistence | v1.2 | 0/TBD | Not started | - |
