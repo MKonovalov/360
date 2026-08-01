@@ -407,17 +407,17 @@ Source: `useIsMobile` (src/hooks/use-mobile.ts, MOBILE_BREAKPOINT=768, `max-widt
 | A4 | Seeding one pending `signalProposal` in the dev DB is safe and reversible (fixture + cleanup) | Summary / Pitfall 3 | LOW — dev DB is the isolated QA instance (08-06-UAT precedent added fixtures there); an insert + delete leaves no residue; if the plan instead asserts only the count=0 branch, this assumption is unused |
 | A5 | `browser_take_screenshot`'s `filename` parameter accepts a path outside the default output dir | Pitfall 1 | MEDIUM — the tool doc says "prefer relative file names to stay within the output directory," but the Phase-5 precedent committed evidence outside `.playwright-mcp/` (repo root). Mitigation: save then copy into `artifacts/` if the filename is confined |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Clerk dev sign-in credentials for the driver**
+1. **Clerk dev sign-in credentials for the driver** — **[RESOLVED]** by 14-01 Task 2 (`checkpoint:human-verify`): the operator provides the dev test-user credentials (or confirms a persisted session) before the matrix runs; the driver scripts the real email-password path through the hosted sign-in. Never bypasses auth; no secrets in artifacts.
    - What we know: the app gates on `requireStaffAccess()` → `/sign-in` (Clerk hosted `<SignIn />`); prior Playwright sessions reached an "authenticated Clerk session"; `.env.local` has dev keys (`pk_test_`).
    - What's unclear: which email/password (or persisted session) the driver uses — this lives in the user's Clerk dashboard, not in the repo.
    - Recommendation: planner gates the matrix's first task behind a `checkpoint:human-verify` for the dev credentials (or reuses a session the operator establishes), and the driver scripts the email-password path through the real sign-in page. Non-blocking for planning; blocking for execution without the credential.
-2. **Badge gating: seed a fixture or assert the count=0 branch only?**
+2. **Badge gating: seed a fixture or assert the count=0 branch only?** — **[RESOLVED]** by 14-01 Task 4: the fixture path (seed one pending `signalProposal` via `fixtures/seed-pending-proposal.ts` with the SHA-256 dev-DB gate + insert/assert/cleanup, 08-06-UAT precedent), with the explicit two-branch fallback (count=0 → no badge) if the dev-DB gate fails.
    - What we know: dev DB has 0 pending proposals (verified); the badge/dot/tooltip-count render only when `pendingCount > 0` (app-sidebar.tsx:174-188); D-02 lists the gating as a micro-test.
    - What's unclear: whether to insert a fixture (08-06-UAT precedent) or test only the current live state.
    - Recommendation: seed one fixture + cleanup (A4) — it proves the full gating contract both ways and matches the v1.1 live-UAT precedent. Planner's call; the two-branch alternative is acceptable.
-3. **Extract the optional `src/lib/contrast.ts` pure helper?**
+3. **Extract the optional `src/lib/contrast.ts` pure helper?** — **[RESOLVED]** by 14-01 Task 1: extraction — `src/lib/contrast.ts` + `contrast.test.ts` (the phase's one permitted minimal source addition) unit-lock the WCAG math (12.30 / 4.89 / 3.11 / 1.09) that the live audit in 14-02 Task 1 reuses; the browser script still inlines the same formulas.
    - What we know: the audit math is ~20 lines; the repo convention locks pure logic with Vitest (nav.ts/user.ts/sidebar-collapse.ts); D-08 says no production changes *unless* needed — a helper is a source addition, though test-only in spirit.
    - What's unclear: whether the helper counts as a "production source change" under D-08.
    - Recommendation: extract it (+ test) as the phase's one permitted minimal addition — it unit-locks the WCAG math the entire audit depends on and follows the established convention. If the planner prefers a strictly zero-source phase, inline the math in `browser_evaluate` and skip the helper.
@@ -461,7 +461,7 @@ Source: `useIsMobile` (src/hooks/use-mobile.ts, MOBILE_BREAKPOINT=768, `max-widt
 | QLTY-03 | Interaction micro-tests: collapse/expand (button + ⌘B), drag-resize clamp, rail tooltips incl `Reviews (N)`, badge/dot gating | live-browser | `browser_click` header button; `browser_press_key("Meta+b")`; `browser_drag` handle → width clamp + `sidebar_width` cookie; hover rail icons → tooltip text; fixture for badge | ✅ same targets |
 | QLTY-03 | Contrast audit — 6 pairs live (D-04/D-05) | live-browser + optional unit | `browser_evaluate` computed-style sampling (Pattern 2); optional `npx vitest run src/lib/contrast.test.ts --bail=1` | ✅ globals.css token block |
 | QLTY-03 | Exa divergence review (D-06/D-07) | live-browser + documented fallback | navigate dashboard.exa.ai → element-wise compare → divergence list; fallback FEATURES.md | ✅ FEATURES.md exists |
-| QLTY-03 | Hard-constraint regression: routes, resize+cookies, ⌘B, badge gating (SC #4) | live + grep/fence/build | live rows above + `git diff <base> HEAD -- <9 frozen files>` = empty; `grep -rnE 'indigo\|amber\|#[0-9a-fA-F]{3,8}\|\bdark:' src/components/layout/` = 0; `npx tsc --noEmit`; `npm test`; `npm run build` | ✅ all exist (Phase 13 verified clean) |
+| QLTY-03 | Hard-constraint regression: routes, resize+cookies, ⌘B, badge gating (SC #4) | live + grep/fence/build | live rows above + `git diff <base> HEAD -- <11 frozen files>` = empty; `grep -rnE 'indigo\|amber\|#[0-9a-fA-F]{3,8}\|\bdark:' src/components/layout/` = 0; `npx tsc --noEmit`; `npm test`; `npm run build` | ✅ all exist (Phase 13 verified clean) |
 
 ### Sampling Rate
 - **Per task commit:** `npx tsc --noEmit` + the task's targeted gates (grep/fence or the live cell batch just run)
