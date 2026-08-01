@@ -2,17 +2,20 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Building2, Inbox, LayoutDashboard, Users } from 'lucide-react';
+import { Building2, Inbox, LayoutDashboard, Mail, Users } from 'lucide-react';
 import { getActiveNavKey } from '@/lib/nav';
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupLabel,
+  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuBadge,
+  SidebarSeparator,
 } from '@/components/ui/sidebar';
 
 // Active-key detection comes from the tested getActiveNavKey pure function
@@ -23,12 +26,23 @@ import {
 // pendingCount is threaded from the server shell (app-shell-layout.tsx) — a
 // client component cannot query the DB itself (09-03: Reviews sidebar badge,
 // UI-SPEC §4). Shown only when > 0; an empty queue earns no visual noise.
+// The feedback destination is locked (D2) and shipped as a static module-level
+// constant so it can never be user-interpolated into a URL or mail header
+// (ASVS V5) — a future edit that parameterizes it must be flagged in review.
+const FEEDBACK_MAILTO = 'mailto:hello@arclumenpartners.com?subject=360%20sidebar%20feedback';
+
 export function AppSidebar({ pendingCount = 0 }: { pendingCount?: number }) {
   const pathname = usePathname();
   const activeKey = getActiveNavKey(pathname);
 
   return (
     <Sidebar>
+      <SidebarHeader className="gap-1 p-3">
+        <div className="group-data-[collapsible=icon]:opacity-0 transition-opacity duration-200">
+          <p className="text-[15px] font-semibold text-sidebar-foreground">ArcLumen 360</p>
+          <p className="text-xs font-normal text-sidebar-foreground/70">ArcLumen Partners</p>
+        </div>
+      </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="text-[13px] font-semibold">Explore</SidebarGroupLabel>
@@ -104,6 +118,25 @@ export function AppSidebar({ pendingCount = 0 }: { pendingCount?: number }) {
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              className="h-9 rounded-[6px] border border-sidebar-border text-[14px] font-normal"
+            >
+              <a href={FEEDBACK_MAILTO} aria-label="Give us feedback">
+                <span className="group-data-[collapsible=icon]:hidden">Give us feedback</span>
+                <Mail
+                  aria-hidden="true"
+                  className="hidden group-data-[collapsible=icon]:block size-4"
+                />
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+        <SidebarSeparator />
+      </SidebarFooter>
     </Sidebar>
   );
 }
