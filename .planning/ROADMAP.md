@@ -59,8 +59,12 @@ Full details: [`.planning/milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.m
   3. Light content areas (pages, lists, detail panes) render identically to before the change — sidebar tokens are consumed exclusively by the sidebar subtree
   4. The 8 `--sidebar-*` tokens are set as a complete verified set meeting WCAG AA — text ≥4.5:1 on panel, active pill and ring ≥3:1, label text at /70 opacity still passing
   5. `getActiveNavKey(pathname)` is a pure exported function with Vitest unit tests — Start = exact `/`, the other three routes = prefix match, including the `/companies/[id]` highlight case
-**Plans**: TBD
+**Plans**: 2 plans
 **UI hint**: yes
+
+Plans:
+- [ ] 10-01-PLAN.md — Scoped `--sidebar-*` token block + companion rules in globals.css (PANE-01..04, QLTY-02)
+- [ ] 10-02-PLAN.md — `getActiveNavKey` extraction + 11-case Vitest suite (QLTY-01)
 
 ### Phase 11: Nav Items Restyle
 **Goal**: The four existing nav items (Start, Companies, Key Personas, Reviews) are regrouped into intent-labeled sections and restyled in `app-sidebar.tsx` to the Exa item anatomy — 30px rows, 16px monochrome lucide icons, subtle gray full-row active fill replacing v1.1's indigo-50/indigo-600 treatment, and the pending-reviews badge in mono accent-chip language.
