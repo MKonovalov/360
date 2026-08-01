@@ -12,7 +12,17 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 
 **v1.1 Start Page + Import + Analytic Agent** — 5 phases, 27 plans, 32 tasks, 31/31 requirements validated. Delivered: stacked full-width list/detail layout on both explorers, Start Page dashboard, shared ExplorerMenu, CSV import with partial-commit validation + rollback, Apollo.io/Prospeo enrichment with provenance, and the web-search Analytic Agent with a human-reviewed proposal queue + Langfuse tracing.
 
-**Next milestone:** not yet scoped. See "Future Candidates (Beyond v1.1)" and run `/gsd-new-milestone`.
+## Current Milestone: v1.2 Exa-Style Left Panel
+
+**Goal:** Redesign the app's left navigation panel to match the dashboard.exa.ai sidebar — its dark visual style, item treatment, and interaction pattern — while keeping the current routes and nav items.
+
+**Target features:**
+- Dark Exa-style sidebar panel (near-black) against the app's light content area
+- Restyle the current nav items (Start, Companies, Key Personas, Reviews) with Exa-like iconography, grouping, and active states — no new routes
+- Logo/branding zone at top and user/settings zone at bottom, mirroring Exa's sidebar anatomy
+- Preserve existing collapse/resize behavior and the pending-reviews badge
+
+**Next milestone after v1.2:** not yet scoped. See "Future Candidates (Beyond v1.1)".
 
 ## Requirements
 
@@ -45,7 +55,7 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 ### Active
 
 - [ ] Persona 360 "Related Knowledge" showing real Arcpedia articles end-to-end — code path proven identical to the working Company path, but the current seed Persona dataset has no name that matches real Arcpedia content; needs either updated seed data or acceptance of the gap (see `04-HUMAN-UAT.md`)
-- [ ] (Next milestone requirements to be scoped via `/gsd-new-milestone` — see "Future Candidates (Beyond v1.1)")
+- [ ] (v1.2 requirements to be scoped via `/gsd-new-milestone` — current milestone: Exa-Style Left Panel, see "Current Milestone" section)
 
 ### Out of Scope
 
@@ -146,4 +156,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-01 after v1.1 milestone (Start Page + Import + Analytic Agent) shipped*
+*Last updated: 2026-08-01 — v1.2 milestone (Exa-Style Left Panel) started*
