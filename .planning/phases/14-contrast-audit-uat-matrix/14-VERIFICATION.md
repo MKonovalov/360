@@ -121,11 +121,11 @@ and that fallback use is stated explicitly in the fetch result below._
 
 | Check | Command / evidence | Result |
 |-------|--------------------|--------|
-| Fence (11 frozen files) | `git diff <PHASE_BASE_SHA> HEAD -- <11 files>` | EMPTY — byte-identical |
+| Fence (11 frozen files) | `git diff <PHASE_BASE_SHA> HEAD -- <11 files>` (PHASE_BASE_SHA = a0807a2f; also verified empty vs fad02962) | EMPTY — byte-identical (0 bytes diff) |
 | Sweep (QLTY-04) | `test -z "$(grep -rnE 'indigo\|amber\|#[0-9a-fA-F]{3,8}\|\bdark:' src/components/layout/)"` | exit 0 — clean |
 | Static | `npx tsc --noEmit` | exit 0 |
-| Suite | `npm test` | exit 0 |
-| Build | `npm run build` | exit 0 (12 routes, server-rendered) |
+| Suite | `npm test` | exit 0 — 243 passed / 2 skipped (26 files; 239 baseline + 4 contrast tests) |
+| Build | `npm run build` | exit 0 (12 routes, all server-rendered) |
 | ⌘B + sidebar_state cookie | 14-UAT.md M2 (live-verified in Plan 14-01) | pass — cite `14-UAT.md` |
 | Drag-resize clamp + sidebar_width cookie | 14-UAT.md M3 (live-verified in Plan 14-01) | pass — cite `14-UAT.md` |
 | Badge gating (both branches) | 14-UAT.md M5 (count=0 → no badge; fixture → badge/dot/Reviews (N)) | pass — cite `14-UAT.md` |
@@ -136,10 +136,12 @@ and that fallback use is stated explicitly in the fetch result below._
 - **NEGATIVE AUTH CHECK (run fresh, 2026-08-01):** a new Playwright context
   carrying no Clerk session cookie (incognito-equivalent, no sign-in ever
   performed) navigated to
-  `http://localhost:3000/companies` → the `requireStaffAccess()` gate in
-  `(dashboard)/layout.tsx` redirected the request to `/sign-in`. The auth
-  boundary holds live — no bypass (T-14-04). No credentials involved; the
-  check never signs in.
+  `http://localhost:3000/companies` → observed: final URL
+  `http://localhost:3000/sign-in` (status 200, `finalUrlIsSignIn=true`,
+  `hasClerkSession=false`). The `requireStaffAccess()` gate in
+  `(dashboard)/layout.tsx` holds live — the auth boundary rejects the
+  unauthenticated request and redirects to the sign-in page (T-14-04). No
+  credentials involved; the check never signs in.
 - **⌘B toggle + cookie** — cross-referenced from `14-UAT.md` M2 (live: press
   `Meta+b` → `data-state="collapsed"` + `sidebar_state=false`; again →
   expanded + `sidebar_state=true`).
