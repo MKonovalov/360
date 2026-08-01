@@ -16,10 +16,10 @@ Requirements for v1.2 "Exa-Style Left Panel". Each maps to roadmap phases (conti
 
 ### Navigation Structure (NAV)
 
-- [ ] **NAV-01**: Nav items are grouped into intent-labeled sections (e.g. **Explore**: Start, Companies, Key Personas; **Manage**: Reviews) using the existing `SidebarGroupLabel` primitive — existing routes unchanged, no new routes
-- [ ] **NAV-02**: Nav rows follow the Exa anatomy — 30px row height, 16px monochrome lucide icon + 15px/400 label, 10px icon-label gap, 8px horizontal padding
-- [ ] **NAV-03**: The active nav state is a subtle full-row fill (`rgba(0,0,0,0.04)`, 4px radius) with darker text, replacing the v1.1 indigo-50/indigo-600 active treatment
-- [ ] **NAV-04**: The pending-reviews badge keeps its count semantics but is restyled to the Exa mono accent-chip language (mono 10px/600, accent fill + accent text, right-aligned), with a collapsed-rail dot variant for the Reviews item
+- [x] **NAV-01**: Nav items are grouped into intent-labeled sections (e.g. **Explore**: Start, Companies, Key Personas; **Manage**: Reviews) using the existing `SidebarGroupLabel` primitive — existing routes unchanged, no new routes
+- [x] **NAV-02**: Nav rows follow the Exa anatomy — 30px row height, 16px monochrome lucide icon + 15px/400 label, 10px icon-label gap, 8px horizontal padding
+- [x] **NAV-03**: The active nav state is a subtle full-row fill (`rgba(0,0,0,0.04)`, 4px radius) with darker text, replacing the v1.1 indigo-50/indigo-600 active treatment
+- [x] **NAV-04**: The pending-reviews badge keeps its count semantics but is restyled to the Exa mono accent-chip language (mono 10px/600, accent fill + accent text, right-aligned), with a collapsed-rail dot variant for the Reviews item
 
 ### Branding & User Zones (BRND)
 
