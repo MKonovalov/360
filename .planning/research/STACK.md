@@ -1,133 +1,168 @@
-# Stack Research — v1.2 Exa-Style Dark Sidebar
+# Stack Research — v1.3 AI Model Settings
 
-**Domain:** Always-dark left navigation panel inside a light-theme Next.js 16 App Router + shadcn (`nova`/`radix-nova` preset) app
-**Researched:** 2026-08-01
-**Confidence:** HIGH (mechanism), MEDIUM (exact palette values — visual confirmation deferred to the UI phase)
+**Domain:** Per-user AI model management for ArcLumen 360 — (a) fetching the available-models list from the local opencode installation (the source behind opencode's `/models` command), and (b) persisting + serving per-user model preferences (primary + ordered fallback chain) to the Analytic Agent at runtime.
+**Researched:** 2026-08-02
+**Confidence:** HIGH (every claim verified against the live opencode CLI 1.18.10, the installed `ai@7.0.45`/`@ai-sdk/anthropic@4.0.26` packages, the live models.dev API, and the existing codebase conventions)
 
 ## Executive Answer
 
-**Zero new packages. One place changes: the 8 `--sidebar-*` CSS custom properties in the `:root` block of `src/app/globals.css`.** The shadcn sidebar's entire theme contract is these variables (background, foreground, primary, accent, border, ring). Because the app's light content never reads `--sidebar-*` (verified by grep — the *only* consumer is `src/components/ui/sidebar.tsx`), redefining them to dark values gives the Exa-style near-black panel with literally zero blast radius on the light app — desktop, mobile sheet, collapsed rail, and focus rings all follow for free. Then a small content-layer cleanup in `app-sidebar.tsx` (remove hardcoded indigo active-state overrides) and `sidebar-resize-handle.tsx` (indigo hover) so the token-driven theme can show through.
+**Model list (a):** opencode's `/models` TUI command is backed by the CLI command `opencode models` — a plain-text list of `provider/model` IDs, with `--verbose` emitting one JSON record per model (id, providerID, name, cost, context/output limits, status, and — critically — `api.npm`, the AI SDK package that serves the model). Verified live: `opencode models --verbose` yields **1130 records (1128 active)** in ~2.2s, JSON on stdout. The underlying registry is models.dev (opencode caches it at `~/.cache/opencode/models.json`; byte-identical to `https://models.dev/api.json` — 177 providers, 5939 models — but opencode's CLI *filters* to the 1130 it can actually route). **Because the app runs on Vercel serverless where no opencode CLI exists, the correct integration is a committed snapshot**: a fetch script shells out to `opencode models --verbose` on the dev machine, normalizes the records, and writes a trimmed `src/data/opencode-models.json` that the settings page reads. "Live from opencode" = re-run `npm run models:fetch` whenever the list should refresh; the settings UI shows the snapshot's timestamp. No new runtime dependency.
 
-## Approach Comparison
+**Persistence + serving (b):** A new Drizzle table `userModelSettings` (userId keyed, mirroring the existing `recentlyViewed` pattern — `text` userId, no Clerk FK) stores `primaryModel` + an ordered `fallbackModels` jsonb array. Stored IDs use the **vendor-normalized** `provider/model` form (the same format `opencode models <provider>` itself prints), because the runtime registry maps the provider segment to an installed `@ai-sdk/*` provider factory via the snapshot's `api.npm` field. The Analytic Agent thread: route handler (already holds `userId` from `requireStaffAccess()`) → reads settings → registry resolves `[primary, ...fallbacks]` → passes them into `analyzeCompany` → `runAgent` loops `generateText` with an **error-driven failover loop** (ai@7.0.45 has no built-in fallback helper — verified; the loop keys on `APICallError`/`NoSuchModelError`/`LoadAPIKeyError`, ~20 lines). Default with no settings row = today's exact behavior (`anthropic('claude-sonnet-4-6')`).
 
-| # | Approach | Verdict | Why |
-|---|----------|---------|-----|
-| (a) | Tailwind `dark:` variants / global `darkMode: 'class'` (`.dark` on `<html>`) | **REJECT** | Adding `.dark` to `<html>` flips the *entire app* dark: the `.dark` block in `globals.css` redefines every token (`--background`, `--card`, `--popover`, …) and every `dark:` utility already present in the UI primitives (button, input, select, dropdown, badge) activates. This is a full dark-mode system the milestone explicitly does not want. |
-| (a′) | Scoped `.dark` class on the sidebar wrapper only | **REJECT — worse blast radius than needed** | The custom variant `@custom-variant dark (&:is(.dark *))` matches any `.dark` ancestor, so the subtree gets *all* `.dark` tokens (background/card/popover flip dark inside the sidebar) plus every `dark:` variant there. It also **misses the portaled mobile sheet** (see below) and muddles two intents: "this panel is dark by design" vs "this is dark mode." |
-| (b) | Component-scoped dark CSS variables baked into the sidebar theme | **RECOMMENDED** — implemented as a `:root`-level sidebar-token swap | The sidebar's theme *is* its CSS variables (per shadcn docs: "The sidebar component is themed using specific CSS variables"). Redefine the 8 `--sidebar-*` values dark at `:root`. Token exclusivity (verified) makes this effectively component-scoped in blast-radius terms. Covers desktop + mobile-sheet portal in one block, zero primitive/provider edits. |
-| (c) | `--sidebar-*` overrides scoped to `SidebarProvider` (inline `style` or wrapper class) | **FALLBACK — only if a second, light sidebar instance is ever needed** | Same variable mechanism, narrower CSS scope — but the mobile `SheetContent` **portals to `document.body`** (verified in `src/components/ui/sheet.tsx`: `SheetPortal` → Radix `Dialog.Portal`), and CSS custom properties do **not** traverse portals. Provider-scoped overrides would render the mobile sheet light unless the same class is also applied to `SheetContent` (a shadcn-primitive edit that `shadcn update` would clobber). |
+**No new runtime dependencies are required for v1.3.** The only new packages would be future provider SDKs (`@ai-sdk/openai`, `@ai-sdk/google`, `@ai-sdk/openai-compatible`) — deferred until a second provider API key is configured; the registry is designed to absorb them automatically via `api.npm`.
 
-**Winner: (b) — swap the `--sidebar-*` values in `:root`.** It is the shadcn-documented theming mechanism, matches the codebase's existing precedent (`app-shell-layout.tsx` already themes the sidebar via a `--sidebar-width` custom property), and is the only option that reaches the portaled mobile sheet without touching a managed primitive.
+## Recommended Stack
 
-## Why `:root` (not the provider wrapper) is the correct scope
+### Core Technologies
 
-1. **Token exclusivity (verified):** grep across `src/` shows the only consumers of `bg-sidebar`, `text-sidebar-*`, `border-sidebar`, `ring-sidebar`, `--sidebar`, `--sidebar-*` are `src/components/ui/sidebar.tsx` and `globals.css` itself. Layout files (`app-shell-layout.tsx`, `sidebar-resize-handle.tsx`) use only `--sidebar-width` — a *geometry* variable, untouched. No page, detail pane, or dashboard widget reads sidebar tokens. Redefining them at `:root` cannot affect the light content area.
-2. **Portal coverage:** the mobile `SheetContent` carries `bg-sidebar text-sidebar-foreground` and resolves those variables from its inheritance root — `<body>`/`:root`. Defining the dark values at `:root` is the one placement that dark-themes both the in-flow desktop sidebar and the portaled mobile sheet with a single block and zero primitive edits.
-3. **Tailwind v4 wiring already in place:** `@theme inline { --color-sidebar: var(--sidebar); … }` maps each token to a utility (`bg-sidebar`, `text-sidebar-foreground`, `bg-sidebar-accent`, `border-sidebar-border`, `ring-sidebar-ring`). `inline` means utilities reference the variable directly and resolve through the normal CSS cascade — change the variable, every sidebar surface follows. No config change, no rebuild trickery.
+| Technology | Version | Purpose | Why Recommended |
+|------------|---------|---------|-----------------|
+| opencode CLI `models` command | 1.18.10 (local install at `~/.opencode/bin/opencode`, on PATH) | Model-list source — the exact `/models` backend | Verified live: `opencode models [provider]` prints `provider/model` IDs (filterable by provider), `--verbose` adds JSON metadata (cost, limits, status, `api.npm`), `--pure` excludes plugin models (1113 IDs), `--refresh` re-syncs from models.dev. This is a **dev-time fetch tool, not an app dependency** — the app never shells out to it. |
+| Snapshot fetch script (`scripts/fetch-models.ts`) + committed `src/data/opencode-models.json` | repo script (tsx, already a devDep) | Bridge the local CLI to the deployed app | Vercel serverless has no opencode binary. The script runs `opencode models --verbose` (records are multi-line pretty JSON starting at column 0 on stdout), accumulates records, trims to UI-needed fields, and writes the committed JSON (~100-200KB, not the 3.3MB raw registry). Read at render time by the settings Server Component. |
+| Drizzle `userModelSettings` table (existing `drizzle-orm`, existing `schema.ts`) | drizzle-orm 0.45.2 (installed) | Per-user model preference persistence | Follows the proven user-keyed pattern: `userId text not null` (Clerk external, no FK — same as `recentlyViewed`), `primaryModel text`, `fallbackModels jsonb` (ordered array — same jsonb-array precedent as `company.techStack`), `updatedAt timestamp`, `unique(userId)` + upsert via `onConflictDoUpdate` (exactly the `recordView` pattern). One row per user. |
+| Query module `src/lib/db/queries/userModelSettings.ts` | repo module | Read/write settings, pure query layer | House convention: query modules never catch (callers own error handling), named exports, no `db.transaction()` (neon-http has none). Exports `getModelSettingsForUser(userId)` (returns row or null) and `upsertModelSettings(userId, { primaryModel, fallbackModels })`. |
+| Runtime model registry `src/lib/models/registry.ts` | repo module | Map stored `provider/model` → callable AI SDK model | Reads the snapshot's `api.npm` to select the provider factory (`@ai-sdk/anthropic` → `createAnthropic()`, etc. — verified factory API) and the model's `api.url` (empty = vendor default endpoint = directly servable; custom URL = opencode/OpenRouter/gateway proxy = NOT servable from Vercel). Lazily constructs provider instances; **only includes providers with an env key set** (mirrors the `not_configured` degrade-gracefully pattern in `env.ts`). Exposes `resolveModels(ids: string[]): LanguageModel[]` — pure, unit-testable. |
+| Error-driven failover loop (`runWithFallback`, in `src/lib/models/failover.ts` or inline in `runAgent`) | repo module (~20 lines) | Retry down the fallback chain on provider/model failure | Verified ai@7.0.45 exports: **no built-in fallback/multi-model helper exists**. The AI SDK throws `APICallError` (has `statusCode` + `isRetryable`, covers 429/4xx/5xx), `NoSuchModelError` (bad/retired model id), `LoadAPIKeyError` (missing key) — all `instanceof AISDKError`. Loop: try `generateText` with model[i]; on those errors continue to model[i+1]; `NoObjectGeneratedError` (structured-output failure) is model-dependent, so it should also trigger failover; prompt/validation errors (`InvalidPromptError`, `TypeValidationError`) rethrow. |
+| `ai` + `@ai-sdk/anthropic` (existing) | ai 7.0.45, @ai-sdk/anthropic 4.0.26 (installed) | Runtime generation | No new AI SDK dependency for v1.3 — the app's only configured key is `ANTHROPIC_API_KEY`, so the servable set is the 36 anthropic models. The registry's `api.npm` mapping is the growth path: adding `OPENAI_API_KEY` + `@ai-sdk/openai` makes the 36 OpenAI models servable with zero code changes beyond the package install. |
 
-## The Change
+### Supporting Libraries
 
-### 1. `src/app/globals.css` — swap the `--sidebar-*` values in `:root` (the only stack change)
+| Library | Version | Purpose | When to Use |
+|---------|---------|---------|-------------|
+| shadcn/ui primitives (already vendored, `nova` preset) | shadcn 4.14.0 (installed) | Select/combobox + list-reorder UI on the settings page | Primary-model selector and per-slot fallback selects — use the already-vendored Select/Button/Badge. **No new UI package.** |
+| `zod` (installed, 4.4.3) | 4.4.3 | Server Action input validation | `modelSettingsSchema` for the upsert action — model IDs validated as `provider/model` strings against the snapshot's known set (reject unknown IDs fail-loud, matching the reject-input pattern in `reviews.ts`). |
+| `nuqs` (installed, 2.9.1) | 2.9.1 | URL state | **Not needed for a settings form** — listed to say explicitly: don't introduce it here. |
+| `@langfuse/vercel-ai-sdk` (installed, 5.9.1) | 5.9.1 | Per-run tracing | The AI SDK instrumentation emits `ai.model.id` per span automatically — with failover, the trace already shows which model actually served. Optionally record `servingModel` + `modelsTried` on the `agentRun` row (small jsonb addition) so the review queue shows it without opening Langfuse. |
+| Vitest (installed, 4.1.10) | 4.1.10 | Unit tests | Registry resolver + failover loop are pure functions — add `registry.test.ts` / `failover.test.ts` following the existing no-mocking-library, pure-function-only harness. Extend `nav.test.ts` (11-case suite) with the `/settings` case. |
 
-Keep the `.dark` block untouched (harmless, future-proof). Suggested palette — **achromatic** to match the `nova`/`neutral` base (every existing token is `oklch(x 0 0)`), grounded in Exa's near-black surfaces (design breakdowns: `#181815` / `#111827` floors, subtle white/10 hover pills, white/8 hairline borders):
+### Development Tools
 
-```css
-:root {
-  /* …existing tokens unchanged… */
-  --sidebar: oklch(0.16 0 0);              /* near-black panel (~Exa #181815) */
-  --sidebar-foreground: oklch(0.92 0 0);   /* light text */
-  --sidebar-primary: oklch(0.95 0 0);      /* branding/logo text on dark */
-  --sidebar-primary-foreground: oklch(0.16 0 0);
-  --sidebar-accent: oklch(0.26 0 0);       /* hover + active pill (Exa white/10 look) */
-  --sidebar-accent-foreground: oklch(0.95 0 0);
-  --sidebar-border: oklch(1 0 0 / 8%);     /* hairline separator */
-  --sidebar-ring: oklch(0.45 0 0);         /* subtle focus ring */
-}
+| Tool | Purpose | Notes |
+|------|---------|-------|
+| `npm run models:fetch` (new script → `tsx scripts/fetch-models.ts`) | Refresh the committed opencode model snapshot | Resolve binary: `process.env.OPENCODE_BIN` → `which opencode` → `~/.opencode/bin/opencode` fallback. Run `opencode models --verbose` capturing stdout. Fail with a clear message if opencode isn't installed (snapshot stays usable — the app only needs the committed JSON). |
+| `drizzle-kit generate` (installed 0.31.10) | New `userModelSettings` migration | Existing `drizzle.config.ts` (schema `./src/lib/db/schema.ts`, out `./drizzle`) — add the table, run `npx drizzle-kit generate`, apply. |
+| Live re-verify (Playwright MCP) | UAT of settings page + failover | The milestone's established live-browser pattern; also exercise the analyze route with a deliberately bad primary to observe the fallback in the Langfuse trace. |
+
+## Installation
+
+```bash
+# Core — NO new runtime dependencies for v1.3.
+# (The registry is provider-factory-driven; nothing to install for anthropic-only.)
+
+# Dev tooling — none required either: the fetch script runs on the existing tsx devDep.
+
+# Model-list fetch (writes src/data/opencode-models.json)
+npm run models:fetch
+
+# DB migration for userModelSettings
+npx drizzle-kit generate
 ```
 
-Exact values are a UI-SPEC decision; this is a grounded starting point. The **mechanism** is what this research locks in.
+**Future provider additions (only when a key is configured):**
 
-### 2. Content-layer cleanup (roadmap tasks, not stack changes)
-
-These hardcoded *light-only* utilities sit on top of the token system and will fight the dark theme:
-
-| File | Current (light-only) | Change to |
-|------|----------------------|-----------|
-| `src/components/layout/app-sidebar.tsx` | `className="data-active:bg-indigo-50 data-active:text-indigo-600 …"` × 4 (Start, Companies, Key Personas, Reviews) | **Delete the overrides.** The primitive's default `data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground` (already in `sidebar.tsx`) produces the Exa-style subtle pill automatically once the tokens are dark. |
-| `src/components/layout/app-sidebar.tsx` | `SidebarMenuBadge className="bg-amber-100 text-amber-800"` | Dark-aware badge, e.g. `bg-amber-400/15 text-amber-300` (Exa's muted-tint treatment). |
-| `src/components/layout/sidebar-resize-handle.tsx` | `hover:bg-indigo-200` | `hover:bg-sidebar-border` (or `hover:bg-white/10`). |
-| New branding zone (top) / user zone (bottom) | — | Use sidebar tokens only (`text-sidebar-foreground`, `bg-sidebar`, `hover:bg-sidebar-accent`, `border-sidebar-border`) so they follow the theme. lucide-react icons (already installed) — primitive `[&_svg]` sizing handles them. |
-
-Collapse behavior, cookie-persisted width (`--sidebar-width`), drag-resize, rail, and the pending-reviews badge all keep working — they are token- or geometry-driven and need no structural change.
-
-### 3. Conditional: sidebar search box (only if v1.2 includes one — Exa has one)
-
-`SidebarInput`/`Input` resolve `bg-background` (light `oklch(1 0 0)`) — a white input on the dark panel. If a search box is added, do **not** use `Input` as-is; scope the surface tokens inside the sidebar subtree in `globals.css`:
-
-```css
-[data-slot="sidebar"] [data-sidebar="input"] {
-  --background: var(--sidebar-accent);
-  --input: var(--sidebar-border);
-}
+```bash
+npm install @ai-sdk/openai          # OPENAI_API_KEY
+npm install @ai-sdk/google          # GOOGLE_GENERATIVE_AI_API_KEY
+npm install @ai-sdk/openai-compatible  # deepseek/glm/zhipuai and other custom-URL providers with a baseURL
 ```
 
-(Or style the input with explicit dark utilities.) Not needed if v1.2's target list stays nav-items + branding + user zone.
+## Alternatives Considered
 
-## What to Install
+| Recommended | Alternative | When to Use Alternative |
+|-------------|-------------|-------------------------|
+| opencode CLI snapshot (committed JSON) | `https://models.dev/api.json` fetched at build time | If the milestone's "local opencode installation" phrasing is relaxed to "the registry opencode uses". models.dev is public, keyless, content-identical to opencode's cache (verified byte-identical `zhipuai.glm-5` record, same 5939 models / 177 providers) — but it is **unfiltered**: opencode's CLI reduces 5939 → 1130 models it can actually route, and that filtering is the whole point of sourcing "from opencode". Stick with the CLI snapshot. |
+| opencode CLI snapshot | `@opencode-ai/sdk` (1.18.11 on npm) programmatic API | Never for this app. The SDK talks to a **running** opencode server (`opencode serve`); you'd need to host opencode somewhere reachable from Vercel — heavyweight, out of scope, and adds a moving dependency. Use only if the model list ever needs to be *queried live* rather than snapshotted. |
+| Committed snapshot | Per-request `opencode models` shell-out | Never — ~2.2s cold start per call and no binary on Vercel. |
+| Committed snapshot | Read `~/.cache/opencode/models.json` directly | Never — internal cache format (brittle across versions), and the file is the *unfiltered* registry, not opencode's 1130-model view. |
+| Store `provider/model` vendor-normalized IDs | Store the literal `opencode/<id>` router form the unfiltered `/models` TUI displays | The unfiltered TUI shows every model as `opencode/<id>` (the router prefix). Storing that adds an indirection at runtime (registry must map router→vendor). The filtered form `opencode models <provider>` prints `anthropic/claude-sonnet-4-6` — the vendor form maps 1:1 onto AI SDK provider factories. Normalize in the fetch script (snapshot records already carry `providerID`/`api.npm`). |
+| Custom failover loop | A `fallback`/`retry` npm package | ai@7.0.45 ships no fallback helper (verified exports); a generic retry package can't distinguish model-scoped errors from prompt bugs. ~20 lines of typed code beats a dependency. |
 
-**Nothing.**
+## What NOT to Use
 
-| Item | Verdict |
-|------|---------|
-| New npm packages | **None.** The mechanism is CSS custom properties + the already-installed Tailwind v4 / shadcn token wiring. |
-| Fonts | **No change.** Geist (already loaded via `next/font/google`, `--font-sans`) is the standard open stand-in for Exa's ABCDiatype sans voice. |
-| shadcn registry additions ("sidebar theme variant") | **None exist.** Theming a sidebar *is* its CSS variables — there is no theme variant to install, which is precisely why this is a one-block CSS change. |
-| Versions to bump | **None.** No lockfile/compat risk; nothing new enters `package.json`. |
-
-## What NOT to Add (explicit)
-
-| Avoid | Why | Use instead |
+| Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| `next-themes` / any theme-provider or theme-toggle library | There is no dark-mode system and none is wanted — the panel is dark by design, permanently. A provider adds JS, an effect/hydration flash, and localStorage for zero benefit. | Static `:root` token swap |
-| Global `darkMode: 'class'` / `.dark` on `<html>` | Flipping the app dark: `.dark` block redefines every token and every `dark:` utility in the UI primitives activates. | Sidebar-only `--sidebar-*` swap |
-| Scoped `.dark` class on the sidebar wrapper | Redefines `--background`/`--card`/`--popover` inside the subtree, activates all `dark:` variants there, misses the portaled mobile sheet, and couples "dark by design" to the dark-mode system. | `:root` sidebar-token swap |
-| A second CSS framework / styling layer (CSS Modules, styled-components, emotion, vanilla-extract) | Tailwind v4 + the shadcn token system does this natively with zero new build config. | CSS custom properties |
-| New icon library (`@tabler/icons`, `react-icons`, …) | lucide-react is installed and the milestone keeps current icons. | lucide-react |
-| New font (Inter, ABCDiatype via fontsource, …) | Geist is loaded, matches the `nova` preset, and is the standard substitute for Exa's sans voice. | Geist (already present) |
-| Runtime theme switcher (`@shadcn/themes`-style, `data-theme` toggling) | Adds JS + provider + potential CLS for a permanently-dark panel. | Static CSS vars |
-| Patching `src/components/ui/sidebar.tsx` with hardcoded dark classes | The primitive is `shadcn update`-managed; token-driven theming means **zero** primitive edits. | Token swap + content-layer class cleanup in `app-sidebar.tsx` |
-| `@custom-variant dark` changes / `dark:` utilities for the sidebar content | The `dark:` variant is the wrong tool for a *non-variant* condition (the panel is always dark). Hardcode the dark values via tokens or direct utilities. | Sidebar tokens / direct utilities |
+| `@opencode-ai/sdk` in the app | Requires a running `opencode serve` host; useless on Vercel serverless | `opencode models --verbose` CLI snapshot |
+| `@openrouter/ai-sdk-provider`, `@ai-sdk/gateway` | 641 of the 1130 opencode models route through OpenRouter/gateway/open-code-proxy custom URLs (`api.url` set, 757 custom-URL total) — the app has none of those credentials. Listing them is fine; wiring them is out of scope | Registry gates on `api.url` empty + env key; those models render disabled in the UI |
+| models.dev raw registry as the settings source | 5939 models, no opencode provider filtering — pollutes the picker with models opencode itself can't serve | `opencode models` output (1130) |
+| Per-request model-list fetch | 2.2s CLI cold start / 3.3MB network pull per request on a settings page | Committed snapshot, refreshed by `npm run models:fetch` |
+| A generic retry/fallback npm package | Wrong failure taxonomy; ai@7 errors are model-scoped | The ~20-line `APICallError`/`NoSuchModelError` loop |
+| Reading `~/.cache/opencode/models.json` | Internal format; unfiltered; missing on CI | The CLI command |
+| A `settings` route outside `(dashboard)` | Breaks the shared sidebar shell + nav layout used by Start/Reviews | `src/app/(dashboard)/settings/page.tsx` (matches the route group's existing structure) |
 
 ## Stack Patterns by Variant
 
-**If a second, light sidebar instance is ever needed (e.g. an admin area):**
-- Move the dark overrides out of `:root` into a scoped class (e.g. `.exa-sidebar`) applied to `SidebarProvider` *and* the mobile `SheetContent`'s `className` (one-line primitive edit, documented deviation), keeping `:root` light. `@theme inline` keeps working because the class only redefines the raw `--sidebar-*` variables for that subtree.
+**If the milestone means literally "sourced from the local opencode installation" (recommended reading):**
+- Use the CLI snapshot (`opencode models --verbose` → committed `src/data/opencode-models.json`).
+- Because the snapshot is a local-machine artifact, commit it and treat refresh as a deliberate `npm run models:fetch` action; show `generatedAt` in the UI so staleness is visible.
 
-**If the app ever adopts a real global dark mode:**
-- The `.dark` block already carries dark sidebar values — the Exa-style panel simply stays dark in both modes. No conflict, no rework.
+**If "live" must mean zero manual refresh in production:**
+- Add a CI step (GitHub Action on `opencode` upgrade detection, or a scheduled job) that re-runs `models:fetch` and opens a PR when the diff is non-empty — still snapshot-based, no runtime fetch.
+- Or relax the source: fetch models.dev at build time on Vercel. (Not recommended — loses opencode's filtering.)
+
+**If a second provider key is configured (e.g. `OPENAI_API_KEY`):**
+- `npm install @ai-sdk/openai`; the registry's `api.npm` mapping picks up the provider automatically; settings UI's servable filter expands; the same failover loop crosses providers (anthropic primary → openai fallback).
+
+**If a model id in a stored preference is no longer in the snapshot (retired/deprecated):**
+- `resolveModels` returns the models it can serve and drops unknown ones; if the result is empty, fall back to the current default `[anthropic('claude-sonnet-4-6')]` (fail-soft, matching the house "degrade toward a known-good state" pattern) rather than failing the Analyze action.
 
 ## Version Compatibility
 
-| Package | Installed | Compatible with | Notes |
-|---------|-----------|-----------------|-------|
-| `tailwindcss` | ^4 (v4, CSS-first) | `@theme inline` token mapping, `@custom-variant dark` — verified current in v4 docs | No `tailwind.config.ts` exists (correct for v4); do not reintroduce one |
-| `shadcn` | ^4.14.0 (`radix-nova` style per `components.json`) | Sidebar CSS-variable theming contract identical across styles — verified in shadcn docs | `menuAccent: "subtle"` + `menuColor: "default"` preset behaves as expected with dark tokens |
-| `lucide-react` | ^1.26.0 | Icon sizing handled by sidebar primitives (`[&_svg]:size-4`) | Keep for nav icons |
-| `next` | 16.2.11 | No interaction — this is pure CSS | No `use client`/server-component changes |
+| Package A | Compatible With | Notes |
+|-----------|-----------------|-------|
+| ai 7.0.45 | @ai-sdk/anthropic 4.0.26 (both installed) | Verified working together in production (Phase 9). `generateText` `model` param accepts any `LanguageModel` — heterogeneous provider arrays type-check. |
+| ai 7.0.45 error surface | `@ai-sdk/provider` 4.0.4 (installed transitively) | Exports `APICallError` (`statusCode`, `isRetryable`, `instanceof AISDKError`), `NoSuchModelError`, `LoadAPIKeyError`, `NoObjectGeneratedError`. **`TooManyRequestsError` does NOT exist in this version** (a 429 surfaces as `APICallError` with `isRetryable: true`) — don't import it. |
+| `createAnthropic()` / `createOpenAI()` factories | ai 7.0.45 | Verified: provider instances are callable — `provider('model-id')` returns the language model. This is the registry's construction path. |
+| opencode CLI 1.18.10 | macOS (darwin), Node 22.x | `opencode models [provider]`, `--verbose` (JSON on stdout, multi-line records), `--pure` (1113 models vs 1130), `--refresh`. ~2.2s cold start — fine for a fetch script, never per-request. CLI surface may shift across minor versions; the fetch script should parse defensively (skip non-JSON lines, tolerate missing fields) and the snapshot stays valid if the command changes (re-verify `models:fetch` after opencode upgrades). |
+| opencode's model registry | models.dev public API | Verified byte-identical (`~/.cache/opencode/models.json` == `https://models.dev/api.json`; 177 providers, 5939 models). opencode CLI filters to 1130 servable. |
+| drizzle-orm 0.45.2 | neon-http driver (existing) | `onConflictDoUpdate` with a composite/unique target works (verified in `recentlyViewed`). `jsonb` column typing via `.$type<>` (existing precedent: `company.techStack`, `importBatch.mapping`). |
+
+## Integration Points (how the pieces connect)
+
+```
+opencode CLI (dev machine)                ── npm run models:fetch ──▶  src/data/opencode-models.json  (committed)
+                                                                              │
+Settings page  src/app/(dashboard)/settings/page.tsx  ◀──── reads snapshot + getModelSettingsForUser(userId)
+      │  (client sub-component: primary select + ordered fallback slots, reorder via shadcn primitives)
+      ▼  'use server'
+src/app/actions/modelSettings.ts  ── zod-validated upsert ──▶  userModelSettings table (unique(userId), onConflictDoUpdate)
+
+Analyze route  src/app/api/companies/[id]/analyze/route.ts
+      ├─ requireStaffAccess()  →  userId
+      ├─ getModelSettingsForUser(userId)  →  { primaryModel, fallbackModels[] }
+      ├─ resolveModels([primary, ...fallbacks])  →  LanguageModel[]   (registry gates on api.npm + api.url + env key)
+      └─ analyzeCompany(companyId, { models })  →  runAgent({ models })  →  runWithFallback(models, () => generateText({...}))
+           ├─ APICallError / NoSuchModelError / NoObjectGeneratedError  →  next model in chain
+           ├─ default (no settings row)  →  [anthropic('claude-sonnet-4-6')]  (today's behavior, unchanged)
+           └─ Langfuse span records ai.model.id of the serving model automatically (OBSV-01 continuity)
+```
+
+**Touch-points that must change (existing code):**
+- `src/lib/nav.ts` — `NavKey` union gains `'settings'` + a `getActiveNavKey` branch for `/settings`; the 11-case Vitest suite in `nav.test.ts` grows a case (the suite is the regression lock — QLTY-01).
+- `src/lib/agents/runAgent.ts` — `RunAgentInput.model` (currently unused by callers) becomes `models?: LanguageModel[]`; the failover loop lives here (it already wraps the single `generateText` call, so the step cap `isStepCount(12)`, tools, and `Output.object` stay intact per attempt).
+- `src/lib/agents/analyzeCompany.ts` — signature gains an optional `models` passthrough (defaults to the current constant); keeps its `not_configured` env gate and fail-closed validation unchanged.
+- Sidebar nav (shared `app-shell-layout.tsx` / nav items) — "Settings" item in the Manage group (alongside Reviews), following the Exa-style anatomy; active state via the extended `getActiveNavKey`.
+
+## What NOT to Add (scope guard for v1.3)
+
+| Don't add | Instead |
+|-----------|---------|
+| Any new npm runtime dependency | The milestone is fully servable with ai@7 + @ai-sdk/anthropic + the committed snapshot (verified) |
+| `@opencode-ai/sdk` | CLI snapshot |
+| Per-request model fetching / polling | Committed JSON + explicit `models:fetch` refresh |
+| A "test model connection" ping feature | The Analyze route itself is the live test; a saved setting is exercised on the next run and its failure/failover lands in the Langfuse trace |
+| Writing model-list metadata into the DB | The snapshot is static data; only *preferences* are per-user DB state |
+| Multi-tenant / org-scoped settings | Milestone is per-user only (matches the app's "any authenticated user = staff" model); the table is trivially extensible with an org column later |
 
 ## Sources
 
-- **Context7 `/websites/ui_shadcn`** — sidebar theming docs ("the sidebar component is themed using specific CSS variables … for both light and dark modes"), manual-install `globals.css` template matching this repo's file 1:1. HIGH confidence.
-- **Context7 `/websites/tailwindcss`** — v4 dark-mode docs (`@custom-variant dark (&:is(.dark *))`, class-based activation, data-attribute variant). HIGH confidence.
-- **Web design research (Exa breakdowns + exaBase/exawizards design system)** — Exa near-black surfaces `#181815` / `#111827`, white/10-ish hover treatment, tight radii; ecosystem confirmation that sidebar tokens + `@theme inline` is the standard shadcn theming pattern. MEDIUM confidence on exact hex → oklch conversion; lock values in UI phase.
-- **Repo verification (HIGH confidence, primary evidence):** token-exclusivity grep (only `sidebar.tsx` consumes `--sidebar-*` color tokens); `SheetPortal`→`Dialog.Portal` in `src/components/ui/sheet.tsx` (portal breaks provider-scoped CSS var cascade); `SidebarProvider` style-prop precedent in `app-shell-layout.tsx`; indigo/amber hardcodes in `app-sidebar.tsx` and `sidebar-resize-handle.tsx`.
-
-## Research Flags for the Roadmap
-
-- **UI-SPEC owns the exact palette** — this doc pins the mechanism and a grounded starting palette; visual fidelity to Exa's dashboard sidebar should be validated in the UI phase (screenshot comparison).
-- **Conditional scope creep watch:** only add the sidebar-search-input override task if the milestone's feature list includes a search box.
-- **No version drift risk:** zero new dependencies means no lockfile changes and no compat matrix to maintain for this milestone.
+- **opencode CLI 1.18.10 (live verification)** — `opencode models`, `opencode models <provider>`, `--verbose`, `--pure`, `--refresh`; 1130 records / 1128 active; JSON on stdout; `~/.opencode/bin/opencode` on PATH — HIGH confidence
+- **`~/.cache/opencode/models.json` vs `https://models.dev/api.json`** — content-identical (177 providers, 5939 models, byte-equal `zhipuai.glm-5` record) — HIGH confidence
+- **Installed packages (node_modules)** — `ai@7.0.45` exports (error classes, no fallback helper), `@ai-sdk/provider@4.0.4` (no `TooManyRequestsError`), `@ai-sdk/anthropic@4.0.26` (factory + callable provider), `drizzle-orm@0.45.2` — HIGH confidence
+- **Context7 `/vercel/ai`** — `createAnthropic`/`createOpenAI` factory docs, `NoSuchModelError`/`APICallError` semantics, "provider('model-id')" construction pattern — HIGH confidence
+- **Codebase conventions** — `src/lib/db/schema.ts`, `queries/recentlyViewed.ts`, `runAgent.ts` (model seam), `analyzeCompany.ts`, `api/companies/[id]/analyze/route.ts`, `actions/reviews.ts`, `lib/nav.ts`, `env.ts` (degrade-gracefully gate), `drizzle.config.ts` — HIGH confidence
+- **npm registry** — `@opencode-ai/sdk@1.18.11` exists (rejected: requires running server), `@opencode-ai/plugin@1.18.11` — MEDIUM confidence (not installed locally)
 
 ---
-*Stack research for: ArcLumen 360 v1.2 (Exa-Style Dark Sidebar)*
-*Researched: 2026-08-01*
+*Stack research for: ArcLumen 360 v1.3 AI Model Settings*
+*Researched: 2026-08-02*

@@ -1,121 +1,137 @@
-# Feature Research — Exa-Style Left Navigation Panel (v1.2)
+# Feature Research
 
-**Domain:** Dark/modern dashboard sidebar redesign (reference: dashboard.exa.ai left panel)
-**Researched:** 2026-08-01
-**Confidence:** HIGH (primary evidence = the live production HTML/CSS of dashboard.exa.ai, fetched 2026-08-01)
+**Domain:** Per-user AI model settings (primary model + ordered fallback chain) for an internal staff tool — ArcLumen 360 v1.3
+**Researched:** 2026-08-02
+**Confidence:** HIGH (in-repo integration points + opencode mechanics, empirically verified); MEDIUM (OhMyOpenCode behavior — docs/community sources)
 
-> **⚠️ Headline finding — the Exa sidebar is LIGHT, not dark.**
-> Every public source shows dashboard.exa.ai's left panel on a **near-white background (`#fbfcfd`)** with a hairline right border — *not* a near-black panel. This was verified three independent ways: (1) the production CSS embedded in the dashboard's own HTML (`background:#fbfcfd`), (2) 7 real screenshots on gummble.com/apps/exa-web (captured 2026-04-14), all showing a light sidebar, (3) live page metadata. The "dark" surfaces in Exa's design language are the **marketing site's dark editorial bands (`#181815`)** and the **playground's dark code/output panels** — never the dashboard sidebar. The milestone's stated target ("Dark Exa-style sidebar panel (near-black)") is **not what dashboard.exa.ai ships**. This file specs the *actual* reference design, and treats the dark variant as a separate, clearly-labeled decision point (see Anti-Features #1).
+## Failover UX Contract (the milestone's core question)
+
+The milestone asks: *when the primary model fails, does the user see it, does the run silently retry, is there an indicator of which model actually ran?*
+
+**Answer — model on OhMyOpenCode/opencode:**
+
+| Question | OhMyOpenCode/opencode behavior | v1.3 recommendation |
+|---|---|---|
+| Does the user see the failure? | No. Model resolution is config-driven and automatic (`doctor --verbose` is the only introspection surface). No interactive retry prompt. | No. **Silent retry within the run.** The existing Analyze UX already shows one "Analyzing…" strip; staff never sees per-model attempts. |
+| Does the run silently retry? | Yes — `fallback_models` ("Fallback models on API errors") is tried in order; opencode core itself has *no* fallback, this is OMO's addition. | Yes — retry down the ordered chain inside the same request/run, bounded by the 60s Vercel `maxDuration` ceiling (D-07). Only retry on *retryable* errors (429 / 5xx / timeout / overloaded), never on 400/401/404 (auth, bad request, model-not-found) or validation failures. |
+| Is there an indicator of which model ran? | In OMO: only via `doctor`/logs. In this app's observability: Langfuse traces already carry the model name per `generateText` (OTel `gen_ai.request.model`) via `@langfuse/vercel-ai-sdk`. | **Table stakes:** durable record — `agent_run.modelUsed` (+ `modelsAttempted`) column and the existing Langfuse trace. **Differentiator:** a subtle "ran on Claude Sonnet 4.6 (fallback)" line in the Analyze run-status strip on success-after-fallback. |
+
+**Contract in one sentence:** *one run, silent retry down the chain, fail loud only when the whole chain is exhausted, and the actual model is recorded everywhere it matters (run row + trace) and shown subtly where it helps (status strip on fallback).*
 
 ---
 
 ## Feature Landscape
 
-### Table Stakes (defining traits of the Exa sidebar — the redesign must ship these)
+### Table Stakes (Users Expect These)
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Light near-white panel `#fbfcfd` + 0.5px hairline right border (`var(--gray-200)`) | The single most defining trait of the reference. Panel is barely distinguishable from the white content area; separation comes from the hairline, not a fill contrast | LOW | Override `--sidebar` token or set `bg-[#fbfcfd]` on `<Sidebar>`; border via `border-r` on the wrapper. **Directly contradicts the milestone's "near-black" assumption — see Anti-Feature #1** |
-| Logo + team-name switcher zone at top (one 36px row) | Exa's top-left holds the logo mark (16px, `#1F40ED` fill) + team name + `chevrons-up-down` (16px muted icon); trigger is a radix dropdown-menu with `border-radius: var(--border-radius-default)`, `padding: 8px 12px`, `max-width: 180px` | MEDIUM | ArcLumen has no logo asset (public/ holds only Next/Vercel defaults) and no multi-team model. Decision needed: invent a wordmark, use a text wordmark, or a static org label without switcher. Docs confirm the switcher lives "in the top-left of the dashboard" (exa.ai/docs/reference/setting-up-team) |
-| Intent-grouped nav sections with muted gray 13px/500 labels | Section titles are `ABC Diatype 13px / 500 / #888888`, `margin-bottom: 4px`, `padding: 0 8px`; sections separated by `margin: 12px 0` (first `10px`), `gap: 2px` between items. Groups = **API Playground / Management / Learn** (labeled by user intent, not hierarchy) | LOW | shadcn `SidebarGroupLabel` exists unused in the primitive — wire it. ArcLumen mapping: e.g. **Explore** (Start, Companies, Key Personas) / **Manage** (Reviews) — exact grouping is a roadmap decision, routes stay unchanged |
-| Nav item anatomy: 30px rows, 16px lucide icon + 15px/400 label, 10px gap, 8px horizontal padding | Production CSS: `height:30px; padding:0 8px; gap:10px; font-size:15px; font-weight:400; line-height:24px; color:#444444`; icon inherits `currentColor` (monochrome) | LOW | shadcn `SidebarMenuButton` default is close; tune size classes. Add the `Inbox`/house/etc. icons per item (lucide already installed) |
-| Subtle active state: 4px-radius full-row fill + darker text | Production CSS (live): active = `color: black` + `::before { background: rgba(0,0,0,0.04); border-radius:4px; }` — a whisper-gray fill, no left indicator bar, no border | LOW | Replaces current `data-active:bg-indigo-50 data-active:text-indigo-600`. **Conflict flag:** April 2026 gummble screenshots show a *blue* fill + blue text active state; live Aug 2026 CSS shows gray fill + black text. Either Exa changed the style, or the screenshots are older. Recommend the live-CSS version (gray), with ArcLumen's indigo reserved for the badge/links only |
-| Bottom zone: full-width action pill → 0.6px divider → avatar + username | Production CSS: `margin-top:auto; padding:12px 22px 16px 18px; gap:6px`; feedback pill is `rounded-[6px] border` (muted surface bg, 14px text, hover = border color); divider `0.6px var(--gray-200)`, `margin:8px 0`; avatar 24px circle `#C3ECFF` (light blue) with `text-blue-800` initials + username 15px/500 | MEDIUM | "Give us feedback" needs a real destination (mailto / Arcpedia link — decision). Avatar/username maps to Clerk session (`useUser()`), replacing the missing current bottom chrome |
-| Collapse: top-right icon button (lucide `panel-left-close`, 24×24, radius 4px) with animated width | `position:absolute; top:14px; right:22px`; container `transition:width 0.2s ease-in-out`; labels fade (0.12s opacity) and clamp (`max-width`); bottom section wraps in `max-height:60px` collapsible; content area tracks `left: var(--sidebar-width)` | MEDIUM | shadcn's `data-collapsible="icon"` gives the rail behavior; Exa collapses to an icon rail (labels fade, icons stay). Must reconcile with the existing drag-to-resize handle + cookie persistence — see Dependency #5 |
-| Right-aligned "NEW" badge: mono 10px/600 accent chip | `--font-family-protomono, 10px/600`, accent fill + accent text, `mix-blend-mode: multiply`, `margin-left:auto` right-aligned in the row | LOW | Current `SidebarMenuBadge` (amber "N pending") restyled to this chip language while keeping count semantics — or Exa-style literal "NEW" if a new feature lands |
+| Settings nav item + route | Every Manage-group tool has a Settings entry; the v1.2 sidebar chrome is the established pattern | LOW | Add `settings` to `NavKey` union + `getActiveNavKey` (Vitest suite grows a case), `getNavTooltipLabel`, new `SidebarMenuButton` under the **Manage** group (next to Reviews); new `/settings` page inside the `(dashboard)` route group behind `requireStaffAccess()`. |
+| Per-user persistence keyed by Clerk userId | "My model choice" must survive reloads and differ per staff member | LOW | New Drizzle table following the in-repo precedent (`recentlyViewed`/`importBatch`: `userId: text('user_id')` — "Clerk userId, opaque string — no FK (Clerk is external)"). One row per user: `primaryModelId` + `fallbackModels` (jsonb ordered array — matches `usageTokens`/`evidenceAppendix` jsonb pattern). |
+| Settings page: primary model selector + ordered fallback list | The explicit milestone deliverable, OMO-style | MEDIUM | Two controls: primary `<Select>` + an ordered reorderable list (up/down, remove, add) for fallbacks. Load = server read (Server Action or RSC), save = one Server Action with `requireStaffAccess()`. Enforce ≥1 fallback optional, primary required, no duplicates. |
+| Model list sourced from opencode (the `/models` source) | The milestone's stated registry source | MEDIUM | **Two sources verified live:** (a) CLI `opencode models` (~1,130 `provider/model` lines; `--verbose` appends JSON metadata blocks: id, name, family, cost, `status: active/deprecated`, context/output limits, `api.{npm,url}`); (b) headless server `GET /api/model` (clean JSON `{location, data[]}`, but only the *enabled/runnable* set — here just 24 `opencode/*` free zen models). **Recommendation:** snapshot into a DB registry table (see Dependencies); the CLI snapshot script is the primary path. |
+| Agent consumes the config with error-driven failover | The entire point of the milestone — first consumer is the Analytic Agent | MEDIUM–HIGH | `runAgent` currently takes ONE model (`anthropic(FAST_MODEL_ID)` default, `FAST_MODEL_ID = 'claude-sonnet-4-6'` verified 2026-08-01). Change to accept a chain; loop attempts with retryable-error classification; return `modelUsed`/`modelsAttempted`. The fail-closed gate (`validateRunArtifacts`) runs only after the final successful attempt. |
+| Record which model actually ran | Trust + debugging; feeds the existing Langfuse observability (OBSV-01) | LOW | Add `modelUsed` + `modelsAttempted` to `agent_run` (jsonb like `usageTokens`); Langfuse already captures model per attempt via the SDK. |
+| Graceful degradation when the registry is empty/stale | Mirrors the repo's `not_configured` pattern (D-15, optional env keys) | LOW | Registry empty → Settings shows a "model list not synced" empty state; agent keeps the hardcoded `FAST_MODEL_ID` default. Never crash the app because a dev machine didn't sync. |
+| Only selectable models the app can actually run | A picker full of models that 502 at runtime is a broken feature | MEDIUM | The app runtime has **only `@ai-sdk/anthropic` + `ANTHROPIC_API_KEY`** installed. The opencode catalog spans 75+ providers. Either (a) restrict the runnable set to Anthropic-family IDs (`anthropic/*` — zero new deps), or (b) add `@ai-sdk/openai-compatible` pointed at `https://opencode.ai/zen/v1` with the machine's `OPENCODE_API_KEY` to unlock zen models. Registry must mark `runnable` vs `listed`; UI filters (or badges). **(a) is the v1.3 path; (b) is a later milestone.** |
+| Validate model ids against the registry before use | Untrusted user input must never reach `generateText({model})` | LOW | Zod-validate stored ids; the registry table is the allowlist. Matches the repo's route-side zod + fail-safe conventions. |
 
-### Differentiators (Exa moves worth copying deliberately)
+### Differentiators (Competitive Advantage)
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Intent-first section grouping ("API Playground / Management / Learn") | Groups tools by *what the user wants to do* (search/crawl/research vs account ops vs learning) rather than by permission level or page hierarchy — UXSnaps: "Navigation is structured around user intent… Consistent icons, restrained color, and subtle labels like New make discovery easy without clutter" | LOW | ArcLumen analog: **Explore** (Start / Companies / Key Personas) + **Manage** (Reviews). This is the structural differentiator — copying it costs almost nothing and makes the sidebar feel "designed" |
-| Scarce electric-blue brand voltage (`#1F40ED`) | Exa's brand blue appears only as logo fill, inline links, and the NEW badge — never as the active-nav fill. Scarcity is the move; it reads as precision (shadcn.io/design/exa breakdown) | LOW | ArcLumen's indigo plays this role; keep it out of the active state (gray fill) for authenticity |
-| External-link affordance: `arrow-up-right` (14px, muted) on rows that leave the app | Signals "leaves dashboard" without a tooltip or label; `margin-left:auto` right-aligned | LOW | Only if ArcLumen adds outbound links (Arcpedia, docs). Not needed for the 4 current routes |
-| "Give us feedback" as a persistent, bordered, full-width bottom pill | A quiet, always-available human channel at the exact place the eye lands when nav is done — cheaper than a feedback modal, more discoverable than a footer link | MEDIUM | Map to a real destination (mailto: team inbox). Anti-spam/misuse consideration for internal tool is minor |
-| Monochrome `currentColor` icons + custom brand marks at 0.8 opacity | Icons inherit text color (dark on hover/active automatically); third-party marks (Slack logo) sit at `opacity:0.8` to avoid competing | LOW | ArcLumen has no third-party marks yet — just use lucide consistently |
-| Team name skeleton on load (`12px` gray pulse) | Communicates async team data without layout shift | LOW | Only relevant if a team/org name is fetched server-side |
+| **Ordered user fallback chain** | opencode core has NO fallback — OMO's `fallback_models` is the fork's differentiator; shipping it as a first-class per-user UI beats both | MEDIUM | The exact OMO semantics: resolution = user choice → fallback list → built-in default (`FAST_MODEL_ID`). |
+| **"Which model ran" transparency** | Staff trusts analysis more when they can see (and audit in Langfuse) that a fallback produced the result; feeds the existing human-reviewed queue with confidence | LOW–MEDIUM | Subtle mono line in `AnalyzeRunStatus` on success-after-fallback: "ran on Claude Sonnet 4.6 (fallback)" — styled with existing token palette (no new UI language). |
+| **Rich registry metadata in the picker** | The opencode snapshot carries name, family, cost ($/MTok), context window, active/deprecated status — a dropdown with `(family · $3/$15 · 1M ctx · active)` beats any plain list | LOW–MEDIUM | Data is already in the snapshot; render cost/context from the registry table; gray out `deprecated`. |
+| **General agent model registry** | The Analytic Agent is consumer #1; the registry is agent-agnostic so future agents (per PROJECT.md future candidates: AI-drafted outreach) read the same config | MEDIUM | Keep the registry + settings tables model-agnostic (no agent_id column in v1.3 — the "per-agent assignment" selector is explicitly future work). |
 
-### Anti-Features (things NOT to copy / traps)
+### Anti-Features (Commonly Requested, Often Problematic)
 
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| **Dark near-black sidebar panel** | The milestone explicitly targets it; Exa's marketing dark bands and dark code panels create the association | The actual dashboard.exa.ai sidebar is **light `#fbfcfd`** — a dark panel would *not* match the reference at all. Dark would also invert every nav surface and likely clash with the light content area + `SidebarInset` | If a dark panel is truly wanted, it is an **invented** design: use Exa's dark-band vocabulary (`#181815` floor, white text, scarce `#1F40ED`) and label it a deliberate departure in the roadmap. Do not present it as "matching Exa" |
-| Copying Exa's nav *items* (Search / Agent NEW / Contents / Answer / Monitors…) | Familiarity with the reference | ArcLumen's routes are Start / Companies / Key Personas / Reviews — copy the *anatomy and grouping*, never the items. Exa's own items changed between April and Aug 2026 (Crawling/Research → Agent/Monitors) | Map existing routes into intent groups only |
-| Blue active fill + blue text (April 2026 screenshots) | Matches the classic Exa look some people remember | Conflicts with the *live* production CSS (gray `rgba(0,0,0,0.04)` fill + black text, Aug 2026). Also duplicates the badge color and weakens the scarce-brand-voltage principle | Follow the live CSS: subtle gray fill, dark text; keep ArcLumen indigo for the pending badge and any links |
-| Loading skeletons everywhere | Polish | The team-name skeleton is loading chrome for *async team data* ArcLumen doesn't have; 4 nav items don't need skeletons | Render statically; skip skeletons entirely |
-| Arizona serif display / editorial typography | Signature of Exa's marketing site | That's the marketing display tier (76.8px hero), not the dashboard sidebar; sidebar runs ABC Diatype sans at 13–15px. ArcLumen already uses Geist (nova preset) — fine | Keep Geist; mono only for badge/metadata |
-| Floating "Ask ExaBot" chat pill | Seen on dashboard screenshots | It's content-area chrome, not sidebar; ArcLumen has an Analytic Agent already accessed via ExplorerMenu | Leave it out of this milestone |
-| Collapse-to-icon-rail *replacing* drag-to-resize | Exa's collapse is a fixed-width animation | Current app has a proven drag-resize with cookie persistence (SidebarResizeHandle, MIN 200 / MAX 400). Removing it would regress a validated feature (v1.0 Phase 2 requirement) | Keep resize + collapse coexisting (Exa's own width is a CSS var — compatible); decide behavior matrix explicitly |
+| Proxying opencode's `/config/providers` (or any endpoint returning credentials) | "Live" model/provider data with zero snapshot lag | **Empirically verified: the response contains the raw API key (`"key":"sk-…"`).** One proxy mistake exfiltrates the machine's opencode credential to every browser | Only `GET /api/model` (verified secret-free) or CLI snapshot; never `/config`, never `/config/providers`; server-side fetch only, never client-side |
+| Listing the full 1,130-model catalog as selectable | "Why can't I pick GPT-5.4?" | ~95% of it cannot run — the app has one provider package/key. Dead selects → confusing 502s → trust erosion | Filter to `runnable`; show the rest only as a "not available in this app" state; add provider support in a later milestone |
+| Per-user bring-your-own-key (BYOK) | Power users want their own API keys | Multi-tenant credential storage = a full security program (encryption, rotation, abuse); far beyond a settings UI; contradicts "any staff user = staff" | Shared app-level keys only; registry-allowlisted models; BYOK as an explicit future candidate with security review |
+| Cross-family auto-fallback without guardrails (e.g. Claude → GPT) | "More fallbacks = more resilience" | OMO docs are explicit: prompts are family-tuned ("Sisyphus → GPT: no GPT prompt, will degrade significantly"). The Analyze prompt is Claude-tuned; a GPT fallback silently produces lower-quality proposals | Constrain chains to the same family (Anthropic) in v1.3; add a "cross-family allowed" flag + prompt-family detection later |
+| Per-model advanced settings in v1.3 (variant, thinking budget, temperature, reasoningEffort) | OMO's per-fallback-model settings look powerful | Config explosion; each knob needs model-family validation; the milestone scope is explicitly "primary + ordered fallback" | Ship the chain only; store `variant`/`reasoningEffort` as future-ready nullable jsonb, render later |
+| Writing user settings back into the local opencode/OMO config file | "Keep one source of truth" | The opencode config is a dev machine's global tool state — not multi-user, not deployable, not auditable; app DB is the source of truth | App DB (`userModelSettings` table) is the single source; opencode stays a read-only snapshot source |
+| Interactive "retry with fallback?" prompt on failure | "Let the user choose" | Interrupts the one-run mental model; OMO/opencode never do this; the 60s budget makes a mid-run human round-trip impossible | Silent retry + fail-loud when exhausted (existing ERROR_COPY pattern in `AnalyzeRunStatus`) |
+| Auto-refresh of the registry on every Settings visit | "Always live" | Localhost unreachable from Vercel; refresh is a dev-machine act, not a request-time act | On-demand sync script (dev machine) + `syncedAt` timestamp + "Last synced" UI; never a request-time fetch |
 
 ---
 
 ## Feature Dependencies
 
 ```
-Light #fbfcfd panel + hairline border
-    └──requires──> --sidebar token override (globals.css) + <Sidebar> class change
+Settings nav item + /settings route
+    └──requires──> NavKey union + getActiveNavKey + getNavTooltipLabel updates (nav.ts, sidebar-collapse.ts + Vitest suites)
+    └──requires──> (dashboard) route group + requireStaffAccess gate (existing shell)
 
-Section labels (API-Playground-style groups)
-    └──requires──> SidebarGroupLabel (exists unused in shadcn primitive)
-                       └──requires──> AppSidebar restructure into <SidebarGroup>s
+Settings page (primary + fallback selectors)
+    └──requires──> userModelSettings table (Clerk userId keyed) + Server Actions (save/load)
+    └──requires──> modelRegistry table (the allowlist the picker reads)
+                       └──requires──> opencode snapshot sync (CLI `opencode models --verbose` or server GET /api/model)
+                                      run on the DEV machine — opencode is localhost-only (verified)
 
-Exa item anatomy (30px / 16px icon / 15px label)
-    └──requires──> replacing current data-active indigo classes with rgba(0,0,0,0.04) fill
-                       └──requires──> SidebarMenuButton size/class tuning
+Agent error-driven failover
+    └──requires──> runAgent chain support (accept ordered models, loop attempts)
+    └──requires──> retryable-error classifier (pure function — Vitest target; AI SDK error classes: AI_APICallError.statusCode, AI_NoSuchModelError, AI_RetryError)
+    └──requires──> userModelSettings read at run time (route handler fetches by auth().userId)
+    └──requires──> 60s maxDuration budget management (D-07) — chain length/time budget bounded
+    └──requires──> agent_run.modelUsed / modelsAttempted columns
 
-Logo + team zone (top)
-    └──requires──> NEW: ArcLumen logo/wordmark asset (none exists today)
-    └──requires──> DECISION: org/team name source (static vs Clerk org)
+"Which model ran" status-strip indicator
+    └──requires──> analyze route returns modelUsed in its JSON body
+    └──enhances──> AnalyzeRunStatus component (already owns the run state machine)
 
-Bottom zone (feedback pill + divider + avatar)
-    └──requires──> DECISION: feedback destination (mailto/Arcpedia)
-    └──requires──> useUser() from @clerk/nextjs for avatar/initials/username
+Registry marks runnable vs listed
+    └──requires──> runtime provider map (anthropic → @ai-sdk/anthropic; future: zen → @ai-sdk/openai-compatible) — v1.3 ships the anthropic entry only
 
-NEW-style badge (mono accent chip)
-    └──enhances──> existing SidebarMenuBadge (amber pending-count) — restyle, keep count
-
-Collapse button (panel-left-close, top-right)
-    └──requires──> DECISION: relationship to SidebarResizeHandle (Exa: width animation;
-                   current app: drag resize + cookie). shadcn already has data-collapsible
-                   infrastructure; Exa's own --sidebar-width var is the same mechanism
-
-Dark panel variant (IF chosen)
-    └──conflicts──> Light #fbfcfd panel (mutually exclusive; a milestone-scoping decision)
-    └──requires──> Exa dark-band token set (#181815, white text) — invented, not reference
+[Settings page] ──feeds──> [agent failover]  (the config the agent consumes)
+[modelRegistry] ──feeds──> [Settings picker] + [runtime provider resolution] (allowlist + id→provider map)
+[Langfuse tracing] ──enhances──> [record which model ran] (OTel gen_ai.request.model already emitted per attempt)
 ```
 
 ### Dependency Notes
 
-- **Light panel requires theme-token override:** the nova `neutral` preset sets `--sidebar: oklch(0.985 0 0)` (near-white) already; the delta to `#fbfcfd` is tiny but the *border* (0.5px hairline) is new. Both live in globals.css `:root`.
-- **Section labels depend on primitive already shipped:** `SidebarGroupLabel` is part of the installed shadcn `sidebar.tsx` (702 lines) but unused today — zero new infra.
-- **Logo zone is the only hard dependency:** no ArcLumen logo asset exists; the milestone either ships a wordmark or a text treatment. This is the one place where a design decision (not just styling) is required.
-- **Collapse vs resize is the only behavioral conflict:** Exa collapses with an animated width (its `--sidebar-width` var), the current app drags to resize (same var, cookie-persisted). They can coexist (shadcn `collapsible="icon"` + the existing resize handle), but the roadmap must decide the collapse target width and whether the drag handle stays visible.
-- **Dark panel conflicts with the reference:** choosing it invalidates the "matches dashboard.exa.ai" framing of the whole milestone; must be surfaced to the product owner before planning (see Anti-Feature #1).
+- **Settings nav → nav.ts contract chain:** `NavKey` is a closed union consumed by `getActiveNavKey` (11-case Vitest lock), `getNavTooltipLabel` (Vitest copy contract), and `AppSidebar`. Adding `'settings'` touches all three + their test suites — small, but it is a locked contract, not a one-liner (QLTY-01 precedent).
+- **Settings page → registry:** the picker must read the registry, so the registry table + sync script are a prerequisite *phase* before the page is usable. Without a snapshot the page shows the empty state (graceful, table-stakes).
+- **Registry → opencode sync is a dev-machine act:** opencode (`~/.opencode/bin/opencode`, v1.18.10) binds `127.0.0.1` by default and lives only on the dev machine. Vercel cannot reach it. The snapshot (script → DB) is the only production-viable path — "live at refresh, cached at read." This is the single most important architectural dependency in the milestone (see STACK.md/ARCHITECTURE.md).
+- **Failover → error classification:** without a correct retryable/non-retryable split, the chain either retries permanent errors (wasted 60s budget, triple 401s) or gives up on transient ones (false failures). This is the highest-risk logic — make it a pure, tested function (repo's Vitest pure-function precedent).
+- **Failover → 60s ceiling:** Vercel Hobby `maxDuration = 60` is a hard, user-confirmed constraint on the analyze route (D-07). Each attempt costs wall-clock; a 3-model chain must either be fast models or carry a time budget. This bounds chain length in v1.3 (recommend primary + 2 fallbacks, Anthropic family).
+- **Registry → runtime provider map:** the opencode id (`anthropic/claude-sonnet-4-6`) must resolve to an AI SDK provider instance. v1.3 ships one mapping (anthropic). The map is the seam where zen/openai/google support lands later.
+- **`agent_run.modelUsed` → status strip:** the route handler persists `modelUsed` and returns it in the JSON body; `AnalyzeRunStatus` renders the fallback note only when `modelUsed !== primary`.
 
 ---
 
 ## MVP Definition
 
-### Launch With (v1.2)
+### Launch With (v1.3)
 
-- [ ] Light `#fbfcfd` panel + 0.5px hairline right border (replaces current flat white) — the defining Exa trait
-- [ ] Intent-grouped sections using existing routes (e.g. **Explore**: Start / Companies / Key Personas; **Manage**: Reviews) via `SidebarGroupLabel`
-- [ ] Exa item anatomy: 30px rows, 16px lucide icons, 15px/400 labels, 8px padding, 10px gap
-- [ ] Subtle active state: 4px-radius `rgba(0,0,0,0.04)` fill + dark text (live-CSS version), replacing indigo-50/600
-- [ ] Top logo zone (wordmark decision required) + bottom user zone (avatar/initials from Clerk + username)
-- [ ] Pending-reviews badge restyled to the mono accent chip language (count semantics preserved)
-- [ ] Collapse button + animated width; drag-to-resize preserved
+- [x] Settings nav item (Manage group) + `/settings` route behind `requireStaffAccess()` — *the entry point*.
+- [ ] `modelRegistry` table + sync script (runs `opencode models --verbose`, parses JSON blocks, upserts; stores id, provider, name, family, cost, context, status, api package, syncedAt) — *the source; gated to dev machine execution*.
+- [ ] `userModelSettings` table + Server Actions (save/load) — *per-user persistence, Clerk userId keyed, jsonb fallback array*.
+- [ ] Settings page: primary `<Select>` + ordered fallback list (add/remove/reorder), restricted to **runnable** models, ids zod-validated against the registry — *the deliverable UI*.
+- [ ] `runAgent` chain: accepts ordered models, attempts sequentially, retries only on retryable errors, bounded by a time budget under 60s — *the failover engine*.
+- [ ] `agent_run.modelUsed` + `modelsAttempted` persisted; Langfuse trace already shows per-attempt model — *"which model ran" is durable*.
+- [ ] Fail-loud when the whole chain is exhausted (existing `analysis_failed` path + ERROR_COPY) — *no silent empty results*.
+- [ ] Empty-registry degradation: Settings empty state + agent keeps `FAST_MODEL_ID` default — *never breaks the shipped agent*.
 
-### Add After Validation (v1.2.x)
+### Add After Validation (v1.3.x)
 
-- [ ] "Give us feedback" pill — once a destination is decided (mailto/Arcpedia); trivially skippable without it
-- [ ] External-link affordance (`arrow-up-right`) on any outbound rows (Arcpedia/docs)
-- [ ] Dark variant as an opt-in theme — only if the light reference is confirmed with the owner first
+- [ ] "ran on X (fallback)" line in `AnalyzeRunStatus` on success-after-fallback — *transparency differentiator; needs route body to carry modelUsed*.
+- [ ] "Last synced" timestamp + explicit dev-only "Refresh models" action on the Settings page.
+- [ ] Render registry metadata (family · cost · context · deprecated) in the picker.
+- [ ] Chain-length/time-budget tuning after real-world 429/5xx observation.
 
 ### Future Consideration (v2+)
 
-- [ ] Real team/org switcher (multi-team model) — ArcLumen has no teams today; Exa's dropdown only matters with >1 team
-- [ ] Team-name skeleton / async org header data — needs a server-side org concept first
+- [ ] Zen/openai/google provider support via `@ai-sdk/openai-compatible` + `https://opencode.ai/zen/v1` (needs the OPENCODE_API_KEY strategy decided — shared key vs. service identity).
+- [ ] Per-agent model assignment (registry stays agent-agnostic; a per-agent override selector).
+- [ ] Cross-family fallback with prompt-family detection (OMO's "dangerous overrides" lesson).
+- [ ] Per-model settings (variant/reasoningEffort/thinking) — schema-ready, render later.
+- [ ] `small_model` (cheap model for background/labeling work) second selector.
+- [ ] BYOK — only with a dedicated security milestone.
 
 ---
 
@@ -123,64 +139,48 @@ Dark panel variant (IF chosen)
 
 | Feature | User Value | Implementation Cost | Priority |
 |---------|------------|---------------------|----------|
-| Light panel + hairline border | HIGH (identity) | LOW (token + class) | P1 |
-| Intent-grouped sections | HIGH (discoverability) | LOW (SidebarGroupLabel exists) | P1 |
-| Item anatomy (30px/16px/15px, icon+label) | HIGH (feel) | LOW (class tuning) | P1 |
-| Subtle gray active state | HIGH (feel) | LOW (replace data-active classes) | P1 |
-| Top logo zone | MEDIUM (branding) | MEDIUM (asset decision) | P1 |
-| Bottom user zone (avatar/username) | MEDIUM (identity) | LOW–MEDIUM (Clerk useUser) | P1 |
-| Pending badge restyle (mono accent chip) | MEDIUM (status) | LOW (SidebarMenuBadge class) | P1 |
-| Collapse button + width animation | MEDIUM (ergonomics) | MEDIUM (coexist with resize) | P2 |
-| Feedback pill | LOW–MEDIUM | LOW (once destination decided) | P2 |
-| External-link affordances | LOW | LOW | P3 |
-| Dark variant | n/a — contradicts reference | HIGH (inverts all nav styling) | P3 / decision |
+| Settings nav item + route | HIGH | LOW | P1 |
+| Registry table + sync script | HIGH | MEDIUM | P1 |
+| Per-user settings table + Server Actions | HIGH | LOW | P1 |
+| Settings page (primary + fallback, runnable-only) | HIGH | MEDIUM | P1 |
+| runAgent chain + retryable-error classifier | HIGH | MEDIUM–HIGH | P1 |
+| modelUsed/modelsAttempted + trace | MEDIUM | LOW | P1 |
+| Fail-loud on chain exhaustion | HIGH | LOW | P1 |
+| Empty-registry graceful degradation | MEDIUM | LOW | P1 |
+| "ran on X (fallback)" status line | MEDIUM | LOW–MEDIUM | P2 |
+| Registry metadata in picker | MEDIUM | LOW–MEDIUM | P2 |
+| Last-synced + refresh action | LOW | LOW | P2 |
+| Zen/provider expansion | MEDIUM | HIGH | P3 |
+| Per-agent assignment | MEDIUM | MEDIUM | P3 |
+| Per-model advanced settings | LOW | MEDIUM | P3 |
 
-**Priority key:** P1 = required to *look* like Exa's sidebar · P2 = should-have · P3 = nice-to-have / needs owner decision.
+**Priority key:**
+- P1: Must have for launch
+- P2: Should have, add when possible
+- P3: Nice to have, future consideration
 
 ---
 
 ## Competitor Feature Analysis
 
-| Feature | Exa Dashboard (reference) | ArcLumen Today (v1.1) | Our Target (v1.2) |
-|---------|---------------------------|------------------------|-------------------|
-| Panel background | `#fbfcfd` (near-white, blue-tinted) + 0.5px gray-200 right border | `--sidebar: oklch(0.985 0 0)` (white), no hairline | `#fbfcfd` + hairline border |
-| Top zone | 16px `#1F40ED` logo + team name + chevrons (36px row, radix dropdown) | none | Logo/wordmark + org label (static or Clerk org) |
-| Sections | API Playground / Management / Learn (13px/500 `#888888` labels) | single flat group, no labels | Intent groups over existing routes |
-| Item anatomy | 30px rows · 16px icon · 15px/400 label · 10px gap · 8px padding | shadcn default (`SidebarMenuButton`), ~14px label | Exa dimensions |
-| Active state | `rgba(0,0,0,0.04)` fill, 4px radius, black text (live CSS; blue in Apr 2026 shots) | `indigo-50` fill + `indigo-600` text | subtle gray fill + dark text (ArcLumen indigo reserved for badge) |
-| Hover state | same `rgba(0,0,0,0.04)` fill | indigo-tinted (via data-active hover classes) | gray fill |
-| Badges | right-aligned mono 10px accent chip ("NEW", `mix-blend-multiply`) | amber `SidebarMenuBadge` "N pending" | mono accent chip w/ pending count |
-| Bottom zone | "Give us feedback" pill → 0.6px divider → 24px `#C3ECFF` avatar + name | none | feedback pill (optional) → divider → Clerk avatar + name |
-| Collapse | `panel-left-close` button top-right, 0.2s width anim, labels fade | shadcn collapsible + drag-resize (cookie) | collapse button + keep drag-resize |
-| Icon treatment | lucide 16px `stroke-width:2`, `currentColor`, custom marks @ 0.8 opacity | lucide, colored by active state | monochrome `currentColor` |
-| External links | `arrow-up-right` 14px muted, `margin-left:auto` | n/a | only if outbound rows exist |
+| Feature | opencode core (v1.18.10, verified) | OhMyOpenCode / OMO (docs) | ArcLumen 360 v1.3 (our plan) |
+|---------|------------------------------------|---------------------------|------------------------------|
+| Model list source | `/models` dialog; `opencode models` CLI; server `GET /api/model` | Same (delegates to opencode) | Snapshot of `opencode models --verbose` → DB registry |
+| Primary model selection | Config `model` key (`provider/model`), `/models` dialog | Same + per-agent/per-category `model` overrides | Per-user `<Select>` persisted per Clerk user |
+| Ordered fallback chain | **None — no error-driven fallback** | `fallback_models` ("Fallback models on API errors"), string or array with per-model settings | Per-user ordered list (jsonb), OMO-resolution semantics |
+| Resolution priority | `--model` flag → config → last-used → internal priority | UI-selected → user override → category default → user fallback_models → built-in provider chain → system default | user settings → fallback chain → `FAST_MODEL_ID` built-in default |
+| "Which model ran" visibility | Trace/log only | `doctor --verbose` | `agent_run.modelUsed` + Langfuse OTel attribute + (P2) status-strip note |
+| Retry UX | None (error surfaces) | Silent automatic | Silent automatic, fail-loud on exhaustion |
+| Credential model | Machine-level provider auth (`opencode auth`) | Same | Shared app-level keys; **never** proxy `/config/providers` |
 
 ---
 
 ## Sources
 
-| Source | Used For | Confidence |
-|--------|----------|------------|
-| `dashboard.exa.ai/home` production HTML + embedded styled-components CSS (fetched 2026-08-01, full extraction incl. `Sidebar__Container` `background:#fbfcfd`, `border-right:0.5px solid var(--gray-200)`, `NavItemStyled` 30px/15px/400/#444444, `rgba(0,0,0,0.04)` active fill, `NavSectionTitleStyled` 13px/500/#888888, `NewTag` mono 10px/600 + `mix-blend-multiply`, `BottomSection`, `FeedbackDivider` 0.6px, `CollapseButton` panel-left-close 24×24 top:14/right:22, width transition 0.2s, avatar `#C3ECFF`, "Give us feedback" pill, complete nav DOM: Home / Search / Agent NEW / Contents / Answer / Monitors / Usage / Billing / API Keys / Team Settings / Exa in Slack / Docs↗ / Exa MCP↗ / Templates) | All concrete design values (colors, sizes, spacing, structure, interactions) | **HIGH** — primary source, current production |
-| `dashboard.exa.ai/playground/*` + `/home` + `/onboarding-guest` page metadata (WebSearch/WebFetch, 2026-08-01): section labels "API Playground / Management / Learn", "Give us feedback", current item list | Nav structure & section names (cross-check) | **HIGH** (live pages) |
-| gummble.com/apps/exa-web — 94+ real Exa Web screenshots (captured 2026-04-14); 7 analyzed via image analysis | Light sidebar, team switcher (logo + name + chevrons), section labels, **blue active fill** (conflicts with live CSS — flagged), NEW badge, feedback + avatar footer, external-link ↗ | **MEDIUM** — screenshots consistent but predate the live CSS; active-state color conflicts |
-| UXSnaps breakdown — uxsnaps.com/home-dashboard-exa | "Navigation is structured around user intent… groups tools by what users want to do… Consistent icons, restrained color, and subtle labels like New" — validates intent grouping and restraint | MEDIUM — secondary analysis |
-| exa.ai/docs/reference/setting-up-team | Team dropdown "in the top-left of the Exa dashboard" + team-switcher screenshot | MEDIUM — official docs, screenshot of sidebar top zone |
-| shadcn.io/design/exa (+ `/raw` DESIGN.md) | Brand tokens: electric blue `#1f40ed` (scarcity principle), dark band `#181815` (marketing, not dashboard), ABC Diatype body/labels, Geist Mono metadata, 2px/4px/6px tight radius scale, greige neutrals | MEDIUM — captures marketing site, explicitly notes the dashboard carries "richer token systems… not represented here" |
-| exa.ai/docs/changelog + current API docs | Nav evolution (Search/Deep Search/Contents/Agent; "Try it in the dashboard →") — shows the sidebar items are product-driven and change over time; do not copy items | MEDIUM |
-| Current ArcLumen code (this repo): `app-sidebar.tsx`, `app-shell-layout.tsx`, `sidebar-resize-handle.tsx`, `ui/sidebar.tsx`, `globals.css` | Dependency mapping for the redesign | HIGH (local, read 2026-08-01) |
-
-**Evidence hierarchy note:** the live production CSS of dashboard.exa.ai is treated as the ground truth for all concrete values (colors, dimensions, spacing, transitions). Where screenshots (April 2026) conflict with live CSS (Aug 2026) — specifically the active-state color (blue fill vs gray fill) — the conflict is reported explicitly with both sources rather than resolved by invention. The nav *items* also differ between the two captures (Crawling/Research/Websets/Examples Library in April vs Agent/Monitors/Exa in Slack/Templates now), confirming items are volatile; the milestone must copy the *design language*, not the items.
+- **Verified live (HIGH):** `opencode models` / `opencode models opencode --verbose` on the local installation (v1.18.10, `~/.opencode/bin/opencode`); `opencode serve` + `GET /api/model` (24-model runnable set, secret-free) and `GET /config/providers` (⚠ contains raw API key — leak hazard confirmed); `@opencode-ai/sdk` route definitions (`/api/model`, `/config`, `/config/providers`); opencode config docs (`https://opencode.ai/docs/models/` — `model` key, `provider/model` ids, variants, no fallback).
+- **OhMyOpenCode behavior (MEDIUM — docs/community, not run locally):** `oh-my-opencode`/`oh-my-openagent` config reference (`fallback_models`, resolution priority, per-model settings, model catalog) — github.com/code-yeongyu/oh-my-opencode docs (configuration.md, agent-model-matching.md) and encodedocs.com model-resolution page.
+- **In-repo integration points (HIGH — code read):** `src/lib/nav.ts` + `src/lib/nav.test.ts` (NavKey contract), `src/lib/sidebar-collapse.ts` + test, `src/components/layout/app-sidebar.tsx` (Manage group), `src/components/layout/app-shell-layout.tsx`, `src/lib/auth/requireStaffAccess.ts`, `src/lib/db/schema.ts` (userId/text/jsonb patterns; `agent_run`), `src/lib/agents/runAgent.ts` (single-model seam, `FAST_MODEL_ID`), `src/lib/agents/analyzeCompany.ts` (fail-closed gate, not_configured), `src/app/api/companies/[id]/analyze/route.ts` (60s maxDuration, fail-loud mapping), `src/components/agents/analyze-run-status.tsx` (ERROR_COPY), `src/lib/env.ts` (optional-key degradation).
 
 ---
-
-### Research flags for the roadmap
-
-- **Phase 0 decision gate:** light (matches reference) vs dark (invented) — must be resolved with the product owner before any planning; the milestone's current framing ("dark Exa-style panel") does not match the reference product.
-- **Phase 0 decisions:** logo/wordmark asset, org-name source, feedback destination, collapse-vs-resize coexistence matrix.
-- **Likely low-risk phases:** token overrides, section labels, item anatomy, active state, badge restyle (all LOW complexity, no new infra).
-- **Needs deeper research before execution:** none blocking — the design language is fully specified above from primary evidence.
-
----
-*Feature research for: ArcLumen 360 v1.2 — Exa-Style Left Panel*
-*Researched: 2026-08-01*
+*Feature research for: ArcLumen 360 v1.3 AI Model Settings*
+*Researched: 2026-08-02*
