@@ -39,14 +39,31 @@ export type RunArtifactsInput = z.infer<typeof outputSchema> & {
 // ── Ported rules (validate_report.py sections, hybrid analog) ─────────────
 // Each rule is a pure function returning violations; empty array = pass.
 
-// §5 every_citation_must_resolve — every proposal evidenceUrl must appear in
+// §5 every_citation_must_resolve — every proposal evidenceUrl must resolve to
 // the evidenceAppendix. The appendix is derived server-side from REAL tool
 // results (D-02), so the model cannot invent citations that pass (T-09-03).
+// Resolution tolerates benign URL variance (scheme, query, fragment, case,
+// trailing slash) AND the model extending a fetched URL with an extra path
+// segment — observed live: Firecrawl returns …/714139/ but the model cites
+// …/714139/trade lifted from snippet text. The REVERSE (citing a parent of a
+// fetched URL) stays forbidden — it would let a bare section page or homepage
+// resolve as a citation.
+function normalizeUrl(raw: string): string {
+  try {
+    const u = new URL(raw);
+    return (u.host.toLowerCase() + u.pathname).replace(/\/+$/, '');
+  } catch {
+    return raw.toLowerCase().replace(/\/+$/, '');
+  }
+}
+
 export function checkCitationsResolve(input: RunArtifactsInput): string[] {
-  const appendixUrls = new Set(input.evidenceAppendix.map((e) => e.url));
+  const appendix = input.evidenceAppendix.map((e) => normalizeUrl(e.url));
   const violations: string[] = [];
   input.proposals.forEach((p, i) => {
-    if (!appendixUrls.has(p.evidenceUrl)) {
+    const citation = normalizeUrl(p.evidenceUrl);
+    const resolves = appendix.some((entry) => citation === entry || citation.startsWith(`${entry}/`));
+    if (!resolves) {
       violations.push(
         `proposal[${i}].evidenceUrl: citation does not resolve to evidence_appendix (${p.evidenceUrl})`,
       );

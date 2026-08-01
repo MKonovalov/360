@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { validateRunArtifacts } from './validateReport';
-import type { RunArtifactsInput } from './airsRules';
+import { checkCitationsResolve, type RunArtifactsInput } from './airsRules';
 import sampleValid from './fixtures/sample-valid.json';
 
 // Adapter: map the verbatim AIRS report fixture onto the hybrid gate input
@@ -109,5 +109,68 @@ describe('validateRunArtifacts (AIRS gate port, D-03)', () => {
       expect(e.length).toBeGreaterThan(0);
       expect(e).toMatch(/^[^:]+: .+/);
     });
+  });
+});
+
+// Direct rule tests for checkCitationsResolve's tolerant URL resolution
+// (live-failure regression: Firecrawl returns …/714139/ but the model cited
+// …/714139/trade lifted from snippet text — exact-match gate failed).
+describe('checkCitationsResolve (URL resolution tolerance)', () => {
+  const APPENDIX_URL = 'https://www.biopharmadive.com/news/curevac-restructuring-layoffs-avian-flu-vaccine/714139/';
+  const baseInput = (evidenceUrl: string): RunArtifactsInput => ({
+    verdict: 'active',
+    keyUncertainties: ['uncertainty'],
+    evidenceAppendix: [{ url: APPENDIX_URL, title: 't', snippet: 's' }],
+    proposals: [
+      {
+        signalType: 'transformation_announcement',
+        strength: 'high',
+        detectedAt: '2026-07-01',
+        evidenceUrl,
+        reliability: 'R1',
+        confidence: 'C1',
+        evidenceSnippet: 's',
+        reasoning: 'r',
+      },
+    ],
+  });
+
+  it('resolves an exact match', () => {
+    expect(checkCitationsResolve(baseInput(APPENDIX_URL))).toEqual([]);
+  });
+
+  it('resolves benign variance: trailing slash, scheme, query, fragment, host case', () => {
+    const variants = [
+      'https://www.biopharmadive.com/news/curevac-restructuring-layoffs-avian-flu-vaccine/714139',
+      'http://www.BioPharmaDive.com/news/curevac-restructuring-layoffs-avian-flu-vaccine/714139/',
+      'https://www.biopharmadive.com/news/curevac-restructuring-layoffs-avian-flu-vaccine/714139/?utm_source=search#top',
+    ];
+    for (const v of variants) {
+      expect(checkCitationsResolve(baseInput(v)), v).toEqual([]);
+    }
+  });
+
+  it('resolves a citation extending a fetched URL by an extra path segment (live /trade case)', () => {
+    const cited = 'https://www.biopharmadive.com/news/curevac-restructuring-layoffs-avian-flu-vaccine/714139/trade';
+    expect(checkCitationsResolve(baseInput(cited))).toEqual([]);
+  });
+
+  it('rejects a fabricated URL on a different host', () => {
+    const violations = checkCitationsResolve(
+      baseInput('https://evil.example.com/news/curevac-restructuring-layoffs/714139/trade'),
+    );
+    expect(violations.length).toBe(1);
+    expect(violations[0]).toMatch(/proposal\[0\]\.evidenceUrl/);
+  });
+
+  it('rejects citing a parent of a fetched URL (bare section page / homepage)', () => {
+    const parents = [
+      'https://www.biopharmadive.com/',
+      'https://www.biopharmadive.com/news/',
+      'https://www.biopharmadive.com/news/curevac-restructuring-layoffs-avian-flu-vaccine/',
+    ];
+    for (const p of parents) {
+      expect(checkCitationsResolve(baseInput(p)), p).not.toEqual([]);
+    }
   });
 });
