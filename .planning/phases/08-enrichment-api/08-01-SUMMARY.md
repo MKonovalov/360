@@ -1,3 +1,10 @@
+---
+phase: 08-enrichment-api
+plan: 01
+status: complete
+requirements-completed: ["ENRC-03"]
+---
+
 # Plan 08-01 Summary — Schema + env foundation
 
 ## What was done

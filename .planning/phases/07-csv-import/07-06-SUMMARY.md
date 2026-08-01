@@ -1,3 +1,10 @@
+---
+phase: 07-csv-import
+plan: 06
+status: complete
+requirements-completed: ["IMPT-01", "IMPT-02", "IMPT-03", "IMPT-04", "IMPT-05", "IMPT-06", "IMPT-07"]
+---
+
 # Plan 06 Summary: Server Actions + rowMapper
 
 **Completed:** 2026-07-31

@@ -1,3 +1,10 @@
+---
+phase: 07-csv-import
+plan: 03
+status: complete
+requirements-completed: ["IMPT-02", "IMPT-06"]
+---
+
 # Phase 7 Plan 03 — Column Mapping & CSV Template
 
 **Completed:** 2026-07-31

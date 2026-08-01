@@ -1,3 +1,10 @@
+---
+phase: 07-csv-import
+plan: 04
+status: complete
+requirements-completed: ["IMPT-03", "IMPT-04"]
+---
+
 # Plan 04 Summary — Validation Layer (seed.ts + csvImport.ts)
 
 **Completed:** 2026-07-31

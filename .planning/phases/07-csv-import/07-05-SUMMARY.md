@@ -3,6 +3,7 @@ phase: 07-csv-import
 plan: 05
 status: complete
 completed_at: 2026-07-31
+requirements-completed: ["IMPT-04", "IMPT-05", "IMPT-07"]
 ---
 
 # Plan 05 Summary — Query Layer: Upsert + Import Batch CRUD + Rollback

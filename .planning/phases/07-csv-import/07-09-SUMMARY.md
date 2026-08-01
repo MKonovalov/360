@@ -1,3 +1,10 @@
+---
+phase: 07-csv-import
+plan: 09
+status: complete
+requirements-completed: ["IMPT-07"]
+---
+
 # Plan 07-09 Summary — Import History Table + Rollback Dialog
 
 **Status:** Complete

@@ -1,3 +1,10 @@
+---
+phase: 07-csv-import
+plan: 10
+status: complete
+requirements-completed: ["IMPT-01"]
+---
+
 # Plan 07-10 Summary — Wizard Shell + Route Pages
 
 **Status:** Complete

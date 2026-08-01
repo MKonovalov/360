@@ -1,3 +1,10 @@
+---
+phase: 07-csv-import
+plan: 11
+status: complete
+requirements-completed: ["IMPT-01", "IMPT-07"]
+---
+
 # Plan 11 Summary — ExplorerMenu href wiring + Import History route pages
 
 ## What was done

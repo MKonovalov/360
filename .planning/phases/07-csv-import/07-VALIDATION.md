@@ -95,7 +95,7 @@ updated: 2026-08-01
 - [x] Wave 0 covers all MISSING references (vitest harness + dedupKeys.test.ts, both in Plan 07-02, Wave 1)
 - [x] No watch-mode flags (`vitest run`, never bare `vitest`)
 - [x] Feedback latency < 10s
-- [x] `nyquist_compliant: true` — set 2026-08-01 by /gsd-validate-phase 7 (harness green: 127 tests across 6 files, tsc exit 0)
+- [x] `nyquist_compliant: true` — set 2026-08-01 by /gsd-validate-phase 7 (harness green: 114 tests across 5 files, tsc exit 0)
 
 **Approval:** approved (2026-08-01, /gsd-validate-phase 7)
 

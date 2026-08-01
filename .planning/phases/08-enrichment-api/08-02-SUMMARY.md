@@ -1,3 +1,10 @@
+---
+phase: 08-enrichment-api
+plan: 02
+status: complete
+requirements-completed: ["ENRC-02", "ENRC-03", "ENRC-05"]
+---
+
 # Plan 08-02 Summary — Pure core (apolloMap + mergePlan)
 
 ## What was done
