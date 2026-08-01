@@ -421,18 +421,21 @@ import { SignOutButton } from '@clerk/nextjs';
 | A4 | The dormant `group-data-[collapsible=icon]:` classes resolve correctly inside `SidebarHeader`/`SidebarFooter` | Patterns | LOW — the desktop wrapper (sidebar.tsx:209-214) sets `group` + `data-collapsible`, and the primitive already uses these selectors on descendants (labels/badges/content); header/footer are descendants of the same wrapper. Phase 13 will confirm visually |
 | A5 | `user.primaryEmailAddress?.emailAddress` is the right email fallback | Code Examples | LOW — verified nullable (`EmailAddressResource | null`, user.d.ts:74-78) with `.emailAddress`; sign-in method may be username-only, in which case the chain lands on `'User'` — acceptable, tested |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Dropdown scope: static identity row vs. user-menu dropdown (sign-out)?**
    - What we know: D4 locks the portal policy for "the Phase 12 user-menu dropdown"; roadmap SC #2 only mandates avatar/initials + username display; the app has **zero sign-out affordance** today (grep-verified); `SignOutButton`/`useClerk().signOut` both verified available.
    - What's unclear: whether the dropdown (with a sign-out item) is intended in Phase 12 scope or deferred.
    - Recommendation: **include the dropdown** — D4 names it, and shipping it is the only way users get a sign-out path this milestone; it is ~15 lines using vendored `DropdownMenu` primitives with zero edits. Planner should state the decision explicitly in the plan objective.
+   - **[RESOLVED]** Included. Locked by 12-UI-SPEC Q1 (full-width `SidebarMenuButton size="lg"` trigger + exactly three items: label/separator/Sign out via `SignOutButton redirectUrl="/sign-in"`; no "Manage account" — no `/user-profile` route exists). Executed in 12-01 Task 3.
 
 2. **Extract `src/lib/user.ts` pure functions or inline the fallback chain?**
    - What we know: repo convention = "pure functions only" for Vitest (Phase 10 Pitfall 7); Phase 10 extracted `getActiveNavKey` exactly because inline logic was the #1 silent-regression source; the user zone's nullable chain is the analogous risk.
    - Recommendation: **extract + test** (5-8 test cases). Cheap, matches precedent, gives the phase a unit-testable artifact. If the planner prefers the minimal diff, the fallback chain inline is acceptable but loses the regression lock.
+   - **[RESOLVED]** Extract + test. Adopted per 12-UI-SPEC §Verification Gates ("Pure-function lock — `npx vitest run src/lib/user.test.ts -x`") and executed in 12-01 Task 1 (`src/lib/user.ts` + `src/lib/user.test.ts`, 8-case nullability lock).
 
 3. **Feedback-pill collapsed-rail form (Phase 13 prep):** hide entirely (`group-data-[collapsible=icon]:hidden`) vs. icon-only (`Mail` icon, `aria-label`)? Recommendation: **icon-only** keeps a feedback channel in the rail and matches the "labels fade, icons stay" contract; tooltip wiring is Phase 13. Planner's call — both are pre-wired dormant classes either way.
+   - **[RESOLVED]** Icon-only. Locked by 12-UI-SPEC Q3 (text span `group-data-[collapsible=icon]:hidden`; `Mail` icon `hidden group-data-[collapsible=icon]:block size-4` with `aria-hidden`; `<a aria-label="Give us feedback">`). Executed in 12-01 Task 2; tooltip wiring deferred to Phase 13.
 
 ## Environment Availability
 
