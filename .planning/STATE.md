@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Exa-Style Left Panel
 status: executing
-last_updated: "2026-08-01T15:54:14.832Z"
+last_updated: "2026-08-01T16:08:41.068Z"
 last_activity: 2026-08-01 -- Phase 11 planning complete
 progress:
   total_phases: 5
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 4
-  completed_plans: 2
-  percent: 20
+  completed_plans: 4
+  percent: 40
 ---
 
 # Project State
@@ -58,6 +58,7 @@ Progress: [██████████] 100%
 *Updated after each plan completion*
 | Phase 10-sidebar-token-foundation P10-01 | 5 | 2 tasks | 1 files |
 | Phase 10 P02 | 2 | - tasks | - files |
+| Phase 11-nav-items-restyle P02 | 2min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,7 @@ Recent decisions affecting current work:
 - **Roadmap (v1.2): Hard constraints preserved** — routes unchanged (Start, Companies, Key Personas, Reviews), drag-resize 200-400px + `sidebar_width` cookie, ⌘B + `sidebar_state` cookie, server-driven `pendingCount` badge gating.
 - [Phase 10]: Nav key is the ROUTE segment 'personas' (route /personas), never the label 'Key Personas' — enforced by grep gate (count 0) and the 11-case test assertions (QLTY-01, RESEARCH Pitfall 4).
 - [Phase 10]: Function-first task order (not TDD RED): next build type-checks test files, so a RED nav.test.ts would spuriously fail the parallel 10-01 build gate — both Wave-1 plans never expose a red tree.
+- [Phase 11-nav-items-restyle]: Resize-handle hover uses the GLOBAL foreground token at 10% opacity, not --sidebar-accent — the handle is a flex sibling of <Sidebar> outside the [data-sidebar="sidebar"] subtree, so scoped sidebar tokens resolve to their :root oklch fallbacks (near-white, invisible hover); only global tokens resolve there (QLTY-04). — SC #5 border-r half verified, not re-implemented — globals.css:100-103 companion rule confirmed in place (grep=1); sidebar.tsx:236 border-r carries no color class (grep=0); fence-clean gate asserts byte-identical (QLTY-04).
 
 ### Pending Todos
 
@@ -104,8 +106,8 @@ Items acknowledged and deferred at v1.1 milestone close on 2026-08-01, still ope
 
 ## Session Continuity
 
-Last session: 2026-08-01T14:09:38.209Z
-Stopped at: Completed 10-02-PLAN.md
+Last session: 2026-08-01T16:08:41.063Z
+Stopped at: Completed 11-02-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
