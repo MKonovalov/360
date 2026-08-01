@@ -66,10 +66,10 @@ Requirements for v1.2 "Exa-Style Left Panel". Each maps to roadmap phases (conti
 | PANE-02 | Phase 10 | Complete |
 | PANE-03 | Phase 10 | Complete |
 | PANE-04 | Phase 10 | Complete |
-| NAV-01 | Phase 11 | Pending |
-| NAV-02 | Phase 11 | Pending |
-| NAV-03 | Phase 11 | Pending |
-| NAV-04 | Phase 11 | Pending |
+| NAV-01 | Phase 11 | Complete |
+| NAV-02 | Phase 11 | Complete |
+| NAV-03 | Phase 11 | Complete |
+| NAV-04 | Phase 11 | Complete |
 | BRND-01 | Phase 12 | Complete |
 | BRND-02 | Phase 12 | Complete |
 | BRND-03 | Phase 12 | Complete |
