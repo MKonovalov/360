@@ -1,7 +1,8 @@
 ---
 phase: 05-layout-consolidation-rework
 verified: 2026-07-30T00:45:00Z
-status: human_needed
+human_verified: 2026-08-01T12:00:00Z
+status: passed
 score: 5/5 must-haves verified
 overrides_applied: 0
 re_verification:
@@ -17,7 +18,8 @@ re_verification:
 
 **Phase Goal:** Users see a consistent, stacked full-width list/detail layout on both Companies and Personas explorers — replacing the side-by-side split — built on one shared component instead of duplicated per-page markup.
 **Verified:** 2026-07-30T00:45:00Z
-**Status:** human_needed
+**Status:** passed
+**Human verification:** Completed 2026-08-01 — all 6 runtime scenarios executed live via Playwright (see `05-HUMAN-UAT.md`, 6/6 PASS)
 **Re-verification:** Yes — after gap closure (commit `3088b9e8`)
 
 ## Goal Achievement
@@ -95,7 +97,7 @@ No `TBD`/`FIXME`/`XXX` markers found in any Phase 5 file. No placeholder/"coming
 
 ## Human Verification Required
 
-These items were identified in the prior verification pass and remain unresolved — no automated UI test infrastructure exists for this phase, and runtime browser interaction was not exercised in either verification pass.
+RESOLVED 2026-08-01 — all six items below were executed live via Playwright against the local app (authenticated session, desktop + 375px mobile viewports) and PASSED; full evidence in `05-HUMAN-UAT.md`. The items are retained for traceability.
 
 ### 1. Single-expand accordion click behavior end-to-end
 
@@ -139,7 +141,7 @@ The single code-verifiable gap from the prior verification pass — stale two-pa
 
 All 5 Success Criteria are now fully code-verified: single-expand accordion, side-by-side split fully gone (including loading states), URL sync with deep-link/back-safety, scroll-into-view + explicit close, and full keyboard navigation. All 5 requirements (LAYT-01 through LAYT-05) are satisfied by verified code.
 
-Status is `human_needed` rather than `passed` because six runtime/browser-dependent behaviors (click-to-expand interaction, URL reload/Back navigation, scroll animation, keyboard focus management, roving-tabindex reconciliation, and mobile-viewport visibility) could not be exercised in a live browser during either verification pass and require human confirmation. No code-level blockers remain.
+Status advanced to `passed` on 2026-08-01: the six runtime/browser-dependent behaviors (click-to-expand interaction, URL reload/Back navigation, scroll animation, keyboard focus management, roving-tabindex reconciliation, and mobile-viewport visibility) were exercised live in a browser via Playwright and all passed — see `05-HUMAN-UAT.md` (6/6 PASS). No code-level blockers remain.
 
 ---
 
