@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Exa-Style Left Panel
-status: executing
-last_updated: "2026-08-01T23:55:00.000Z"
-last_activity: 2026-08-01 -- Phase 14 execution complete (v1.2 all 19 requirements closed)
+status: Awaiting next milestone
+last_updated: "2026-08-01T22:46:17.411Z"
+last_activity: 2026-08-01 — Milestone v1.2 completed and archived
 progress:
   total_phases: 5
   completed_phases: 5
@@ -24,12 +24,10 @@ See: .planning/PROJECT.md (updated 2026-08-01)
 
 ## Current Position
 
-Phase: 14
-Plan: 2 of 2
-Status: Phase complete — ready for milestone verification
-Last activity: 2026-08-01 -- Phase 14 execution complete (v1.2 all 19 requirements closed)
-
-Progress: [█████████░] 90%
+Phase: Milestone v1.2 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-08-01 — Milestone v1.2 completed and archived
 
 ## Performance Metrics
 
@@ -132,4 +130,4 @@ Resume file: .planning/phases/14-contrast-audit-uat-matrix/14-02-SUMMARY.md
 
 ## Operator Next Steps
 
-- Phase 14 (Contrast Audit & UAT Matrix) executed and verified 2026-08-01 (commits f6a07bac..faed9bcd): the v1.2 capstone proved the shipped sidebar — a Playwright-driven 12-cell live-browser UAT matrix (expanded/collapsed/mobile × 4 routes, active/inactive asserted per route) with 12+ screenshots in `artifacts/`, interaction micro-tests M1-M5 (collapse button, ⌘B, drag-resize 200-400 clamp + cookies, rail tooltips, badge/dot gating via a seeded+cleaned fixture), the WCAG-math helper `src/lib/contrast.ts` (4-case Vitest lock), a live computed-style contrast audit of all 6 shipped token pairs (all pass AA: 12.30/4.89/3.11/5.91/4.30/12.63), and an Exa divergence review (auth-walled live fetch → dated FEATURES.md fallback documented, deliberate divergences listed). Sweep-clean, 11-file fence-clean, full suite 243 passed, build green, zero production source changes beyond the contrast helper. **v1.2 is complete — all 5 phases (10-14) and all 19 requirements shipped.** Next: run the v1.2 milestone-close audit (`/gsd-audit-milestone` or `/gsd-complete-milestone`) — the 8 deferred v1.1 verification/uat gap items (01-04 VERIFICATION human_needed, partial HUMAN-UATs) are handled there per D-09.
+- Start the next milestone with /gsd-new-milestone

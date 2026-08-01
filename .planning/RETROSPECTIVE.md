@@ -85,6 +85,51 @@
 - Model mix: not tracked this milestone
 - Sessions: several across 4 days
 - Notable: Phase 09 P03 was the milestone's longest single plan (10h16m, 3 tasks, 18 files) — the agent phase carried the milestone's highest risk (first Route Handler, first AI/tool-calling dependency, first agent write-path) and paid for it in wall-clock
+---
+
+## Milestone: v1.2 — Exa-Style Left Panel
+
+**Shipped:** 2026-08-02
+**Phases:** 5 (10-14) | **Plans:** 10 | **Sessions:** several across 2 days (2026-08-01 → 2026-08-02)
+
+### What Was Built
+- Sidebar Token Foundation (Phase 10): one scoped 8-token `--sidebar-*` light-theme block on `[data-sidebar="sidebar"]` in globals.css (zero new packages, vendored sidebar.tsx untouched, `@theme inline` byte-identical) + `getActiveNavKey` pure function with an 11-case Vitest lock
+- Nav Items Restyle (Phase 11): Explore/Manage intent groups, Exa 30px/16px/15px/10px/8px row anatomy, gray active fill replacing the v1.1 indigo treatment, mono 10px/600 accent-chip pending badge + collapsed-rail dot, indigo/amber sweep complete
+- Branding & User Zones (Phase 12): top wordmark + org-label zone, bottom Clerk-identity zone (avatar/initials + display name + the app's FIRST in-app sign-out) + "Give us feedback" mailto pill — all sidebar-token-only
+- Collapse & Resize Coexistence (Phase 13): always-visible collapse button + 48px icon-rail (`collapsible="icon"`), D1 28px letter-mark, ~200ms rail tooltips incl. `Reviews (N)`, resize-handle hides when collapsed — 200-400 clamp + cookies + ⌘B frozen byte-identical
+- Contrast Audit & UAT Matrix (Phase 14): WCAG math locked in `src/lib/contrast.ts`, a live-browser 12-cell Playwright matrix + interaction micro-tests (18/18), computed-style audit of all 6 token pairs (all AA), Exa divergence review
+
+### What Worked
+- The "dormant classes first" strategy paid off: Phases 11-12 pre-wired `group-data-[collapsible=icon]:` selectors with zero activation, and Phase 13 flipped the single `collapsible="icon"` switch to light up the whole rail — the largest behavioral feature shipped as a one-prop change plus tested copy helpers
+- Pure-function extraction as the regression lock (nav.ts, user.ts, sidebar-collapse.ts, contrast.ts) — the same "extract + Vitest" pattern from v1.1's Phase 7 kept every restyle provable; the contrast helper's ratios matched the live browser audit exactly, independently validating the W3C math
+- Live-browser verification via Playwright MCP (Phase 14) finally closed v1.1's "no e2e browser coverage" gap — a 12-cell matrix with screenshots + interaction micro-tests replaced manual UAT for the sidebar surface
+- The plan-checker revision loop caught a real arithmetic error (wrong compositeAlpha tuple in a test fixture) that would have burned an executor cycle — independent verification of plan internals has value
+- Collapse persistence fix post-close (server-read `sidebar_state` → `defaultOpen`) was a clean one-line-class fix: the vendored provider only writes the cookie, so route-group remounts silently re-expanded — reading it on the shell fixed the class of bug, not just the instance
+
+### What Was Inefficient
+- Phase 14's executor hit a 30-min inactivity timeout before its final SUMMARY commit — all evidence was already committed, but the closeout needed manual recovery; the timeout interrupted the wave before the state/roadmap updates landed
+- The Exa live-fetch fallback: dashboard.exa.ai sits behind Exa's own auth wall, so the divergence review used the dated FEATURES.md capture — a documented fallback, but the live reference was the plan's ideal
+- Post-close micro-fixes (duplicate toggle, collapse persistence, group-label click interception) surfaced as real user-observed issues after the UAT matrix — the matrix asserted DOM state, not every pointer-event edge
+- Modern Chromium serializes computed colors as `lab()`/`oklab()` (CSS Color 4) — the audit script's naive rgba parser returned null until it resolved colors through an offscreen canvas; a real browser-version gotcha
+
+### Patterns Established
+- Dormant-class pre-wiring across phases: build the `group-data-[collapsible=icon]:` surface before the switch that activates it, so the activation phase is a mechanical flip + contract tests
+- Pure-function regression locks: every UI restyle that touches a derive-able value (active key, display name, tooltip copy, contrast ratio) extracts it into a tested `src/lib/*.ts` module
+- Playwright MCP live-browser verification: 12-cell state×route matrix + interaction micro-tests with committed screenshots, replacing manual UAT for the shipped surface
+- Server-read persistence for vendored client state: when a vendored provider only writes its cookie, the server shell reads it and threads the initial value as a prop
+- `pointer-events-none` on collapsed-rail group labels — opacity-0 labels still intercept clicks over nav icons
+
+### Key Lessons
+1. Deferred live verification lands as a distinct phase: routing all manual checks into Phase 14's matrix meant the milestone ended with a single provable evidence stack (UAT + VERIFICATION + screenshots) instead of scattered partial UATs
+2. The plan-checker's arithmetic verification is worth the loop — a wrong expected tuple in a test fixture is invisible to review but fatal to execution
+3. Executor timeouts are a wave-hygiene risk — keep the SUMMARY + state closeout as the FIRST thing an autonomous plan does after its last gate, not the last
+4. Real-user pointer events find what DOM assertions miss — the collapsed-rail click interception and route-group collapse reset were both live-user observations post-matrix
+
+### Cost Observations
+- Model mix: not tracked this milestone
+- Sessions: several across 2 days
+- Notable: Phase 14's UAT matrix (18 live-browser tests) was the milestone's most tool-call-heavy work — the Playwright driver, contrast audit, and Exa fetch all ran against the live app
+
 
 ---
 

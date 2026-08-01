@@ -2,27 +2,21 @@
 
 ## What This Is
 
-ArcLumen 360 is an end-to-end demand generation pipeline for ArcLumen Partners, giving the team a 360-degree overview of potential ICPs — target Companies and their Key Personas — surfaced through buying/intent signals (financial cost pressure, no mature GBS/SSC org, new CFO/GBS head, announcement of a large transformation program). v1.0 (shipped 2026-07-24) delivered a scalable explorer UI, modeled on the recall.ai dashboard explorer (collapsible left nav, searchable/filterable lists, master-detail pane), sitting behind the existing Clerk auth already running in this repo, plus a read-only knowledge integration with Arcpedia (ArcLumen Partners' internal wiki). v1.1 (shipped 2026-08-01) added a Start Page dashboard, a stacked full-width list/detail layout on both explorers, Menu-driven CSV import and commercial enrichment (Apollo.io/Prospeo), and an on-demand web-search Analytic Agent with a human-reviewed proposal queue.
+ArcLumen 360 is an end-to-end demand generation pipeline for ArcLumen Partners, giving the team a 360-degree overview of potential ICPs — target Companies and their Key Personas — surfaced through buying/intent signals (financial cost pressure, no mature GBS/SSC org, new CFO/GBS head, announcement of a large transformation program). v1.0 (shipped 2026-07-24) delivered a scalable explorer UI, modeled on the recall.ai dashboard explorer (collapsible left nav, searchable/filterable lists, master-detail pane), sitting behind the existing Clerk auth already running in this repo, plus a read-only knowledge integration with Arcpedia (ArcLumen Partners' internal wiki). v1.1 (shipped 2026-08-01) added a Start Page dashboard, a stacked full-width list/detail layout on both explorers, Menu-driven CSV import and commercial enrichment (Apollo.io/Prospeo), and an on-demand web-search Analytic Agent with a human-reviewed proposal queue. v1.2 (shipped 2026-08-02) rebuilt the left navigation panel to match the dashboard.exa.ai sidebar — a light near-white panel with a tokenized Exa-style theme, intent-grouped nav sections, branding + Clerk user zones, an icon-rail collapse coexisting with drag-resize, and a live-browser UAT matrix + WCAG AA contrast audit proving it all.
 
 ## Core Value
 
 Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds, replacing signal knowledge that today lives scattered across individual heads and inboxes.
 
-## Milestone Status: v1.1 SHIPPED (2026-08-01)
+## Milestone Status: v1.2 SHIPPED (2026-08-02)
+
+**v1.2 Exa-Style Left Panel** — 5 phases, 10 plans, 26 tasks, 19/19 requirements validated. Delivered: a scoped 8-token `--sidebar-*` light-theme foundation + `getActiveNavKey` (Phase 10), Exa-anatomy nav items with Explore/Manage groups + gray active state + mono badge (Phase 11), branding + Clerk user zones with the first in-app sign-out (Phase 12), an icon-rail collapse button + letter-mark + rail tooltips coexisting with the frozen drag-resize/cookie contract (Phase 13), and a live-browser 12-cell UAT matrix + computed-style WCAG AA contrast audit + Exa divergence review (Phase 14).
 
 **v1.1 Start Page + Import + Analytic Agent** — 5 phases, 27 plans, 32 tasks, 31/31 requirements validated. Delivered: stacked full-width list/detail layout on both explorers, Start Page dashboard, shared ExplorerMenu, CSV import with partial-commit validation + rollback, Apollo.io/Prospeo enrichment with provenance, and the web-search Analytic Agent with a human-reviewed proposal queue + Langfuse tracing.
 
-## Current Milestone: v1.2 Exa-Style Left Panel
+## Current Milestone: none (between milestones)
 
-**Goal:** Redesign the app's left navigation panel to match the dashboard.exa.ai sidebar — its light near-white visual style, item treatment, grouping, and interaction pattern — while keeping the current routes and nav items.
-
-**Target features:**
-- Light Exa-style sidebar panel (near-white `#fbfcfd` + hairline border) matching the dashboard.exa.ai reference — verified from live production CSS; the "dark" idea was dropped after research (Exa's dark surfaces are its marketing site, not the dashboard sidebar)
-- Restyle the current nav items (Start, Companies, Key Personas, Reviews) with Exa-like iconography, intent-grouped sections, and subtle gray active states — no new routes
-- Logo/branding zone at top and user/settings zone at bottom, mirroring Exa's sidebar anatomy
-- Preserve existing collapse/resize behavior and the pending-reviews badge
-
-**Next milestone after v1.2:** not yet scoped. See "Future Candidates (Beyond v1.1)".
+v1.2 shipped 2026-08-02; all 5 v1.2 phases complete and archived. Next milestone not yet scoped — run `/gsd-new-milestone` to define it (questioning → research → requirements → roadmap). See "Future Candidates (Beyond v1.2)".
 
 ## Requirements
 
@@ -53,11 +47,16 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 - ✓ Observability: every agent run traced in Langfuse (chain-of-thought/tool-call steps + token cost); rejections capture a structured correction reason (wrong signal type / missed inclusion-exclusion criteria / hallucinated / other) + optional note linked to the run's trace (OBSV-01, OBSV-02) — validated in Phase 9 (2026-08-01)
 - ✓ Sidebar token foundation: scoped 8-token `--sidebar-*` block on `[data-sidebar="sidebar"]` (light `#fbfcfd` panel, AA-verified hex set) + 2 unlayered companion rules in `globals.css`; zero new packages, vendored `sidebar.tsx` untouched, `@theme inline` byte-identical (PANE-01..04, QLTY-02) — validated in Phase 10 (2026-08-01)
 - ✓ `getActiveNavKey(pathname)` pure boundary-guarded total function in `src/lib/nav.ts` with 11-case Vitest regression suite locking the `/companies/[id]` highlight (QLTY-01); shipped tested, intentionally unwired until Phase 11's consumer swap — validated in Phase 10 (2026-08-01)
+- ✓ Nav items restyled to the Exa anatomy — Explore (Start, Companies, Key Personas) / Manage (Reviews) intent groups, 30px rows / 16px mono icons / 15px-400 labels, subtle gray full-row active fill replacing the v1.1 indigo treatment, mono 10px/600 accent-chip pending badge with a collapsed-rail dot (NAV-01..04) — validated in Phase 11 (2026-08-01)
+- ✓ Indigo/amber hardcoded-utility sweep complete across `src/components/layout/` (grep = 0); the sidebar `border-r` hairline governed by the `border-sidebar-border` companion rule (QLTY-04) — validated in Phase 11 (2026-08-01)
+- ✓ Branding + user zones: top wordmark + org-label zone, bottom Clerk-identity zone (`useUser()` avatar/initials + display name, first in-app sign-out to `/sign-in`) + full-width "Give us feedback" pill to the D2 mailto — all sidebar-token-only (BRND-01..04) — validated in Phase 12 (2026-08-01)
+- ✓ Collapse & resize coexistence: always-visible collapse button + 48px icon-rail (`collapsible="icon"`), 28px letter-mark, ~200ms rail tooltips incl. `Reviews (N)`, drag-resize 200-400 clamp + `sidebar_width`/`sidebar_state` cookies + ⌘B unchanged (COLR-01..03) — validated in Phase 13 (2026-08-01)
+- ✓ Live-browser UAT matrix: expanded/collapsed/mobile × 4 routes × active/inactive with screenshots, computed-style WCAG AA audit of all 6 shipped token pairs, and Exa divergence review (QLTY-03, QLTY-02 re-audited live) — validated in Phase 14 (2026-08-01); full detail in `14-UAT.md` / `14-VERIFICATION.md`
 
 ### Active
 
 - [ ] Persona 360 "Related Knowledge" showing real Arcpedia articles end-to-end — code path proven identical to the working Company path, but the current seed Persona dataset has no name that matches real Arcpedia content; needs either updated seed data or acceptance of the gap (see `04-HUMAN-UAT.md`)
-- [ ] v1.2 Exa-Style Left Panel consumer phases (11-14): nav-items restyle, brand/user zones, collapse & edge surfaces, contrast audit + live-browser UAT matrix — Phase 10 (token foundation) done, 4 phases remaining
+- [ ] v1.3 — next milestone: not yet scoped; see "Future Candidates (Beyond v1.2)"
 
 ### Out of Scope
 
@@ -71,7 +70,7 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 
 ## Current State
 
-**Milestone v1.2 (Exa-Style Left Panel) in progress 2026-08-01 — Phase 10 of 14 complete.** First of 5 v1.2 phases shipped: the sidebar light-theme token foundation. `globals.css` now carries a scoped 8-token `--sidebar-*` block on `[data-sidebar="sidebar"]` (light `#fbfcfd` panel with 0.5px hairline, AA-verified hex set) plus two unlayered companion rules — zero new packages, vendored `sidebar.tsx` byte-identical, `@theme inline` untouched. `getActiveNavKey` extracted into `src/lib/nav.ts` with an 11-case Vitest suite locking the `/companies/[id]` highlight; shipped unwired for Phase 11's consumer swap. 6/6 requirements (PANE-01..04, QLTY-01/02) validated.
+**Milestone v1.2 (Exa-Style Left Panel) shipped 2026-08-02.** All 5 phases complete (10 plans, 26 tasks), 19/19 requirements validated, milestone archived to `.planning/milestones/v1.2-*`. The sidebar is now a tokenized Exa-style panel: scoped 8-token light theme (`#fbfcfd` + 0.5px hairline), Explore/Manage intent-grouped nav with a tested gray active state, branding + Clerk user zone with the app's first in-app sign-out, a 48px icon-rail collapse coexisting with the preserved drag-resize/⌘B/cookie contract, and a fully-passing live-browser proof — 18/18 UAT tests (12-cell matrix + interactions), 6/6 WCAG AA contrast pairs, and an element-wise Exa divergence review. Post-close quick fixes: avatar asset added to the header, topbar duplicate toggle removed (mobile opener relocated to the content area), collapse persistence across route-group navigation, and the collapsed-rail group-label click-intercept bug fixed.
 
 **Milestone v1.1 (Start Page + Import + Analytic Agent) shipped 2026-08-01.** All 5 phases complete (27 plans, 32 tasks), 31/31 requirements validated, milestone archived to `.planning/milestones/v1.1-*`. The app now covers the full browse → enrich → import → analyze loop: stacked list/detail explorers, a Start Page dashboard, CSV import with partial-commit validation and rollback, Apollo.io/Prospeo enrichment with provenance, and a web-search Analytic Agent whose proposals are human-reviewed before any Signal goes live — every run traced in Langfuse.
 
@@ -94,9 +93,9 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 
 Milestone artifacts archived to `.planning/milestones/v1.0-*` and `.planning/milestones/v1.1-*` (ROADMAP, REQUIREMENTS, MILESTONE-AUDIT; v1.0 also archived phase directories). Repo is between milestones, awaiting `/gsd-new-milestone`.
 
-## Future Candidates (Beyond v1.1)
+## Future Candidates (Beyond v1.2)
 
-Not yet scoped. Carried forward from v1.0's deferred list, still relevant after v1.1 lands:
+Not yet scoped. Carried forward from v1.1's deferred list, still relevant after v1.2 lands:
 
 - Full scoring/prioritization algorithm over Company signals, prioritized target list output — PIPE-01/02
 - CRM sync / outreach triggers — PIPE-03/04
@@ -113,7 +112,7 @@ Not yet scoped. Carried forward from v1.0's deferred list, still relevant after 
 - End users: a mixed/leadership audience — not just sales reps, but broader internal staff and execs reviewing the pipeline.
 - Full pipeline vision beyond milestone 1: a prioritized target list, outreach triggers pushed to sales, and CRM/export sync. Milestone 1 stops at the browsing/overview experience — the UI shell working end-to-end against seed data is the milestone-1 definition of done.
 - **Arcpedia** (`/Users/mkonovalov/Projects/arcpedia`, live at arcpedia.arclumen.de) is an existing, actively-built internal wiki ("a wiki for the agent age" — Next.js + Cloudflare Workers, Clerk-authenticated, LLM-powered ingest/query). It exposes a public (no-auth *at the application level*) REST read surface: `GET /api/wiki/search?q=`, `GET /api/wiki/browse?q=&scope=&tag=&page=`, `POST /api/wiki/dataview` (query by frontmatter), plus a session-gated `POST /api/query` (LLM-synthesized answers over the corpus) and an MCP server at `/api/mcp`. In production, the domain also sits behind a Cloudflare Zero Trust Access gate at the edge (see Key Decisions) — a Service Token is required regardless of the app-level "public" designation. ArcLumen 360 v1.0 reads from `/api/wiki/search` to surface related knowledge articles on Company/Persona 360 views — no write-back. Beyond v1.0, the user's stated future direction includes AI-drafted, tailored outreach content (e.g. persona-specific LinkedIn DMs, ARCP-03) — not in scope now, but worth keeping the data model open to it.
-- Codebase size at v1.1 ship: ~13,100 LOC across `src/**/*.{ts,tsx}` (up from ~3,840 at v1.0). A Vitest harness (bootstrapped in Phase 7) covers pure logic only — `dedupKeys`, `columnMapping`, `partitionRows`, `mergePlan`, and the analytic-agent orchestration (`analyzeCompany.test.ts`) — no component/e2e coverage yet. UI verification relies on manual UAT + live build/tsc checks.
+- Codebase size at v1.2 ship: ~13,600 LOC across `src/**/*.{ts,tsx}` (up from ~13,100 at v1.1, ~3,840 at v1.0). The Vitest suite now locks 30 pure-function contracts across 5 modules (`getActiveNavKey` 11, `getUserDisplayName`/`getUserInitials` 8, `getNavTooltipLabel`/`getCollapseToggleLabel` 7, WCAG `contrastRatio`/`compositeAlpha`/`relativeLuminance` 4, plus the v1.1 dedup/columnMapping/partitionRows/mergePlan/analyzeCompany cases) — `npm test` runs 245 tests (243 passed / 2 skipped). Live-browser verification is now automated via Playwright MCP (the Phase-5-pattern 12-cell matrix + interactions), complementing the v1.1 manual UAT + live build/tsc checks.
 
 ## Constraints
 
@@ -141,6 +140,14 @@ Not yet scoped. Carried forward from v1.0's deferred list, still relevant after 
 | Analytic Agent uses flat `ai@7` `generateText` contract (not the plan's `ToolLoopAgent`/`agent:`/`result.object` syntax) with `isStepCount(12)` capping tool-loop iterations | Plan syntax was stale for ai@7.0.45 — verified against `node_modules/ai/dist/index.d.ts`; flat contract + step cap avoids runaway tool loops | Done — Phase 9 |
 | Agent persist path uses no `db.transaction()` (neon-http has none): status-guarded conditional update is the exactly-once guard, the unique index is the race backstop | ONE Accept = ONE Signal must hold under concurrency (ANLZ-05 / D-11); transaction-free exactly-once via status guard + unique index | Done — Phase 9 |
 | Correction row is durable truth; the Langfuse annotation is a fire-and-forget mirror that can never fail the reject | A reject reason must never be lost because observability is down (OBSV-02); DB write first, trace best-effort second | Done — Phase 9 |
+| Sidebar token values written as hex (not oklch) — the UI-SPEC hex set is the pre-verified AA set | oklch conversion would drift the measured contrast ratios (RESEARCH Pitfall 3) | Done — Phase 10 |
+| Active detection computed once via `getActiveNavKey(pathname)` into `activeKey`, not 4 inline pathname expressions | QLTY-01 consumption contract; one tested pure function replaces duplicated inline checks | Done — Phase 11 |
+| Resize-handle hover uses the GLOBAL foreground token at 10% opacity, not `--sidebar-accent` | The handle is a flex sibling outside the `[data-sidebar="sidebar"]` subtree — scoped sidebar tokens resolve to near-white `:root` fallbacks there; only global tokens work | Done — Phase 11 |
+| Collapse button drives the ONE shared `useSidebar().toggleSidebar` state (same as ⌘B and the topbar trigger) | One state machine; the `sidebar_state` cookie write stays inside the vendored `setOpen`, byte-identical (D-06) | Done — Phase 13 |
+| WCAG contrast math extracted into `src/lib/contrast.ts` + Vitest lock | The live-browser audit and any inline script share one drift-proof formula (RESEARCH Open Question 3) | Done — Phase 14 |
+| Live computed-style audit resolves Chromium's `lab()`/`oklab()` serialization via offscreen-canvas sRGB | Modern Chromium serializes computed colors in CSS Color 4; ratios must be computed on sRGB values | Done — Phase 14 |
+| Exa divergence review uses the dated FEATURES.md fallback, not a live sample | dashboard.exa.ai sits behind Exa's own auth — not bypassed by design (T-14-03); fallback explicitly dated | Done — Phase 14 |
+| Post-close: collapse state persisted via server-read `sidebar_state` cookie → `defaultOpen` | The vendored provider only writes the cookie, never reads it on mount — route-group navigation remounts the shell and silently re-expanded a collapsed rail | Done — 2026-08-02 |
 
 ## Evolution
 
@@ -160,4 +167,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-01 — v1.2 milestone (Exa-Style Left Panel) in progress, Phase 10 complete*
+*Last updated: 2026-08-02 after v1.2 milestone*
