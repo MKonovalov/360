@@ -51,11 +51,13 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 - ✓ Enrichment API: Menu → Enrich pulls real firmographic/contact data from Apollo.io (companies) / Prospeo (personas), fill-empty-only merge policy (never silently overwrites staff data), per-field `fieldSources` provenance, merge-conflict review dialog, and match-confidence scores where the vendor exposes them (ENRC-01 through ENRC-05) — validated in Phase 8 (2026-07-31), proven live against real vendor data in `08-06-UAT.md`
 - ✓ Analytic Agent: Menu → Analyze runs on-demand web-search signal analysis per Company, proposes typed candidate Signals into a review queue (never auto-writes to the live Signal table), with inline evidence/citation, accept/reject per proposal, pending-proposal badge, and existing-signal dedup (ANLZ-01 through ANLZ-05) — validated in Phase 9 (2026-08-01)
 - ✓ Observability: every agent run traced in Langfuse (chain-of-thought/tool-call steps + token cost); rejections capture a structured correction reason (wrong signal type / missed inclusion-exclusion criteria / hallucinated / other) + optional note linked to the run's trace (OBSV-01, OBSV-02) — validated in Phase 9 (2026-08-01)
+- ✓ Sidebar token foundation: scoped 8-token `--sidebar-*` block on `[data-sidebar="sidebar"]` (light `#fbfcfd` panel, AA-verified hex set) + 2 unlayered companion rules in `globals.css`; zero new packages, vendored `sidebar.tsx` untouched, `@theme inline` byte-identical (PANE-01..04, QLTY-02) — validated in Phase 10 (2026-08-01)
+- ✓ `getActiveNavKey(pathname)` pure boundary-guarded total function in `src/lib/nav.ts` with 11-case Vitest regression suite locking the `/companies/[id]` highlight (QLTY-01); shipped tested, intentionally unwired until Phase 11's consumer swap — validated in Phase 10 (2026-08-01)
 
 ### Active
 
 - [ ] Persona 360 "Related Knowledge" showing real Arcpedia articles end-to-end — code path proven identical to the working Company path, but the current seed Persona dataset has no name that matches real Arcpedia content; needs either updated seed data or acceptance of the gap (see `04-HUMAN-UAT.md`)
-- [ ] (v1.2 requirements to be scoped via `/gsd-new-milestone` — current milestone: Exa-Style Left Panel, see "Current Milestone" section)
+- [ ] v1.2 Exa-Style Left Panel consumer phases (11-14): nav-items restyle, brand/user zones, collapse & edge surfaces, contrast audit + live-browser UAT matrix — Phase 10 (token foundation) done, 4 phases remaining
 
 ### Out of Scope
 
@@ -68,6 +70,8 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 - Existing short-link staff tool — being retired soon; not actively extended or migrated as part of this build
 
 ## Current State
+
+**Milestone v1.2 (Exa-Style Left Panel) in progress 2026-08-01 — Phase 10 of 14 complete.** First of 5 v1.2 phases shipped: the sidebar light-theme token foundation. `globals.css` now carries a scoped 8-token `--sidebar-*` block on `[data-sidebar="sidebar"]` (light `#fbfcfd` panel with 0.5px hairline, AA-verified hex set) plus two unlayered companion rules — zero new packages, vendored `sidebar.tsx` byte-identical, `@theme inline` untouched. `getActiveNavKey` extracted into `src/lib/nav.ts` with an 11-case Vitest suite locking the `/companies/[id]` highlight; shipped unwired for Phase 11's consumer swap. 6/6 requirements (PANE-01..04, QLTY-01/02) validated.
 
 **Milestone v1.1 (Start Page + Import + Analytic Agent) shipped 2026-08-01.** All 5 phases complete (27 plans, 32 tasks), 31/31 requirements validated, milestone archived to `.planning/milestones/v1.1-*`. The app now covers the full browse → enrich → import → analyze loop: stacked list/detail explorers, a Start Page dashboard, CSV import with partial-commit validation and rollback, Apollo.io/Prospeo enrichment with provenance, and a web-search Analytic Agent whose proposals are human-reviewed before any Signal goes live — every run traced in Langfuse.
 
@@ -156,4 +160,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-01 — v1.2 milestone (Exa-Style Left Panel) started*
+*Last updated: 2026-08-01 — v1.2 milestone (Exa-Style Left Panel) in progress, Phase 10 complete*
