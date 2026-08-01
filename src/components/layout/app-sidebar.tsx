@@ -120,7 +120,10 @@ export function AppSidebar({ pendingCount = 0 }: { pendingCount?: number }) {
         </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[13px] font-semibold">Explore</SidebarGroupLabel>
+          {/* Group labels are non-interactive; pointer-events-none keeps the
+              opacity-0 label box in the collapsed rail from swallowing clicks
+              meant for the nav icons beneath it. */}
+          <SidebarGroupLabel className="pointer-events-none text-[13px] font-semibold">Explore</SidebarGroupLabel>
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton
@@ -164,7 +167,7 @@ export function AppSidebar({ pendingCount = 0 }: { pendingCount?: number }) {
           </SidebarMenu>
         </SidebarGroup>
         <SidebarGroup className="-mt-1">
-          <SidebarGroupLabel className="text-[13px] font-semibold">Manage</SidebarGroupLabel>
+          <SidebarGroupLabel className="pointer-events-none text-[13px] font-semibold">Manage</SidebarGroupLabel>
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton
