@@ -36,7 +36,7 @@ Requirements for v1.2 "Exa-Style Left Panel". Each maps to roadmap phases (conti
 
 ### Quality & Regression (QLTY)
 
-- [ ] **QLTY-01**: Active-route detection is extracted into a pure `getActiveNavKey(pathname)` function with unit tests (Start = exact `/`, others = prefix match) so a future "simplification" cannot silently break the `/companies/[id]` highlight
+- [x] **QLTY-01**: Active-route detection is extracted into a pure `getActiveNavKey(pathname)` function with unit tests (Start = exact `/`, others = prefix match) so a future "simplification" cannot silently break the `/companies/[id]` highlight
 - [x] **QLTY-02**: The sidebar theme's 8 `--sidebar-*` tokens are set as a complete verified set meeting WCAG AA — text ≥4.5:1 on panel, active pill and ring ≥3:1, label text at /70 opacity still passing
 - [ ] **QLTY-03**: A live-browser UAT matrix replicates the v1.1 Phase-5 pattern — expanded / collapsed / mobile × the 4 routes × active/inactive state pairs, with screenshots
 - [ ] **QLTY-04**: No hardcoded light-only utilities remain in the sidebar subtree — the indigo/amber class sweep is complete and the `border-r` uses `border-sidebar-border` (not the global light `--border`)
@@ -77,7 +77,7 @@ Requirements for v1.2 "Exa-Style Left Panel". Each maps to roadmap phases (conti
 | COLR-01 | Phase 13 | Pending |
 | COLR-02 | Phase 13 | Pending |
 | COLR-03 | Phase 13 | Pending |
-| QLTY-01 | Phase 10 | Pending |
+| QLTY-01 | Phase 10 | Complete |
 | QLTY-02 | Phase 10 | Complete |
 | QLTY-03 | Phase 14 | Pending |
 | QLTY-04 | Phase 11 | Pending |

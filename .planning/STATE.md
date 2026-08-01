@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Exa-Style Left Panel
-status: executing
-last_updated: "2026-08-01T14:05:09.197Z"
+status: verifying
+last_updated: "2026-08-01T14:09:38.214Z"
 last_activity: 2026-08-01
 progress:
   total_phases: 5
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
-  percent: 0
+  completed_plans: 2
+  percent: 20
 ---
 
 # Project State
@@ -26,10 +26,10 @@ See: .planning/PROJECT.md (updated 2026-08-01)
 
 Phase: 10 (sidebar-token-foundation) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-01
 
-Progress: [█████░░░░░] 50%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -56,6 +56,7 @@ Progress: [█████░░░░░] 50%
 
 *Updated after each plan completion*
 | Phase 10-sidebar-token-foundation P10-01 | 5 | 2 tasks | 1 files |
+| Phase 10 P02 | 2 | - tasks | - files |
 
 ## Accumulated Context
 
@@ -70,6 +71,8 @@ Recent decisions affecting current work:
 - **Roadmap (v1.2): Phase 0-style decisions deferred to Phase 10's UI-SPEC step** — logo treatment (wordmark vs. letter-mark, collapsed form), feedback destination (mailto vs. Arcpedia link), collapse target width, portal policy (light-over-light now largely moot). Not resolved at roadmap time by design.
 - **Roadmap (v1.2): Requirement count is 19, not 17** — PANE-01..04, NAV-01..04, BRND-01..04, COLR-01..03, QLTY-01..04. All 19 mapped 100%, no orphans.
 - **Roadmap (v1.2): Hard constraints preserved** — routes unchanged (Start, Companies, Key Personas, Reviews), drag-resize 200-400px + `sidebar_width` cookie, ⌘B + `sidebar_state` cookie, server-driven `pendingCount` badge gating.
+- [Phase 10]: Nav key is the ROUTE segment 'personas' (route /personas), never the label 'Key Personas' — enforced by grep gate (count 0) and the 11-case test assertions (QLTY-01, RESEARCH Pitfall 4).
+- [Phase 10]: Function-first task order (not TDD RED): next build type-checks test files, so a RED nav.test.ts would spuriously fail the parallel 10-01 build gate — both Wave-1 plans never expose a red tree.
 
 ### Pending Todos
 
@@ -100,8 +103,8 @@ Items acknowledged and deferred at v1.1 milestone close on 2026-08-01, still ope
 
 ## Session Continuity
 
-Last session: 2026-08-01T14:05:09.190Z
-Stopped at: Phase 10 UI-SPEC approved
+Last session: 2026-08-01T14:09:38.209Z
+Stopped at: Completed 10-02-PLAN.md
 Resume file: None
 
 ## Operator Next Steps

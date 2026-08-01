@@ -43,7 +43,7 @@ Full details: [`.planning/milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.m
 
 **Phase Numbering:** Continues from v1.1 (which ended at Phase 9) — v1.2 starts at Phase 10.
 
-- [ ] **Phase 10: Sidebar Token Foundation** - One scoped light-theme `--sidebar-*` token block on `[data-sidebar="sidebar"]` in globals.css (zero new packages, zero vendored-primitive edits, `@theme inline` untouched), an AA-compliant complete token set, and `getActiveNavKey` extraction with unit tests; UI-SPEC step locks the Phase 0-style decisions (logo treatment, feedback destination, collapse target width, portal policy)
+- [x] **Phase 10: Sidebar Token Foundation** - One scoped light-theme `--sidebar-*` token block on `[data-sidebar="sidebar"]` in globals.css (zero new packages, zero vendored-primitive edits, `@theme inline` untouched), an AA-compliant complete token set, and `getActiveNavKey` extraction with unit tests; UI-SPEC step locks the Phase 0-style decisions (logo treatment, feedback destination, collapse target width, portal policy) (completed 2026-08-01)
 - [ ] **Phase 11: Nav Items Restyle** - The 4 existing routes regrouped into intent-labeled Explore/Manage sections with Exa item anatomy (30px rows, 16px monochrome lucide icons), subtle gray active fill replacing v1.1's indigo treatment, mono-chip pending badge with collapsed-rail dot, and the indigo/amber hardcoded-utility sweep
 - [ ] **Phase 12: Branding & User Zones** - Top logo/wordmark + org-label zone and bottom Clerk-identity + "Give us feedback" pill user zone, both styled with sidebar tokens only so they follow the panel theme in every state
 - [ ] **Phase 13: Collapse & Resize Coexistence** - Exa collapse button (`panel-left-close`, animated icon-rail collapse with labels fading) joining the preserved drag-resize contract (200-400px clamp, `sidebar_width` cookie, ⌘B `sidebar_state` cookie), with a legible collapsed rail (per-item tooltips, letter-mark logo, ≥3:1 active pill)
@@ -67,7 +67,7 @@ Full details: [`.planning/milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.m
 Plans:
 
 - [x] 10-01-PLAN.md — Scoped `--sidebar-*` token block + companion rules in globals.css (PANE-01..04, QLTY-02)
-- [ ] 10-02-PLAN.md — `getActiveNavKey` extraction + 11-case Vitest suite (QLTY-01)
+- [x] 10-02-PLAN.md — `getActiveNavKey` extraction + 11-case Vitest suite (QLTY-01)
 
 ### Phase 11: Nav Items Restyle
 
@@ -144,7 +144,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 7. CSV Import | v1.1 | 11/11 | Complete | 2026-07-31 |
 | 8. Enrichment API | v1.1 | 6/6 | Complete | 2026-07-31 |
 | 9. Analytic Agent + Observability | v1.1 | 3/3 | Complete | 2026-08-01 |
-| 10. Sidebar Token Foundation | v1.2 | 1/2 | In Progress|  |
+| 10. Sidebar Token Foundation | v1.2 | 2/2 | Complete   | 2026-08-01 |
 | 11. Nav Items Restyle | v1.2 | 0/TBD | Not started | - |
 | 12. Branding & User Zones | v1.2 | 0/TBD | Not started | - |
 | 13. Collapse & Resize Coexistence | v1.2 | 0/TBD | Not started | - |
