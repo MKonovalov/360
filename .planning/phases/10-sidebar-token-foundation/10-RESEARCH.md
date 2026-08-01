@@ -288,12 +288,13 @@ Verbatim in Architecture Patterns §Pattern 1. Insert after line 84 (the `:root`
 | A3 | Exa reference values (from FEATURES.md live-CSS fetch 2026-08-01) are accurate | State of the Art | LOW — milestone research flagged MEDIUM; the divergences table in UI-SPEC is already locked and my recomputation confirms the failure ratios (4.12/3.45/1.09/2.46) |
 | A4 | UI-SPEC placement "after the `:root` block" means between `:root` (84) and `.dark` (86) | Patterns | LOW — functionally equivalent to after `.dark` (different selectors, no cascade conflict); UI-SPEC wording is followed literally |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Mailto address confirmation (D2) — NOT a Phase 10 blocker**
+1. **Mailto address confirmation (D2) — RESOLVED: deferred to Phase 12, no Phase 10 action** ✅ RESOLVED 2026-08-01
    - What we know: UI-SPEC locks `mailto:hello@arclumenpartners.com?subject=360%20sidebar%20feedback` as the feedback destination, with "confirm/replace the address at plan time if a different team inbox is preferred."
    - What's unclear: whether `hello@` is the real team inbox.
    - Recommendation: record D2 in the Phase 10 plan as locked context; the address only matters in Phase 12's "Give us feedback" pill. No action needed this phase.
+   - **Resolution:** Plan 10-01 records D2 as locked context (mailto destination verbatim in the objective); address confirmation remains a Phase 12 decision point — no Phase 10 plan change required.
 
 ## Environment Availability
 
