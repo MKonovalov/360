@@ -122,8 +122,12 @@ Plans:
   2. Collapse coexists with drag-to-resize — the 200-400px width clamp, `sidebar_width` cookie persistence, and the ⌘B toggle (`sidebar_state` cookie) all continue to work unchanged
   3. The collapsed rail keeps nav legibility — ≥3:1 active pill, per-item tooltips (Reviews tooltip includes the pending count), and a collapsed letter-mark logo form
 
-**Plans**: TBD
+**Plans**: 2 plans
 **UI hint**: yes
+Plans:
+
+- [ ] 13-01-PLAN.md — Rail activation: collapsible="icon" + TooltipProvider mount + collapse button + letter-mark + tooltip props + resize-handle collapse-hide, with the D-08 copy helper extraction (COLR-01..03)
+- [ ] 13-02-PLAN.md — QLTY-04 sweep + 9-file fence gates + full regression battery (COLR-01..03, hard constraints)
 
 ### Phase 14: Contrast Audit & UAT Matrix
 
