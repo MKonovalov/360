@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.2
-milestone_name: Exa-Style Left Panel
-status: Awaiting next milestone
-last_updated: "2026-08-01T22:46:17.411Z"
-last_activity: 2026-08-01 — Milestone v1.2 completed and archived
+milestone: v1.3
+milestone_name: AI Model Settings
+status: planning
+last_updated: "2026-08-01T23:20:41.390Z"
+last_activity: 2026-08-01
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 10
-  completed_plans: 10
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-08-01)
 
 ## Current Position
 
-Phase: Milestone v1.2 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-08-01 — Milestone v1.2 completed and archived
+Status: Defining requirements
+Last activity: 2026-08-01 — Milestone v1.3 started
 
 ## Performance Metrics
 

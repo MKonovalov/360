@@ -14,9 +14,19 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 
 **v1.1 Start Page + Import + Analytic Agent** — 5 phases, 27 plans, 32 tasks, 31/31 requirements validated. Delivered: stacked full-width list/detail layout on both explorers, Start Page dashboard, shared ExplorerMenu, CSV import with partial-commit validation + rollback, Apollo.io/Prospeo enrichment with provenance, and the web-search Analytic Agent with a human-reviewed proposal queue + Langfuse tracing.
 
-## Current Milestone: none (between milestones)
+## Current Milestone: v1.3 AI Model Settings
 
-v1.2 shipped 2026-08-02; all 5 v1.2 phases complete and archived. Next milestone not yet scoped — run `/gsd-new-milestone` to define it (questioning → research → requirements → roadmap). See "Future Candidates (Beyond v1.2)".
+**Goal:** Give each staff user a Settings surface to manage the AI models used by AI agents — a primary model plus an ordered fallback chain — with the available-models list sourced live from the local opencode installation, and the Analytic Agent consuming the config with error-driven failover.
+
+**Target features:**
+- New "Settings" menu item (in the shared ExplorerMenu / sidebar chrome)
+- Settings page: per-user primary AI model + ordered fallback models (OMO-style)
+- Available-models list fetched live from opencode (the `/models` source)
+- Per-user persistence (Clerk user keyed)
+- Analytic Agent reads the config; on a provider/model failure it retries down the fallback chain
+- General agent model registry — the Analytic Agent is the first consumer, future agents read the same config
+
+**Next milestone after v1.3:** not yet scoped. See "Future Candidates (Beyond v1.2)".
 
 ## Requirements
 
@@ -56,7 +66,7 @@ v1.2 shipped 2026-08-02; all 5 v1.2 phases complete and archived. Next milestone
 ### Active
 
 - [ ] Persona 360 "Related Knowledge" showing real Arcpedia articles end-to-end — code path proven identical to the working Company path, but the current seed Persona dataset has no name that matches real Arcpedia content; needs either updated seed data or acceptance of the gap (see `04-HUMAN-UAT.md`)
-- [ ] v1.3 — next milestone: not yet scoped; see "Future Candidates (Beyond v1.2)"
+- [ ] v1.3 AI Model Settings: Settings menu item, per-user primary + fallback AI models (live model list from opencode), Analytic Agent error-driven failover — see Current Milestone
 
 ### Out of Scope
 
@@ -167,4 +177,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-02 after v1.2 milestone*
+*Last updated: 2026-08-02 — v1.3 AI Model Settings milestone started*
