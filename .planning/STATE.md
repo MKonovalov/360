@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Exa-Style Left Panel
 status: verifying
-last_updated: "2026-08-01T18:00:40.612Z"
-last_activity: 2026-08-01
+last_updated: "2026-08-01T20:02:30.000Z"
+last_activity: 2026-08-01 -- Phase 12 execution complete
 progress:
   total_phases: 5
   completed_phases: 3
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-01)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** Phase 12 — branding & user zones
+**Current focus:** Phase 13 — collapse & resize coexistence
 
 ## Current Position
 
-Phase: 12
-Plan: 2 of 2
-Status: Phase complete — ready for verification
-Last activity: 2026-08-01
+Phase: 13
+Plan: Not started
+Status: Ready to execute
+Last activity: 2026-08-01 -- Phase 12 execution complete
 
 Progress: [██████████] 100%
 
@@ -114,10 +114,10 @@ Items acknowledged and deferred at v1.1 milestone close on 2026-08-01, still ope
 
 ## Session Continuity
 
-Last session: 2026-08-01T17:59:52.218Z
-Stopped at: Completed 12-01-PLAN.md
+Last session: 2026-08-01T20:02:00.000Z
+Stopped at: Completed 12-02-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
 
-- Phase 12 (Branding & User Zones) planned and verified 2026-08-01 (commits 3b70ba46..1cd38807): RESEARCH + UI-SPEC + VALIDATION + PATTERNS + 2 PLANs approved (12-01 Wave 1 implementation, 12-02 Wave 2 sweep/regression). Plan-checker passed after one revision loop (2 blockers + 4 warnings fixed; advisory doc-drift items aligned). Run `/gsd-execute-phase 12` — the phase adds the top wordmark/org-label zone and bottom feedback-pill + Clerk user zone to app-sidebar.tsx, consuming Phase 10's tokens and the locked D1-D4/Q1-Q6 decisions.
+- Phase 12 (Branding & User Zones) executed and verified 2026-08-01 (commits 07d455d6..c7646e4e): top wordmark/org-label zone (SidebarHeader), feedback pill + SidebarSeparator + DropdownMenu user zone (SidebarFooter) with the app's first in-app sign-out path, and extracted/tested `src/lib/user.ts` pure functions. Sweep-clean, fence-clean, full suite 232 passed, build green, phase diff exactly 3 source files. Run `/gsd-plan-phase 13` — Phase 13 (Collapse & Resize Coexistence) adds the Exa collapse button + animated icon-rail collapse with the letter-mark logo, tooltips, and AA active pill, joining the preserved drag-resize/cookie contract. Live-browser render of Phases 11-12 sidebar chrome is Phase 14's UAT matrix scope (QLTY-03).
