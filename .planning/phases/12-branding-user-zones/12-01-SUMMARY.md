@@ -79,7 +79,7 @@ Each task was committed atomically:
 2. **Task 2: Add branding zone (SidebarHeader wordmark + org label + Q4 fade) + feedback pill + SidebarSeparator (BRND-01, BRND-03, BRND-04)** - `78936fe5` (feat)
 3. **Task 3: Add user zone — useUser() identity guard + avatar/initials + sign-out dropdown (BRND-02, BRND-04)** - `88f18165` (feat)
 
-**Plan metadata:** pending (docs commit after SUMMARY)
+**Plan metadata:** `67fe92d6` (docs: complete branding and user zones plan)
 
 ## Files Created/Modified
 - `src/lib/user.ts` - `getUserDisplayName` (`username ?? fullName ?? primaryEmailAddress?.emailAddress ?? 'User'`) and `getUserInitials` (trimmed first/last initials → email slice(0,2) → 'A'), both total and never returning ''; exported `UserDisplayFields` structural interface (5 nullable fields); no imports, named exports only.
