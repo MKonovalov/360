@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Exa-Style Left Panel
-status: verifying
-last_updated: "2026-08-01T20:02:30.000Z"
+status: executing
+last_updated: "2026-08-01T18:17:05.298Z"
 last_activity: 2026-08-01 -- Phase 12 execution complete
 progress:
   total_phases: 5
@@ -114,9 +114,9 @@ Items acknowledged and deferred at v1.1 milestone close on 2026-08-01, still ope
 
 ## Session Continuity
 
-Last session: 2026-08-01T20:02:00.000Z
-Stopped at: Completed 12-02-PLAN.md
-Resume file: None
+Last session: 2026-08-01T18:17:05.285Z
+Stopped at: Phase 13 context gathered
+Resume file: .planning/phases/13-collapse-resize-coexistence/13-CONTEXT.md
 
 ## Operator Next Steps
 
