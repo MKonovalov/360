@@ -15,7 +15,7 @@
 | `src/lib/contrast.test.ts` (OPTIONAL CREATE) | test | unit | `src/lib/nav.test.ts` (48 lines), `src/lib/sidebar-collapse.test.ts` (34 lines), `src/lib/user.test.ts` (50 lines) | exact |
 | Production sources (READ-ONLY objects under test — D-08, fence) | component / config / css | request-response + event-driven | `src/components/layout/app-sidebar.tsx` (259 lines), `sidebar-resize-handle.tsx` (101 lines), `src/components/ui/sidebar.tsx` (702 lines, vendored), `src/app/globals.css` token block (87-96) | exact (contract — the assertion surface, never edited) |
 
-**Scope fence (hard):** the phase produces ONLY the three docs + `artifacts/` + the two optional `src/lib/contrast*` files. `src/components/ui/{sidebar,tooltip,dropdown-menu,button}.tsx`, `app-shell-layout.tsx`, `sidebar-resize-handle.tsx`, `app-sidebar.tsx`, `globals.css`, `package.json`, `package-lock.json` are **READ-ONLY objects under test** — fence gates verify empty `git diff <base> HEAD` over the 9 frozen files (14-RESEARCH hard constraints). Zero new npm packages — the driver is the external Playwright MCP server (`skill_mcp` → `mcp_name="playwright"`), NOT a project dependency.
+**Scope fence (hard):** the phase produces ONLY the three docs + `artifacts/` + the two optional `src/lib/contrast*` files. `src/components/ui/{sidebar,tooltip,dropdown-menu,button}.tsx`, `src/app/globals.css`, `'src/app/(dashboard)/layout.tsx'`, `app-shell-layout.tsx`, `app-sidebar.tsx`, `sidebar-resize-handle.tsx`, `package.json`, `package-lock.json` are **READ-ONLY objects under test** — fence gates verify empty `git diff <base> HEAD` over the 11 frozen files (14-RESEARCH hard constraints; `app-sidebar.tsx` + `sidebar-resize-handle.tsx` are fenced this phase as the objects under test). Zero new npm packages — the driver is the external Playwright MCP server (`skill_mcp` → `mcp_name="playwright"`), NOT a project dependency.
 
 ---
 
@@ -130,7 +130,7 @@ overrides_applied: 0
 | Active fill | `rgba(0,0,0,0.04)` ≈ **1.09:1 FAIL** | `--sidebar-accent: #909090` **3.11:1 PASS** | DELIBERATE DIVERGENCE |
 | Badge | mono 10px/600 accent chip | `font-mono text-[10px] font-semibold` + sidebar-accent (app-sidebar.tsx:179) | match (anatomy; no asset copied) |
 
-**Behavioral Spot-Checks table (05-VERIFICATION shape) for the regression battery:** `grep -rnE 'indigo|amber|#[0-9a-fA-F]{3,8}|\bdark:' src/components/layout/` = 0; fence `git diff <base> HEAD -- <9 frozen files>` = empty; `npx tsc --noEmit`; `npm test`; `npm run build`; plus the live rows (⌘B toggles `sidebar_state`, drag writes `sidebar_width`, unauthenticated → `/sign-in`).
+**Behavioral Spot-Checks table (05-VERIFICATION shape) for the regression battery:** `grep -rnE 'indigo|amber|#[0-9a-fA-F]{3,8}|\bdark:' src/components/layout/` = 0; fence `git diff <base> HEAD -- <11 frozen files>` = empty; `npx tsc --noEmit`; `npm test`; `npm run build`; plus the live rows (⌘B toggles `sidebar_state`, drag writes `sidebar_width`, unauthenticated → `/sign-in`).
 
 ---
 
@@ -188,7 +188,7 @@ import { getCollapseToggleLabel, getNavTooltipLabel } from './sidebar-collapse';
 
 **Case set (lock the RESEARCH-verified numbers):**
 - `contrastRatio([0x33,0x33,0x33], [0xfb,0xfc,0xfd])` ≈ `12.30` (text-on-panel)
-- `compositeAlpha([51,51,51], [251,252,253], 0.7)` → `[70,71,70]` (i.e. `#6f6f70`), then `contrastRatio` of that vs panel ≈ `4.89` — the Pitfall-2 lock
+- `compositeAlpha([51,51,51], [251,252,253], 0.7)` → `[111,111,112]` (i.e. `#6f6f70`), then `contrastRatio` of that vs panel ≈ `4.89` — the Pitfall-2 lock
 - `contrastRatio([0x90,0x90,0x90], [0xfb,0xfc,0xfd])` ≈ `3.11` (pill fill, ≥3.0)
 - The Exa trap: `compositeAlpha([0,0,0], [0xfb,0xfc,0xfd], 0.04)` ≈ `1.09` — documents the deliberate divergence (D-07) numerically
 
@@ -293,7 +293,7 @@ Assert at count=0 → no badge (current live state); with a seeded fixture → b
 ### Fence + sweep + static gates (the inherited regression battery)
 **Source:** Phases 10-13 (11-02-PLAN sweep precedent; 13-PATTERNS verification gates).
 **Apply to:** every Phase 14 task (as evidence rows in 14-VERIFICATION.md, NOT as a substitute for the live layer — Pitfall 5).
-- Fence: `git diff <base> HEAD -- src/components/ui/sidebar.tsx src/components/ui/tooltip.tsx src/components/ui/dropdown-menu.tsx src/components/ui/button.tsx src/app/globals.css src/components/layout/app-shell-layout.tsx src/components/layout/app-sidebar.tsx src/components/layout/sidebar-resize-handle.tsx package.json package-lock.json` = empty.
+- Fence: `git diff <base> HEAD -- src/components/ui/sidebar.tsx src/components/ui/tooltip.tsx src/components/ui/dropdown-menu.tsx src/components/ui/button.tsx src/app/globals.css 'src/app/(dashboard)/layout.tsx' src/components/layout/app-shell-layout.tsx src/components/layout/app-sidebar.tsx src/components/layout/sidebar-resize-handle.tsx package.json package-lock.json` = empty (11 files — `app-sidebar.tsx` and `sidebar-resize-handle.tsx` are fenced this phase as READ-ONLY objects under test).
 - Sweep: `test -z "$(grep -rnE 'indigo|amber|#[0-9a-fA-F]{3,8}|\bdark:' src/components/layout/)"` (QLTY-04, = 0).
 - Static: `npx tsc --noEmit`, `npm test`, `npm run build` — plus the live rows: ⌘B toggles `sidebar_state`, drag writes `sidebar_width`, unauthenticated navigation → redirect to `/sign-in` (V2/V4 security rows).
 
