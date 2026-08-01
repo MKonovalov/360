@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { SidebarProvider, SidebarTrigger, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/app-sidebar';
 import { SidebarResizeHandle } from '@/components/layout/sidebar-resize-handle';
+import { countPendingProposals } from '@/lib/db/queries/proposals';
 
 const MIN_SIDEBAR_WIDTH = 200;
 const MAX_SIDEBAR_WIDTH = 400;
@@ -20,9 +21,19 @@ export async function AppShellLayout({ children }: { children: React.ReactNode }
       ? rawWidth
       : DEFAULT_SIDEBAR_WIDTH;
 
+  // 09-03 (Reviews sidebar badge): the count is fetched here in the server
+  // shell — AppSidebar is a client component and cannot query the DB. A DB
+  // failure degrades to 0 (no badge) rather than failing the whole shell.
+  let pendingCount = 0;
+  try {
+    pendingCount = await countPendingProposals();
+  } catch {
+    pendingCount = 0;
+  }
+
   return (
     <SidebarProvider style={{ '--sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}>
-      <AppSidebar />
+      <AppSidebar pendingCount={pendingCount} />
       <SidebarResizeHandle />
       <SidebarInset>
         <SidebarTrigger />

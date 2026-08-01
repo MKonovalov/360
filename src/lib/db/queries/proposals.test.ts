@@ -18,7 +18,7 @@ import {
   countPendingProposals,
   acceptProposal,
 } from './proposals';
-import { agentRun, signal, signalProposal } from '../schema';
+import { agentRun, company, signal, signalProposal } from '../schema';
 import type { ProposalSignal } from '@/lib/agents/types';
 
 const costProposal: ProposalSignal = {
@@ -181,13 +181,18 @@ describe('proposals query module (09-02-02)', () => {
     const orderBy = vi.fn().mockResolvedValue(rows);
     const where = vi.fn().mockReturnValue({ orderBy });
     const leftJoin = vi.fn().mockReturnValue({ where });
-    const from = vi.fn().mockReturnValue({ leftJoin });
+    // 944a93ff: listPendingProposals joins the company table (innerJoin) so the
+    // queue card can show the company name — the mock chain must include it.
+    const innerJoin = vi.fn().mockReturnValue({ leftJoin });
+    const from = vi.fn().mockReturnValue({ innerJoin });
     mocks.db.select.mockReturnValue({ from });
 
     const result = await listPendingProposals();
 
     expect(result).toEqual(rows);
     expect(from).toHaveBeenCalledWith(signalProposal);
+    // company name on the queue card (09-03)
+    expect(innerJoin).toHaveBeenCalledWith(company, expect.anything());
     // join agent_run so the review UI gets the Langfuse "View trace" link
     expect(leftJoin).toHaveBeenCalledWith(agentRun, expect.anything());
     // pending-only filter (ANLZ-03)
