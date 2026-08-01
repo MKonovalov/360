@@ -144,7 +144,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 7. CSV Import | v1.1 | 11/11 | Complete | 2026-07-31 |
 | 8. Enrichment API | v1.1 | 6/6 | Complete | 2026-07-31 |
 | 9. Analytic Agent + Observability | v1.1 | 3/3 | Complete | 2026-08-01 |
-| 10. Sidebar Token Foundation | v1.2 | 2/2 | Complete   | 2026-08-01 |
+| 10. Sidebar Token Foundation | v1.2 | 2/2 | Complete    | 2026-08-01 |
 | 11. Nav Items Restyle | v1.2 | 0/TBD | Not started | - |
 | 12. Branding & User Zones | v1.2 | 0/TBD | Not started | - |
 | 13. Collapse & Resize Coexistence | v1.2 | 0/TBD | Not started | - |
