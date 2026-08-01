@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Building2, Inbox, LayoutDashboard, Users } from 'lucide-react';
+import { getActiveNavKey } from '@/lib/nav';
 import {
   Sidebar,
   SidebarContent,
@@ -14,17 +15,17 @@ import {
   SidebarMenuBadge,
 } from '@/components/ui/sidebar';
 
-// Client Component: both Companies and Key Personas are now real routes, so
-// "active" is computed from usePathname() rather than hardcoded (03-RESEARCH.md
-// Pattern 5). .startsWith(), not exact equality, so /companies/[id] and
-// /personas/[id] (added in Plan 03-03) both still highlight the correct
-// single item (03-RESEARCH.md Pitfall 3).
+// Active-key detection comes from the tested getActiveNavKey pure function
+// (src/lib/nav.ts, 11-case Vitest suite) — it locks the /companies/[id] detail
+// highlight and the /companies-archive sibling-prefix guard so a drive-by
+// "simplification" can never silently break the v1.1 active treatment.
 //
 // pendingCount is threaded from the server shell (app-shell-layout.tsx) — a
 // client component cannot query the DB itself (09-03: Reviews sidebar badge,
 // UI-SPEC §4). Shown only when > 0; an empty queue earns no visual noise.
 export function AppSidebar({ pendingCount = 0 }: { pendingCount?: number }) {
   const pathname = usePathname();
+  const activeKey = getActiveNavKey(pathname);
 
   return (
     <Sidebar>
@@ -35,11 +36,8 @@ export function AppSidebar({ pendingCount = 0 }: { pendingCount?: number }) {
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
-                // Exact equality, not .startsWith('/') — every route in this
-                // app is a string-prefix match for '/', so a naive prefix
-                // check would highlight "Start" on every single page.
-                isActive={pathname === '/'}
-                className="data-active:bg-indigo-50 data-active:text-indigo-600 data-active:hover:bg-indigo-50 data-active:hover:text-indigo-600"
+                isActive={activeKey === 'start'}
+                className="h-[30px] p-0 px-2 gap-2.5 rounded-[4px] text-[15px] font-normal"
               >
                 <Link href="/">
                   <LayoutDashboard />
@@ -50,8 +48,8 @@ export function AppSidebar({ pendingCount = 0 }: { pendingCount?: number }) {
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
-                isActive={pathname.startsWith('/companies')}
-                className="data-active:bg-indigo-50 data-active:text-indigo-600 data-active:hover:bg-indigo-50 data-active:hover:text-indigo-600"
+                isActive={activeKey === 'companies'}
+                className="h-[30px] p-0 px-2 gap-2.5 rounded-[4px] text-[15px] font-normal"
               >
                 <Link href="/companies">
                   <Building2 />
@@ -62,8 +60,8 @@ export function AppSidebar({ pendingCount = 0 }: { pendingCount?: number }) {
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
-                isActive={pathname.startsWith('/personas')}
-                className="data-active:bg-indigo-50 data-active:text-indigo-600 data-active:hover:bg-indigo-50 data-active:hover:text-indigo-600"
+                isActive={activeKey === 'personas'}
+                className="h-[30px] p-0 px-2 gap-2.5 rounded-[4px] text-[15px] font-normal"
               >
                 <Link href="/personas">
                   <Users />
@@ -79,8 +77,8 @@ export function AppSidebar({ pendingCount = 0 }: { pendingCount?: number }) {
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
-                isActive={pathname.startsWith('/reviews')}
-                className="data-active:bg-indigo-50 data-active:text-indigo-600 data-active:hover:bg-indigo-50 data-active:hover:text-indigo-600"
+                isActive={activeKey === 'reviews'}
+                className="h-[30px] p-0 px-2 gap-2.5 rounded-[4px] text-[15px] font-normal"
               >
                 <Link href="/reviews">
                   <Inbox />
