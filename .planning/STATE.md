@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Exa-Style Left Panel
 status: executing
-last_updated: "2026-08-01T18:17:05.298Z"
-last_activity: 2026-08-01 -- Phase 12 execution complete
+last_updated: "2026-08-01T20:55:00.000Z"
+last_activity: 2026-08-01 -- Phase 13 plans approved (2 plans, verified)
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 6
+  total_plans: 8
   completed_plans: 6
   percent: 60
 ---
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-01)
 Phase: 13
 Plan: Not started
 Status: Ready to execute
-Last activity: 2026-08-01 -- Phase 13 context gathered
+Last activity: 2026-08-01 -- Phase 13 plans approved (2 plans, verified)
 
 Progress: [██████████] 100%
 
@@ -114,10 +114,10 @@ Items acknowledged and deferred at v1.1 milestone close on 2026-08-01, still ope
 
 ## Session Continuity
 
-Last session: 2026-08-01T18:17:05.285Z
-Stopped at: Phase 13 context gathered
-Resume file: .planning/phases/13-collapse-resize-coexistence/13-CONTEXT.md
+Last session: 2026-08-01T19:06:21.819Z
+Stopped at: Phase 13 plans approved (2 plans, verified)
+Resume file: .planning/phases/13-collapse-resize-coexistence/13-01-PLAN.md
 
 ## Operator Next Steps
 
-- Phase 12 (Branding & User Zones) executed and verified 2026-08-01 (commits 07d455d6..c7646e4e): top wordmark/org-label zone (SidebarHeader), feedback pill + SidebarSeparator + DropdownMenu user zone (SidebarFooter) with the app's first in-app sign-out path, and extracted/tested `src/lib/user.ts` pure functions. Sweep-clean, fence-clean, full suite 232 passed, build green, phase diff exactly 3 source files. Run `/gsd-plan-phase 13` — Phase 13 (Collapse & Resize Coexistence) adds the Exa collapse button + animated icon-rail collapse with the letter-mark logo, tooltips, and AA active pill, joining the preserved drag-resize/cookie contract. Live-browser render of Phases 11-12 sidebar chrome is Phase 14's UAT matrix scope (QLTY-03).
+- Phase 13 (Collapse & Resize Coexistence) planned and verified 2026-08-01 (commits 8e58b5bb..79a2fa57): CONTEXT (D-01..D-12) + RESEARCH + VALIDATION + PATTERNS + 2 PLANs approved (13-01 Wave 1: activate `collapsible="icon"`, collapse button + letter-mark + rail tooltips + resize-handle hide; 13-02 Wave 2: sweep/fence/regression). Plan-checker passed after one revision loop (1 blocker — Task 3 grep-gate arithmetic — + 5 warnings fixed; advisory doc drifts aligned). Run `/gsd-execute-phase 13` — the phase activates the Phase 11-12 pre-wired dormant collapsed-rail classes via the vendored `collapsible="icon"` switch, adds the always-visible collapse button (D-01/02/03), the D1 letter-mark, ~200ms rail tooltips (TooltipProvider mount), and hides the drag handle when collapsed — all without breaking the frozen 200-400px clamp / `sidebar_width` / ⌘B / `sidebar_state` contract.
