@@ -457,20 +457,23 @@ Source: contract copy verbatim from 10-UI-SPEC §Copywriting Contract ("Collapse
 | A3 | `opacity: 0` elements remain in the accessibility tree, so the faded wordmark is still announced in the rail and the letter-mark "A" should be `aria-hidden` | Pattern 5 | LOW — if it were otherwise, the `aria-hidden` would be unnecessary noise, not a defect |
 | A4 | `group-data-[collapsible=icon]:flex` overrides `hidden` reliably (Tailwind v4 variant specificity) | Pattern 5 | LOW — same mechanism proven in production at app-sidebar.tsx:130 (Reviews dot) and 149 (pill icon) |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Header row-2 stacking with the faded wordmark (D-03 vs Q4)**
+1. **Header row-2 stacking with the faded wordmark (D-03 vs Q4)** **[RESOLVED]**
    - What we know: Q4 locks the wordmark to `opacity-0` (space retained, ~40px) in the rail; D-03 wants the letter-mark "centered below" the button.
    - What's unclear: whether the letter-mark should be ordered immediately after the button row (letter-mark snug under button, faded wordmark trailing below — recommended, Pattern 5) or after the wordmark block (letter-mark ~48px lower; more literal Q4 "same slot" reading). Both keep Q4 classes verbatim; neither overlaps.
    - Recommendation: planner picks Pattern 5 ordering (letter-mark first in row 2); it best matches "letter-mark centered below the button" (D-03) and costs nothing. Not a blocking question.
-2. **Extract the pure label helper or inline?**
+   - **Resolved by:** 13-01 Task 2 step 9 — the letter-mark div is ordered FIRST in header row 2 (Pattern 5: snug under the button, faded wordmark trailing), Q4 wordmark classes kept verbatim.
+2. **Extract the pure label helper or inline?** **[RESOLVED]**
    - What we know: D-08 copy is contract-locked; Phases 10/12 extracted pure functions + Vitest for sidebar logic; inline ternaries are 1-2 lines each.
    - What's unclear: whether the phase wants the 2-file diff (helper + test) or the minimal single-file diff.
    - Recommendation: extract `src/lib/sidebar-collapse.ts` (+ test) — precedent-aligned and locks the exact `Reviews (N)` contract copy; planner may inline if diff discipline dominates.
-3. **Collapse-button `aria-label` copy**
+   - **Resolved by:** 13-01 Task 1 — extraction; `src/lib/sidebar-collapse.ts` + `src/lib/sidebar-collapse.test.ts` created with 7 Vitest cases locking the D-08 copy.
+3. **Collapse-button `aria-label` copy** **[RESOLVED]**
    - What we know: D-08 locks the tooltip copy `Collapse`/`Expand`; the button's own `aria-label` is unspecified.
    - What's unclear: exact accessible label wording ("Collapse"/"Expand" vs "Collapse sidebar"/"Expand sidebar").
    - Recommendation: `aria-label` = "Collapse sidebar"/"Expand sidebar" (SR clarity); tooltip stays the locked short copy. Non-blocking.
+   - **Resolved by:** 13-01 Task 2 step 9 — `aria-label` = 'Collapse sidebar'/'Expand sidebar' (SR clarity); the tooltip stays the locked short copy via `getCollapseToggleLabel`.
 
 ## Environment Availability
 
