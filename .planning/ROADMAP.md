@@ -47,7 +47,7 @@ Full details: [`.planning/milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.m
 - [x] **Phase 11: Nav Items Restyle** - The 4 existing routes regrouped into intent-labeled Explore/Manage sections with Exa item anatomy (30px rows, 16px monochrome lucide icons), subtle gray active fill replacing v1.1's indigo treatment, mono-chip pending badge with collapsed-rail dot, and the indigo/amber hardcoded-utility sweep (completed 2026-08-01)
 - [x] **Phase 12: Branding & User Zones** - Top logo/wordmark + org-label zone and bottom Clerk-identity + "Give us feedback" pill user zone, both styled with sidebar tokens only so they follow the panel theme in every state (completed 2026-08-01)
 - [x] **Phase 13: Collapse & Resize Coexistence** - Exa collapse button (`panel-left-close`, animated icon-rail collapse with labels fading) joining the preserved drag-resize contract (200-400px clamp, `sidebar_width` cookie, ⌘B `sidebar_state` cookie), with a legible collapsed rail (per-item tooltips, letter-mark logo, ≥3:1 active pill) (completed 2026-08-01)
-- [ ] **Phase 14: Contrast Audit & UAT Matrix** - Live-browser UAT matrix (expanded/collapsed/mobile × 4 routes × active/inactive state pairs) with screenshots, WCAG AA contrast audit of the shipped token set, and Exa-reference divergence review
+- [x] **Phase 14: Contrast Audit & UAT Matrix** - Live-browser UAT matrix (expanded/collapsed/mobile × 4 routes × active/inactive state pairs) with screenshots, WCAG AA contrast audit of the shipped token set, and Exa-reference divergence review (completed 2026-08-01)
 
 ### Phase 10: Sidebar Token Foundation
 
@@ -144,7 +144,7 @@ Plans:
 **Plans**: 2 plans
 
 - [x] 14-01-PLAN.md — Live UAT evidence: contrast.ts math lock + 12-cell matrix + interaction micro-tests → 14-UAT.md (QLTY-03)
-- [ ] 14-02-PLAN.md — Contrast audit + Exa divergence review + hard-constraint regression battery → 14-VERIFICATION.md + 14-SUMMARY.md (QLTY-03)
+- [x] 14-02-PLAN.md — Contrast audit + Exa divergence review + hard-constraint regression battery → 14-VERIFICATION.md + 14-SUMMARY.md (QLTY-03)
 
 ## Progress
 
@@ -166,7 +166,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 11. Nav Items Restyle | v1.2 | 2/2 | Complete   | 2026-08-01 |
 | 12. Branding & User Zones | v1.2 | 2/2 | Complete   | 2026-08-01 |
 | 13. Collapse & Resize Coexistence | v1.2 | 2/2 | Complete   | 2026-08-01 |
-| 14. Contrast Audit & UAT Matrix | v1.2 | 0/2 | Not started | - |
+| 14. Contrast Audit & UAT Matrix | v1.2 | 2/2 | Complete   | 2026-08-01 |
 
 ---
 
