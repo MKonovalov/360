@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { ChevronDownIcon, EllipsisVerticalIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,7 +18,7 @@ export function ExplorerMenu({
   items,
 }: {
   variant: 'labeled' | 'icon';
-  items: { label: string; disabled?: boolean }[];
+  items: { label: string; disabled?: boolean; href?: string }[];
 }) {
   return (
     <DropdownMenu>
@@ -34,11 +35,17 @@ export function ExplorerMenu({
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {items.map((item) => (
-          <DropdownMenuItem key={item.label} disabled={item.disabled}>
-            {item.label}
-          </DropdownMenuItem>
-        ))}
+        {items.map((item) =>
+          item.href && !item.disabled ? (
+            <DropdownMenuItem key={item.label} asChild>
+              <Link href={item.href}>{item.label}</Link>
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem key={item.label} disabled={item.disabled}>
+              {item.label}
+            </DropdownMenuItem>
+          )
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

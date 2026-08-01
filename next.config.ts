@@ -2,6 +2,11 @@ import path from "node:path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '5mb',
+    },
+  },
   // Pin the workspace root explicitly ONLY for local dev: this repo is
   // sometimes checked out as a git worktree alongside the main checkout,
   // and both contain a package-lock.json, so Next.js's root auto-detection

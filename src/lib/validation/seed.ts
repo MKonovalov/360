@@ -89,6 +89,7 @@ const optionalEmailString = z
 
 export const companyRowSchema = z.object({
   name: safeCsvString.min(1, 'name is required'),
+  domain: optionalSafeCsvString,
   industry: optionalSafeCsvString,
   employee_count_band: optionalSafeCsvString,
   hq_location: optionalSafeCsvString,

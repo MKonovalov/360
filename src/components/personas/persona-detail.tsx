@@ -4,9 +4,10 @@ import { getPersonaById } from '@/lib/db/queries/personas';
 import { listCompanyRolesForPersona } from '@/lib/db/queries/companyPersonaRoles';
 import { fetchArcpediaArticles } from '@/lib/arcpedia';
 import { ExplorerCloseButton } from '@/components/explorer/explorer-table-behavior';
-import { ExplorerMenu } from '@/components/explorer/explorer-menu';
+import { EnrichMenu } from '@/components/enrichment/enrichment-review-dialog';
 import { RecordViewTracker } from '@/components/dashboard/record-view-tracker';
-import { humanizeEnum, dateFormatter, FirmographicField } from '@/components/explorer/explorer-format';
+import { humanizeEnum, dateFormatter, FirmographicField, FieldSourceBadge } from '@/components/explorer/explorer-format';
+import { env } from '@/lib/env';
 
 // WR-06: enrichment/programmatic writes into persona data are on the
 // near-term roadmap (CLAUDE.md Constraints) — once linkedinUrl is populated
@@ -64,7 +65,12 @@ export async function PersonaDetail({ id }: { id: number }) {
     <div className="relative space-y-12 bg-white p-8">
       <RecordViewTracker recordType="persona" recordId={persona.id} />
       <div className="absolute top-3 right-3 flex items-center gap-1">
-        <ExplorerMenu variant="icon" items={[{ label: 'Analyze', disabled: true }]} />
+        <EnrichMenu
+          entityType="persona"
+          recordId={persona.id}
+          canEnrich={Boolean(persona.email && env.PROSPEO_API_KEY && env.ENRICHMENT_REVIEW_SECRET)}
+          disabledReason={!persona.email ? 'Add an email first' : 'Persona enrichment is not configured'}
+        />
         <ExplorerCloseButton />
       </div>
       <div>
@@ -79,8 +85,8 @@ export async function PersonaDetail({ id }: { id: number }) {
           Role & Seniority
         </h2>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <FirmographicField label="Title" value={persona.title ?? '—'} />
-          <FirmographicField label="Seniority" value={humanizeEnum(persona.seniority)} />
+          <FirmographicField label="Title" value={persona.title ?? '—'} source={persona.fieldSources?.title} />
+          <FirmographicField label="Seniority" value={humanizeEnum(persona.seniority)} source={persona.fieldSources?.seniority} />
         </div>
       </section>
 
@@ -140,7 +146,7 @@ export async function PersonaDetail({ id }: { id: number }) {
         {persona.email || persona.linkedinUrl ? (
           <div className="space-y-2">
             {persona.email ? (
-              <p>
+              <p className="flex items-center gap-2">
                 <a
                   href={`mailto:${persona.email}`}
                   className="text-[14px] font-normal leading-[1.5] text-indigo-600"
@@ -150,15 +156,16 @@ export async function PersonaDetail({ id }: { id: number }) {
               </p>
             ) : null}
             {persona.linkedinUrl && isSafeUrl(persona.linkedinUrl) ? (
-              <p>
+              <p className="flex items-start gap-2 [&>span]:shrink-0">
                 <a
                   href={persona.linkedinUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[14px] font-normal leading-[1.5] text-indigo-600"
+                  className="min-w-0 break-all text-[14px] font-normal leading-[1.5] text-indigo-600"
                 >
                   {persona.linkedinUrl}
                 </a>
+                <FieldSourceBadge source={persona.fieldSources?.linkedinUrl} />
               </p>
             ) : null}
           </div>
