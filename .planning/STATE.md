@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Exa-Style Left Panel
 status: executing
-last_updated: "2026-08-01T16:08:41.068Z"
-last_activity: 2026-08-01 -- Phase 11 planning complete
+last_updated: "2026-08-01T18:12:00.000Z"
+last_activity: 2026-08-01 -- Phase 11 execution complete
 progress:
   total_phases: 5
   completed_phases: 2
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-01)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** Phase 11 — nav items restyle
+**Current focus:** Phase 12 — branding & user zones
 
 ## Current Position
 
-Phase: 11
+Phase: 12
 Plan: Not started
 Status: Ready to execute
-Last activity: 2026-08-01 -- Phase 11 planning complete
+Last activity: 2026-08-01 -- Phase 11 execution complete
 
 Progress: [██████████] 100%
 
@@ -112,4 +112,4 @@ Resume file: None
 
 ## Operator Next Steps
 
-- Roadmap approved 2026-08-01 (commit 048897ed). Run `/gsd-plan-phase 10` — Phase 10's plan-phase includes the UI-SPEC step (via `/gsd-ui-phase`) that locks logo treatment, feedback destination, collapse target width, and portal policy.
+- Phase 11 (nav items restyle) executed and verified 2026-08-01 (commits cd6f839c..08808037): Explore/Manage groups, Exa row anatomy, tokenized gray active state via `getActiveNavKey`, mono accent-chip badge + collapsed dot, indigo/amber sweep clean, full regression battery green. Run `/gsd-plan-phase 12` — Phase 12 (Branding & User Zones) covers the top logo/wordmark + org-label zone and the bottom Clerk-identity + feedback pill user zone, consuming the Phase 10 tokens and the UI-SPEC decisions (logo treatment, feedback destination, collapse target width, portal policy) already locked in Phase 10's UI-SPEC step.
