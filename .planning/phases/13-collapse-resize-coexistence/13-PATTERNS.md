@@ -70,7 +70,7 @@ return (
           {state === 'collapsed' ? <PanelLeftOpen /> : <PanelLeftClose />}
         </Button>
       </TooltipTrigger>
-      <TooltipContent side="right">{state === 'collapsed' ? 'Expand' : 'Collapse'}</TooltipContent>
+      <TooltipContent side="right">{getCollapseToggleLabel(state)}</TooltipContent>
     </Tooltip>
   </div>
   <div className="flex flex-col gap-1">    {/* D-03 row 2: letter-mark above the faded wordmark */}

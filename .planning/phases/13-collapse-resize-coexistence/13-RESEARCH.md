@@ -262,7 +262,8 @@ Source: `useSidebar` contract sidebar.tsx:46-53 + `toggleSidebar` 91-93; icons v
 import { useSidebar } from '@/components/ui/sidebar';
 
 export function SidebarResizeHandle() {
-  const { state } = useSidebar();
+  // ...the three useRef + three useCallback hooks (lines 17-70) run unconditionally —
+  //    the early return below is AFTER all hooks, preserving hook order (Rules of Hooks)...
   if (state === 'collapsed') return null;   // D-04: no resize affordance in the 48px rail
   // ...existing drag contract (200-400 clamp, sidebar_width cookie) unchanged...
 }
