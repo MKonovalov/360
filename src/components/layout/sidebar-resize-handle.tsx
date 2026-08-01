@@ -81,7 +81,11 @@ export function SidebarResizeHandle() {
       aria-orientation="vertical"
       aria-label="Resize sidebar"
       onPointerDown={handlePointerDown}
-      className="hidden w-1 shrink-0 cursor-col-resize touch-none bg-transparent hover:bg-indigo-200 md:block"
+      // Flex sibling of <Sidebar>, outside the [data-sidebar="sidebar"] subtree,
+      // so scoped sidebar tokens do not resolve here. The foreground token at
+      // 10% opacity derives a neutral light-gray hover from global tokens,
+      // replacing the v1.1 colored hover (QLTY-04).
+      className="hidden w-1 shrink-0 cursor-col-resize touch-none bg-transparent hover:bg-foreground/10 md:block"
     />
   );
 }
