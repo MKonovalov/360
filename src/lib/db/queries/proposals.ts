@@ -26,10 +26,12 @@ export async function insertProposals(runId: number, companyId: number, proposal
     .returning();
 }
 
-// ANLZ-03: the review queue. Joins agent_run so each row carries the Langfuse
-// trace linkage (traceId/traceUrl) for the "View trace" link and the
-// proposal→run lookup the reject flow needs. LEFT join — runId is nullable
-// (proposals can outlive a run).
+// ANLZ-03: the review queue. Joins company (for the card's company-name link)
+// and agent_run (Langfuse trace linkage for the "View trace" link + the
+// proposal→run lookup the reject flow needs). company is an INNER join —
+// signalProposal.companyId is NOT NULL (schema.ts), so every row has a
+// company. agent_run is a LEFT join — runId is nullable (proposals can
+// outlive a run).
 export async function listPendingProposals() {
   return db
     .select({
@@ -52,6 +54,7 @@ export async function listPendingProposals() {
       traceUrl: agentRun.traceUrl,
     })
     .from(signalProposal)
+    .innerJoin(company, eq(signalProposal.companyId, company.id))
     .leftJoin(agentRun, eq(signalProposal.runId, agentRun.id))
     .where(eq(signalProposal.status, 'pending'))
     .orderBy(desc(signalProposal.createdAt));
@@ -77,6 +80,18 @@ export async function countPendingProposals() {
     .select({ count: sql<number>`count(*)::int` })
     .from(signalProposal)
     .where(eq(signalProposal.status, 'pending'));
+  return row?.count ?? 0;
+}
+
+// ANLZ-04: per-company pending-proposal count for the Company-detail badge
+// (09-03 additive — the badge reflects THIS company's queue depth, not the
+// global count). Same no-try/catch discipline as every query module: the
+// caller (company-detail.tsx) owns the error fallback.
+export async function countPendingProposalsForCompany(companyId: number) {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(signalProposal)
+    .where(and(eq(signalProposal.companyId, companyId), eq(signalProposal.status, 'pending')));
   return row?.count ?? 0;
 }
 
