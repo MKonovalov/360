@@ -4,8 +4,13 @@ import { buildAnalyzePrompt } from './prompt';
 import { webSearchTool } from './tools';
 import { outputSchema, type CompanyInput, type LiveSignalInput } from './types';
 
-// D-07 fast-model default (T-09-SC model-string re-verify window 2026-08-07).
-const FAST_MODEL_ID = 'claude-sonnet-4-20250514';
+// D-07 fast-model default. VERIFIED against the live Anthropic API on
+// 2026-08-01 (GET /v1/models): the originally-planned string
+// 'claude-sonnet-4-20250514' returns 404 not_found_error — that dated ID was
+// removed from the account's model roster. 'claude-sonnet-4-6' is the current
+// Sonnet 4 alias present in the roster (T-09-SC model-string re-verify window
+// 2026-08-07, now closed).
+const FAST_MODEL_ID = 'claude-sonnet-4-6';
 
 export interface RunAgentInput {
   company: CompanyInput;

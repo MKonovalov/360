@@ -61,7 +61,7 @@ const outputSpec = { name: 'object', responseFormat: {} };
 describe('runAgent (09-01-01)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.anthropic.mockReturnValue({ provider: 'anthropic', modelId: 'claude-sonnet-4-20250514' });
+    mocks.anthropic.mockReturnValue({ provider: 'anthropic', modelId: 'claude-sonnet-4-6' });
     mocks.generateText.mockResolvedValue(resolvedRun);
     mocks.outputObject.mockReturnValue(outputSpec);
   });
@@ -89,7 +89,7 @@ describe('runAgent (09-01-01)', () => {
 
   it('defaults to the fast Anthropic model (T-09-SC model-string re-verify)', async () => {
     await runAgent({ company, liveSignals: [] });
-    expect(mocks.anthropic).toHaveBeenCalledWith('claude-sonnet-4-20250514');
+    expect(mocks.anthropic).toHaveBeenCalledWith('claude-sonnet-4-6');
   });
 
   it('never calls initLangfuse (telemetry is the global registerTelemetry from Task 2)', async () => {
