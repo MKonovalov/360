@@ -73,7 +73,7 @@ export function AppSidebar({ pendingCount = 0 }: { pendingCount?: number }) {
               </SidebarMenuButton>
               {pendingCount > 0 && (
                 <SidebarMenuBadge className="bg-amber-100 text-amber-800">
-                  {pendingCount}
+                  {pendingCount} pending
                 </SidebarMenuBadge>
               )}
             </SidebarMenuItem>

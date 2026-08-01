@@ -33,7 +33,7 @@ export default async function ReviewsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 p-8">
+    <div className="flex flex-col gap-12 p-8">
       <h1 className="text-[24px] font-semibold leading-[1.2] text-slate-900">Review Proposals</h1>
       <ReviewQueue proposals={proposals} />
     </div>

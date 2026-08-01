@@ -121,3 +121,14 @@ Verified **verbatim** against the Copywriting Contract — 25+ strings:
 - **BLOCKER:** 1 (zombie card on terminal Accept error — `review-queue.tsx`)
 - **WARNING:** 4 (sidebar badge copy; queue header→list 48px spacing; dead `[a]:hover` class; card gap 12px vs 16px)
 - **Priority fixes:** 3 · **Minor recommendations:** 2
+
+---
+
+## Resolutions
+
+Resolved 2026-08-01 in `fix(ui): resolve UI audit priority findings`.
+
+- **P1 zombie card — RESOLVED** (`src/components/reviews/review-queue.tsx`). `CardState.error` gained a `retryable` flag: transient `action_failed` renders a **Try again** button (re-invokes `handleAccept`); terminal reasons (`already_resolved` / `duplicate_signal` / `not_found`) render a **Dismiss** button calling `router.refresh()` — the Server Action only revalidates on `ok:true`, and `acceptProposal` marks the row non-pending *before* the signal insert, so the refresh drops the card. No dead card remains.
+- **P2 header→list spacing — RESOLVED** (`src/app/(dashboard)/reviews/page.tsx:36`). `gap-4` → `gap-12` (48px) honoring the Spacing Scale 2xl break; `09-UI-SPEC.md` §4 "Route & shell" amended to state the container matches `/companies`/`/personas` for *padding only* while the header→list gap is 2xl — the internal contradiction is gone.
+- **P3 sidebar badge copy — RESOLVED** (`src/components/layout/app-sidebar.tsx:75-77`). Renders `{pendingCount} pending` per the Copywriting Contract; `09-UI-SPEC.md` §4 "Sidebar nav item" amended to the same "{N} pending" wording — the self-contradiction is gone.
+- **Minors (deferred, documented):** dead `[a]:hover:bg-amber-100` in `proposal-badge.tsx`; inter-card gap 12px vs spec 16px (`space-y-3` on the queue container). Both inherited style choices, no functional impact; scheduled for a future polish pass.

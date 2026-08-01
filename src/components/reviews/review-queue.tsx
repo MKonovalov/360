@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ExternalLinkIcon } from 'lucide-react';
 import { acceptProposalAction } from '@/app/actions/reviews';
 import { Button } from '@/components/ui/button';
@@ -24,12 +25,19 @@ type PendingProposal = Awaited<ReturnType<typeof listPendingProposals>>[number];
 // pending) and destroy the confirmation staff needs to see. The revalidatePath
 // in the Server Action keeps the server cache fresh; the badge/count surfaces
 // re-sync on the next navigation or refresh.
+//
+// Terminal Accept errors are the opposite case: already_resolved /
+// duplicate_signal / not_found mean the proposal is no longer pending, so the
+// card would be a dead zombie with no way out. The Server Action only
+// revalidates on ok:true, so the client calls router.refresh() itself to drop
+// the card from the queue. Only action_failed (transient) keeps the card with
+// a retry affordance.
 type CardState =
   | { status: 'idle' }
   | { status: 'accepting' }
   | { status: 'accepted' }
   | { status: 'rejected' }
-  | { status: 'error'; message: string };
+  | { status: 'error'; message: string; retryable: boolean };
 
 const ERROR_COPY: Record<string, string> = {
   already_resolved: 'This proposal was already reviewed.',
@@ -41,6 +49,7 @@ const ERROR_COPY: Record<string, string> = {
 export function ReviewQueue({ proposals }: { proposals: PendingProposal[] }) {
   const [cardStates, setCardStates] = useState<Record<number, CardState>>({});
   const [, startTransition] = useTransition();
+  const router = useRouter();
 
   function setCard(proposalId: number, state: CardState) {
     setCardStates((prev) => ({ ...prev, [proposalId]: state }));
@@ -53,10 +62,15 @@ export function ReviewQueue({ proposals }: { proposals: PendingProposal[] }) {
       if (result.ok) {
         setCard(proposal.id, { status: 'accepted' });
       } else {
-        // already_resolved / duplicate_signal are terminal — the proposal is no
-        // longer pending, so refresh to drop it from the queue (the message is
-        // the point here, and the card is leaving the list regardless).
-        setCard(proposal.id, { status: 'error', message: ERROR_COPY[result.reason] ?? ERROR_COPY.action_failed });
+        // already_resolved / duplicate_signal are terminal — the proposal is
+        // no longer pending, so refresh to drop it from the queue (the message
+        // is the point here, and the card is leaving the list regardless).
+        const retryable = result.reason === 'action_failed';
+        setCard(proposal.id, {
+          status: 'error',
+          message: ERROR_COPY[result.reason] ?? ERROR_COPY.action_failed,
+          retryable,
+        });
       }
     });
   }
@@ -151,9 +165,20 @@ export function ReviewQueue({ proposals }: { proposals: PendingProposal[] }) {
                   Rejected — reason recorded.
                 </p>
               ) : (
-                <p className="text-[14px] font-normal leading-[1.5] text-red-600">
-                  {state.message}
-                </p>
+                <div className="flex items-center gap-3">
+                  <p className="text-[14px] font-normal leading-[1.5] text-red-600">
+                    {state.message}
+                  </p>
+                  {state.retryable ? (
+                    <Button variant="outline" size="sm" onClick={() => handleAccept(proposal)}>
+                      Try again
+                    </Button>
+                  ) : (
+                    <Button variant="outline" size="sm" onClick={() => router.refresh()}>
+                      Dismiss
+                    </Button>
+                  )}
+                </div>
               )}
 
               {proposal.traceUrl ? (
