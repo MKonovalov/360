@@ -82,8 +82,12 @@ Plans:
   4. The pending-reviews badge keeps its count semantics in Exa mono accent-chip style (mono 10px/600, accent fill + accent text, right-aligned), with a collapsed-rail dot variant on Reviews
   5. No hardcoded light-only utilities remain in the sidebar subtree — the indigo/amber class sweep is complete and the panel's `border-r` uses `border-sidebar-border`, not the global `--border`
 
-**Plans**: TBD
+**Plans**: 2 plans
 **UI hint**: yes
+Plans:
+
+- [ ] 11-01-PLAN.md — Nav items restyle in app-sidebar.tsx: Explore/Manage groups, Exa row anatomy, getActiveNavKey active state, mono accent-chip badge + collapsed dot (NAV-01..04)
+- [ ] 11-02-PLAN.md — QLTY-04 sweep + regression battery: resize-handle indigo hover replacement, border-r companion-rule verify, sweep grep gates + full suite/build (QLTY-04)
 
 ### Phase 12: Branding & User Zones
 
