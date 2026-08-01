@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Start Page + Import + Analytic Agent
-status: verifying
-last_updated: "2026-08-01T09:10:44.517Z"
-last_activity: 2026-08-01
+status: Awaiting next milestone
+last_updated: "2026-08-01T11:55:20.974Z"
+last_activity: 2026-08-01 — Milestone v1.1 completed and archived
 progress:
   total_phases: 5
   completed_phases: 5
@@ -17,34 +17,17 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-07-24)
+See: .planning/PROJECT.md (updated 2026-08-01)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** Phase 09 — analytic-agent-observability
+**Current focus:** Planning next milestone — v1.1 shipped (Start Page + Import + Analytic Agent)
 
 ## Current Position
 
-Phase: 09 (analytic-agent-observability) — EXECUTING
-Plan: 3 of 3
-Status: Phase complete — ready for verification
-Last activity: 2026-08-01
-
-Progress: [██████████] 100%
-
-> Phase 8 closed (2026-07-31): 6/6 plans implemented. Live UAT passed in isolated
-> QA for both providers — Apollo companies (review/commit/provenance/idempotency)
-> and Prospeo personas (the configured Apollo key lacks `people_match` access, so
-> the persona path moved to Prospeo: live match on `brian@airbnb.com`, no-match
-> branch on `mark@sumware.com`, rate-limit semantics verified). Full suite: 162
-> passed / 2 skipped; tsc and production build clean; dialog copy is provider-neutral.
-> Evidence in `.planning/phases/08-enrichment-api/08-06-UAT.md` and
-> `phase-8-persona-review.png`. Git commit remains deferred.
-> Phase 9 is the next (and final) v1.1 phase.
-
-> Note (2026-07-31): Phase 7 was executed to completion (all 11 plans have summaries; import
-> code present; tsc + 104 vitest tests + next build all green) but its ROADMAP/STATE markers
-> and git commit were pending. Reconciled markers here; **git commit intentionally deferred**
-> pending explicit authorization. Working tree still holds uncommitted Phase 7 changes.
+Phase: Milestone v1.1 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-08-01 — Milestone v1.1 completed and archived
 
 ## Performance Metrics
 
@@ -137,6 +120,4 @@ Resume file: None
 
 ## Operator Next Steps
 
-- Phase 8 is closed and ROADMAP is checked. Git commit of the working tree (Phases 7-8 changes) remains deferred pending explicit authorization.
-- Next milestone work: plan Phase 9 (Analytic Agent + Observability) — resolve the open `maxDuration`/async-strategy question first (see Blockers/Concerns).
-- Note: `05/06/07-VALIDATION.md` frontmatter still says `status: draft` despite those phases being complete in ROADMAP — worth stamping `complete` when next touching those phase dirs.
+- Start the next milestone with /gsd-new-milestone

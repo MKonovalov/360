@@ -1,5 +1,26 @@
 # Milestones
 
+## v1.1 Start Page + Import + Analytic Agent (Shipped: 2026-08-01)
+
+**Phases completed:** 5 phases, 27 plans, 32 tasks
+
+**Key accomplishments:**
+
+- Shared entity-agnostic accordion-table foundation (generic Server Component + nuqs-backed client behavior wrapper) that Plans 02/03 wire into Company/Persona list pages — no page imports it yet.
+- Company explorer rewired onto the Phase 05-01 shared accordion foundation: single-column stacked list with full-width inline expand/collapse, URL-synced via `?selected=`, and `/companies/[id]` reduced to a thin auth-gated redirect stub.
+- Persona list/detail wired onto the shared ExplorerAccordionTable/ExplorerTableBehavior components, mirroring the Company explorer's stacked single-expand accordion layout, with /personas/[id] reduced to a thin redirect to /personas?selected=<id>
+- recentlyViewed table (upsert-on-view via composite unique constraint) plus four dashboard aggregate queries and a session-derived recordView Server Action, all live against Neon Postgres
+- Deduped the companies/personas sidebar shell into one `AppShellLayout` component, vendored shadcn's `dropdown-menu` primitive, built the shared `ExplorerMenu` (labeled/icon variants), and added an exact-match "Start" nav item above Companies/Key Personas.
+- Wired the shared `ExplorerMenu` dropdown (Import on both list pages, Analyze on both detail panels) and a new `RecordViewTracker` mount-effect component into Company/Persona explorers, making MENU-01, MENU-02, and the write half of START-03 observable in the running app
+- New `(dashboard)` route group fully replaces `/` with a Start Page (3 stat cards + 4 independently-failing widgets), consuming Plan 06-01's dashboard queries and Plan 06-02's AppShellLayout/Start-nav-item — closing the app's one prior anonymous-access exception.
+- CSV Import pipeline: `company.domain`/`persona.email` unique dedup keys, `import_batch`/`import_log` tables, and a 6-server-action wizard (upload → auto-map columns/enums → partial-commit validation → commit → history → rollback with dependency checks) behind `/companies/import` and `/personas/import`, plus a schema-generated template download and a Vitest test harness bootstrap (07-01..07-11).
+- Enrichment API: Apollo.io companies / Prospeo personas integration with fill-empty-only merge policy, field-level `fieldSources` provenance, merge-conflict review dialog, and auth-gated run/commit Server Actions — proven live against real vendor data in `08-06-UAT.md` (08-01..08-06).
+- Agent-core seam (flat ai@7 generateText + env-gated Firecrawl webSearch + single-source zod output schema), fail-closed AIRS gate port, and signal/agent-run/correction tables on Neon with optional server-only keys
+- analyzeCompany orchestration (run -> evidence appendix -> verdict -> fail-closed gate -> dedup) plus durable runs/proposals/corrections query modules with an idempotent guarded Accept (ONE Accept = ONE Signal) and structured Reject with Langfuse mirror
+- First Route Handler (POST /api/companies/[id]/analyze) with distinct fail-loud error domains, staff-gated accept/reject server actions, /reviews review queue UI with inline evidence + Langfuse trace links, live Menu Analyze trigger with run-feedback strip, amber pending badge, and sidebar Reviews entry — the analytic agent's full propose→review→accept/reject user loop, UAT-approved live
+
+---
+
 ## v1.0 MVP (Shipped: 2026-07-24)
 
 **Phases completed:** 4 phases, 14 plans, 31 tasks
