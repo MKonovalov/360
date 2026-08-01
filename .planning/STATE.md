@@ -100,9 +100,9 @@ Items acknowledged and deferred at v1.1 milestone close on 2026-08-01, still ope
 ## Session Continuity
 
 Last session: 2026-08-01T09:10:44.510Z (v1.1 Phase 9 close)
-Stopped at: Roadmap for v1.2 created (Phases 10-14)
+Stopped at: Roadmap for v1.2 approved (Phases 10-14, committed 048897ed)
 Resume file: None
 
 ## Operator Next Steps
 
-- Approve the v1.2 roadmap, then run `/gsd-plan-phase 10` — Phase 10's plan-phase includes the UI-SPEC step (via `/gsd-ui-phase`) that locks logo treatment, feedback destination, collapse target width, and portal policy.
+- Roadmap approved 2026-08-01 (commit 048897ed). Run `/gsd-plan-phase 10` — Phase 10's plan-phase includes the UI-SPEC step (via `/gsd-ui-phase`) that locks logo treatment, feedback destination, collapse target width, and portal policy.
