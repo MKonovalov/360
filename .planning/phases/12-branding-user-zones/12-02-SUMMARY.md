@@ -66,7 +66,7 @@ This plan is verification-only: Task 1 and Task 2 made zero production code chan
 1. **Task 1: QLTY-04 sweep gate + fence gates + whole-phase diff scope verification (BRND-04)** - no commit (verification-only; all gates passed on first run — nothing to fix)
 2. **Task 2: Full regression battery — tsc + nav lock 11/11 + user lock 8/8 + npm test + npm run build (BRND-01..04)** - no commit (verification-only; all gates passed on first run)
 
-**Plan metadata:** `<COMMIT_HASH>` (docs: complete plan — written after self-check)
+**Plan metadata:** `622a31d7` (docs: complete scope-fence verification and regression plan — written after self-check)
 
 ## Files Created/Modified
 - `.planning/phases/12-branding-user-zones/12-02-SUMMARY.md` - phase-close verification summary (this file). No production files created or modified — the phase's source diff is entirely 12-01's (app-sidebar.tsx + user.ts + user.test.ts), which this plan verified.
