@@ -30,7 +30,7 @@ vi.mock('@/lib/validation/validateReport', () => ({
   validateRunArtifacts: mocks.validateRunArtifacts,
 }));
 
-import { analyzeCompany } from './analyzeCompany';
+import { analyzeCompany, retentionTagForUrl } from './analyzeCompany';
 
 const company = {
   id: 1,
@@ -112,9 +112,9 @@ const modelOutput = {
 const usage = { inputTokens: 10, outputTokens: 5, totalTokens: 15 };
 
 const derivedAppendix = [
-  { url: 'https://example.com/cost', title: 'Acme cost pressure', snippet: 'cost' },
-  { url: 'https://example.com/gbs', title: 'Acme GBS', snippet: 'gbs' },
-  { url: 'https://example.com/cfo', title: 'Acme hires CFO', snippet: 'cfo' },
+  { url: 'https://example.com/cost', title: 'Acme cost pressure', snippet: 'cost', retentionTag: 'public_biz' },
+  { url: 'https://example.com/gbs', title: 'Acme GBS', snippet: 'gbs', retentionTag: 'public_biz' },
+  { url: 'https://example.com/cfo', title: 'Acme hires CFO', snippet: 'cfo', retentionTag: 'public_biz' },
 ];
 
 describe('analyzeCompany (09-01-03)', () => {
@@ -200,5 +200,12 @@ describe('analyzeCompany (09-01-03)', () => {
 
     expect(result).toEqual({ ok: false, reason: 'not_configured' });
     expect(mocks.validateRunArtifacts).not.toHaveBeenCalled();
+  });
+
+  it('tags derived appendix entries by host (T-09-08): personal platforms → personal_data, unparseable → public_biz', () => {
+    expect(retentionTagForUrl('https://www.linkedin.com/company/acme')).toBe('personal_data');
+    expect(retentionTagForUrl('https://de.x.com/user/123')).toBe('personal_data');
+    expect(retentionTagForUrl('https://www.example.com/news/acme')).toBe('public_biz');
+    expect(retentionTagForUrl('not a url')).toBe('public_biz');
   });
 });

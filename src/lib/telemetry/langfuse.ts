@@ -14,6 +14,24 @@ import { env } from '../env';
 let langfuseClient: LangfuseClient | undefined;
 let initialized = false;
 
+// Lazy client accessor shared by initLangfuse, getTraceUrl and the reject
+// mirror. initLangfuse() runs only inside the Analyze route handler — Server
+// Action invocations (rejectProposalAction) reach this module on cold starts
+// without it, so the mirror must self-bootstrap the client or silently drop
+// the annotation. Same D-15/D-16 semantics as before: unset keys or tests
+// return undefined (no-op), never a crash.
+function getLangfuseClient(): LangfuseClient | undefined {
+  if (process.env.NODE_ENV === 'test') return undefined; // D-16 — never in tests
+  if (langfuseClient) return langfuseClient;
+  if (!env.LANGFUSE_PUBLIC_KEY || !env.LANGFUSE_SECRET_KEY) return undefined; // D-15
+  langfuseClient = new LangfuseClient({
+    publicKey: env.LANGFUSE_PUBLIC_KEY,
+    secretKey: env.LANGFUSE_SECRET_KEY,
+    baseUrl: env.LANGFUSE_TRACE_BASE_URL ?? 'https://cloud.langfuse.com',
+  });
+  return langfuseClient;
+}
+
 export function initLangfuse(): void {
   if (process.env.NODE_ENV === 'test') return; // D-16 — never register in tests
   if (initialized) return; // module-singleton guard (idempotent)
@@ -42,18 +60,15 @@ export function initLangfuse(): void {
 
   registerTelemetry(new LangfuseVercelAiSdkIntegration());
 
-  langfuseClient = new LangfuseClient({
-    publicKey: env.LANGFUSE_PUBLIC_KEY,
-    secretKey: env.LANGFUSE_SECRET_KEY,
-    baseUrl,
-  });
+  getLangfuseClient();
 }
 
 export async function getTraceUrl(traceId: string): Promise<string | undefined> {
   // No-op when keys unset or in tests — the Analyze route stores the URL
   // only when Langfuse is actually configured (D-15).
-  if (!langfuseClient) return undefined;
-  return langfuseClient.getTraceUrl(traceId);
+  const client = getLangfuseClient();
+  if (!client) return undefined;
+  return client.getTraceUrl(traceId);
 }
 
 export async function mirrorCorrectionAnnotation(
@@ -61,12 +76,18 @@ export async function mirrorCorrectionAnnotation(
   correction: { reason: string; note?: string },
 ): Promise<void> {
   // D-14: the DB is the source of truth; this is the observability mirror
-  // only. Optional-chained — no-op when keys unset or in tests.
-  if (!langfuseClient) return;
-  langfuseClient.score.create({
+  // only. Self-bootstraps the client (the reject Server Action is a separate
+  // invocation from the Analyze route that calls initLangfuse — cold starts
+  // would otherwise drop the annotation silently) and flushes before
+  // returning so the queued score is delivered before the serverless process
+  // yields (score.create only enqueues; delivery needs flush()).
+  const client = getLangfuseClient();
+  if (!client) return;
+  await client.score.create({
     traceId,
     name: 'correction',
     value: 0,
     comment: JSON.stringify(correction),
   });
+  await client.flush();
 }

@@ -25,6 +25,8 @@ export const proposalSignalSchema = z.object({
 });
 export type ProposalSignal = z.infer<typeof proposalSignalSchema>;
 
+// Model-facing appendix shape (D-02: the model's recited appendix is always
+// DISCARDED — the gate validates the server-derived one below).
 export const evidenceAppendixSchema = z.array(
   z.object({
     url: z.string().url(),
@@ -33,6 +35,15 @@ export const evidenceAppendixSchema = z.array(
   }),
 );
 export type EvidenceAppendix = z.infer<typeof evidenceAppendixSchema>;
+
+// T-09-08: retention tags on derived appendix entries — classified server-side
+// by host (personal-data platforms vs public business info). Required on the
+// derived shape so an untagged entry can never reach agent_run.evidence_appendix.
+export const retentionTagSchema = z.enum(['public_biz', 'personal_data']);
+export const derivedEvidenceAppendixSchema = z.array(
+  evidenceAppendixSchema.element.extend({ retentionTag: retentionTagSchema }),
+);
+export type DerivedEvidenceAppendix = z.infer<typeof derivedEvidenceAppendixSchema>;
 
 // D-02: evidenceAppendix is populated server-side from REAL webSearch tool
 // results (never model-recited) — the every_citation_must_resolve gate checks

@@ -5,7 +5,7 @@ import { validateRunArtifacts } from '@/lib/validation/validateReport';
 import type { Verdict } from '@/lib/validation/airsRules';
 import { runAgent } from './runAgent';
 import { dedupProposals } from './dedup';
-import type { CompanyInput, EvidenceAppendix, LiveSignalInput, ProposalSignal, RunOutput } from './types';
+import type { CompanyInput, DerivedEvidenceAppendix, LiveSignalInput, ProposalSignal, RunOutput } from './types';
 
 // analyzeCompany — the Analyze orchestration (ANLZ-01/05, 09-01-03 anchor).
 // Chains: load company + live signals → runAgent → derive the evidence
@@ -18,7 +18,7 @@ type RunResult = Awaited<ReturnType<typeof runAgent>>;
 export type AnalyzeResult =
   | {
       ok: true;
-      output: RunOutput;
+      output: Omit<RunOutput, 'evidenceAppendix'> & { evidenceAppendix: DerivedEvidenceAppendix };
       verdict: Verdict;
       usage: RunResult['usage'];
       proposals: ProposalSignal[];
@@ -109,8 +109,8 @@ export interface StepLike {
 // D-02: flatten REAL webSearch tool results from the run's steps into the
 // evidence appendix. First-seen URL wins (dedupe); malformed entries are
 // skipped rather than trusted.
-export function deriveEvidenceAppendix(steps: readonly StepLike[]): EvidenceAppendix {
-  const entries: EvidenceAppendix = [];
+export function deriveEvidenceAppendix(steps: readonly StepLike[]): DerivedEvidenceAppendix {
+  const entries: DerivedEvidenceAppendix = [];
   const seen = new Set<string>();
   for (const step of steps) {
     for (const result of step.toolResults ?? []) {
@@ -127,11 +127,36 @@ export function deriveEvidenceAppendix(steps: readonly StepLike[]): EvidenceAppe
           url: item.url,
           title: typeof item.title === 'string' ? item.title : '',
           snippet: typeof item.snippet === 'string' ? item.snippet : '',
+          retentionTag: retentionTagForUrl(item.url),
         });
       }
     }
   }
   return entries;
+}
+
+// T-09-08: retention classification for derived appendix entries — personal/
+// social platforms carry individual-user data (personal_data); everything
+// else is public business info. Root-domain match (www./locale subdomains
+// ignored); unparseable URLs fail toward public_biz, never crash.
+const PERSONAL_DATA_HOSTS = new Set([
+  'linkedin.com',
+  'x.com',
+  'twitter.com',
+  'facebook.com',
+  'instagram.com',
+  'tiktok.com',
+  'youtube.com',
+]);
+
+export function retentionTagForUrl(url: string): 'public_biz' | 'personal_data' {
+  try {
+    const hostname = new URL(url).hostname.replace(/^www\./, '').toLowerCase();
+    const root = hostname.split('.').slice(-2).join('.');
+    return PERSONAL_DATA_HOSTS.has(root) ? 'personal_data' : 'public_biz';
+  } catch {
+    return 'public_biz';
+  }
 }
 
 // D-04: verdict "falls out naturally" from the proposal set — no composite
