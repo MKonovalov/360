@@ -141,7 +141,10 @@ Plans:
   3. A divergence review vs. the dashboard.exa.ai reference confirms the sidebar matches the light reference (near-white panel, hairline border, gray active treatment, mono badge) without copying Exa's items or hotlinking its assets
   4. Hard-constraint regression checks pass in the live app — routes unchanged, drag-resize + cookies, ⌘B, and the server-driven `pendingCount` badge gating intact
 
-**Plans**: TBD
+**Plans**: 2 plans
+
+- [ ] 14-01-PLAN.md — Live UAT evidence: contrast.ts math lock + 12-cell matrix + interaction micro-tests → 14-UAT.md (QLTY-03)
+- [ ] 14-02-PLAN.md — Contrast audit + Exa divergence review + hard-constraint regression battery → 14-VERIFICATION.md + 14-SUMMARY.md (QLTY-03)
 
 ## Progress
 
@@ -163,7 +166,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 11. Nav Items Restyle | v1.2 | 2/2 | Complete   | 2026-08-01 |
 | 12. Branding & User Zones | v1.2 | 2/2 | Complete   | 2026-08-01 |
 | 13. Collapse & Resize Coexistence | v1.2 | 2/2 | Complete   | 2026-08-01 |
-| 14. Contrast Audit & UAT Matrix | v1.2 | 0/TBD | Not started | - |
+| 14. Contrast Audit & UAT Matrix | v1.2 | 0/2 | Not started | - |
 
 ---
 
