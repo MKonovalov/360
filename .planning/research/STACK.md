@@ -1,139 +1,133 @@
-# Stack Research
+# Stack Research — v1.2 Exa-Style Dark Sidebar
 
-**Domain:** v1.1 additions — Start Page, layout rework, CSV Import + enrichment API, Analytic ("Analyze") signal-detection agent
-**Researched:** 2026-07-29
-**Confidence:** HIGH (Context7-verified library/version data for AI SDK, Next.js, shadcn/ui, PapaParse; multi-source cross-checked vendor pricing for enrichment APIs)
+**Domain:** Always-dark left navigation panel inside a light-theme Next.js 16 App Router + shadcn (`nova`/`radix-nova` preset) app
+**Researched:** 2026-08-01
+**Confidence:** HIGH (mechanism), MEDIUM (exact palette values — visual confirmation deferred to the UI phase)
 
-> This file supersedes the v1.0 `STACK.md` (Astro→Next.js/Sanity→Neon migration research, now fully implemented — see `CLAUDE.md` Constraints). It covers **only the net-new stack needed for v1.1**. Everything already validated (Next.js 16 App Router, Neon + Drizzle, `@clerk/nextjs` + `requireStaffAccess()`, shadcn/ui `nova`/`radix-nova` preset, `nuqs`, `zod`, the never-throws GET-only Arcpedia fetch pattern) stays as-is and is not re-litigated here.
+## Executive Answer
 
-## Recommended Stack
+**Zero new packages. One place changes: the 8 `--sidebar-*` CSS custom properties in the `:root` block of `src/app/globals.css`.** The shadcn sidebar's entire theme contract is these variables (background, foreground, primary, accent, border, ring). Because the app's light content never reads `--sidebar-*` (verified by grep — the *only* consumer is `src/components/ui/sidebar.tsx`), redefining them to dark values gives the Exa-style near-black panel with literally zero blast radius on the light app — desktop, mobile sheet, collapsed rail, and focus rings all follow for free. Then a small content-layer cleanup in `app-sidebar.tsx` (remove hardcoded indigo active-state overrides) and `sidebar-resize-handle.tsx` (indigo hover) so the token-driven theme can show through.
 
-### Core Technologies
+## Approach Comparison
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| `csv-parse` | **7.0.1** (already installed) | CSV → row parsing for Import | Already in `package.json` as a devDependency, already used in `src/scripts/seed.ts` (`parse(content, { columns: true, skip_empty_lines: true, trim: true })`) against the exact same `companyRowSchema`/`personaRowSchema` Zod schemas Import needs. Reusing it means the CSV import Server Action can call the identical validated-row pipeline the seed script already exercises — no new parsing library, no schema duplication. **Action needed:** move it from `devDependencies` to `dependencies` — it currently only runs under `tsx` at dev/seed time, but Import will execute it inside a production Server Action bundled into the app. |
-| Apollo.io REST API (no SDK package) | API v1 (`api.apollo.io/api/v1`) | Commercial enrichment vendor for Import | Best fit of the four candidates for this stack — see full comparison below. Called via native `fetch()`, matching the existing `src/lib/arcpedia.ts` client pattern (module-level client fn, Zod-validated response, server-only API key). No official or credible community npm SDK worth adding — a thin typed wrapper (~40 lines) is simpler and matches project convention better than pulling in a third-party package for two endpoints. |
-| `ai` | **^7.0.41** | AI SDK core — agent loop, tool calling, multi-step orchestration for the Analytic Agent | Current stable major (v7, GA — not the v5/v6 tags Context7 still lists as legacy channels). This repo is already an early-adopter stack (Next 16.2.11, React 19.2.4, Tailwind v4, shadcn v4) so pinning the current major here is consistent, not risky. v7 adds first-class multi-step `stopWhen`/timeout config and stabilized structured-output repair — both directly used by the signal-detection agent's search → propose loop. |
-| `@ai-sdk/openai` | **^4.0.23** | Model provider + built-in `openai.tools.webSearch()` tool | See "AI SDK web search" analysis below — recommended default provider for the Analytic Agent. Version-aligned with `ai@7.0.41` (both pin `@ai-sdk/provider@4.0.4` + `@ai-sdk/provider-utils@5.0.14` — confirmed via npm registry metadata, not assumed). |
-| shadcn/ui `dropdown-menu` | shadcn/ui `radix-nova` registry (matches installed `components.json` style) | The "Menu" button pattern (top-right of both list pages and both detail panels) | Not yet installed in `src/components/ui/` (confirmed — only `badge`, `button`, `input`, `scroll-area`, `select`, `separator`, `sheet`, `sidebar`, `skeleton`, `table`, `tooltip` exist today). Add via `npx shadcn@latest add dropdown-menu`; it generates against the already-configured `radix-nova` style (`components.json: "style": "radix-nova"`) and imports from the **already-installed** consolidated `radix-ui` package (`^1.6.5` in `package.json`) — no new Radix primitive dependency, this repo already migrated off individual `@radix-ui/react-*` packages. |
+| # | Approach | Verdict | Why |
+|---|----------|---------|-----|
+| (a) | Tailwind `dark:` variants / global `darkMode: 'class'` (`.dark` on `<html>`) | **REJECT** | Adding `.dark` to `<html>` flips the *entire app* dark: the `.dark` block in `globals.css` redefines every token (`--background`, `--card`, `--popover`, …) and every `dark:` utility already present in the UI primitives (button, input, select, dropdown, badge) activates. This is a full dark-mode system the milestone explicitly does not want. |
+| (a′) | Scoped `.dark` class on the sidebar wrapper only | **REJECT — worse blast radius than needed** | The custom variant `@custom-variant dark (&:is(.dark *))` matches any `.dark` ancestor, so the subtree gets *all* `.dark` tokens (background/card/popover flip dark inside the sidebar) plus every `dark:` variant there. It also **misses the portaled mobile sheet** (see below) and muddles two intents: "this panel is dark by design" vs "this is dark mode." |
+| (b) | Component-scoped dark CSS variables baked into the sidebar theme | **RECOMMENDED** — implemented as a `:root`-level sidebar-token swap | The sidebar's theme *is* its CSS variables (per shadcn docs: "The sidebar component is themed using specific CSS variables"). Redefine the 8 `--sidebar-*` values dark at `:root`. Token exclusivity (verified) makes this effectively component-scoped in blast-radius terms. Covers desktop + mobile-sheet portal in one block, zero primitive/provider edits. |
+| (c) | `--sidebar-*` overrides scoped to `SidebarProvider` (inline `style` or wrapper class) | **FALLBACK — only if a second, light sidebar instance is ever needed** | Same variable mechanism, narrower CSS scope — but the mobile `SheetContent` **portals to `document.body`** (verified in `src/components/ui/sheet.tsx`: `SheetPortal` → Radix `Dialog.Portal`), and CSS custom properties do **not** traverse portals. Provider-scoped overrides would render the mobile sheet light unless the same class is also applied to `SheetContent` (a shadcn-primitive edit that `shadcn update` would clobber). |
 
-### Supporting Libraries
+**Winner: (b) — swap the `--sidebar-*` values in `:root`.** It is the shadcn-documented theming mechanism, matches the codebase's existing precedent (`app-shell-layout.tsx` already themes the sidebar via a `--sidebar-width` custom property), and is the only option that reaches the portaled mobile sheet without touching a managed primitive.
 
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| `@ai-sdk/anthropic` | ^4.0.23 | Alternative single-vendor model + built-in `anthropic.tools.webSearch_20250305()` | Use instead of `@ai-sdk/openai` if the team prefers to consolidate AI spend/billing on Anthropic, or if OpenAI's web search results prove weaker for GBS/SSC-transformation-specific press. Functionally equivalent pattern; requires enabling web search in the Anthropic Console first (an extra one-time setup step OpenAI doesn't have). |
-| `zod` | ^4.4.3 (already installed) | Structured-output schema for the agent's `proposeSignal` tool, Apollo response validation, CSV row validation | Already the project's validation library everywhere (Arcpedia response schema, seed row schemas). Reuse directly — AI SDK's tool `inputSchema` and Apollo response parsing both take a Zod schema exactly like `arcpediaSearchResponseSchema` already does. |
+## Why `:root` (not the provider wrapper) is the correct scope
 
-### Development Tools
+1. **Token exclusivity (verified):** grep across `src/` shows the only consumers of `bg-sidebar`, `text-sidebar-*`, `border-sidebar`, `ring-sidebar`, `--sidebar`, `--sidebar-*` are `src/components/ui/sidebar.tsx` and `globals.css` itself. Layout files (`app-shell-layout.tsx`, `sidebar-resize-handle.tsx`) use only `--sidebar-width` — a *geometry* variable, untouched. No page, detail pane, or dashboard widget reads sidebar tokens. Redefining them at `:root` cannot affect the light content area.
+2. **Portal coverage:** the mobile `SheetContent` carries `bg-sidebar text-sidebar-foreground` and resolves those variables from its inheritance root — `<body>`/`:root`. Defining the dark values at `:root` is the one placement that dark-themes both the in-flow desktop sidebar and the portaled mobile sheet with a single block and zero primitive edits.
+3. **Tailwind v4 wiring already in place:** `@theme inline { --color-sidebar: var(--sidebar); … }` maps each token to a utility (`bg-sidebar`, `text-sidebar-foreground`, `bg-sidebar-accent`, `border-sidebar-border`, `ring-sidebar-ring`). `inline` means utilities reference the variable directly and resolve through the normal CSS cascade — change the variable, every sidebar surface follows. No config change, no rebuild trickery.
 
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| `npx @ai-sdk/codemod v7` | One-time migration helper if a lower AI SDK version ever gets installed by mistake | Not needed for a fresh install — only relevant if `ai@5`/`ai@6` gets pinned first and needs upgrading later. |
-| `npx shadcn@latest add dropdown-menu` | Pulls the `DropdownMenu*` component set into `src/components/ui/dropdown-menu.tsx` | Not a runtime dependency — CLI-generated source file, same as every other file in `src/components/ui/`. |
+## The Change
 
-## Installation
+### 1. `src/app/globals.css` — swap the `--sidebar-*` values in `:root` (the only stack change)
 
-```bash
-# Core: Analytic Agent (AI SDK + primary model/search provider)
-npm install ai@^7.0.41 @ai-sdk/openai@^4.0.23
+Keep the `.dark` block untouched (harmless, future-proof). Suggested palette — **achromatic** to match the `nova`/`neutral` base (every existing token is `oklch(x 0 0)`), grounded in Exa's near-black surfaces (design breakdowns: `#181815` / `#111827` floors, subtle white/10 hover pills, white/8 hairline borders):
 
-# Optional: single-vendor alternative if consolidating on Anthropic instead
-npm install @ai-sdk/anthropic@^4.0.23
-
-# csv-parse is already installed as a devDependency — reinstall as a
-# production dependency since Import runs it inside a bundled Server Action,
-# not just the standalone seed script
-npm uninstall csv-parse
-npm install csv-parse@^7.0.1
-
-# Menu button UI (uses the already-installed `radix-ui` package)
-npx shadcn@latest add dropdown-menu
-
-# No package install for Apollo.io — plain fetch() client in src/lib/apollo.ts,
-# following the existing src/lib/arcpedia.ts convention
+```css
+:root {
+  /* …existing tokens unchanged… */
+  --sidebar: oklch(0.16 0 0);              /* near-black panel (~Exa #181815) */
+  --sidebar-foreground: oklch(0.92 0 0);   /* light text */
+  --sidebar-primary: oklch(0.95 0 0);      /* branding/logo text on dark */
+  --sidebar-primary-foreground: oklch(0.16 0 0);
+  --sidebar-accent: oklch(0.26 0 0);       /* hover + active pill (Exa white/10 look) */
+  --sidebar-accent-foreground: oklch(0.95 0 0);
+  --sidebar-border: oklch(1 0 0 / 8%);     /* hairline separator */
+  --sidebar-ring: oklch(0.45 0 0);         /* subtle focus ring */
+}
 ```
 
-New env vars (add to `src/lib/env.ts` following the existing optional/`.catch(undefined)` degrade pattern used for the Arcpedia vars — enrichment and the agent are both user-triggered features, not core-path, so they must not fail-fast the whole app if unset):
+Exact values are a UI-SPEC decision; this is a grounded starting point. The **mechanism** is what this research locks in.
 
-```ts
-APOLLO_API_KEY: z.string().optional(),
-OPENAI_API_KEY: z.string().optional(), // or ANTHROPIC_API_KEY if that path is chosen
+### 2. Content-layer cleanup (roadmap tasks, not stack changes)
+
+These hardcoded *light-only* utilities sit on top of the token system and will fight the dark theme:
+
+| File | Current (light-only) | Change to |
+|------|----------------------|-----------|
+| `src/components/layout/app-sidebar.tsx` | `className="data-active:bg-indigo-50 data-active:text-indigo-600 …"` × 4 (Start, Companies, Key Personas, Reviews) | **Delete the overrides.** The primitive's default `data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground` (already in `sidebar.tsx`) produces the Exa-style subtle pill automatically once the tokens are dark. |
+| `src/components/layout/app-sidebar.tsx` | `SidebarMenuBadge className="bg-amber-100 text-amber-800"` | Dark-aware badge, e.g. `bg-amber-400/15 text-amber-300` (Exa's muted-tint treatment). |
+| `src/components/layout/sidebar-resize-handle.tsx` | `hover:bg-indigo-200` | `hover:bg-sidebar-border` (or `hover:bg-white/10`). |
+| New branding zone (top) / user zone (bottom) | — | Use sidebar tokens only (`text-sidebar-foreground`, `bg-sidebar`, `hover:bg-sidebar-accent`, `border-sidebar-border`) so they follow the theme. lucide-react icons (already installed) — primitive `[&_svg]` sizing handles them. |
+
+Collapse behavior, cookie-persisted width (`--sidebar-width`), drag-resize, rail, and the pending-reviews badge all keep working — they are token- or geometry-driven and need no structural change.
+
+### 3. Conditional: sidebar search box (only if v1.2 includes one — Exa has one)
+
+`SidebarInput`/`Input` resolve `bg-background` (light `oklch(1 0 0)`) — a white input on the dark panel. If a search box is added, do **not** use `Input` as-is; scope the surface tokens inside the sidebar subtree in `globals.css`:
+
+```css
+[data-slot="sidebar"] [data-sidebar="input"] {
+  --background: var(--sidebar-accent);
+  --input: var(--sidebar-border);
+}
 ```
 
-`next.config.ts` needs one addition for the CSV Import Server Action — Next.js defaults Server Action request bodies to **1MB** (confirmed via Next.js source: `defaultActionBodySizeLimit = '1 MB'`), which a few-hundred-to-few-thousand-row Company/Persona CSV can realistically exceed:
+(Or style the input with explicit dark utilities.) Not needed if v1.2's target list stays nav-items + branding + user zone.
 
-```ts
-const nextConfig: NextConfig = {
-  experimental: {
-    serverActions: {
-      bodySizeLimit: '5mb',
-    },
-  },
-  // ...existing config
-};
-```
+## What to Install
 
-## Alternatives Considered
+**Nothing.**
 
-| Recommended | Alternative | When to Use Alternative |
-|-------------|-------------|--------------------------|
-| `csv-parse` (already installed) | PapaParse | Never for this project — PapaParse (`5.5.4` latest) is a browser-first library (worker threads, `download: true` over HTTP) whose Node story is a secondary use case; `csv-parse` is already in the stack, Node-native, RFC 4180 compliant, and already wired to the exact Zod row schemas Import needs. Adding PapaParse would mean two CSV parsers doing the same job. |
-| Apollo.io | Clearbit / HubSpot Breeze Intelligence | Only if ArcLumen Partners already has a **paid HubSpot subscription** they want to route enrichment spend through — HubSpot acquired Clearbit in late 2023 and, as of 2026, its enrichment API is sold exclusively as a credit-based add-on **on top of** a paid HubSpot plan (~$65/mo realistic floor: $20/mo HubSpot + $45/mo for 100 credits), and the standalone Clearbit API is being sunset. Not usable as an independent API for a non-HubSpot app. |
-| Apollo.io | ZoomInfo | Only at much larger scale/budget. No self-serve signup, no public trial without a sales call, and annual contracts starting around $15K/yr (most teams pay $25K–$60K/yr). Wrong shape entirely for a small internal tool. |
-| Apollo.io | Clay | Only if the team wants a no-code enrichment-waterfall **workbook UI** (spreadsheet-style, multi-provider cascading) rather than a simple API call from inside this app. Clay's own programmatic "Clay API" is gated to its Enterprise tier (custom pricing); the $495/mo Growth tier's "HTTP API integrations" is Clay *consuming* other APIs inside its tables, not Clay exposing a simple lookup endpoint for us to call. Higher price floor ($185–495/mo) for a capability (no-code waterfalls) this app doesn't need — it already has its own DB/UI. |
-| `@ai-sdk/openai` + built-in `webSearch()` | `@ai-sdk/anthropic` + built-in `webSearch_20250305()` | Equally valid — pick this if consolidating AI vendor billing on Anthropic, or if the team already has Claude usage elsewhere. Slightly more setup (must enable web search in the Anthropic Console first). |
-| Built-in provider web search tool | Dedicated search provider (`@exalabs/ai-sdk` / Exa, `@tavily/ai-sdk` / Tavily, `@perplexity-ai/ai-sdk` / Perplexity Search) | Add one of these **only if** the built-in OpenAI/Anthropic web search proves too generic for ArcLumen's niche vocabulary (GBS/SSC transformation, CFO/GBS-head changes, cost-pressure signals). They plug in as an additional AI SDK tool alongside the custom `proposeSignal` tool with no change to the agent's control flow — the SDK's model-agnostic tool interface makes swapping search providers a low-cost experiment later, not an architecture decision now. Exa in particular is worth trying first if this happens — its neural/semantic search tends to do better on niche B2B terminology than keyword-oriented search. |
-| Built-in-search + custom `proposeSignal` tool | Perplexity Sonar as the **primary model** (not just a search tool) | Sonar's native web-grounding is excellent for synthesized-answer use cases, but it is less proven for the mixed workload this agent needs (native search **plus** a custom `proposeSignal` structured tool call in the same turn). OpenAI/Anthropic's mature function-calling + built-in-search combo is the safer default for a review-queue-producing agent; Perplexity remains a fine fallback search *tool* (not model) if needed later. |
+| Item | Verdict |
+|------|---------|
+| New npm packages | **None.** The mechanism is CSS custom properties + the already-installed Tailwind v4 / shadcn token wiring. |
+| Fonts | **No change.** Geist (already loaded via `next/font/google`, `--font-sans`) is the standard open stand-in for Exa's ABCDiatype sans voice. |
+| shadcn registry additions ("sidebar theme variant") | **None exist.** Theming a sidebar *is* its CSS variables — there is no theme variant to install, which is precisely why this is a one-block CSS change. |
+| Versions to bump | **None.** No lockfile/compat risk; nothing new enters `package.json`. |
 
-## What NOT to Use
+## What NOT to Add (explicit)
 
-| Avoid | Why | Use Instead |
-|-------|-----|--------------|
-| Clearbit standalone API | Sunset since Dec 2023; folded into HubSpot Breeze Intelligence, requires a paid HubSpot subscription as a prerequisite. Not independently usable. | Apollo.io |
-| ZoomInfo (for this project's scale) | No self-serve tier, sales-gated, $15K+/yr contracts — wrong cost/complexity class for a small internal team tool. | Apollo.io |
-| Clay (as the enrichment *API*) | It's a workflow/orchestration product, not a simple lookup API; its own API access sits behind the Enterprise tier. Wrong shape for "call an endpoint from a Server Action." | Apollo.io |
-| A custom multipart/form-data parser (`busboy`, `formidable`) | Next.js Server Actions and Route Handlers already parse `FormData` (including `File` entries) natively via the standard `Request`/`FormData` Web APIs — confirmed in Next.js's own action-handler source (`fakeRequest.formData()`). Adding a multipart parser library duplicates built-in functionality. | Native `request.formData()` / Server Action `FormData` argument, then `await file.text()` into `csv-parse` |
-| PapaParse alongside `csv-parse` | Two CSV parsers with overlapping responsibility; `csv-parse` is already installed and already wired to this project's row-validation schemas. | `csv-parse` (existing) |
-| Defaulting straight to a third-party search provider (Exa/Tavily/Perplexity) for the Analytic Agent | Adds a second vendor account/API key/bill for a low-volume, internal, click-triggered feature before the built-in provider tool has even been tried. Built-in `webSearch()`/`webSearch_20250305()` tools already return `sources` (URL list) suitable for the review queue, at roughly one cent per search. | Start with the built-in OpenAI (or Anthropic) web search tool; add a dedicated provider only if result quality demonstrably falls short on ArcLumen's niche terms |
-| Individual `@radix-ui/react-dropdown-menu` package | This repo already migrated to the consolidated `radix-ui` package (`^1.6.5`) — adding the per-primitive package back would reintroduce the exact duplication shadcn's own `migrate radix` codemod was built to eliminate. | `npx shadcn@latest add dropdown-menu` (imports from the already-installed `radix-ui` package) |
+| Avoid | Why | Use instead |
+|-------|-----|-------------|
+| `next-themes` / any theme-provider or theme-toggle library | There is no dark-mode system and none is wanted — the panel is dark by design, permanently. A provider adds JS, an effect/hydration flash, and localStorage for zero benefit. | Static `:root` token swap |
+| Global `darkMode: 'class'` / `.dark` on `<html>` | Flipping the app dark: `.dark` block redefines every token and every `dark:` utility in the UI primitives activates. | Sidebar-only `--sidebar-*` swap |
+| Scoped `.dark` class on the sidebar wrapper | Redefines `--background`/`--card`/`--popover` inside the subtree, activates all `dark:` variants there, misses the portaled mobile sheet, and couples "dark by design" to the dark-mode system. | `:root` sidebar-token swap |
+| A second CSS framework / styling layer (CSS Modules, styled-components, emotion, vanilla-extract) | Tailwind v4 + the shadcn token system does this natively with zero new build config. | CSS custom properties |
+| New icon library (`@tabler/icons`, `react-icons`, …) | lucide-react is installed and the milestone keeps current icons. | lucide-react |
+| New font (Inter, ABCDiatype via fontsource, …) | Geist is loaded, matches the `nova` preset, and is the standard substitute for Exa's sans voice. | Geist (already present) |
+| Runtime theme switcher (`@shadcn/themes`-style, `data-theme` toggling) | Adds JS + provider + potential CLS for a permanently-dark panel. | Static CSS vars |
+| Patching `src/components/ui/sidebar.tsx` with hardcoded dark classes | The primitive is `shadcn update`-managed; token-driven theming means **zero** primitive edits. | Token swap + content-layer class cleanup in `app-sidebar.tsx` |
+| `@custom-variant dark` changes / `dark:` utilities for the sidebar content | The `dark:` variant is the wrong tool for a *non-variant* condition (the panel is always dark). Hardcode the dark values via tokens or direct utilities. | Sidebar tokens / direct utilities |
 
 ## Stack Patterns by Variant
 
-**If the team wants the lowest-friction, single-vendor Analytic Agent setup:**
-- Use `@ai-sdk/openai` + `openai.tools.webSearch({ searchContextSize: 'high' })` paired with a custom `proposeSignal` tool (Zod `inputSchema` matching the review-queue row shape: signal type, headline, source URL, published date, rationale/confidence). Run as a single `generateText` call with `stopWhen: isStepCount(4–6)` so the model can search, re-search with a refined query, and then emit one or more `proposeSignal` tool calls.
-- Because: one API key (`OPENAI_API_KEY`), no extra search vendor, and the agent's structured output *is* the tool-call arguments — no separate `generateObject` pass needed. Critically, `proposeSignal` should have **no `execute`** that writes to the live `signals` table — the Server Action reads `result.toolCalls` and inserts into a separate review-queue table, which is what actually enforces "no auto-write" (per PROJECT.md's v1.1 scope), not the AI SDK layer itself.
+**If a second, light sidebar instance is ever needed (e.g. an admin area):**
+- Move the dark overrides out of `:root` into a scoped class (e.g. `.exa-sidebar`) applied to `SidebarProvider` *and* the mobile `SheetContent`'s `className` (one-line primitive edit, documented deviation), keeping `:root` light. `@theme inline` keeps working because the class only redefines the raw `--sidebar-*` variables for that subtree.
 
-**If ArcLumen already has (or plans) a paid HubSpot subscription for other reasons:**
-- Use HubSpot Breeze Intelligence instead of Apollo.io for enrichment.
-- Because: it may already be a sunk cost, and the credit pricing model is broadly similar. Otherwise Apollo.io is strictly simpler to integrate (plain REST + API key, no HubSpot object model to map Company/Persona into).
-
-**If Import volume grows well beyond "a few thousand rows per upload":**
-- Move CSV parsing from a Server Action (subject to Next's request-body handling even after raising `bodySizeLimit`) to a Route Handler (`src/app/api/import/route.ts`) reading `request.formData()` directly, and consider streaming (`csv-parse` supports a streaming/Node-stream mode, not just `csv-parse/sync`) instead of buffering the whole file into memory.
-- Because: `csv-parse/sync` (used by the seed script and fine for CSV import at ArcLumen's current data scale) buffers the entire parsed result in memory — acceptable for hundreds/low-thousands of ICP rows, not for arbitrarily large imports.
+**If the app ever adopts a real global dark mode:**
+- The `.dark` block already carries dark sidebar values — the Exa-style panel simply stays dark in both modes. No conflict, no rework.
 
 ## Version Compatibility
 
-| Package A | Compatible With | Notes |
-|-----------|------------------|-------|
-| `ai@7.0.41` | `@ai-sdk/openai@4.0.23`, `@ai-sdk/anthropic@4.0.23` | Confirmed via npm registry metadata: all three resolve to the same underlying `@ai-sdk/provider@4.0.4` + `@ai-sdk/provider-utils@5.0.14` — not just "same major," actually version-pinned identical. |
-| `@ai-sdk/openai@4.0.23` / `@ai-sdk/anthropic@4.0.23` | `zod@^4.4.3` (already installed) | Both providers declare `peerDependencies: { zod: "^3.25.76 \|\| ^4.1.8" }` — the project's existing zod install satisfies this without a bump. |
-| `csv-parse@7.0.1` | Node 22.x (this project's runtime) | Pure Node/JS parser, no native bindings, no runtime constraint beyond what's already pinned in `package.json` `engines`. |
-| `radix-ui@1.6.5` (already installed) | shadcn `dropdown-menu` (radix-nova style) | The `dropdown-menu` component generated by `npx shadcn@latest add dropdown-menu` imports from the consolidated `radix-ui` package this repo already uses (confirmed via shadcn's own `migrate radix` tooling, which moved this exact ecosystem from per-primitive `@radix-ui/react-*` packages to the single `radix-ui` package) — no version conflict, no new primitive dependency. |
-| Next.js 16.2.11 (already installed) | `experimental.serverActions.bodySizeLimit` | Config key confirmed current in Next.js canary/stable docs; default is 1MB, string sizes like `'5mb'` are accepted. |
+| Package | Installed | Compatible with | Notes |
+|---------|-----------|-----------------|-------|
+| `tailwindcss` | ^4 (v4, CSS-first) | `@theme inline` token mapping, `@custom-variant dark` — verified current in v4 docs | No `tailwind.config.ts` exists (correct for v4); do not reintroduce one |
+| `shadcn` | ^4.14.0 (`radix-nova` style per `components.json`) | Sidebar CSS-variable theming contract identical across styles — verified in shadcn docs | `menuAccent: "subtle"` + `menuColor: "default"` preset behaves as expected with dark tokens |
+| `lucide-react` | ^1.26.0 | Icon sizing handled by sidebar primitives (`[&_svg]:size-4`) | Keep for nav icons |
+| `next` | 16.2.11 | No interaction — this is pure CSS | No `use client`/server-component changes |
 
 ## Sources
 
-- Context7 `/vercel/ai` — web search tool patterns (OpenAI `webSearch()`, Anthropic `webSearch_20250305()`, Exa/Tavily/Perplexity dedicated provider packages, AI Gateway `gateway.tools.*`), HIGH confidence
-- Context7 `/mholt/papaparse` — Node streaming API, used to confirm PapaParse's browser-first orientation vs. `csv-parse`'s Node fit, HIGH confidence
-- Context7 `/shadcn-ui/ui` — `dropdown-menu` component composition, `radix-ui` unified-package migration path, HIGH confidence
-- Context7 `/vercel/next.js` — Server Actions `FormData`/`File` handling (native, no multipart library needed) and `bodySizeLimit` default (1MB) + config shape, HIGH confidence
-- npm registry (`npm view`) — exact version/peer-dependency alignment for `ai@7.0.41`, `@ai-sdk/openai@4.0.23`, `@ai-sdk/anthropic@4.0.23`, `csv-parse@7.0.1`, HIGH confidence
-- WebFetch `docs.apollo.io/docs/enrich-people-data`, `docs.apollo.io/reference/organization-enrichment` — auth model (`x-api-key` header), request/response JSON shape, credit cost, HIGH confidence
-- WebSearch (multiple independent sources cross-checked: Landbase, Cognism, Cleanlist, MarketBetter, UpLead, Lindy, Warmly) — Clearbit/HubSpot Breeze pricing and sunset status, Apollo.io pricing tiers/free-tier credits, ZoomInfo enterprise-only pricing, Clay pricing/API tier gating — MEDIUM confidence (pricing pages change; vendor *fit/shape* conclusions are HIGH confidence, exact dollar figures should be re-verified at implementation time)
-- WebFetch `raw.githubusercontent.com/vercel/ai/main/content/cookbook/05-node/56-web-search-agent.mdx` — native-vs-tool-based search tradeoff framing, multi-step `stopWhen`/`isStepCount` mechanics, MEDIUM confidence (cookbook doc, not core API reference)
-- Direct repo inspection (`package.json`, `components.json`, `src/lib/env.ts`, `src/lib/arcpedia.ts`, `src/scripts/seed.ts`, `src/app/actions.ts`) — confirmed existing installed versions, established patterns to extend rather than replace, HIGH confidence
+- **Context7 `/websites/ui_shadcn`** — sidebar theming docs ("the sidebar component is themed using specific CSS variables … for both light and dark modes"), manual-install `globals.css` template matching this repo's file 1:1. HIGH confidence.
+- **Context7 `/websites/tailwindcss`** — v4 dark-mode docs (`@custom-variant dark (&:is(.dark *))`, class-based activation, data-attribute variant). HIGH confidence.
+- **Web design research (Exa breakdowns + exaBase/exawizards design system)** — Exa near-black surfaces `#181815` / `#111827`, white/10-ish hover treatment, tight radii; ecosystem confirmation that sidebar tokens + `@theme inline` is the standard shadcn theming pattern. MEDIUM confidence on exact hex → oklch conversion; lock values in UI phase.
+- **Repo verification (HIGH confidence, primary evidence):** token-exclusivity grep (only `sidebar.tsx` consumes `--sidebar-*` color tokens); `SheetPortal`→`Dialog.Portal` in `src/components/ui/sheet.tsx` (portal breaks provider-scoped CSS var cascade); `SidebarProvider` style-prop precedent in `app-shell-layout.tsx`; indigo/amber hardcodes in `app-sidebar.tsx` and `sidebar-resize-handle.tsx`.
+
+## Research Flags for the Roadmap
+
+- **UI-SPEC owns the exact palette** — this doc pins the mechanism and a grounded starting palette; visual fidelity to Exa's dashboard sidebar should be validated in the UI phase (screenshot comparison).
+- **Conditional scope creep watch:** only add the sidebar-search-input override task if the milestone's feature list includes a search box.
+- **No version drift risk:** zero new dependencies means no lockfile changes and no compat matrix to maintain for this milestone.
 
 ---
-*Stack research for: ArcLumen 360 v1.1 (Start Page + Import + Analytic Agent)*
-*Researched: 2026-07-29*
+*Stack research for: ArcLumen 360 v1.2 (Exa-Style Dark Sidebar)*
+*Researched: 2026-08-01*
