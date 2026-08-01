@@ -143,7 +143,7 @@ Plans:
 
 **Plans**: 2 plans
 
-- [ ] 14-01-PLAN.md — Live UAT evidence: contrast.ts math lock + 12-cell matrix + interaction micro-tests → 14-UAT.md (QLTY-03)
+- [x] 14-01-PLAN.md — Live UAT evidence: contrast.ts math lock + 12-cell matrix + interaction micro-tests → 14-UAT.md (QLTY-03)
 - [ ] 14-02-PLAN.md — Contrast audit + Exa divergence review + hard-constraint regression battery → 14-VERIFICATION.md + 14-SUMMARY.md (QLTY-03)
 
 ## Progress
