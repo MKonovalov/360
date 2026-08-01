@@ -91,8 +91,7 @@ challenge JS.) If the live fetch was blocked, the FEATURES.md captured values
 (dated 2026-08-01, production CSS extraction) are the documented fallback —
 and that fallback use is stated explicitly in the fetch result below._
 
-**Live fetch result (2026-08-01):** _[filled by the live fetch step — see the
-fetch attempt log]_
+**Live fetch result (2026-08-01):** **BLOCKED — auth wall.** `browser_navigate("https://dashboard.exa.ai")` in the real Chromium passed the Vercel Security Checkpoint JS (challenge POST returned 200 — unlike plain curl's HTTP 429) but the app then redirected to `https://auth.exa.ai/?callbackUrl=…` and rendered the **Exa Login** page (`document.title` = "Exa Login", login form present: "Continue with Google / Continue / Sign in with SSO"). The dashboard app shell — and therefore the sidebar whose computed styles this review samples — never rendered. Per Pitfall 4, the **FEATURES.md captured values (dated 2026-08-01, production CSS extraction) are used as the documented fallback evidence** below; they are NOT a live sample. No Exa asset was hotlinked, copied, or screenshot-committed (T-14-03).
 
 ### Element-wise comparison (D-07)
 
