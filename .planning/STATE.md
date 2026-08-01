@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: AI Model Settings
 status: planning
-last_updated: "2026-08-01T23:20:41.390Z"
-last_activity: 2026-08-01
+last_updated: "2026-08-02T00:00:00.000Z"
+last_activity: 2026-08-02
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,51 +17,36 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-08-01)
+See: .planning/PROJECT.md (updated 2026-08-02)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** v1.2 milestone complete — all 5 phases (10-14) shipped
+**Current focus:** v1.3 AI Model Settings — per-user AI model management (primary + ordered fallback chain) consumed by the Analytic Agent with error-driven failover
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: Not started (Phase 15 ready to plan — Model Registry Foundation + Persistence)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-08-01 — Milestone v1.3 started
+Status: Roadmap created — ready to plan Phase 15
+Last activity: 2026-08-02 — v1.3 roadmap created (Phases 15-18), v1.2 archived
+
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans implemented: 27 (v1.1) + 14 (v1.0) = 41
+- Total plans completed: 51 (v1.0: 14 + v1.1: 27 + v1.2: 10)
 - Average duration: - min
-- Total execution time: 0 hours (v1.2 not started)
+- Total execution time: - hours (v1.3 not started)
 
-**By Phase (v1.1):**
-
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 05 | 3 | - | - |
-| 06 | 4 | - | - |
-| 07 | 11 | - | - |
-| 08 | 6 | - | - |
-| 09 | 3 | - | - |
-| 10 | 2 | - | - |
+**By Phase (v1.3):** none yet — not started
 
 **Recent Trend:**
 
-- Last 5 plans (v1.1): Phase 09 P1 (80m), P02 (11min), P03 (10h16m)
+- Last 5 plans (v1.2): Phase 14 P01 (42min, 4 tasks, 6 files); Phase 13/12/11 plans 2-5min
 - Trend: N/A (new milestone)
 
 *Updated after each plan completion*
-| Phase 10-sidebar-token-foundation P10-01 | 5 | 2 tasks | 1 files |
-| Phase 10 P02 | 2 | - tasks | - files |
-| Phase 11-nav-items-restyle P02 | 2min | 2 tasks | 1 files |
-| Phase 12-branding-user-zones P01 | 5 min | 3 tasks | 3 files |
-| Phase 12-branding-user-zones P02 | 2min | 2 tasks | 0 files |
-| Phase 13-collapse-resize-coexistence P01 | 5 min | 3 tasks | 4 files |
-| Phase 13-collapse-resize-coexistence P02 | 2min | 2 tasks | 0 files |
-| Phase 14-contrast-audit-uat-matrix P01 | 42min | 4 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -70,30 +55,12 @@ Last activity: 2026-08-01 — Milestone v1.3 started
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- **Roadmap (v1.2): Light panel confirmed — match dashboard.exa.ai reference.** The dark near-black sidebar idea was dropped by user decision 2026-08-01; research verified the live reference sidebar is light `#fbfcfd` + 0.5px hairline. Token mechanism identical either way.
-- **Roadmap (v1.2): Mechanism locked — one scoped `--sidebar-*` token block on `[data-sidebar="sidebar"]` in `src/app/globals.css`.** Zero new npm packages, zero edits to vendored `src/components/ui/sidebar.tsx`, `@theme inline` is load-bearing and must not be converted. File touchpoints: `globals.css` (token block), `app-sidebar.tsx` (delete 4× indigo data-active overrides, amber badge, SidebarGroups, logo/user zones, feedback pill, collapse button), `sidebar-resize-handle.tsx` (cosmetic hover). Everything else untouched.
-- **Roadmap (v1.2): Phase split follows research Recommendation #4** — A) token foundation + `getActiveNavKey` extraction/tests → B) consumer restyle (nav items, then brand/user zones) → C) collapse & edge surfaces → D) contrast audit + live-browser UAT matrix. 5 phases (10-14), sequential numbering continues from v1.1's Phase 9.
-- **Roadmap (v1.2): Phase 0-style decisions deferred to Phase 10's UI-SPEC step** — logo treatment (wordmark vs. letter-mark, collapsed form), feedback destination (mailto vs. Arcpedia link), collapse target width, portal policy (light-over-light now largely moot). Not resolved at roadmap time by design.
-- **Roadmap (v1.2): Requirement count is 19, not 17** — PANE-01..04, NAV-01..04, BRND-01..04, COLR-01..03, QLTY-01..04. All 19 mapped 100%, no orphans.
-- **Roadmap (v1.2): Hard constraints preserved** — routes unchanged (Start, Companies, Key Personas, Reviews), drag-resize 200-400px + `sidebar_width` cookie, ⌘B + `sidebar_state` cookie, server-driven `pendingCount` badge gating.
-- [Phase 10]: Nav key is the ROUTE segment 'personas' (route /personas), never the label 'Key Personas' — enforced by grep gate (count 0) and the 11-case test assertions (QLTY-01, RESEARCH Pitfall 4).
-- [Phase 10]: Function-first task order (not TDD RED): next build type-checks test files, so a RED nav.test.ts would spuriously fail the parallel 10-01 build gate — both Wave-1 plans never expose a red tree.
-- [Phase 11-nav-items-restyle]: Resize-handle hover uses the GLOBAL foreground token at 10% opacity, not --sidebar-accent — the handle is a flex sibling of <Sidebar> outside the [data-sidebar="sidebar"] subtree, so scoped sidebar tokens resolve to their :root oklch fallbacks (near-white, invisible hover); only global tokens resolve there (QLTY-04). — SC #5 border-r half verified, not re-implemented — globals.css:100-103 companion rule confirmed in place (grep=1); sidebar.tsx:236 border-r carries no color class (grep=0); fence-clean gate asserts byte-identical (QLTY-04).
-- [Phase 12-branding-user-zones]: Followed the plan's structural UserDisplayFields interface in src/lib/user.ts — @clerk/types is not directly resolvable (verified) so the param is a local structural slice, matching companyFilters.ts precedent
-- [Phase 12-branding-user-zones]: Used SignOutButton redirectUrl="/sign-in" (primary sanctioned form) — the redirectUrl[=:].*sign-in gate = 1; no useClerk fallback needed
-- [Phase 12-branding-user-zones]: Kept standard multi-line JSX formatting for SidebarFooter (open/close tags on separate lines), making its grep count 3 (import + open + close) not the plan's expected 2 — plan arithmetic discrepancy, no acceptance criterion asserts it
-- [Phase 12-branding-user-zones]: Substituted --bail=1 for the plan's -x flag in vitest commands — Vitest 4 removed the -x alias (unknown option error); --bail=1 is the functional equivalent (stop on first failure)
-- [Phase 12-branding-user-zones]: PHASE_BASE_SHA resolved to d8795a11 (the commit immediately before 12-01 Task 1's first source commit 07d455d6), not the plan text's stale a79cd5ac reference — verified via git log; d8795a11 is the parent of the first Phase-12 source commit — Verified via git log: first Phase-12 source commit is 07d455d6 (feat 12-01), parent d8795a11; base-vs-HEAD range proves phase scope
-- [Phase 12-branding-user-zones]: Substituted --bail=1 for the plan's -x flag in vitest commands (Vitest 4 removed the -x alias — same substitution 12-01 documented); --bail=1 is the functional equivalent (stop on first failure) — Vitest 4.1.10 removed the -x alias; --bail=1 is the functional equivalent (stop on first failure)
-- [Phase 13]: Collapse button drives the ONE shared useSidebar().toggleSidebar state - same toggle as cmd-B and the topbar trigger; the sidebar_state cookie write stays inside the vendored setOpen, byte-identical (D-06) — One state machine shared by all three collapse entry points (button, cmd-B, topbar); zero new cookie/state code per COLR-02.
-- [Phase 13]: D-08 tooltip copy extracted to tested pure helpers (sidebar-collapse.ts) rather than inlined - drive-by wording edits can never silently break the 10-UI-SPEC Copywriting Contract — nav.ts/user.ts pure-function + Vitest lock precedent; the phase-family convention (RESEARCH Q2 extraction path).
-- [Phase 13]: Resize handle early return placed AFTER all hooks (3 refs + 3 callbacks) so hook count never varies between expanded/collapsed renders - no Rendered fewer hooks on toggle — D-04/D-05: the imperative width write can never run mid-collapse, keeping the cookie-threaded var at its last persisted value for automatic restore.
-- [Phase 13-collapse-resize-coexistence]: Phase 13 verified end-to-end: sweep + fence + diff-scope + full regression battery all green on 13-01's committed state — the verification-only Wave-2 plan required zero production changes (COLR-01..03 regression proof)
-- [Phase 13-collapse-resize-coexistence]: PHASE_BASE_SHA = 8b9d6e42 (docs(13) plan-approval commit, parent of first feat(13-01) 933c7f58) reused for all base-vs-HEAD ranges in 13-02
-- [Phase ?]: Extracted WCAG 2.2 math into src/lib/contrast.ts + Vitest lock (RESEARCH OQ3)
-- [Phase ?]: Task 2 auth gate resolved via persisted Playwright __session cookie (checkpoint alternative path) - no credentials handled
-- [Phase ?]: M3 drag-resize proven via browser_run_code_unsafe fallback driving the handle pointer path (plan-sanctioned)
-- [Phase ?]: Badge gating proven both branches via SHA-256-gated fixture insert/assert/delete with zero residue
+- **Roadmap (v1.3): Phase structure follows research SUMMARY "Implications for Roadmap"** — Phase 15 (A) Model Registry Foundation + Persistence (REG-01..05 + CAT-01..04) → Phase 16 (B) Failover Orchestration (FAL-01..05) → Phase 17 (C) Settings UI + List Source (SET-01..07) → Phase 18 (D) Verification Gate (VER-01..04). Sequential numbering continues from v1.2's Phase 14.
+- **Roadmap (v1.3): Locked design decisions (research resolved — do NOT re-litigate)** — raw provider model IDs stored (`claude-sonnet-4-6`, never `anthropic/...`); failover triggers on ANY retryable provider/model error (non-failover = validation/output/schema/auth-401-403); catalog = committed JSON snapshot from `opencode models` dev-time script (no DB table, no runtime opencode); chain = primary + 1 fallback (60s budget, ~35s/~20s per-attempt timeouts); `fallback_models` typed `text[]`; output/schema errors fail loud, no fallback.
+- **Roadmap (v1.3): Requirement count is 25, not 24** — SET-01..07 (7) + REG-01..05 (5) + CAT-01..04 (4) + FAL-01..05 (5) + VER-01..04 (4) = 25. All 25 mapped, no orphans, no phase with zero requirements.
+- **Roadmap (v1.3): Phase 15 carries the migration-apply-flow confirmation** — `drizzle/meta/_journal.json` has zero entries (MEDIUM research flag): confirm `drizzle-kit push` vs generate+commit before adding `user_model_settings`.
+- **Roadmap (v1.3): Pitfall-11 pre-flight note goes into the Phase 16 plan** — verify `generateText` model option, exported error classes, and `anthropic('id')` behavior against installed `ai@7.0.45`/`@ai-sdk/anthropic@4.0.26` dist types BEFORE writing the failover loop (v1.1-proven mitigation).
+- **Roadmap (v1.3): Allowlist curation is standing maintenance** — only `claude-sonnet-4-6` is roster-verified (2026-08-01); Phase 15 re-verifies any curated additions via `GET /v1/models`.
 
 ### Pending Todos
 
@@ -101,15 +68,15 @@ None yet.
 
 ### Blockers/Concerns
 
-- **Open UI-SPEC decisions (Phase 10 gate):** logo treatment (no ArcLumen logo asset exists — wordmark/letter-mark + collapsed form), feedback-pill destination (team inbox mailto / Arcpedia link), collapse target width, portal policy for the sidebar user menu. All gated into Phase 10's UI-SPEC step; do not re-litigate at roadmap level.
-- **Research risk is decision, not discovery** — the design language is fully specified from primary evidence (live dashboard.exa.ai CSS). `/gsd-ui-phase` should lock palette + portal decision before Phase 11 (consumer restyle).
-- **Contrast trap (research Pitfall 3):** Exa's own ~1.05:1 active pill fails WCAG 1.4.11 — do NOT copy that tradeoff for a daily-use internal tool. Phase 10 sets AA-compliant tokens (≥3:1 pill/ring, ≥4.5:1 text), Phase 14 audits.
-- **Regression blindness (research Pitfall 7):** zero component tests — `getActiveNavKey` extraction (QLTY-01) is the mandated regression lock for `/companies/[id]` highlighting; replicate the v1.1 Phase-5 live-browser UAT matrix in Phase 14.
-- Carried from v1.1: "any authenticated Clerk user = full access" model has no role system; acceptable per PROJECT.md scope, re-examine before any external/CRM access milestone.
+- **Migration apply flow (Phase 15 gate):** confirm `drizzle-kit push` vs generate+commit before touching schema.ts — `_journal.json` is empty (MEDIUM research flag).
+- **Allowlist curation:** only `claude-sonnet-4-6` currently roster-verified — Phase 15 must re-verify any curated additions before they appear in the pickers.
+- **60s ceiling is a hard wall:** chain budget (attempts × per-attempt timeout + SDK retry backoff ≤ 60s) must land in Phase 16 and be proven in Phase 18 — `maxDuration` stays at Hobby's 60, never raised.
+- **Settings-never-consumed risk (Pitfall 10):** the milestone's core acceptance test is change settings → Analyze → `agent_run.model_used` matches — must land as a Phase 18 UAT line, not assumed.
+- Carried from v1.1/v1.2: persona-side Arcpedia content gap (seed data); 3 VERIFICATION.md files still `human_needed`; "any authenticated Clerk user = staff" model has no role system (acceptable per PROJECT.md scope).
 
 ## Deferred Items
 
-Items acknowledged and deferred at v1.1 milestone close on 2026-08-01, still open:
+Items acknowledged and carried forward from v1.1/v1.2 milestone close, still open:
 
 | Category | Item | Status |
 |----------|------|--------|
@@ -117,17 +84,14 @@ Items acknowledged and deferred at v1.1 milestone close on 2026-08-01, still ope
 | uat_gap | 01-HUMAN-UAT.md | partial — 2 pending scenarios |
 | uat_gap | 02-HUMAN-UAT.md | partial — 4 pending scenarios |
 | uat_gap | 04-HUMAN-UAT.md | partial — 1 pending scenario (Persona-side Arcpedia content gap) |
-| verification_gap | 01-VERIFICATION.md | human_needed |
-| verification_gap | 02-VERIFICATION.md | human_needed |
-| verification_gap | 03-VERIFICATION.md | human_needed (03-HUMAN-UAT.md itself is status: complete — likely stale) |
-| verification_gap | 04-VERIFICATION.md | human_needed |
+| verification_gap | 01/02/03/04-VERIFICATION.md | human_needed |
 
 ## Session Continuity
 
-Last session: 2026-08-01T22:13:56.767Z
-Stopped at: Phase 14 execution complete
-Resume file: .planning/phases/14-contrast-audit-uat-matrix/14-02-SUMMARY.md
+Last session: 2026-08-02
+Stopped at: v1.3 roadmap created (Phases 15-18); v1.2 shipped and archived to `.planning/milestones/v1.2-*`
+Resume file: None (roadmap fresh; next action is planning)
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Plan Phase 15 with `/gsd-plan-phase 15` (Model Registry Foundation + Persistence — confirm the migration apply flow first)

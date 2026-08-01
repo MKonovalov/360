@@ -67,12 +67,32 @@ Requirements for v1.3 "AI Model Settings" — per-user AI model management (prim
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
+Which phases cover which requirements. Updated 2026-08-02 during v1.3 roadmap creation — all 25 requirements mapped, 100% coverage.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SET-01..07 | Phase TBD | Pending |
-| REG-01..05 | Phase TBD | Pending |
-| CAT-01..04 | Phase TBD | Pending |
-| FAL-01..05 | Phase TBD | Pending |
-| VER-01..04 | Phase TBD | Pending |
+| SET-01 | Phase 17 | Pending |
+| SET-02 | Phase 17 | Pending |
+| SET-03 | Phase 17 | Pending |
+| SET-04 | Phase 17 | Pending |
+| SET-05 | Phase 17 | Pending |
+| SET-06 | Phase 17 | Pending |
+| SET-07 | Phase 17 | Pending |
+| REG-01 | Phase 15 | Pending |
+| REG-02 | Phase 15 | Pending |
+| REG-03 | Phase 15 | Pending |
+| REG-04 | Phase 15 | Pending |
+| REG-05 | Phase 15 | Pending |
+| CAT-01 | Phase 15 | Pending |
+| CAT-02 | Phase 15 | Pending |
+| CAT-03 | Phase 15 | Pending |
+| CAT-04 | Phase 15 | Pending |
+| FAL-01 | Phase 16 | Pending |
+| FAL-02 | Phase 16 | Pending |
+| FAL-03 | Phase 16 | Pending |
+| FAL-04 | Phase 16 | Pending |
+| FAL-05 | Phase 16 | Pending |
+| VER-01 | Phase 18 | Pending |
+| VER-02 | Phase 18 | Pending |
+| VER-03 | Phase 18 | Pending |
+| VER-04 | Phase 18 | Pending |
