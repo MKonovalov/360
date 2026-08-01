@@ -30,9 +30,9 @@ Requirements for v1.2 "Exa-Style Left Panel". Each maps to roadmap phases (conti
 
 ### Collapse & Resize (COLR)
 
-- [ ] **COLR-01**: A collapse button (lucide `panel-left-close`, top-right) collapses the sidebar to an icon rail with a width animation (Exa behavior), labels fading while icons stay
-- [ ] **COLR-02**: Collapse coexists with the existing drag-to-resize — the 200–400px clamp, `sidebar_width` cookie persistence, and the `⌘B` toggle (`sidebar_state` cookie) all continue to work unchanged
-- [ ] **COLR-03**: Collapsed rail keeps nav legibility — ≥3:1 active pill, per-item tooltips (Reviews tooltip includes the pending count), and a collapsed form of the logo (letter-mark)
+- [x] **COLR-01**: A collapse button (lucide `panel-left-close`, top-right) collapses the sidebar to an icon rail with a width animation (Exa behavior), labels fading while icons stay
+- [x] **COLR-02**: Collapse coexists with the existing drag-to-resize — the 200–400px clamp, `sidebar_width` cookie persistence, and the `⌘B` toggle (`sidebar_state` cookie) all continue to work unchanged
+- [x] **COLR-03**: Collapsed rail keeps nav legibility — ≥3:1 active pill, per-item tooltips (Reviews tooltip includes the pending count), and a collapsed form of the logo (letter-mark)
 
 ### Quality & Regression (QLTY)
 
@@ -74,9 +74,9 @@ Requirements for v1.2 "Exa-Style Left Panel". Each maps to roadmap phases (conti
 | BRND-02 | Phase 12 | Complete |
 | BRND-03 | Phase 12 | Complete |
 | BRND-04 | Phase 12 | Complete |
-| COLR-01 | Phase 13 | Pending |
-| COLR-02 | Phase 13 | Pending |
-| COLR-03 | Phase 13 | Pending |
+| COLR-01 | Phase 13 | Complete |
+| COLR-02 | Phase 13 | Complete |
+| COLR-03 | Phase 13 | Complete |
 | QLTY-01 | Phase 10 | Complete |
 | QLTY-02 | Phase 10 | Complete |
 | QLTY-03 | Phase 14 | Pending |

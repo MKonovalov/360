@@ -126,7 +126,7 @@ Plans:
 **UI hint**: yes
 Plans:
 
-- [ ] 13-01-PLAN.md — Rail activation: collapsible="icon" + TooltipProvider mount + collapse button + letter-mark + tooltip props + resize-handle collapse-hide, with the D-08 copy helper extraction (COLR-01..03)
+- [x] 13-01-PLAN.md — Rail activation: collapsible="icon" + TooltipProvider mount + collapse button + letter-mark + tooltip props + resize-handle collapse-hide, with the D-08 copy helper extraction (COLR-01..03)
 - [ ] 13-02-PLAN.md — QLTY-04 sweep + 9-file fence gates + full regression battery (COLR-01..03, hard constraints)
 
 ### Phase 14: Contrast Audit & UAT Matrix
@@ -162,7 +162,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 10. Sidebar Token Foundation | v1.2 | 2/2 | Complete    | 2026-08-01 |
 | 11. Nav Items Restyle | v1.2 | 2/2 | Complete   | 2026-08-01 |
 | 12. Branding & User Zones | v1.2 | 2/2 | Complete   | 2026-08-01 |
-| 13. Collapse & Resize Coexistence | v1.2 | 0/TBD | Not started | - |
+| 13. Collapse & Resize Coexistence | v1.2 | 1/2 | In Progress|  |
 | 14. Contrast Audit & UAT Matrix | v1.2 | 0/TBD | Not started | - |
 
 ---
