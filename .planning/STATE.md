@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Exa-Style Left Panel
 status: executing
-last_updated: "2026-08-01T18:12:00.000Z"
-last_activity: 2026-08-01 -- Phase 11 execution complete
+last_updated: "2026-08-01T19:40:00.000Z"
+last_activity: 2026-08-01 -- Phase 12 plans approved (2 plans, verified)
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 4
+  total_plans: 6
   completed_plans: 4
   percent: 40
 ---
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-01)
 Phase: 12
 Plan: Not started
 Status: Ready to execute
-Last activity: 2026-08-01 -- Phase 11 execution complete
+Last activity: 2026-08-01 -- Phase 12 plans approved (2 plans, verified)
 
 Progress: [██████████] 100%
 
@@ -106,10 +106,10 @@ Items acknowledged and deferred at v1.1 milestone close on 2026-08-01, still ope
 
 ## Session Continuity
 
-Last session: 2026-08-01T16:08:41.063Z
-Stopped at: Completed 11-02-PLAN.md
-Resume file: None
+Last session: 2026-08-01T17:41:24.455Z
+Stopped at: Phase 12 plans approved (2 plans, verified)
+Resume file: .planning/phases/12-branding-user-zones/12-01-PLAN.md
 
 ## Operator Next Steps
 
-- Phase 11 (nav items restyle) executed and verified 2026-08-01 (commits cd6f839c..08808037): Explore/Manage groups, Exa row anatomy, tokenized gray active state via `getActiveNavKey`, mono accent-chip badge + collapsed dot, indigo/amber sweep clean, full regression battery green. Run `/gsd-plan-phase 12` — Phase 12 (Branding & User Zones) covers the top logo/wordmark + org-label zone and the bottom Clerk-identity + feedback pill user zone, consuming the Phase 10 tokens and the UI-SPEC decisions (logo treatment, feedback destination, collapse target width, portal policy) already locked in Phase 10's UI-SPEC step.
+- Phase 12 (Branding & User Zones) planned and verified 2026-08-01 (commits 3b70ba46..1cd38807): RESEARCH + UI-SPEC + VALIDATION + PATTERNS + 2 PLANs approved (12-01 Wave 1 implementation, 12-02 Wave 2 sweep/regression). Plan-checker passed after one revision loop (2 blockers + 4 warnings fixed; advisory doc-drift items aligned). Run `/gsd-execute-phase 12` — the phase adds the top wordmark/org-label zone and bottom feedback-pill + Clerk user zone to app-sidebar.tsx, consuming Phase 10's tokens and the locked D1-D4/Q1-Q6 decisions.
