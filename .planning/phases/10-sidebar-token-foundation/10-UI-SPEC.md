@@ -204,11 +204,11 @@ No `npx shadcn add` runs this phase. The phase's entire CSS footprint is the tok
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS (FLAG — 5 sizes vs 4 limit; consolidate or reframe derived tiers as documented exceptions)
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved 2026-08-01 (gsd-ui-checker — all pairs independently contrast-verified; roadmap NAV-03/Phase-11 `rgba(0,0,0,0.04)` wording superseded by `--sidebar-accent` per divergence table)
