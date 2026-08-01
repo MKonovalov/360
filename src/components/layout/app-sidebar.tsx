@@ -86,9 +86,19 @@ export function AppSidebar({ pendingCount = 0 }: { pendingCount?: number }) {
                 </Link>
               </SidebarMenuButton>
               {pendingCount > 0 && (
-                <SidebarMenuBadge className="bg-amber-100 text-amber-800">
-                  {pendingCount} pending
-                </SidebarMenuBadge>
+                <>
+                  <SidebarMenuBadge
+                    role="status"
+                    aria-label={`${pendingCount} pending reviews`}
+                    className="bg-sidebar-accent text-sidebar-accent-foreground font-mono text-[10px] font-semibold"
+                  >
+                    {pendingCount} pending
+                  </SidebarMenuBadge>
+                  <span
+                    aria-hidden="true"
+                    className="absolute right-1.5 top-1/2 hidden h-2 w-2 -translate-y-1/2 rounded-full bg-sidebar-accent group-data-[collapsible=icon]:block"
+                  />
+                </>
               )}
             </SidebarMenuItem>
           </SidebarMenu>
