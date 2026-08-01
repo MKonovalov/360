@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Exa-Style Left Panel
-status: executing
-last_updated: "2026-08-01T19:30:20.236Z"
+status: verifying
+last_updated: "2026-08-01T19:38:58.051Z"
 last_activity: 2026-08-01
 progress:
   total_phases: 5
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 8
-  completed_plans: 7
-  percent: 60
+  completed_plans: 8
+  percent: 80
 ---
 
 # Project State
@@ -26,10 +26,10 @@ See: .planning/PROJECT.md (updated 2026-08-01)
 
 Phase: 13
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-01
 
-Progress: [█████████░] 88%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Progress: [█████████░] 88%
 | Phase 12-branding-user-zones P01 | 5 min | 3 tasks | 3 files |
 | Phase 12-branding-user-zones P02 | 2min | 2 tasks | 0 files |
 | Phase 13-collapse-resize-coexistence P01 | 5 min | 3 tasks | 4 files |
+| Phase 13-collapse-resize-coexistence P02 | 2min | 2 tasks | 0 files |
 
 ## Accumulated Context
 
@@ -88,6 +89,8 @@ Recent decisions affecting current work:
 - [Phase 13]: Collapse button drives the ONE shared useSidebar().toggleSidebar state - same toggle as cmd-B and the topbar trigger; the sidebar_state cookie write stays inside the vendored setOpen, byte-identical (D-06) — One state machine shared by all three collapse entry points (button, cmd-B, topbar); zero new cookie/state code per COLR-02.
 - [Phase 13]: D-08 tooltip copy extracted to tested pure helpers (sidebar-collapse.ts) rather than inlined - drive-by wording edits can never silently break the 10-UI-SPEC Copywriting Contract — nav.ts/user.ts pure-function + Vitest lock precedent; the phase-family convention (RESEARCH Q2 extraction path).
 - [Phase 13]: Resize handle early return placed AFTER all hooks (3 refs + 3 callbacks) so hook count never varies between expanded/collapsed renders - no Rendered fewer hooks on toggle — D-04/D-05: the imperative width write can never run mid-collapse, keeping the cookie-threaded var at its last persisted value for automatic restore.
+- [Phase 13-collapse-resize-coexistence]: Phase 13 verified end-to-end: sweep + fence + diff-scope + full regression battery all green on 13-01's committed state — the verification-only Wave-2 plan required zero production changes (COLR-01..03 regression proof)
+- [Phase 13-collapse-resize-coexistence]: PHASE_BASE_SHA = 8b9d6e42 (docs(13) plan-approval commit, parent of first feat(13-01) 933c7f58) reused for all base-vs-HEAD ranges in 13-02
 
 ### Pending Todos
 
@@ -118,8 +121,8 @@ Items acknowledged and deferred at v1.1 milestone close on 2026-08-01, still ope
 
 ## Session Continuity
 
-Last session: 2026-08-01T19:29:57.136Z
-Stopped at: Completed 13-01-PLAN.md
+Last session: 2026-08-01T19:38:58.045Z
+Stopped at: Completed 13-02-PLAN.md
 Resume file: None
 
 ## Operator Next Steps

@@ -46,7 +46,7 @@ Full details: [`.planning/milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.m
 - [x] **Phase 10: Sidebar Token Foundation** - One scoped light-theme `--sidebar-*` token block on `[data-sidebar="sidebar"]` in globals.css (zero new packages, zero vendored-primitive edits, `@theme inline` untouched), an AA-compliant complete token set, and `getActiveNavKey` extraction with unit tests; UI-SPEC step locks the Phase 0-style decisions (logo treatment, feedback destination, collapse target width, portal policy) (completed 2026-08-01)
 - [x] **Phase 11: Nav Items Restyle** - The 4 existing routes regrouped into intent-labeled Explore/Manage sections with Exa item anatomy (30px rows, 16px monochrome lucide icons), subtle gray active fill replacing v1.1's indigo treatment, mono-chip pending badge with collapsed-rail dot, and the indigo/amber hardcoded-utility sweep (completed 2026-08-01)
 - [x] **Phase 12: Branding & User Zones** - Top logo/wordmark + org-label zone and bottom Clerk-identity + "Give us feedback" pill user zone, both styled with sidebar tokens only so they follow the panel theme in every state (completed 2026-08-01)
-- [ ] **Phase 13: Collapse & Resize Coexistence** - Exa collapse button (`panel-left-close`, animated icon-rail collapse with labels fading) joining the preserved drag-resize contract (200-400px clamp, `sidebar_width` cookie, ⌘B `sidebar_state` cookie), with a legible collapsed rail (per-item tooltips, letter-mark logo, ≥3:1 active pill)
+- [x] **Phase 13: Collapse & Resize Coexistence** - Exa collapse button (`panel-left-close`, animated icon-rail collapse with labels fading) joining the preserved drag-resize contract (200-400px clamp, `sidebar_width` cookie, ⌘B `sidebar_state` cookie), with a legible collapsed rail (per-item tooltips, letter-mark logo, ≥3:1 active pill) (completed 2026-08-01)
 - [ ] **Phase 14: Contrast Audit & UAT Matrix** - Live-browser UAT matrix (expanded/collapsed/mobile × 4 routes × active/inactive state pairs) with screenshots, WCAG AA contrast audit of the shipped token set, and Exa-reference divergence review
 
 ### Phase 10: Sidebar Token Foundation
@@ -127,7 +127,7 @@ Plans:
 Plans:
 
 - [x] 13-01-PLAN.md — Rail activation: collapsible="icon" + TooltipProvider mount + collapse button + letter-mark + tooltip props + resize-handle collapse-hide, with the D-08 copy helper extraction (COLR-01..03)
-- [ ] 13-02-PLAN.md — QLTY-04 sweep + 9-file fence gates + full regression battery (COLR-01..03, hard constraints)
+- [x] 13-02-PLAN.md — QLTY-04 sweep + 9-file fence gates + full regression battery (COLR-01..03, hard constraints)
 
 ### Phase 14: Contrast Audit & UAT Matrix
 
@@ -162,7 +162,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 10. Sidebar Token Foundation | v1.2 | 2/2 | Complete    | 2026-08-01 |
 | 11. Nav Items Restyle | v1.2 | 2/2 | Complete   | 2026-08-01 |
 | 12. Branding & User Zones | v1.2 | 2/2 | Complete   | 2026-08-01 |
-| 13. Collapse & Resize Coexistence | v1.2 | 1/2 | In Progress|  |
+| 13. Collapse & Resize Coexistence | v1.2 | 2/2 | Complete   | 2026-08-01 |
 | 14. Contrast Audit & UAT Matrix | v1.2 | 0/TBD | Not started | - |
 
 ---
