@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { SidebarProvider, SidebarTrigger, SidebarInset } from '@/components/ui/sidebar';
+import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/app-sidebar';
 import { SidebarResizeHandle } from '@/components/layout/sidebar-resize-handle';
 import { countPendingProposals } from '@/lib/db/queries/proposals';
@@ -36,7 +36,6 @@ export async function AppShellLayout({ children }: { children: React.ReactNode }
       <AppSidebar pendingCount={pendingCount} />
       <SidebarResizeHandle />
       <SidebarInset>
-        <SidebarTrigger />
         {children}
       </SidebarInset>
     </SidebarProvider>
