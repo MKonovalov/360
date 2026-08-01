@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Start Page + Import + Analytic Agent
-status: executing
-last_updated: "2026-07-31T21:43:50.134Z"
-last_activity: 2026-07-31
+status: verifying
+last_updated: "2026-08-01T09:10:44.517Z"
+last_activity: 2026-08-01
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 27
-  completed_plans: 26
-  percent: 80
+  completed_plans: 27
+  percent: 100
 ---
 
 # Project State
@@ -26,10 +26,10 @@ See: .planning/PROJECT.md (updated 2026-07-24)
 
 Phase: 09 (analytic-agent-observability) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
-Last activity: 2026-07-31
+Status: Phase complete — ready for verification
+Last activity: 2026-08-01
 
-Progress: [██████████] 96%
+Progress: [██████████] 100%
 
 > Phase 8 closed (2026-07-31): 6/6 plans implemented. Live UAT passed in isolated
 > QA for both providers — Apollo companies (review/commit/provenance/idempotency)
@@ -76,6 +76,7 @@ Progress: [██████████] 96%
 *Updated after each plan completion*
 | Phase 09 P1 | 80m | 4 tasks | 16 files |
 | Phase 09-analytic-agent-observability P02 | 11min | 3 tasks | 8 files |
+| Phase 09-analytic-agent-observability P03 | 10h16m | 3 tasks | 18 files |
 
 ## Quick Tasks Completed
 
@@ -97,6 +98,10 @@ Recent decisions affecting current work:
 - Roadmap: Analytic Agent + Langfuse Observability (Phase 9) sequenced last and combined into one phase — OBSV requirements are structurally dependent on ANLZ (tracing an agent run, capturing a correction reason on reject/edit of a proposal), not separable; this phase carries the milestone's highest risk (first Route Handler, first AI/tool-calling dependency, first agent-write-path).
 - [Phase 09-analytic-agent-observability]: acceptProposal: no db.transaction() (neon-http has none) — status-guarded conditional update is primary exactly-once guard; unique index is 23505 race backstop
 - [Phase 09-analytic-agent-observability]: rejectProposal: correction row is durable truth; Langfuse annotation is fire-and-forget mirror (never fails the reject)
+- [Phase 09-analytic-agent-observability]: Menu Analyze trigger: window CustomEvent bridge (ANALYZE_START_EVENT) between sibling client components instead of inline fetch — strip lives elsewhere in the page tree; results surface via strip + /reviews
+- [Phase 09-analytic-agent-observability]: First Route Handler pattern: Next 16 async params, export const maxDuration=60, requireStaffAccess() single gate FIRST, two separate try/catch domains (AI vs DB) with distinct fail-loud 422/503/502 bodies
+- [Phase 09-analytic-agent-observability]: runAgent FAST_MODEL_ID updated to claude-sonnet-4-6 (dated 20250514 ID 404s from live Anthropic roster)
+- [Phase 09-analytic-agent-observability]: checkCitationsResolve normalizes URLs (scheme/query/fragment/case/trailing slash) and allows citation to EXTEND fetched URL at path-segment boundary; citing a parent still forbidden
 
 ### Pending Todos
 
@@ -126,8 +131,8 @@ Items acknowledged and deferred at v1.0 milestone close on 2026-07-24, still ope
 
 ## Session Continuity
 
-Last session: 2026-07-31T21:42:51.807Z
-Stopped at: Phase 9 plans approved (checker PASSED, 0 blockers)
+Last session: 2026-08-01T09:10:44.510Z
+Stopped at: Completed 09-03-PLAN.md
 Resume file: None
 
 ## Operator Next Steps

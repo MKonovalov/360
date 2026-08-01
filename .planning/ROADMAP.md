@@ -29,7 +29,7 @@ Full details: [`.planning/milestones/v1.0-ROADMAP.md`](milestones/v1.0-ROADMAP.m
 - [x] **Phase 6: Shared Menu Component + Start Page** - One-time dropdown-menu investment reused by Import and Analyze; new dashboard landing page with stats, recent signals, recently-viewed, and needs-attention (completed 2026-07-30)
 - [x] **Phase 7: CSV Import** - Menu → Import CSV upload wizard for Companies/Personas with column/enum mapping, partial-commit validation, dedup, template download, and import history/rollback (completed 2026-07-31)
 - [x] **Phase 8: Enrichment API** - Menu → Import-adjacent commercial enrichment (Apollo.io companies / Prospeo personas) with auto-fill-empty-only merge policy, field-level provenance, and merge-conflict review
-- [ ] **Phase 9: Analytic Agent + Observability** - Menu → Analyze web-search signal-detection agent with a human-reviewed proposal queue, plus full Langfuse tracing and correction-reason capture
+- [x] **Phase 9: Analytic Agent + Observability** - Menu → Analyze web-search signal-detection agent with a human-reviewed proposal queue, plus full Langfuse tracing and correction-reason capture (completed 2026-08-01)
 
 ## Phase Details
 
@@ -177,7 +177,7 @@ Plans:
 - [x] 09-02-PLAN.md — Service + persistence: analyzeCompany orchestration (gate fail-closed + pre/post dedup) + runs/proposals/corrections queries (idempotent guarded Accept, correction capture)
 
 **Wave 3** *(blocked on Wave 2)*
-- [ ] 09-03-PLAN.md — Delivery: first Route Handler POST /api/companies/[id]/analyze + reviews server actions + /reviews review queue UI + Analyze wiring + pending badge + sidebar entry
+- [x] 09-03-PLAN.md — Delivery: first Route Handler POST /api/companies/[id]/analyze + reviews server actions + /reviews review queue UI + Analyze wiring + pending badge + sidebar entry
 
 **Research flag**: RESOLVED at plan time — Vercel Hobby `maxDuration` ceiling confirmed = 60s (D-07, user-confirmed). Route Handler calls `generateText` synchronously (no background-job/poll pattern needed; stays within the "no background workers/queues" constraint).
 
@@ -196,7 +196,7 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9
 | 6. Shared Menu Component + Start Page | v1.1 | 4/4 | Complete    | 2026-07-30 |
 | 7. CSV Import | v1.1 | 11/11 | Complete | 2026-07-31 |
 | 8. Enrichment API | v1.1 | 6/6 | Complete | 2026-07-31 |
-| 9. Analytic Agent + Observability | v1.1 | 2/3 | In Progress|  |
+| 9. Analytic Agent + Observability | v1.1 | 3/3 | Complete   | 2026-08-01 |
 
 ---
 
