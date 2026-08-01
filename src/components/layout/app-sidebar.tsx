@@ -2,8 +2,18 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useUser, SignOutButton } from '@clerk/nextjs';
 import { Building2, Inbox, LayoutDashboard, Mail, Users } from 'lucide-react';
 import { getActiveNavKey } from '@/lib/nav';
+import { getUserDisplayName, getUserInitials } from '@/lib/user';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Sidebar,
   SidebarContent,
@@ -34,6 +44,13 @@ const FEEDBACK_MAILTO = 'mailto:hello@arclumenpartners.com?subject=360%20sidebar
 export function AppSidebar({ pendingCount = 0 }: { pendingCount?: number }) {
   const pathname = usePathname();
   const activeKey = getActiveNavKey(pathname);
+
+  // The identity hook returns a three-branch discriminated union: before
+  // isLoaded the server frame and first hydrate tick must render the identical
+  // empty user zone (no hydration mismatch, no blank flash). The route is
+  // server-gated by requireStaffAccess so isSignedIn is true after load, but
+  // the guards are still mandatory for TS narrowing.
+  const { isLoaded, isSignedIn, user } = useUser();
 
   return (
     <Sidebar>
@@ -136,6 +153,48 @@ export function AppSidebar({ pendingCount = 0 }: { pendingCount?: number }) {
           </SidebarMenuItem>
         </SidebarMenu>
         <SidebarSeparator />
+        {isLoaded && isSignedIn && user && (
+          <SidebarMenu>
+            <SidebarMenuItem>
+              {/* The dropdown content portals to document.body, outside the
+                  sidebar subtree, so scoped sidebar tokens do not resolve
+                  there — the menu intentionally uses global popover tokens
+                  (D4: correct by design, not a token leak). */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <SidebarMenuButton
+                    size="lg"
+                    aria-label={getUserDisplayName(user)}
+                    className="gap-2.5 group-data-[collapsible=icon]:justify-center"
+                  >
+                    {user.hasImage ? (
+                      <img src={user.imageUrl} alt="" className="size-6 rounded-full" />
+                    ) : (
+                      <span className="flex size-6 items-center justify-center rounded-full bg-sidebar-primary text-sidebar-primary-foreground text-[10px] font-semibold">
+                        {getUserInitials(user)}
+                      </span>
+                    )}
+                    <span className="group-data-[collapsible=icon]:hidden text-[15px] font-normal text-sidebar-foreground">
+                      {getUserDisplayName(user)}
+                    </span>
+                  </SidebarMenuButton>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="top" align="start" className="w-56">
+                  <DropdownMenuLabel className="flex flex-col gap-0.5">
+                    <span className="text-[15px] font-semibold">{getUserDisplayName(user)}</span>
+                    <span className="text-xs font-normal text-muted-foreground">
+                      Signed in as {user.primaryEmailAddress?.emailAddress}
+                    </span>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <SignOutButton redirectUrl="/sign-in">Sign out</SignOutButton>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        )}
       </SidebarFooter>
     </Sidebar>
   );
