@@ -108,7 +108,7 @@ Plans:
 **UI hint**: yes
 Plans:
 
-- [ ] 12-01-PLAN.md — Branding zone (SidebarHeader wordmark + org label, Q4 fade) + user zone (SidebarFooter: feedback pill + divider + useUser identity + sign-out dropdown) + src/lib/user.ts pure functions with tests (BRND-01..04)
+- [x] 12-01-PLAN.md — Branding zone (SidebarHeader wordmark + org label, Q4 fade) + user zone (SidebarFooter: feedback pill + divider + useUser identity + sign-out dropdown) + src/lib/user.ts pure functions with tests (BRND-01..04)
 - [ ] 12-02-PLAN.md — QLTY-04 sweep + fence gates + full regression battery (BRND-01..04, hard constraints)
 
 ### Phase 13: Collapse & Resize Coexistence
@@ -157,7 +157,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 9. Analytic Agent + Observability | v1.1 | 3/3 | Complete | 2026-08-01 |
 | 10. Sidebar Token Foundation | v1.2 | 2/2 | Complete    | 2026-08-01 |
 | 11. Nav Items Restyle | v1.2 | 2/2 | Complete   | 2026-08-01 |
-| 12. Branding & User Zones | v1.2 | 0/TBD | Not started | - |
+| 12. Branding & User Zones | v1.2 | 1/2 | In Progress|  |
 | 13. Collapse & Resize Coexistence | v1.2 | 0/TBD | Not started | - |
 | 14. Contrast Audit & UAT Matrix | v1.2 | 0/TBD | Not started | - |
 

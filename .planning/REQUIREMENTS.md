@@ -23,10 +23,10 @@ Requirements for v1.2 "Exa-Style Left Panel". Each maps to roadmap phases (conti
 
 ### Branding & User Zones (BRND)
 
-- [ ] **BRND-01**: A top branding zone shows a logo/wordmark for ArcLumen 360 (decision: wordmark vs. text treatment — no logo asset exists today) plus an org/team label
-- [ ] **BRND-02**: A bottom user zone shows the signed-in user's identity from the Clerk session (`useUser()`: avatar/initials + username), replacing the missing bottom chrome of v1.1
-- [ ] **BRND-03**: A full-width "Give us feedback" pill sits above the user zone, routed to a decided destination (team inbox mailto / Arcpedia link)
-- [ ] **BRND-04**: Branding and user zones use sidebar tokens only (`text-sidebar-foreground`, `bg-sidebar`, `hover:bg-sidebar-accent`, `border-sidebar-border`) so they follow the panel theme
+- [x] **BRND-01**: A top branding zone shows a logo/wordmark for ArcLumen 360 (decision: wordmark vs. text treatment — no logo asset exists today) plus an org/team label
+- [x] **BRND-02**: A bottom user zone shows the signed-in user's identity from the Clerk session (`useUser()`: avatar/initials + username), replacing the missing bottom chrome of v1.1
+- [x] **BRND-03**: A full-width "Give us feedback" pill sits above the user zone, routed to a decided destination (team inbox mailto / Arcpedia link)
+- [x] **BRND-04**: Branding and user zones use sidebar tokens only (`text-sidebar-foreground`, `bg-sidebar`, `hover:bg-sidebar-accent`, `border-sidebar-border`) so they follow the panel theme
 
 ### Collapse & Resize (COLR)
 
@@ -70,10 +70,10 @@ Requirements for v1.2 "Exa-Style Left Panel". Each maps to roadmap phases (conti
 | NAV-02 | Phase 11 | Pending |
 | NAV-03 | Phase 11 | Pending |
 | NAV-04 | Phase 11 | Pending |
-| BRND-01 | Phase 12 | Pending |
-| BRND-02 | Phase 12 | Pending |
-| BRND-03 | Phase 12 | Pending |
-| BRND-04 | Phase 12 | Pending |
+| BRND-01 | Phase 12 | Complete |
+| BRND-02 | Phase 12 | Complete |
+| BRND-03 | Phase 12 | Complete |
+| BRND-04 | Phase 12 | Complete |
 | COLR-01 | Phase 13 | Pending |
 | COLR-02 | Phase 13 | Pending |
 | COLR-03 | Phase 13 | Pending |
