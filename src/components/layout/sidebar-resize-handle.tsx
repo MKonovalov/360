@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useRef } from 'react';
+import { useSidebar } from '@/components/ui/sidebar';
 
 const MIN_WIDTH = 200;
 const MAX_WIDTH = 400;
@@ -17,6 +18,7 @@ export function SidebarResizeHandle() {
   const startXRef = useRef(0);
   const startWidthRef = useRef(0);
   const wrapperRef = useRef<HTMLElement | null>(null);
+  const { state } = useSidebar();
 
   const handlePointerMove = useCallback((event: PointerEvent) => {
     const delta = event.clientX - startXRef.current;
@@ -68,6 +70,14 @@ export function SidebarResizeHandle() {
     },
     [handlePointerMove, handlePointerUp]
   );
+
+  // The 48px rail is fixed-width with no resize affordance, so the handle
+  // must not render — and crucially its imperative width write must never run
+  // mid-collapse, because the cookie-threaded width variable must stay at its
+  // last persisted value for the automatic restore on expand (D-04 / D-05).
+  // Placed after every hook (the callbacks are hooks too) so the hook count
+  // never varies between expanded and collapsed renders.
+  if (state === 'collapsed') return null;
 
   return (
     // A plain flex-item sibling (not absolutely positioned) — the
