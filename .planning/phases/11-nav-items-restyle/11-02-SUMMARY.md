@@ -69,7 +69,7 @@ Each task was committed atomically:
 1. **Task 1: Replace the resize handle's indigo hover with a token-derived hover + verify the border-r companion rule in place (QLTY-04)** - `b2a86afc` (style)
 2. **Task 2: Full QLTY-04 sweep gates + phase regression battery (npm test, npm run build, diff fence)** - *no commit* — verification-only task; the plan explicitly mandates zero production changes, so there was nothing to stage (an empty commit would violate repo hygiene). Evidence is captured in this SUMMARY.
 
-**Plan metadata:** pending (docs commit follows this SUMMARY)
+**Plan metadata:** `98aa0c86` (docs: complete plan — includes SUMMARY, STATE.md, ROADMAP.md, REQUIREMENTS.md)
 
 ## Files Created/Modified
 
