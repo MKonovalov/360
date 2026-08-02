@@ -10,6 +10,9 @@ const mocks = vi.hoisted(() => ({
   env: {
     ANTHROPIC_API_KEY: 'test-key' as string | undefined,
     FIRECRAWL_API_KEY: 'test-key' as string | undefined,
+    // Phase 20 (FAL-04): the chain-aware gate reads it — without it, every test
+    // whose chain resolves to an openrouter id fails at the new gate.
+    OPENROUTER_API_KEY: 'test-key' as string | undefined,
   },
   getCompanyById: vi.fn(),
   listSignalsForCompany: vi.fn(),
@@ -35,7 +38,10 @@ vi.mock('@/lib/db/queries/signals', () => ({
 vi.mock('@/lib/db/queries/userModelSettings', () => ({
   getModelSettingsForUser: mocks.getModelSettingsForUser,
 }));
-vi.mock('./runAgent', () => ({ runAgent: mocks.runAgent }));
+vi.mock('./runAgent', async () => ({
+  ...(await vi.importActual('./runAgent')), // real isOpenRouterPlatformRateLimit — split tests exercise real behavior
+  runAgent: mocks.runAgent, // override LAST — keeps the mock seam (later object-literal property wins; spread-first order is REQUIRED or the real runAgent clobbers the mock → live generateText, D-16 breach)
+}));
 vi.mock('./modelFactory', () => ({ instantiateChain: mocks.instantiateChain }));
 vi.mock('@/lib/validation/validateReport', () => ({
   validateRunArtifacts: mocks.validateRunArtifacts,
@@ -201,8 +207,9 @@ describe('analyzeCompany (09-01-03)', () => {
     expect(mocks.validateRunArtifacts).not.toHaveBeenCalled();
   });
 
-  it('returns not_configured when provider keys are unset, without calling the agent', async () => {
-    mocks.env.ANTHROPIC_API_KEY = undefined;
+  it('returns not_configured when the FIRECRAWL key is unset, without calling the agent (D-20-03)', async () => {
+    // Fast gate is FIRECRAWL-only now — clearing ANTHROPIC would flow to the
+    // chain-aware named-key path instead (covered by its own test below).
     mocks.env.FIRECRAWL_API_KEY = undefined;
 
     const result = await analyzeCompany(1, 'user_test');
@@ -211,7 +218,6 @@ describe('analyzeCompany (09-01-03)', () => {
     expect(mocks.runAgent).not.toHaveBeenCalled();
     // Restore — vi.clearAllMocks clears call history but not directly-assigned
     // property values; without this, every later test hits the env gate.
-    mocks.env.ANTHROPIC_API_KEY = 'test-key';
     mocks.env.FIRECRAWL_API_KEY = 'test-key';
   });
 
@@ -266,7 +272,7 @@ describe('analyzeCompany (09-01-03)', () => {
 
     const result = await analyzeCompany(1, 'user_test');
 
-    expect(result).toEqual({ ok: false, reason: 'rate_limited' });
+    expect(result).toEqual({ ok: false, reason: 'rate_limited', message: 'upstream provider rate limit' });
     expect(mocks.validateRunArtifacts).not.toHaveBeenCalled();
   });
 
@@ -291,6 +297,113 @@ describe('analyzeCompany (09-01-03)', () => {
     expect(result.usedFallback).toBe(false);
     // The resolved snapshot at entry — doubles as the model_chain the route persists.
     expect(result.modelChain).toEqual(['claude-sonnet-4-6']);
+  });
+
+  it('returns not_configured naming the missing ANTHROPIC key on the default anthropic chain (D-20-01)', async () => {
+    // Default settings → resolveModelChain → [FAST_MODEL_ID] = anthropic-only.
+    // This is the case the old blanket fast gate silently mis-served (D-20-01).
+    mocks.env.ANTHROPIC_API_KEY = undefined;
+
+    const result = await analyzeCompany(1, 'user_test');
+
+    expect(result).toEqual({ ok: false, reason: 'not_configured', missingKey: 'ANTHROPIC_API_KEY' });
+    expect(mocks.runAgent).not.toHaveBeenCalled();
+    // Restore — vi.clearAllMocks clears call history but not directly-assigned property values.
+    mocks.env.ANTHROPIC_API_KEY = 'test-key';
+  });
+
+  it('returns not_configured naming the missing OPENROUTER key for a mixed chain (D-20-01/02)', async () => {
+    // Real snapshot ids: claude-sonnet-4-6 (anthropic) + anthropic/claude-sonnet-4.6
+    // (openrouter) — real resolveModelChain + real getProviderForModelId resolve both.
+    mocks.getModelSettingsForUser.mockResolvedValue({
+      primaryModel: 'claude-sonnet-4-6',
+      fallbackModels: ['anthropic/claude-sonnet-4.6'],
+    });
+    mocks.env.OPENROUTER_API_KEY = undefined;
+
+    const result = await analyzeCompany(1, 'user_test');
+
+    expect(result).toEqual({ ok: false, reason: 'not_configured', missingKey: 'OPENROUTER_API_KEY' });
+    expect(mocks.runAgent).not.toHaveBeenCalled();
+    mocks.env.OPENROUTER_API_KEY = 'test-key'; // restore
+  });
+
+  it('runs an openrouter-only chain with only the OPENROUTER key — ANTHROPIC not blanket-required (D-20-03/Phase 22 UAT)', async () => {
+    mocks.getModelSettingsForUser.mockResolvedValue({
+      primaryModel: 'anthropic/claude-sonnet-4.6',
+      fallbackModels: [],
+    });
+    mocks.env.ANTHROPIC_API_KEY = undefined;
+
+    const result = await analyzeCompany(1, 'user_test');
+
+    // openrouter-only provider set — missingProviderKey skips ANTHROPIC.
+    expect(result.ok).toBe(true);
+    expect(mocks.instantiateChain).toHaveBeenCalledWith(['anthropic/claude-sonnet-4.6']);
+    mocks.env.ANTHROPIC_API_KEY = 'test-key'; // restore
+  });
+
+  it('runs a mixed chain end-to-end when both provider keys are set (FAL-04)', async () => {
+    mocks.getModelSettingsForUser.mockResolvedValue({
+      primaryModel: 'claude-sonnet-4-6',
+      fallbackModels: ['anthropic/claude-sonnet-4.6'],
+    });
+    mocks.instantiateChain.mockReturnValue([
+      { provider: 'anthropic', modelId: 'claude-sonnet-4-6' },
+      { provider: 'openrouter', modelId: 'anthropic/claude-sonnet-4.6' },
+    ]);
+
+    const result = await analyzeCompany(1, 'user_test');
+
+    expect(result.ok).toBe(true);
+    // The resolved cross-provider chain maps through the factory.
+    expect(mocks.instantiateChain).toHaveBeenCalledWith(['claude-sonnet-4-6', 'anthropic/claude-sonnet-4.6']);
+  });
+
+  it('maps a 402 throw to the distinct billing reason (FAL-02/D-20-10)', async () => {
+    mocks.runAgent.mockRejectedValue(
+      new APICallError({ message: 'credits exhausted', url: 'u', requestBodyValues: {}, statusCode: 402 }),
+    );
+
+    const result = await analyzeCompany(1, 'user_test');
+
+    expect(result).toEqual({ ok: false, reason: 'billing', message: 'provider credits exhausted' });
+    expect(mocks.validateRunArtifacts).not.toHaveBeenCalled();
+  });
+
+  it('maps a 429 throw to rate_limited with the platform reason from response headers (D-20-07/10)', async () => {
+    mocks.runAgent.mockRejectedValue(
+      new APICallError({
+        message: 'rate limited',
+        url: 'u',
+        requestBodyValues: {},
+        statusCode: 429,
+        responseHeaders: { 'x-ratelimit-limit': '20' },
+      }),
+    );
+
+    const result = await analyzeCompany(1, 'user_test');
+
+    // X-RateLimit-* headers = platform-level; exercises the REAL diagnostics
+    // helper through the analyzeCompany catch via the importActual spread.
+    expect(result).toEqual({ ok: false, reason: 'rate_limited', message: 'openrouter platform rate limit' });
+  });
+
+  it('maps a 429 throw to rate_limited with the upstream reason from the error envelope (D-20-07/10)', async () => {
+    mocks.runAgent.mockRejectedValue(
+      new APICallError({
+        message: 'rate limited',
+        url: 'u',
+        requestBodyValues: {},
+        statusCode: 429,
+        data: { error: { metadata: { error_type: 'rate_limit_exceeded', provider_code: 'anthropic' } } },
+      }),
+    );
+
+    const result = await analyzeCompany(1, 'user_test');
+
+    // metadata.provider_code = upstream pass-through; real helper.
+    expect(result).toEqual({ ok: false, reason: 'rate_limited', message: 'upstream provider rate limit' });
   });
 
   it('tags derived appendix entries by host (T-09-08): personal platforms → personal_data, unparseable → public_biz', () => {
