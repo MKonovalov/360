@@ -46,9 +46,9 @@ function modelIdOf(model: LanguageModel): string {
 // (no SDK fallback helper exists): advance on failover-eligible classes
 // only (Pitfall 2/3 — 429/4xx/output/config never burn a fallback, D-01).
 // D-20-06: OpenRouter mid-stream 429s (finish_reason: "error" after HTTP 200)
-// classify as 'output' via the flat generateText contract and are never
-// failover-eligible — accepted + documented here and at the classifier's
-// 'output' branch, no detection path in Phase 20.
+// classify as 'input' (statusCode-200 APICallError falls through the
+// classifier switch) and are never failover-eligible — accepted + documented
+// here and at the classifier's fall-through, no detection path in Phase 20.
 export async function runAgent({
   company,
   liveSignals,
@@ -101,7 +101,7 @@ export async function runAgent({
       // shouldAdvance; the rate_limited class is the FAL-03 carve-out that
       // reaches shouldAdvance — same-provider 429 keeps v1.3 never-advance
       // (D-01/D-03). to === null (last model / catalog drift) fail-closes a
-      // 429 advance. D-20-05: mid-stream 429s classify 'output' and never
+      // 429 advance. D-20-05: mid-stream 429s classify 'input' and never
       // reach this branch (accepted + documented, no detection path).
       const cls = classifyModelError(err);
       const from = getProviderForModelId(catalogJson, modelIdOf(models[i]));

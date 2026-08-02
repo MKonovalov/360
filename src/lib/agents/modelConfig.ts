@@ -63,10 +63,13 @@ export function classifyModelError(err: unknown): ModelErrorClass {
   }
   if (NoSuchModelError.isInstance(err)) return 'model_not_found';
   // D-20-05/06: OpenRouter mid-stream 429s (finish_reason: "error" after HTTP
-  // 200) surface here as 'output' via the flat generateText contract — safe
-  // (fail loud, never burn a fallback wrongly). Accepted + documented, NOT
-  // reclassified in Phase 20 (would require digging the v7 step/stream result
-  // shape beyond budget). Phase 22's error matrix records the expected behavior.
+  // 200) surface as APICallError with statusCode 200 + data (verified:
+  // provider dist throws APICallError{statusCode:200, data} on "error" in
+  // body, no responseBody) — the switch above falls through to 'input' here.
+  // Safe (fail loud, never burn a fallback wrongly — 'input' is equally
+  // never failover-eligible). Accepted + documented, NOT reclassified in
+  // Phase 20 (would require digging the v7 step/stream result shape beyond
+  // budget). Phase 22's error matrix records 'input' as the expected class.
   if (InvalidResponseDataError.isInstance(err) || NoObjectGeneratedError.isInstance(err)) return 'output';
   if (LoadAPIKeyError.isInstance(err)) return 'config';
   if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
