@@ -158,7 +158,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 12. Branding & User Zones | v1.2 | 2/2 | Complete   | 2026-08-01 |
 | 13. Collapse & Resize Coexistence | v1.2 | 2/2 | Complete   | 2026-08-01 |
 | 14. Contrast Audit & UAT Matrix | v1.2 | 2/2 | Complete   | 2026-08-01 |
-| 15. Model Registry Foundation + Persistence | v1.3 | 2/2 | Complete   | 2026-08-02 |
+| 15. Model Registry Foundation + Persistence | v1.3 | 2/2 | Complete    | 2026-08-02 |
 | 16. Failover Orchestration | v1.3 | 0/TBD | Not started | - |
 | 17. Settings UI + List Source | v1.3 | 0/TBD | Not started | - |
 | 18. Verification Gate | v1.3 | 0/TBD | Not started | - |

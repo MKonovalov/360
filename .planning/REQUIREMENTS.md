@@ -96,3 +96,7 @@ Which phases cover which requirements. Updated 2026-08-02 during v1.3 roadmap cr
 | VER-02 | Phase 18 | Pending |
 | VER-03 | Phase 18 | Pending |
 | VER-04 | Phase 18 | Pending |
+| MRG-01 | Deferred | Deferred |
+| MRG-02 | Deferred | Deferred |
+| MRG-03 | Deferred | Deferred |
+| MRG-04 | Deferred | Deferred |

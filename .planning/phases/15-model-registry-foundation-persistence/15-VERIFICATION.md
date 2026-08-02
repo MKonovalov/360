@@ -1,7 +1,7 @@
 ---
 phase: 15-model-registry-foundation-persistence
 verified: 2026-08-02T11:30:00Z
-status: human_needed
+status: passed
 score: 8/8 must-haves verified
 overrides_applied: 0
 human_verification:
@@ -17,7 +17,7 @@ human_verification:
 
 **Phase Goal:** Per-user AI model preferences persist durably — one row per Clerk user storing raw provider IDs via atomic full-value upsert — agent runs gain durable "which model served" audit columns, and a committed, filtered model catalog gives the app its servable-models source with zero runtime opencode dependency.
 **Verified:** 2026-08-02T11:30:00Z
-**Status:** human_needed (all 8/8 must-haves VERIFIED at code + executable-gate level; 2 items routed to human)
+**Status:** passed (8/8 must-haves VERIFIED at code + executable-gate level; 2 human items completed 2026-08-02 — integration test 4/4 + models:fetch regeneration)
 **Re-verification:** No — initial verification
 
 ## Goal Achievement
@@ -133,7 +133,7 @@ No `TBD`/`FIXME`/`XXX`/`PLACEHOLDER` markers in any phase-15 file. No stub patte
 
 **No gaps found.** All 8 must-have truths are VERIFIED against the codebase with file:line evidence and executed gates (npm test 250/6, npm run build exit 0, npx tsc --noEmit clean, CAT-02 grep gate 0 hits, live Neon information_schema read-only match). The phase goal is achieved in the code.
 
-Two WARNING-level findings from the phase's own code review (WR-01 refresh-script guard; WR-02 roster/snapshot contradiction annotation) and one INFO (catalog.json type-only import) are recorded above with concrete fixes — none blocks this phase's goal, but the planner should carry them into Phase 16/17 planning before the catalog is consumed. Two human-verification items (live integration-test execution, models:fetch regeneration) remain — hence `human_needed` rather than `passed` per the strict decision tree, even though automated verification is 8/8.
+Two WARNING-level findings from the phase's own code review (WR-01 refresh-script guard; WR-02 roster/snapshot contradiction annotation) and one INFO (catalog.json type-only import) are recorded above with concrete fixes — none blocks this phase's goal, but the planner should carry them into Phase 16/17 planning before the catalog is consumed. Both human-verification items were completed 2026-08-02 (integration test 4/4 against the Neon test branch; `npm run models:fetch` regenerated cleanly with only generatedAt drift) — status advanced to `passed`.
 
 ---
 
