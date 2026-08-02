@@ -10,12 +10,15 @@ export interface CreateRunInput {
   usageTokens?: unknown;
   evidenceAppendix?: unknown;
   hypotheses?: unknown;
+  modelUsed?: string; // raw provider ID that actually served (REG-04)
+  modelChain?: string[]; // resolved ID list snapshot captured at run start (D-05)
 }
 
 // OBSV-01: persists one Analyze run's Langfuse trace linkage (traceId +
 // traceUrl) plus the run artifacts (usage tokens, evidence appendix,
-// hypotheses) as JSON. No try/catch — the caller (Route Handler) owns error
-// handling (house convention, signals.ts).
+// hypotheses) as JSON. REG-04: modelUsed/modelChain durably record "which
+// model ran" (D-14) — populated by Phase 16. No try/catch — the caller (Route
+// Handler) owns error handling (house convention, signals.ts).
 export async function createRun(input: CreateRunInput) {
   const [inserted] = await db
     .insert(agentRun)
@@ -27,6 +30,8 @@ export async function createRun(input: CreateRunInput) {
       usageTokens: input.usageTokens,
       evidenceAppendix: input.evidenceAppendix,
       hypotheses: input.hypotheses,
+      modelUsed: input.modelUsed,
+      modelChain: input.modelChain,
     })
     .returning();
   return inserted;

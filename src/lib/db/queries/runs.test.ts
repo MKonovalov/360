@@ -41,6 +41,25 @@ describe('runs query module (09-02-01)', () => {
     expect(result).toEqual(row);
   });
 
+  it('persists modelUsed + modelChain when provided (REG-04)', async () => {
+    const row = { id: 10, companyId: 1, createdAt: new Date('2026-07-31T00:00:00Z') };
+    const returning = vi.fn().mockResolvedValue([row]);
+    const values = vi.fn().mockReturnValue({ returning });
+    mocks.db.insert.mockReturnValue({ values });
+
+    const input = {
+      companyId: 1,
+      modelUsed: 'claude-sonnet-4-6',
+      modelChain: ['claude-sonnet-4-6', 'claude-haiku-4-5'],
+    };
+
+    const result = await createRun(input);
+
+    expect(mocks.db.insert).toHaveBeenCalledWith(agentRun);
+    expect(values).toHaveBeenCalledWith(input);
+    expect(result).toEqual(row);
+  });
+
   it('getRunById returns the run row for correction trace-linking lookups', async () => {
     const row = { id: 9, companyId: 1, traceId: 'trace_123', traceUrl: 'https://cloud.langfuse.com/trace/123' };
     const where = vi.fn().mockResolvedValue([row]);
