@@ -92,8 +92,9 @@ browser (staff Clerk session)
 | Item | Value |
 | ---- | ----- |
 | PR | https://github.com/MKonovalov/360/pull/1 (`chore/18-verification-gate` → `main`) |
-| Preview URL | https://360-arclumen-bcpwx9ek9-mkonovalovs-projects.vercel.app |
-| Preview source | Vercel GitHub integration (auto-preview — A1 assumption confirmed: the integration IS installed and auto-builds). First auto-build FAILED (see deviations — `CLERK_SECRET_KEY` undefined on the Preview env); after scoping the var to Preview, the same head SHA was redeployed → READY |
+| Preview URL (primary — PR head auto-preview) | https://360-arclumen-ebxozlji1-mkonovalovs-projects.vercel.app (auto-built from head `825b98c8`, READY; `/` and `/settings` 307 → `/sign-in`) |
+| Preview URL (initially-verified, same head content) | https://360-arclumen-bcpwx9ek9-mkonovalovs-projects.vercel.app (redeploy of `a6b583a9`, READY; used to confirm the env fix) |
+| Preview source | Vercel GitHub integration (auto-preview — A1 assumption confirmed: the integration IS installed and auto-builds). First auto-build FAILED (see deviations — `CLERK_SECRET_KEY` undefined on the Preview env); after scoping the var to Preview, the same head SHA was redeployed → READY, and the auto-preview for the final head SHA also succeeded → READY |
 | Build | Vercel preview deployment `npm run build` exit 0 → status Ready |
 | Grep gate (ASVS V7) | `grep -rE "node:child_process\|execFileSync(\|execSync(\|spawnSync(\|spawn(" src/` → **0 hits** (grep exit 1 = no matches; exact command from 15-VERIFICATION Truth 8 / 18-PATTERNS :317-323) |
 | Full suite | `npm test` → **294 passed / 6 skipped, exit 0** |
