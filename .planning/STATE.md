@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: AI Model Settings
-status: executing
-last_updated: "2026-08-02T09:00:39.255Z"
+status: verifying
+last_updated: "2026-08-02T09:08:57.168Z"
 last_activity: 2026-08-02
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
-  percent: 50
+  completed_plans: 2
+  percent: 25
 ---
 
 # Project State
@@ -26,10 +26,10 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 
 Phase: 15 (model-registry-foundation-persistence) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-02
 
-Progress: [█████░░░░░] 50%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -44,6 +44,7 @@ Progress: [█████░░░░░] 50%
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
 | 15-model-registry-foundation-persistence | 01 | 14min | 3 | 5 |
+| 15-model-registry-foundation-persistence | 02 | 10min | 3 | 5 |
 
 **Recent Trend:**
 
@@ -67,6 +68,8 @@ Recent decisions affecting current work:
 - **Roadmap (v1.3): Allowlist curation is standing maintenance** — only `claude-sonnet-4-6` is roster-verified (2026-08-01); Phase 15 re-verifies any curated additions via `GET /v1/models`.
 - [Phase 15]: D-06 intent reading: NO version column on user_model_settings (atomic upsert prevents lost updates); createdAt ships per repo convention (every table has it)
 - [Phase 15]: fallbackModels comment cites company.techStack (schema.ts:61) as the text[] precedent — 'first text[] column' claim is factually wrong per research
+- [Phase 15]: Allowlist ships ['claude-sonnet-4-6'] only — live GET /v1/models 2026-08-02 verified sonnet-4-6, undated haiku-4-5 ABSENT (only dated -20251001 exists); D-02 gate defers haiku-4-5, no invented/dated IDs — Roster re-verify executed as Task 1 of plan 15-02; research finding confirmed at execution time
+- [Phase 15]: Catalog snapshot at src/lib/models/catalog.json (D-08 discretion) co-located with typed accessor; repo-root scripts/ holds the child_process script (Pitfall 4 — keeps src/ exec-free for the Phase 18 grep gate) — CAT-02 gate re-verified 0 hits after all files landed
 
 ### Pending Todos
 
@@ -94,7 +97,7 @@ Items acknowledged and carried forward from v1.1/v1.2 milestone close, still ope
 
 ## Session Continuity
 
-Last session: 2026-08-02T08:59:57.907Z
+Last session: 2026-08-02T09:08:38.695Z
 Stopped at: Completed 15-01-PLAN.md
 Resume file: None
 

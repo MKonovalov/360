@@ -27,10 +27,10 @@ Requirements for v1.3 "AI Model Settings" — per-user AI model management (prim
 
 ### Model catalog from opencode
 
-- [ ] **CAT-01**: A dev-time script fetches the model list from the local opencode CLI (`opencode models`) and writes a committed JSON snapshot (`src/data/opencode-models.json`)
-- [ ] **CAT-02**: The snapshot is the production source of the available-models list — no runtime dependency on a local opencode installation (Vercel serverless has none)
-- [ ] **CAT-03**: A pure function filters the snapshot to the servable (Anthropic) models and maps opencode model IDs to raw provider IDs for the pickers and the registry
-- [ ] **CAT-04**: The catalog ships with the app build (committed file), and the Settings UI reads from it server-side
+- [x] **CAT-01**: A dev-time script fetches the model list from the local opencode CLI (`opencode models`) and writes a committed JSON snapshot (`src/data/opencode-models.json`)
+- [x] **CAT-02**: The snapshot is the production source of the available-models list — no runtime dependency on a local opencode installation (Vercel serverless has none)
+- [x] **CAT-03**: A pure function filters the snapshot to the servable (Anthropic) models and maps opencode model IDs to raw provider IDs for the pickers and the registry
+- [x] **CAT-04**: The catalog ships with the app build (committed file), and the Settings UI reads from it server-side
 
 ### Error-driven failover
 
@@ -83,10 +83,10 @@ Which phases cover which requirements. Updated 2026-08-02 during v1.3 roadmap cr
 | REG-03 | Phase 15 | Complete |
 | REG-04 | Phase 15 | Complete |
 | REG-05 | Phase 15 | Complete |
-| CAT-01 | Phase 15 | Pending |
-| CAT-02 | Phase 15 | Pending |
-| CAT-03 | Phase 15 | Pending |
-| CAT-04 | Phase 15 | Pending |
+| CAT-01 | Phase 15 | Complete |
+| CAT-02 | Phase 15 | Complete |
+| CAT-03 | Phase 15 | Complete |
+| CAT-04 | Phase 15 | Complete |
 | FAL-01 | Phase 16 | Pending |
 | FAL-02 | Phase 16 | Pending |
 | FAL-03 | Phase 16 | Pending |

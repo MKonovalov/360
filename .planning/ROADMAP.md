@@ -61,7 +61,7 @@ Full details: [`.planning/milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
 
 **Phase Numbering:** Continues from v1.2 (which ended at Phase 14) — v1.3 starts at Phase 15.
 
-- [ ] **Phase 15: Model Registry Foundation + Persistence** - Per-user `user_model_settings` table + atomic upsert query module (Clerk-userId keyed), `agent_run` `model_used`/`model_chain` audit columns, committed opencode catalog snapshot (`opencode models` dev-time script) + pure slug→provider-ID filter functions, and the migration-apply-flow confirmation
+- [x] **Phase 15: Model Registry Foundation + Persistence** - Per-user `user_model_settings` table + atomic upsert query module (Clerk-userId keyed), `agent_run` `model_used`/`model_chain` audit columns, committed opencode catalog snapshot (`opencode models` dev-time script) + pure slug→provider-ID filter functions, and the migration-apply-flow confirmation (completed 2026-08-02)
 - [ ] **Phase 16: Failover Orchestration** - Pure `classifyModelError` (RetryError-unwrap-first; only retryable provider/model errors advance), `runAgent` chain loop (primary + 1 fallback, per-attempt timeouts, 60s budget), snapshot-at-entry chain resolution, `userId` threading through the analyze route, and `model_used`/`model_chain` population
 - [ ] **Phase 17: Settings UI + List Source** - `settings` NavKey + Manage-group sidebar item, `/settings` page + client form + zod-validated Server Action, runnable-only (allowlist ∩ snapshot) model pickers with ordered reorderable fallbacks
 - [ ] **Phase 18: Verification Gate** - Vitest failover/catalog/chain matrices, live-browser settings→Analyze→`model_used` UAT, Vercel-preview no-opencode check, and the "looks done but isn't" checklist
@@ -82,7 +82,7 @@ Full details: [`.planning/milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
 **Plans**: 2 plansPlans:
 
 - [x] 15-01-PLAN.md — DB foundation: user_model_settings table + agent_run audit columns + userModelSettings query module + schema push + integration tests
-- [ ] 15-02-PLAN.md — Catalog: refresh-model-catalog script + models:fetch + committed snapshot + pure allowlist/slug filter functions + tests
+- [x] 15-02-PLAN.md — Catalog: refresh-model-catalog script + models:fetch + committed snapshot + pure allowlist/slug filter functions + tests
 
 ### Phase 16: Failover Orchestration
 
@@ -158,7 +158,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 12. Branding & User Zones | v1.2 | 2/2 | Complete   | 2026-08-01 |
 | 13. Collapse & Resize Coexistence | v1.2 | 2/2 | Complete   | 2026-08-01 |
 | 14. Contrast Audit & UAT Matrix | v1.2 | 2/2 | Complete   | 2026-08-01 |
-| 15. Model Registry Foundation + Persistence | v1.3 | 1/2 | In Progress | |
+| 15. Model Registry Foundation + Persistence | v1.3 | 2/2 | Complete   | 2026-08-02 |
 | 16. Failover Orchestration | v1.3 | 0/TBD | Not started | - |
 | 17. Settings UI + List Source | v1.3 | 0/TBD | Not started | - |
 | 18. Verification Gate | v1.3 | 0/TBD | Not started | - |
