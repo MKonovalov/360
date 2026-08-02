@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: AI Model Settings
 status: executing
-last_updated: "2026-08-02T14:03:30.839Z"
-last_activity: 2026-08-02 -- Phase 17 planning complete
+last_updated: "2026-08-02T14:11:46.835Z"
+last_activity: 2026-08-02
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 9
-  completed_plans: 6
+  completed_plans: 7
   percent: 50
 ---
 
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-02)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** Phase 17 — settings ui + list source
+**Current focus:** Phase 17 — settings-ui-list-source
 
 ## Current Position
 
-Phase: 17
-Plan: Not started
+Phase: 17 (settings-ui-list-source) — EXECUTING
+Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-08-02 -- Phase 17 planning complete
+Last activity: 2026-08-02
 
-Progress: [██████████] 100%
+Progress: [████████░░] 78%
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Progress: [██████████] 100%
 - Trend: N/A (new milestone)
 
 *Updated after each plan completion*
+| Phase 17-settings-ui-list-source P01 | 2min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,8 @@ Recent decisions affecting current work:
 - [Phase 15]: fallbackModels comment cites company.techStack (schema.ts:61) as the text[] precedent — 'first text[] column' claim is factually wrong per research
 - [Phase 15]: Allowlist ships ['claude-sonnet-4-6'] only — live GET /v1/models 2026-08-02 verified sonnet-4-6, undated haiku-4-5 ABSENT (only dated -20251001 exists); D-02 gate defers haiku-4-5, no invented/dated IDs — Roster re-verify executed as Task 1 of plan 15-02; research finding confirmed at execution time
 - [Phase 15]: Catalog snapshot at src/lib/models/catalog.json (D-08 discretion) co-located with typed accessor; repo-root scripts/ holds the child_process script (Pitfall 4 — keeps src/ exec-free for the Phase 18 grep gate) — CAT-02 gate re-verified 0 hits after all files landed
+- [Phase 17]: getActiveNavKey matches /settings with an exact-match-only branch (no startsWith('/settings/')) — /settings is a leaf page with no detail routes; pins the sibling-prefix guard and threat T-17-02, locked by a /settings-archive boundary Vitest case
+- [Phase 17]: Settings sidebar item is badge-free — SidebarMenuBadge + dot block is Reviews-only; getNavTooltipLabel reviews special-case branch untouched
 
 ### Pending Todos
 
@@ -97,9 +100,9 @@ Items acknowledged and carried forward from v1.1/v1.2 milestone close, still ope
 
 ## Session Continuity
 
-Last session: 2026-08-02T13:37:18.678Z
+Last session: 2026-08-02T14:11:46.828Z
 Stopped at: Phase 17 UI-SPEC approved
-Resume file: .planning/phases/17-settings-ui-list-source/17-UI-SPEC.md
+Resume file: None
 
 ## Operator Next Steps
 

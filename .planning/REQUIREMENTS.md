@@ -9,7 +9,7 @@ Requirements for v1.3 "AI Model Settings" — per-user AI model management (prim
 
 ### Settings surface
 
-- [ ] **SET-01**: Staff can open a Settings page from a new "Settings" menu item in the shared ExplorerMenu and the sidebar nav
+- [x] **SET-01**: Staff can open a Settings page from a new "Settings" menu item in the shared ExplorerMenu and the sidebar nav
 - [ ] **SET-02**: The Settings page shows the staff member's current AI model configuration — primary model + ordered fallback list
 - [ ] **SET-03**: Staff can set their primary AI model from the list of runnable (Anthropic-allowlisted) models
 - [ ] **SET-04**: Staff can add at least one fallback model (ordered) to their chain — a configurable list, primary + up to 2 fallbacks selectable, empty fallback list allowed (primary-only runs)
@@ -71,7 +71,7 @@ Which phases cover which requirements. Updated 2026-08-02 during v1.3 roadmap cr
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SET-01 | Phase 17 | Pending |
+| SET-01 | Phase 17 | Complete |
 | SET-02 | Phase 17 | Pending |
 | SET-03 | Phase 17 | Pending |
 | SET-04 | Phase 17 | Pending |

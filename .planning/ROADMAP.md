@@ -127,7 +127,7 @@ Full details: [`.planning/milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
 **UI hint**: yesPlans:
 **Wave 1**
 
-- [ ] 17-01-PLAN.md — Nav wiring: 'settings' NavKey + tooltip map + sidebar Manage-group item + ExplorerMenu entries (SET-01)
+- [x] 17-01-PLAN.md — Nav wiring: 'settings' NavKey + tooltip map + sidebar Manage-group item + ExplorerMenu entries (SET-01)
 - [ ] 17-02-PLAN.md — D-01 roster re-verify + saveSettingsAction Server Action with security matrix tests (SET-06/SET-07)
 
 **Wave 2** *(blocked on Wave 1 completion)*
@@ -174,7 +174,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 14. Contrast Audit & UAT Matrix | v1.2 | 2/2 | Complete   | 2026-08-01 |
 | 15. Model Registry Foundation + Persistence | v1.3 | 2/2 | Complete    | 2026-08-02 |
 | 16. Failover Orchestration | v1.3 | 4/4 | Complete    | 2026-08-02 |
-| 17. Settings UI + List Source | v1.3 | 0/TBD | Not started | - |
+| 17. Settings UI + List Source | v1.3 | 1/3 | In Progress|  |
 | 18. Verification Gate | v1.3 | 0/TBD | Not started | - |
 
 ---
