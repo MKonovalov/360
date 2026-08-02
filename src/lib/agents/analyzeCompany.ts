@@ -1,10 +1,13 @@
+import { anthropic } from '@ai-sdk/anthropic';
 import { env } from '@/lib/env';
 import { getCompanyById } from '@/lib/db/queries/companies';
 import { listSignalsForCompany } from '@/lib/db/queries/signals';
+import { getModelSettingsForUser } from '@/lib/db/queries/userModelSettings';
 import { validateRunArtifacts } from '@/lib/validation/validateReport';
 import type { Verdict } from '@/lib/validation/airsRules';
 import { runAgent } from './runAgent';
 import { dedupProposals } from './dedup';
+import { resolveModelChain, classifyModelError } from './modelConfig';
 import type { CompanyInput, DerivedEvidenceAppendix, LiveSignalInput, ProposalSignal, RunOutput } from './types';
 
 // analyzeCompany — the Analyze orchestration (ANLZ-01/05, 09-01-03 anchor).
@@ -22,14 +25,20 @@ export type AnalyzeResult =
       verdict: Verdict;
       usage: RunResult['usage'];
       proposals: ProposalSignal[];
+      // FAL-05 audit identity (Pitfall 5): the raw provider ID that actually
+      // served + the resolved chain snapshot + the D-05 fallback flag — the
+      // route persists these (model_used/model_chain) and surfaces usedFallback.
+      modelUsed: string;
+      modelChain: string[];
+      usedFallback: boolean;
     }
   | {
       ok: false;
-      reason: 'gate_failed' | 'not_configured' | 'company_not_found' | 'db_error';
+      reason: 'gate_failed' | 'not_configured' | 'company_not_found' | 'db_error' | 'rate_limited';
       errors?: string[];
     };
 
-export async function analyzeCompany(companyId: number): Promise<AnalyzeResult> {
+export async function analyzeCompany(companyId: number, userId: string): Promise<AnalyzeResult> {
   // D-15 env gate (mirror enrichment.ts's not_configured): unset keys disable
   // the Analyze action, never crash. Checked at call time, not import time.
   if (!env.ANTHROPIC_API_KEY || !env.FIRECRAWL_API_KEY) {
@@ -39,14 +48,31 @@ export async function analyzeCompany(companyId: number): Promise<AnalyzeResult> 
   const loaded = await loadCompanyAndSignals(companyId);
   if (!loaded.ok) return loaded;
 
+  // FAL-01 snapshot-at-entry (Pitfall 6/9): settings read ONCE here, chain
+  // resolved ONCE — a mid-run settings edit never changes the in-flight run's
+  // chain or its audit row. modelChain doubles as the model_chain snapshot the
+  // route persists (D-05). Never re-read settings inside runAgent/loop.
+  const settings = await getModelSettingsForUser(userId);
+  const modelChain = resolveModelChain(settings);
+
   // AI-domain try/catch (D-08): only misconfiguration throws map to a
   // structured result; genuine agent/provider failures propagate fail-loud
   // (D-06) so the Route Handler's AI-domain scope reports them.
   let run: RunResult;
   try {
-    run = await runAgent({ company: loaded.company, liveSignals: loaded.liveSignals });
+    run = await runAgent({
+      company: loaded.company,
+      liveSignals: loaded.liveSignals,
+      // Pitfall 11: raw IDs mapped to LanguageModel[] ONCE at entry — never
+      // strings, never a per-attempt settings read.
+      models: modelChain.map((id) => anthropic(id)),
+    });
   } catch (err) {
     if (isMisconfigurationError(err)) return { ok: false, reason: 'not_configured' };
+    // D-04 carve-out: ONLY 429 gets a distinct structured reason; all other
+    // non-failover classes propagate fail-loud to the route's generic 502
+    // analysis_failed (classifyModelError handles RetryError unwrap-first).
+    if (classifyModelError(err) === 'rate_limited') return { ok: false, reason: 'rate_limited' };
     throw err;
   }
 
@@ -74,6 +100,10 @@ export async function analyzeCompany(companyId: number): Promise<AnalyzeResult> 
     verdict,
     usage: run.usage,
     proposals,
+    // FAL-05: the audit identity survives from the loop return (Pitfall 5).
+    modelUsed: run.modelUsed,
+    modelChain,
+    usedFallback: run.usedFallback,
   };
 }
 

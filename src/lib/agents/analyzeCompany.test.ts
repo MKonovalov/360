@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { APICallError } from 'ai';
 
 // 09-01-03 anchor: analyzeCompany orchestration incl. the gate fail-closed
 // path (D-16 — zero live calls). All external seams mocked: db query modules,
@@ -15,6 +16,9 @@ const mocks = vi.hoisted(() => ({
   insertSignal: vi.fn(),
   runAgent: vi.fn(),
   validateRunArtifacts: vi.fn(),
+  // FAL-01: settings-read seam — the snapshot-at-entry source (REG-05
+  // absence → default chain; real resolveModelChain maps it).
+  getModelSettingsForUser: vi.fn(),
 }));
 
 vi.mock('@/lib/env', () => ({ env: mocks.env }));
@@ -24,6 +28,9 @@ vi.mock('@/lib/db/queries/signals', () => ({
   // Spy seam for the "nothing persists on gate failure" assertion — the
   // orchestrator must never touch the signal table itself (D-09/ANLZ-02).
   insertSignal: mocks.insertSignal,
+}));
+vi.mock('@/lib/db/queries/userModelSettings', () => ({
+  getModelSettingsForUser: mocks.getModelSettingsForUser,
 }));
 vi.mock('./runAgent', () => ({ runAgent: mocks.runAgent }));
 vi.mock('@/lib/validation/validateReport', () => ({
@@ -124,10 +131,12 @@ describe('analyzeCompany (09-01-03)', () => {
     mocks.listSignalsForCompany.mockResolvedValue([{ signalType: 'cost_pressure' }]);
     mocks.runAgent.mockResolvedValue({ output: modelOutput, usage, steps });
     mocks.validateRunArtifacts.mockReturnValue({ valid: true, errors: [] });
+    // REG-05 default-chain path: absent settings → resolveModelChain's default.
+    mocks.getModelSettingsForUser.mockResolvedValue(undefined);
   });
 
   it('orchestrates run → derived appendix → gate → post-dedup and returns ok with proposals/usage', async () => {
-    const result = await analyzeCompany(1);
+    const result = await analyzeCompany(1, 'user_test');
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -166,7 +175,7 @@ describe('analyzeCompany (09-01-03)', () => {
     ];
     mocks.validateRunArtifacts.mockReturnValue({ valid: false, errors: gateErrors });
 
-    const result = await analyzeCompany(1);
+    const result = await analyzeCompany(1, 'user_test');
 
     expect(result).toEqual({ ok: false, reason: 'gate_failed', errors: gateErrors });
     // Fail-closed (D-03): the rejected run never reaches any persist path.
@@ -176,7 +185,7 @@ describe('analyzeCompany (09-01-03)', () => {
   it('maps a missing company to a distinct fail-loud reason before any agent call', async () => {
     mocks.getCompanyById.mockResolvedValue(undefined);
 
-    const result = await analyzeCompany(999);
+    const result = await analyzeCompany(999, 'user_test');
 
     expect(result).toEqual({ ok: false, reason: 'company_not_found' });
     expect(mocks.runAgent).not.toHaveBeenCalled();
@@ -187,19 +196,85 @@ describe('analyzeCompany (09-01-03)', () => {
     mocks.env.ANTHROPIC_API_KEY = undefined;
     mocks.env.FIRECRAWL_API_KEY = undefined;
 
-    const result = await analyzeCompany(1);
+    const result = await analyzeCompany(1, 'user_test');
 
     expect(result).toEqual({ ok: false, reason: 'not_configured' });
     expect(mocks.runAgent).not.toHaveBeenCalled();
+    // Restore — vi.clearAllMocks clears call history but not directly-assigned
+    // property values; without this, every later test hits the env gate.
+    mocks.env.ANTHROPIC_API_KEY = 'test-key';
+    mocks.env.FIRECRAWL_API_KEY = 'test-key';
   });
 
   it('maps a runAgent misconfiguration throw to not_configured', async () => {
     mocks.runAgent.mockRejectedValue(new Error('FIRECRAWL_API_KEY not configured'));
 
-    const result = await analyzeCompany(1);
+    const result = await analyzeCompany(1, 'user_test');
 
     expect(result).toEqual({ ok: false, reason: 'not_configured' });
     expect(mocks.validateRunArtifacts).not.toHaveBeenCalled();
+  });
+
+  it('resolves the user chain snapshot-at-entry and passes LanguageModel[] to runAgent (FAL-01/Pitfall 11)', async () => {
+    mocks.getModelSettingsForUser.mockResolvedValue({
+      primaryModel: 'claude-sonnet-4-6',
+      fallbackModels: [],
+    });
+
+    const result = await analyzeCompany(1, 'user_test');
+
+    expect(result.ok).toBe(true);
+    // Pitfall 11: models is an ARRAY (mapped LanguageModel[]), never a string.
+    expect(mocks.runAgent).toHaveBeenCalledWith(
+      expect.objectContaining({ models: [expect.anything()] }),
+    );
+    // Snapshot-at-entry: settings read exactly once, before the agent call.
+    expect(mocks.getModelSettingsForUser).toHaveBeenCalledTimes(1);
+    expect(mocks.getModelSettingsForUser).toHaveBeenCalledWith('user_test');
+  });
+
+  it('uses the default chain when settings are absent (REG-05)', async () => {
+    const result = await analyzeCompany(1, 'user_test');
+
+    expect(result.ok).toBe(true);
+    // resolveModelChain(undefined) → [FAST_MODEL_ID] — a 1-element models array.
+    expect(mocks.runAgent).toHaveBeenCalledWith(
+      expect.objectContaining({ models: [expect.anything()] }),
+    );
+  });
+
+  it('maps a 429 throw to the distinct rate_limited reason — never failover, gate not run (D-04)', async () => {
+    mocks.runAgent.mockRejectedValue(
+      new APICallError({ message: 'rate limited', url: 'u', requestBodyValues: {}, statusCode: 429 }),
+    );
+
+    const result = await analyzeCompany(1, 'user_test');
+
+    expect(result).toEqual({ ok: false, reason: 'rate_limited' });
+    expect(mocks.validateRunArtifacts).not.toHaveBeenCalled();
+  });
+
+  it('carries the audit identity (modelUsed/modelChain/usedFallback) in the ok:true result (FAL-05)', async () => {
+    mocks.getModelSettingsForUser.mockResolvedValue({
+      primaryModel: 'claude-sonnet-4-6',
+      fallbackModels: [],
+    });
+    mocks.runAgent.mockResolvedValue({
+      output: modelOutput,
+      usage,
+      steps,
+      modelUsed: 'claude-sonnet-4-6',
+      usedFallback: false,
+    });
+
+    const result = await analyzeCompany(1, 'user_test');
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.modelUsed).toBe('claude-sonnet-4-6');
+    expect(result.usedFallback).toBe(false);
+    // The resolved snapshot at entry — doubles as the model_chain the route persists.
+    expect(result.modelChain).toEqual(['claude-sonnet-4-6']);
   });
 
   it('tags derived appendix entries by host (T-09-08): personal platforms → personal_data, unparseable → public_biz', () => {
