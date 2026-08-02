@@ -97,12 +97,19 @@ Full details: [`.planning/milestones/v1.3-ROADMAP.md`](milestones/v1.3-ROADMAP.m
   5. A single `modelFactory` seam instantiates any servable chain id to its provider's `LanguageModel` (`anthropic(id)` or `openrouter(id)` by catalog `providerID`), is the only module importing provider SDKs, and `saveSettingsAction` validates each submitted id against its own provider's servable set (union-wide) before the atomic upsert
 
 **Plans**: 5 plans
-
 Plans:
+**Wave 1**
+
 - [ ] 19-01-PLAN.md — Provider registry (D-05 rename → `getServableIdsForProvider` + `PROVIDER_GATES` + union + provider-scoped lookup + collision canary) + REG-07 union save validation + page call-site swap
 - [ ] 19-02-PLAN.md — `OPENROUTER_API_KEY` optional server-only env declaration + D-08 `structuredOutputs` snapshot capability field + one-time snapshot regen (D-07 roster-verify)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 19-03-PLAN.md — `modelFactory` provider-aware instantiation seam (`instantiateModel`/`instantiateChain`/`defaultChain` + D-07 default constants + per-model strict flag)
 - [ ] 19-04-PLAN.md — `resolveModelChain` union-servable default (D-06) + cross-provider chain cases
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 19-05-PLAN.md — run-path seam swaps (`runAgent` → `defaultChain()`, `analyzeCompany` → `instantiateChain`) + constraint-11 repo-wide grep + build gate
 
 **Research flag**: small targeted re-verification at phase start only (createOpenRouter strict-compat + structured-output + env-key behavior against the INSTALLED package) — skip deep research; open decisions (OpenRouter default primary slug, `strict:false` per-model pass) are product calls locked at planning
