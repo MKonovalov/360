@@ -519,7 +519,7 @@ npx drizzle-kit push
 | REG-04 | `createRun` accepts + persists `modelUsed`/`modelChain` | integration (optional) + code review | `npx vitest run src/lib/db/queries/runs.test.ts` (extend existing) | ❌ extend |
 | REG-05 | Absence → falsy, never throws | integration | `getModelSettingsForUser('no-such-user')` → undefined | ❌ Wave 0 (in integration test) |
 | CAT-01 | Script regenerates valid snapshot | smoke (manual/execution) | `npm run models:fetch` → `catalog.json` valid JSON, non-empty, contains `anthropic/claude-sonnet-4-6`-derived record, `generatedAt` present | ❌ (script itself is Wave 0) |
-| CAT-02 | No runtime opencode dependency | grep gate | `grep -rE 'exec\|spawn\|child_process' src/` → zero hits | — (command) |
+| CAT-02 | No runtime opencode dependency | grep gate | `grep -rE "node:child_process\|execFileSync(\|execSync(\|spawnSync(\|spawn(" src/` → zero hits (call-site/import pattern — naive `exec|spawn` substring greps 11 false positives on `execute`/`executive`; word-boundary variants miss `execFileSync(`/`spawnSync(` forms) | — (command) |
 | CAT-03 | Pure filters: slug mapping + allowlist intersect | unit (pure, no mocks — D-16) | `npx vitest run src/lib/models/catalog.test.ts` | ❌ Wave 0 (new) |
 | CAT-04 | Catalog ships with the build | contract | `npm run build` passes (catalog.ts imports catalog.json server-side; `resolveJsonModule` on) | — (command) |
 
