@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Multi-Provider AI Model Configuration
 status: executing
-last_updated: "2026-08-02T19:40:23.457Z"
+last_updated: "2026-08-02T19:45:05.898Z"
 last_activity: 2026-08-02
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 4
   percent: 0
 ---
 
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 ## Current Position
 
 Phase: 19 (Provider Registry + Servable Model Source) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-08-02
 
-Progress: [██████░░░░] 60%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
@@ -54,6 +54,7 @@ Progress: [██████░░░░] 60%
 | Phase 19 P1 | 3 min | 3 tasks | 5 files |
 | Phase 19 P02 | 5 | 3 tasks | 5 files |
 | Phase 19 P03 | 3min | 2 tasks | 2 files |
+| Phase 19 P04 | 3min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,9 @@ Recent decisions affecting current work:
 - [Phase 19]: OPENROUTER_DEFAULT_MODEL_ID = 'anthropic/claude-sonnet-4.6' + PROVIDER_DEFAULT_MODELS exported as named constants for Phase 21's provider-switch reset (D-07)
 - [Phase 19]: createOpenRouter({ compatibility: 'strict' }) with the option EXPLICIT (bare defaults to 'compatible'); no apiKey (auto-loads OPENROUTER_API_KEY); D-08 per-model structuredOutputs strict:false only for snapshot-flagged non-strict models — never global
 - [Phase 19]: openrouter row lookup for the D-08 flag is provider-scoped (m.providerID === 'openrouter') — a bare id find reads the inert kilo/vercel flag for 54 dual-listed non-strict models and silently skips the opt-out (Rule 1 auto-fix)
+- [Phase 19]: resolveModelChain default widens from ANTHROPIC_ALLOWLIST to getUnionServableIds(catalogJson) (D-06) — only behavioral change of 19-04; dedupe/cap-2/REG-05 default byte-identical (provider-agnostic)
+- [Phase 19]: resolveModelChain param renamed allowlist → servableIds; ANTHROPIC_ALLOWLIST import kept (plan-mandated, noUnusedLocals off)
+- [Phase 19]: modelConfig imports catalog.json directly mirroring catalog.ts (ARCHITECTURE.md Pattern 2) — pure-module contract intact (constraint 11)
 
 ### Pending Todos
 
@@ -111,8 +115,8 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-02T19:39:12.402Z
-Stopped at: Phase 19 context gathered
+Last session: 2026-08-02T19:45:05.892Z
+Stopped at: Completed 19-04-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
