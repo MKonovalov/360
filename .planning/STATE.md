@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Multi-Provider AI Model Configuration
-status: planning
-last_updated: "2026-08-02T20:27:23.497Z"
+status: executing
+last_updated: "2026-08-02T21:04:44.443Z"
 last_activity: 2026-08-02
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 9
+  completed_plans: 6
   percent: 25
 ---
 
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-02)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** Phase 20 — cross provider run path
+**Current focus:** Phase 20 — Cross-Provider Run Path
 
 ## Current Position
 
-Phase: 20
-Plan: Not started
-Status: Ready to plan
+Phase: 20 (Cross-Provider Run Path) — EXECUTING
+Plan: 2 of 4
+Status: Ready to execute
 Last activity: 2026-08-02
 
-Progress: [██████████] 100%
+Progress: [███████░░░] 67%
 
 ## Performance Metrics
 
@@ -56,6 +56,7 @@ Progress: [██████████] 100%
 | Phase 19 P03 | 3min | 2 tasks | 2 files |
 | Phase 19 P04 | 3min | 2 tasks | 2 files |
 | Phase 19 P05 | 6min | 3 tasks | 4 files |
+| Phase 20-cross-provider-run-path P01 | 3min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -89,6 +90,7 @@ Recent decisions affecting current work:
 - [Phase 19]: runAgent defaults via defaultChain() — last hardcoded anthropic(FAST_MODEL_ID) default gone from the run path; factory default stays Anthropic fast path (D-11)
 - [Phase 19]: analyzeCompany maps chain ids once at entry via instantiateChain(modelChain) — Pitfall 11 comment preserved; env gate untouched (D-11/FAL-04 is Phase 20)
 - [Phase 19]: Explicit-models tests use string-form LanguageModel stubs ('m1') — plan's {provider,modelId} literals fail tsc against the LanguageModel union (Rule 1 fix)
+- [Phase 20]: FAL-02/FAL-03 (plan 20-01): 402 → 'billing' (never failover-eligible, PITFALLS 3); 502/503 stay server_error/eligible as model-availability signals (comment-only); D-20-06 mid-stream-429 note on the output branch; shouldAdvance implements the locked 4-cell matrix — rate_limited advances ONLY cross-provider, all other eligible classes advance regardless, fail-closed on null provider identity; locked by the D-16 test matrix
 
 ### Pending Todos
 
@@ -119,9 +121,9 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-02T20:27:23.485Z
+Last session: 2026-08-02T21:04:44.420Z
 Stopped at: Phase 20 context gathered
-Resume file: .planning/phases/20-cross-provider-run-path/20-CONTEXT.md
+Resume file: None
 
 ## Operator Next Steps
 
