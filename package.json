@@ -22,6 +22,7 @@
     "@langfuse/otel": "^5.10.0",
     "@langfuse/vercel-ai-sdk": "^5.9.1",
     "@neondatabase/serverless": "^1.1.0",
+    "@openrouter/ai-sdk-provider": "^3.0.0",
     "@opentelemetry/sdk-node": "^0.221.0",
     "ai": "^7.0.45",
     "class-variance-authority": "^0.7.1",
