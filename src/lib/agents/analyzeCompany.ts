@@ -1,4 +1,3 @@
-import { anthropic } from '@ai-sdk/anthropic';
 import { env } from '@/lib/env';
 import { getCompanyById } from '@/lib/db/queries/companies';
 import { listSignalsForCompany } from '@/lib/db/queries/signals';
@@ -7,6 +6,7 @@ import { validateRunArtifacts } from '@/lib/validation/validateReport';
 import type { Verdict } from '@/lib/validation/airsRules';
 import { runAgent } from './runAgent';
 import { dedupProposals } from './dedup';
+import { instantiateChain } from './modelFactory';
 import { resolveModelChain, classifyModelError } from './modelConfig';
 import type { CompanyInput, DerivedEvidenceAppendix, LiveSignalInput, ProposalSignal, RunOutput } from './types';
 
@@ -65,7 +65,7 @@ export async function analyzeCompany(companyId: number, userId: string): Promise
       liveSignals: loaded.liveSignals,
       // Pitfall 11: raw IDs mapped to LanguageModel[] ONCE at entry — never
       // strings, never a per-attempt settings read.
-      models: modelChain.map((id) => anthropic(id)),
+      models: instantiateChain(modelChain),
     });
   } catch (err) {
     if (isMisconfigurationError(err)) return { ok: false, reason: 'not_configured' };

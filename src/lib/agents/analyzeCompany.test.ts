@@ -19,6 +19,9 @@ const mocks = vi.hoisted(() => ({
   // FAL-01: settings-read seam — the snapshot-at-entry source (REG-05
   // absence → default chain; real resolveModelChain maps it).
   getModelSettingsForUser: vi.fn(),
+  // Factory seam (constraint 11): the real modelFactory imports the provider
+  // SDKs + createOpenRouter singleton — fully mocked so neither executes.
+  instantiateChain: vi.fn(),
 }));
 
 vi.mock('@/lib/env', () => ({ env: mocks.env }));
@@ -33,6 +36,7 @@ vi.mock('@/lib/db/queries/userModelSettings', () => ({
   getModelSettingsForUser: mocks.getModelSettingsForUser,
 }));
 vi.mock('./runAgent', () => ({ runAgent: mocks.runAgent }));
+vi.mock('./modelFactory', () => ({ instantiateChain: mocks.instantiateChain }));
 vi.mock('@/lib/validation/validateReport', () => ({
   validateRunArtifacts: mocks.validateRunArtifacts,
 }));
@@ -133,6 +137,11 @@ describe('analyzeCompany (09-01-03)', () => {
     mocks.validateRunArtifacts.mockReturnValue({ valid: true, errors: [] });
     // REG-05 default-chain path: absent settings → resolveModelChain's default.
     mocks.getModelSettingsForUser.mockResolvedValue(undefined);
+    // Factory seam: the resolved chain maps to a fixed LanguageModel[] once at
+    // entry (Pitfall 11) — runAgent always receives an instantiated array.
+    mocks.instantiateChain.mockReturnValue([
+      { provider: 'anthropic', modelId: 'claude-sonnet-4-6' },
+    ]);
   });
 
   it('orchestrates run → derived appendix → gate → post-dedup and returns ok with proposals/usage', async () => {
@@ -215,18 +224,25 @@ describe('analyzeCompany (09-01-03)', () => {
     expect(mocks.validateRunArtifacts).not.toHaveBeenCalled();
   });
 
-  it('resolves the user chain snapshot-at-entry and passes LanguageModel[] to runAgent (FAL-01/Pitfall 11)', async () => {
+  it('resolves the user chain snapshot-at-entry and instantiates via the factory (FAL-01/Pitfall 11)', async () => {
     mocks.getModelSettingsForUser.mockResolvedValue({
       primaryModel: 'claude-sonnet-4-6',
       fallbackModels: [],
     });
+    mocks.instantiateChain.mockReturnValue([
+      { provider: 'anthropic', modelId: 'claude-sonnet-4-6' },
+    ]);
 
     const result = await analyzeCompany(1, 'user_test');
 
     expect(result.ok).toBe(true);
-    // Pitfall 11: models is an ARRAY (mapped LanguageModel[]), never a string.
+    // Pitfall 11: raw ids mapped to LanguageModel[] ONCE at entry via the
+    // factory — never strings, never a per-attempt settings read.
+    expect(mocks.instantiateChain).toHaveBeenCalledWith(['claude-sonnet-4-6']);
     expect(mocks.runAgent).toHaveBeenCalledWith(
-      expect.objectContaining({ models: [expect.anything()] }),
+      expect.objectContaining({
+        models: [{ provider: 'anthropic', modelId: 'claude-sonnet-4-6' }],
+      }),
     );
     // Snapshot-at-entry: settings read exactly once, before the agent call.
     expect(mocks.getModelSettingsForUser).toHaveBeenCalledTimes(1);
