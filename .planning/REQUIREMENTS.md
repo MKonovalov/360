@@ -34,11 +34,11 @@ Requirements for v1.3 "AI Model Settings" — per-user AI model management (prim
 
 ### Error-driven failover
 
-- [ ] **FAL-01**: The Analytic Agent resolves the user's model chain from `userModelSettings` at run start (snapshot-at-entry — edits mid-run don't change the active run)
-- [ ] **FAL-02**: A pure `classifyModelError` function classifies AI-SDK errors — unwraps `RetryError` first, then distinguishes provider/model errors (retryable connection errors, `NoSuchModelError`, 404 model-not-found, APICallError `isRetryable`) from non-failover errors (validation, output/schema, auth 401/403)
-- [ ] **FAL-03**: On a failover-eligible error, the run retries the same request with the next model in the chain; the chain is exhausted or non-failover errors fail loud (no silent model switch)
-- [ ] **FAL-04**: The failover loop respects the 60s Vercel ceiling — per-attempt timeouts (primary ~35s, fallback ~20s) bound the total run
-- [ ] **FAL-05**: The model that actually served is recorded on the run (`model_used` + Langfuse) and surfaced so staff know when a fallback ran
+- [x] **FAL-01**: The Analytic Agent resolves the user's model chain from `userModelSettings` at run start (snapshot-at-entry — edits mid-run don't change the active run)
+- [x] **FAL-02**: A pure `classifyModelError` function classifies AI-SDK errors — unwraps `RetryError` first, then distinguishes provider/model errors (retryable connection errors, `NoSuchModelError`, 404 model-not-found, APICallError `isRetryable`) from non-failover errors (validation, output/schema, auth 401/403)
+- [x] **FAL-03**: On a failover-eligible error, the run retries the same request with the next model in the chain; the chain is exhausted or non-failover errors fail loud (no silent model switch)
+- [x] **FAL-04**: The failover loop respects the 60s Vercel ceiling — per-attempt timeouts (primary ~35s, fallback ~20s) bound the total run
+- [x] **FAL-05**: The model that actually served is recorded on the run (`model_used` + Langfuse) and surfaced so staff know when a fallback ran
 
 ### Verification gate
 
@@ -87,11 +87,11 @@ Which phases cover which requirements. Updated 2026-08-02 during v1.3 roadmap cr
 | CAT-02 | Phase 15 | Complete |
 | CAT-03 | Phase 15 | Complete |
 | CAT-04 | Phase 15 | Complete |
-| FAL-01 | Phase 16 | Pending |
-| FAL-02 | Phase 16 | Pending |
-| FAL-03 | Phase 16 | Pending |
-| FAL-04 | Phase 16 | Pending |
-| FAL-05 | Phase 16 | Pending |
+| FAL-01 | Phase 16 | Complete |
+| FAL-02 | Phase 16 | Complete |
+| FAL-03 | Phase 16 | Complete |
+| FAL-04 | Phase 16 | Complete |
+| FAL-05 | Phase 16 | Complete |
 | VER-01 | Phase 18 | Pending |
 | VER-02 | Phase 18 | Pending |
 | VER-03 | Phase 18 | Pending |
