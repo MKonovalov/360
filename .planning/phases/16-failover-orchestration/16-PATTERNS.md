@@ -88,8 +88,7 @@ export function isFailoverEligible(cls: ModelErrorClass): boolean {
 
 **Chain resolver** (research Pattern 2 — the pure function `analyzeCompany` calls ONCE at entry, snapshot-at-entry FAL-01). `Set`-dedupe mirrors `dedup.ts:11-13`:
 ```typescript
-import { ANTHROPIC_ALLOWLIST } from '@/lib/models/catalog';
-import { FAST_MODEL_ID } from './runAgent'; // ← must become an export (currently runAgent.ts:13, non-exported)
+import { ANTHROPIC_ALLOWLIST, FAST_MODEL_ID } from '@/lib/models/catalog'; // FAST_MODEL_ID relocated here by 16-01-T1 (catalog owns model identity — constraint 11)
 
 export type ModelSettingsRow = { primaryModel: string; fallbackModels: string[] } | undefined;
 
