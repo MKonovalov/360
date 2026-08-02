@@ -62,7 +62,7 @@ Full details: [`.planning/milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
 **Phase Numbering:** Continues from v1.2 (which ended at Phase 14) — v1.3 starts at Phase 15.
 
 - [x] **Phase 15: Model Registry Foundation + Persistence** - Per-user `user_model_settings` table + atomic upsert query module (Clerk-userId keyed), `agent_run` `model_used`/`model_chain` audit columns, committed opencode catalog snapshot (`opencode models` dev-time script) + pure slug→provider-ID filter functions, and the migration-apply-flow confirmation (completed 2026-08-02)
-- [ ] **Phase 16: Failover Orchestration** - Pure `classifyModelError` (RetryError-unwrap-first; only retryable provider/model errors advance), `runAgent` chain loop (primary + 1 fallback, per-attempt timeouts, 60s budget), snapshot-at-entry chain resolution, `userId` threading through the analyze route, and `model_used`/`model_chain` population
+- [x] **Phase 16: Failover Orchestration** - Pure `classifyModelError` (RetryError-unwrap-first; only retryable provider/model errors advance), `runAgent` chain loop (primary + 1 fallback, per-attempt timeouts, 60s budget), snapshot-at-entry chain resolution, `userId` threading through the analyze route, and `model_used`/`model_chain` population (completed 2026-08-02)
 - [ ] **Phase 17: Settings UI + List Source** - `settings` NavKey + Manage-group sidebar item, `/settings` page + client form + zod-validated Server Action, runnable-only (allowlist ∩ snapshot) model pickers with ordered reorderable fallbacks
 - [ ] **Phase 18: Verification Gate** - Vitest failover/catalog/chain matrices, live-browser settings→Analyze→`model_used` UAT, Vercel-preview no-opencode check, and the "looks done but isn't" checklist
 
@@ -99,16 +99,16 @@ Full details: [`.planning/milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
 **Plans**: 4 plansPlans:
 **Wave 1**
 
-- [ ] 16-01-PLAN.md — Pure failover foundation: classifyModelError + isFailoverEligible + resolveModelChain (modelConfig.ts) + FAST_MODEL_ID/getModelDisplayName catalog additions
+- [x] 16-01-PLAN.md — Pure failover foundation: classifyModelError + isFailoverEligible + resolveModelChain (modelConfig.ts) + FAST_MODEL_ID/getModelDisplayName catalog additions
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 16-02-PLAN.md — runAgent failover chain loop: LanguageModel[] iteration, per-attempt { totalMs } budgets, eligibility gate, modelUsed/usedFallback return
-- [ ] 16-04-PLAN.md — AnalyzeRunStatus strip: rate_limited ERROR_COPY row + success-after-fallback note (D-04/D-06)
+- [x] 16-02-PLAN.md — runAgent failover chain loop: LanguageModel[] iteration, per-attempt { totalMs } budgets, eligibility gate, modelUsed/usedFallback return
+- [x] 16-04-PLAN.md — AnalyzeRunStatus strip: rate_limited ERROR_COPY row + success-after-fallback note (D-04/D-06)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 16-03-PLAN.md — analyzeCompany userId threading + snapshot-at-entry resolution + rate_limited reason; route userId capture, rate_limited 502, createRun model fields, flat 201 response
+- [x] 16-03-PLAN.md — analyzeCompany userId threading + snapshot-at-entry resolution + rate_limited reason; route userId capture, rate_limited 502, createRun model fields, flat 201 response
 
 ### Phase 17: Settings UI + List Source
 
@@ -168,7 +168,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 13. Collapse & Resize Coexistence | v1.2 | 2/2 | Complete   | 2026-08-01 |
 | 14. Contrast Audit & UAT Matrix | v1.2 | 2/2 | Complete   | 2026-08-01 |
 | 15. Model Registry Foundation + Persistence | v1.3 | 2/2 | Complete    | 2026-08-02 |
-| 16. Failover Orchestration | v1.3 | 0/TBD | Not started | - |
+| 16. Failover Orchestration | v1.3 | 4/4 | Complete   | 2026-08-02 |
 | 17. Settings UI + List Source | v1.3 | 0/TBD | Not started | - |
 | 18. Verification Gate | v1.3 | 0/TBD | Not started | - |
 
