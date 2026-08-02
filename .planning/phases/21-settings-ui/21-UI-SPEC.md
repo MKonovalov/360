@@ -1,7 +1,8 @@
 ---
 phase: 21
 slug: settings-ui
-status: draft
+status: approved
+reviewed_at: 2026-08-03
 shadcn_initialized: true
 preset: radix-nova (style) / neutral (baseColor) — default preset, no preset code
 created: 2026-08-03
@@ -209,11 +210,11 @@ No third-party registries (`components.json` → `"registries": {}`). The only n
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** {pending / approved YYYY-MM-DD}
+**Approval:** approved 2026-08-03
