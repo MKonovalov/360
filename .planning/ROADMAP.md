@@ -165,7 +165,7 @@ Plans:
 **Wave 1**
 
 - [x] 21-01-PLAN.md — Vendor shadcn Command/Popover + cmdk install + post-add verification (SET-06 infra; D-21-05 — NOT `@shadcn/combobox`)
-- [ ] 21-02-PLAN.md — `model-picker-logic.ts` + Vitest suite (Wave 0): search composite, suffix labels, high-cost, provider-switch reducer, union staleIds, grouping, slot dedupe (SET-03/04/06/07/08)
+- [x] 21-02-PLAN.md — `model-picker-logic.ts` + Vitest suite (Wave 0): search composite, suffix labels, high-cost, provider-switch reducer, union staleIds, grouping, slot dedupe (SET-03/04/06/07/08)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -220,7 +220,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 18. Verification Gate | v1.3 | 3/3 | Complete    | 2026-08-02 |
 | 19. Provider Registry + Servable Model Source | v1.4 | 5/5 | Complete    | 2026-08-02 |
 | 20. Cross-Provider Run Path | v1.4 | 4/4 | Complete    | 2026-08-02 |
-| 21. Settings UI | v1.4 | 1/5 | In Progress|  |
+| 21. Settings UI | v1.4 | 2/5 | In Progress|  |
 | 22. Verification Gate | v1.4 | 0/TBD | Not started | - |
 
 ---

@@ -34,7 +34,10 @@ patterns-established:
   - "Pattern: client-safety grep canary — `grep -c \"catalog.json\" <client module>` must be 0; keep the T-17-09 why-comment but phrase it so the canary never trips"
   - "Pattern: optionsForSlot slotIndex convention — fallback slot index excludes primary + other fallbacks but keeps the slot's own id; slotIndex = -1 (primary picker) excludes primary AND all fallbacks so Save can never hit duplicate_model (RESEARCH Open Question 3)"
 
-requirements-completed: [SET-03, SET-04, SET-06, SET-07, SET-08]
+# NOTE: requirements-completed is deliberately [] — this plan delivers the unit-testable
+# logic layer only; SET-03/04/06/07/08 acceptance is UI-visible behavior (hint, grouped
+# pickers, search UX, rendered labels, form staleness gate + captions) landing in
+# 21-03/21-04/21-05. Same rationale as 21-01 leaving SET-06 open. requirements-completed: []
 
 # Metrics
 duration: 3min

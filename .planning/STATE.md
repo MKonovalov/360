@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Multi-Provider AI Model Configuration
 status: executing
-last_updated: "2026-08-02T23:06:30.779Z"
+last_updated: "2026-08-02T23:14:58.806Z"
 last_activity: 2026-08-02
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 14
-  completed_plans: 10
+  completed_plans: 11
   percent: 50
 ---
 
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 ## Current Position
 
 Phase: 21 (settings-ui) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-08-02
 
-Progress: [███████░░░] 71%
+Progress: [████████░░] 79%
 
 ## Performance Metrics
 
@@ -61,6 +61,7 @@ Progress: [███████░░░] 71%
 | Phase 20-cross-provider-run-path P03 | 8min | 2 tasks | 2 files |
 | Phase 20-cross-provider-run-path P04 | 2min | 2 tasks | 1 files |
 | Phase 21-settings-ui P01 | 12min | 1 tasks | 6 files |
+| Phase 21-settings-ui P02 | 3min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -106,6 +107,9 @@ Recent decisions affecting current work:
 - [Phase ?]: FAL-05 is verification-only (RESEARCH caveat 6): Phase 19/20-02 already wired modelUsed/modelChain; proven by 3 greps + a tsx identity smoke rather than new code
 - [Phase ?]: The catalog stores ~latest aliases with a LEADING ~ ('~anthropic/claude-sonnet-latest'), not 'anthropic/claude-sonnet-latest' - the plan's smoke literal would fail; corrected smoke uses the real alias and still proves the FAL-05 intent (ids resolve to providers, flow verbatim)
 - [Phase 21-settings-ui]: SET-06 infra shipped (21-01): vendored shadcn Command/Popover via official CLI; cmdk@^1.1.1 is the phase's single new npm dep, recorded in package-lock.json via npm (no yarn.lock). The v4 CommandGroup heading contract is the compiled descendant form (**[[cmdk-group-heading]]:text-xs...), NOT the literal class string. Wrapper (21-04) MUST pass data-checked per CommandItem — vendored CheckIcon is gated on group-data-[checked=true] but cmdk only emits data-selected/aria-selected (PATTERNS Pitfall 1). SET-06 stays open until 21-05
+- [Phase 21-settings-ui]: ServableModel six-field shape { id, name, family, providerID, costInput, costOutput } defined once in model-picker-logic.ts — the shared prop type page.tsx (21-03), model-picker.tsx (21-04), and the form (21-05) all import — Avoids three drifting local copies of the trimmed prop shape
+- [Phase 21-settings-ui]: model-picker-logic.ts's ONLY import is import type { ModelProviderId } from '@/lib/models/catalog' — erased at compile; a value import would drag the 1131-row snapshot into the client bundle (T-17-09) — Client-safety canary grep (catalog.json -> 0) stays clean; the union cannot drift from catalog.ts
+- [Phase 21-settings-ui]: Task 1/2 executed as one TDD cycle per the plan's tdd=true flag on Task 1: the full Vitest suite was authored in Task 1's RED phase (failing test commit) and the module implemented in GREEN — RED test commit 35617605 strictly precedes GREEN feat commit 0c69783f — the TDD gate is satisfied; Task 2's deliverable is the RED commit
 
 ### Pending Todos
 
@@ -136,9 +140,9 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-02T23:06:30.773Z
-Stopped at: Plan 21-01 complete (Command/Popover vendored + cmdk) — next 21-02
-Resume file: .planning/phases/21-settings-ui/21-01-SUMMARY.md
+Last session: 2026-08-02T23:14:58.652Z
+Stopped at: Completed 21-02 (model-picker-logic pure module + Vitest suite) — next 21-03
+Resume file: .planning/phases/21-settings-ui/21-02-SUMMARY.md
 
 ## Operator Next Steps
 
