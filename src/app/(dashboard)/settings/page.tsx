@@ -1,6 +1,6 @@
 import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { getModelSettingsForUser } from '@/lib/db/queries/userModelSettings';
-import { getAllowlistedServableIds, FAST_MODEL_ID, getModelDisplayName } from '@/lib/models/catalog';
+import { getServableIdsForProvider, FAST_MODEL_ID, getModelDisplayName } from '@/lib/models/catalog';
 import catalogJson from '@/lib/models/catalog.json';
 import { ModelSettingsForm } from '@/components/settings/model-settings-form';
 
@@ -37,13 +37,13 @@ export default async function SettingsPage() {
   // Server-computed picker data, never client-fetched (17-UI-SPEC §Page) —
   // the client receives props only, so catalog.json (1131 rows, CAT-04
   // server-side source) never enters a client bundle (T-17-09).
-  // getAllowlistedServableIds = allowlist ∩ snapshot — the runnable set
+  // getServableIdsForProvider(catalogJson, 'anthropic') = anthropic allowlist ∩ snapshot — the runnable set
   // (SET-07 / Phase 15 D-03), never raw catalog rows. Costs read from the
   // snapshot's anthropic entry by id (first-match lookup like
   // getModelDisplayName) — the snapshot holds dual opencode/anthropic entries
   // for the same id and the opencode gateway row is not the cost source
   // (17-PATTERNS lines 26-29).
-  const servableIds = getAllowlistedServableIds(catalogJson);
+  const servableIds = getServableIdsForProvider(catalogJson, 'anthropic');
   const servableModels = servableIds.map((id) => {
     const m = catalogJson.models.find((mm) => mm.id === id && mm.providerID === 'anthropic');
     return {
