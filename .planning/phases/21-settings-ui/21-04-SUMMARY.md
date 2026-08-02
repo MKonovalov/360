@@ -135,6 +135,6 @@ None - no external service configuration required (no env changes, no new npm de
 
 ## Self-Check: PASSED
 
-- Files: `src/components/settings/model-picker.tsx`, `.planning/phases/21-settings-ui/21-04-SUMMARY.md` — present (summary pending its docs commit)
-- Commits: `e7bb710c` (Task 1 feat) — present in git log
+- Files: `src/components/settings/model-picker.tsx`, `.planning/phases/21-settings-ui/21-04-SUMMARY.md` — both FOUND
+- Commits: `e7bb710c` (Task 1 feat), `c2e7051d` (SUMMARY docs), `0c38db2d` (STATE/ROADMAP docs) — all present in git log
 - Gates: 5 plan acceptance greps pass (data-checked=1, `searchValue(o) === v`=1, `w-(--radix-popover-trigger-width)`=1, `lib/models/catalog`=0, `catalog.json`=0); `npx tsc --noEmit` exit 0; 21-02 logic suite 21/21 no regression
