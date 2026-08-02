@@ -130,3 +130,9 @@ None - no external service configuration required (no env changes, no new npm de
 
 *Phase: 21-settings-ui*
 *Completed: 2026-08-02*
+
+## Self-Check: PASSED
+
+- Files: `src/app/(dashboard)/settings/page.tsx`, `src/components/settings/model-settings-form.tsx`, `.planning/phases/21-settings-ui/21-03-SUMMARY.md` — all FOUND
+- Commits: `ec60f535` (Task 1 feat), `710c0f7e` (SUMMARY docs), `cbe386d4` (STATE/ROADMAP docs) — all present in git log
+- Gates: plan verify chain green (`mm.id === id && mm.providerID === provider` = 1, `PROVIDER_DEFAULT_MODELS` = 2, props-pass greps = 5, `defaultPrimary` = 0); `npx tsc --noEmit` exit 0; full Vitest suite 30 files / 356 tests pass (2 skipped, 21-02 baseline); STATE.md Plan 4 of 5 + 86% progress; ROADMAP phase 21 row 3/5
