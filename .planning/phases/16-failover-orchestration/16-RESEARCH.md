@@ -561,7 +561,7 @@ All three questions were resolved by the phase plans (2026-08-02) — each recom
 ### Wave 0 Gaps
 - [ ] `src/lib/agents/modelConfig.test.ts` — new; covers FAL-02 matrix + FAL-01/03 resolution (VER-01/VER-02 in Phase 18 feed off the same module)
 - [ ] `src/lib/agents/runAgent.test.ts` — extend with loop cases (currently 3 tests; `expect(result).toEqual(resolvedRun)` at line 87 must be updated deliberately when the return shape grows to `{ ...result, modelUsed, usedFallback }` — Pitfall 10 checklist: update deliberately, don't delete)
-- [ ] `src/lib/agents/analyzeCompany.test.ts` — extend: signature change `analyzeCompany(1)` → `analyzeCompany(1, 'user_2...')` touches every call site in the file (lines 130, 169, 179, 190, 197); add `getModelSettingsForUser` mock + chain assertion + rate_limited case
+- [ ] `src/lib/agents/analyzeCompany.test.ts` — extend: signature change `analyzeCompany(1)` → `analyzeCompany(1, 'user_2...')` touches every call site in the file (lines 130, 169, 179, 190, 199); add `getModelSettingsForUser` mock + chain assertion + rate_limited case
 - Framework: Vitest already installed + configured — no framework gap
 
 ## Security Domain

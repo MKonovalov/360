@@ -96,13 +96,19 @@ Full details: [`.planning/milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
   3. The chain is bounded to primary + 1 fallback with per-attempt timeouts (~35s primary / ~20s fallback) so every run completes under the 60s Vercel ceiling; a chain-exhausted run returns the existing structured failure (502 + trace link), never a 504
   4. The run's `agent_run` row records the model that actually served and the attempted chain, staff can see when a fallback ran (Analyze response carries `modelUsed`; review/run history shows the producing model), and the Langfuse trace shows per-attempt spans with `ai.model.id`
 
-**Plans**: 4 plans
-Plans:
+**Plans**: 4 plansPlans:
+**Wave 1**
 
 - [ ] 16-01-PLAN.md — Pure failover foundation: classifyModelError + isFailoverEligible + resolveModelChain (modelConfig.ts) + FAST_MODEL_ID/getModelDisplayName catalog additions
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 16-02-PLAN.md — runAgent failover chain loop: LanguageModel[] iteration, per-attempt { totalMs } budgets, eligibility gate, modelUsed/usedFallback return
-- [ ] 16-03-PLAN.md — analyzeCompany userId threading + snapshot-at-entry resolution + rate_limited reason; route userId capture, rate_limited 502, createRun model fields, flat 201 response
 - [ ] 16-04-PLAN.md — AnalyzeRunStatus strip: rate_limited ERROR_COPY row + success-after-fallback note (D-04/D-06)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 16-03-PLAN.md — analyzeCompany userId threading + snapshot-at-entry resolution + rate_limited reason; route userId capture, rate_limited 502, createRun model fields, flat 201 response
 
 ### Phase 17: Settings UI + List Source
 

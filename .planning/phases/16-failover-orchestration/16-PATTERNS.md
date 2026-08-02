@@ -290,7 +290,7 @@ try {
 
 ### `src/lib/agents/analyzeCompany.test.ts` (test) — MODIFY
 
-**Analog:** self. **Every `analyzeCompany(1)` call site gains the userId arg** — research Wave 0 names L130, L169, L179, L190, L197. New `beforeEach` mock:
+**Analog:** self. **Every `analyzeCompany(1)` call site gains the userId arg** — research Wave 0 names L130, L169, L179, L190, L199. New `beforeEach` mock:
 ```typescript
 // in the hoisted mocks (L7-18) add:
 getModelSettingsForUser: vi.fn(),
@@ -482,7 +482,7 @@ DB values, chain entries, and allowlist membership are raw undated provider IDs 
 - **`RetryError` confirmed exported from `'ai'`** (`node_modules/ai/dist/index.d.ts:6852-6863`, `static isInstance` at 6863) — the classifier's imports compile.
 - **`FAST_MODEL_ID` (runAgent.ts:13) is currently NOT exported** — `resolveModelChain` needs it for the REG-05 default; Phase 16 must export it (or relocate to catalog.ts). Watch for a circular import if `modelConfig.ts` imports `runAgent.ts` AND `runAgent.ts` imports `modelConfig.ts` — break the cycle by exporting `FAST_MODEL_ID` from `runAgent.ts` and importing only that symbol, or move the constant to `catalog.ts` (cleanest: catalog owns model identity).
 - **`runAgent.test.ts:87` return-shape assertion must be updated deliberately** when the return grows to `{ ...result, modelUsed, usedFallback }`.
-- **`analyzeCompany.test.ts` call sites to update for the signature change:** L130, L169, L179, L190, L197 (research Wave 0).
+- **`analyzeCompany.test.ts` call sites to update for the signature change:** L130, L169, L179, L190, L199 (research Wave 0).
 - **`catalog.json` holds dual `claude-sonnet-4-6` entries** (providerID `opencode` AND `anthropic`, same `name: "Claude Sonnet 4.6"`) — `getModelDisplayName` keys by `id` only; `getAllowlistedServableIds` (catalog.ts:24-28) keys by `providerID === 'anthropic'`. Chain resolution should filter via `ANTHROPIC_ALLOWLIST.includes(id)` (research Pattern 2) — do NOT depend on `getAllowlistedServableIds` returning non-empty against the real snapshot unless the anthropic entry is confirmed present (it is, verified).
 - **`requireStaffAccess()` returns `{ userId }`** (requireStaffAccess.ts:10-16) — the route currently discards it at L25.
 - **`createRun` REG-04 seam fully shipped** (runs.ts:13-14, 33-34) with a regression test (runs.test.ts:44-61) — zero run.ts changes this phase.
