@@ -19,11 +19,11 @@ Requirements for v1.3 "AI Model Settings" — per-user AI model management (prim
 
 ### Model registry + persistence
 
-- [ ] **REG-01**: A `userModelSettings` Drizzle table persists per-user model preferences, keyed by Clerk `userId` (unique per user)
-- [ ] **REG-02**: `userModelSettings` stores the raw provider model IDs (e.g. `claude-sonnet-4-6`, never `anthropic/...`), primary as text and fallbacks as `text[]` (ordered)
-- [ ] **REG-03**: A query module (`src/lib/db/queries/userModelSettings.ts`) exposes get + atomic upsert for a user's settings
-- [ ] **REG-04**: `agent_run` gains audit columns recording which model actually served (`model_used`) and the resolved chain (`model_chain`), so the "which model ran" truth is durable and traceable in Langfuse
-- [ ] **REG-05**: When a user has no saved settings, the app resolves a documented default (existing `claude-sonnet-4-6` behavior preserved)
+- [x] **REG-01**: A `userModelSettings` Drizzle table persists per-user model preferences, keyed by Clerk `userId` (unique per user)
+- [x] **REG-02**: `userModelSettings` stores the raw provider model IDs (e.g. `claude-sonnet-4-6`, never `anthropic/...`), primary as text and fallbacks as `text[]` (ordered)
+- [x] **REG-03**: A query module (`src/lib/db/queries/userModelSettings.ts`) exposes get + atomic upsert for a user's settings
+- [x] **REG-04**: `agent_run` gains audit columns recording which model actually served (`model_used`) and the resolved chain (`model_chain`), so the "which model ran" truth is durable and traceable in Langfuse
+- [x] **REG-05**: When a user has no saved settings, the app resolves a documented default (existing `claude-sonnet-4-6` behavior preserved)
 
 ### Model catalog from opencode
 
@@ -78,11 +78,11 @@ Which phases cover which requirements. Updated 2026-08-02 during v1.3 roadmap cr
 | SET-05 | Phase 17 | Pending |
 | SET-06 | Phase 17 | Pending |
 | SET-07 | Phase 17 | Pending |
-| REG-01 | Phase 15 | Pending |
-| REG-02 | Phase 15 | Pending |
-| REG-03 | Phase 15 | Pending |
-| REG-04 | Phase 15 | Pending |
-| REG-05 | Phase 15 | Pending |
+| REG-01 | Phase 15 | Complete |
+| REG-02 | Phase 15 | Complete |
+| REG-03 | Phase 15 | Complete |
+| REG-04 | Phase 15 | Complete |
+| REG-05 | Phase 15 | Complete |
 | CAT-01 | Phase 15 | Pending |
 | CAT-02 | Phase 15 | Pending |
 | CAT-03 | Phase 15 | Pending |

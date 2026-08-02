@@ -3,15 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: AI Model Settings
 status: executing
-stopped_at: Phase 15 context gathered
-last_updated: "2026-08-02T00:12:22.478Z"
-last_activity: 2026-08-02 -- Phase 15 planning complete
+last_updated: "2026-08-02T09:00:39.255Z"
+last_activity: 2026-08-02
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 2
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 50
 ---
 
 # Project State
@@ -21,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-02)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** v1.3 AI Model Settings — per-user AI model management (primary + ordered fallback chain) consumed by the Analytic Agent with error-driven failover
+**Current focus:** Phase 15 — model-registry-foundation-persistence
 
 ## Current Position
 
-Phase: Not started (Phase 15 ready to plan — Model Registry Foundation + Persistence)
-Plan: —
+Phase: 15 (model-registry-foundation-persistence) — EXECUTING
+Plan: 2 of 2
 Status: Ready to execute
-Last activity: 2026-08-02 -- Phase 15 planning complete
+Last activity: 2026-08-02
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
@@ -40,7 +39,11 @@ Progress: [░░░░░░░░░░] 0%
 - Average duration: - min
 - Total execution time: - hours (v1.3 not started)
 
-**By Phase (v1.3):** none yet — not started
+**By Phase (v1.3):**
+
+| Phase | Plan | Duration | Tasks | Files |
+|-------|------|----------|-------|-------|
+| 15-model-registry-foundation-persistence | 01 | 14min | 3 | 5 |
 
 **Recent Trend:**
 
@@ -62,6 +65,8 @@ Recent decisions affecting current work:
 - **Roadmap (v1.3): Phase 15 carries the migration-apply-flow confirmation** — `drizzle/meta/_journal.json` has zero entries (MEDIUM research flag): confirm `drizzle-kit push` vs generate+commit before adding `user_model_settings`.
 - **Roadmap (v1.3): Pitfall-11 pre-flight note goes into the Phase 16 plan** — verify `generateText` model option, exported error classes, and `anthropic('id')` behavior against installed `ai@7.0.45`/`@ai-sdk/anthropic@4.0.26` dist types BEFORE writing the failover loop (v1.1-proven mitigation).
 - **Roadmap (v1.3): Allowlist curation is standing maintenance** — only `claude-sonnet-4-6` is roster-verified (2026-08-01); Phase 15 re-verifies any curated additions via `GET /v1/models`.
+- [Phase 15]: D-06 intent reading: NO version column on user_model_settings (atomic upsert prevents lost updates); createdAt ships per repo convention (every table has it)
+- [Phase 15]: fallbackModels comment cites company.techStack (schema.ts:61) as the text[] precedent — 'first text[] column' claim is factually wrong per research
 
 ### Pending Todos
 
@@ -89,9 +94,9 @@ Items acknowledged and carried forward from v1.1/v1.2 milestone close, still ope
 
 ## Session Continuity
 
-Last session: 2026-08-01T23:48:26.495Z
-Stopped at: Phase 15 context gathered
-Resume file: .planning/phases/15-model-registry-foundation-persistence/15-CONTEXT.md
+Last session: 2026-08-02T08:59:57.907Z
+Stopped at: Completed 15-01-PLAN.md
+Resume file: None
 
 ## Operator Next Steps
 

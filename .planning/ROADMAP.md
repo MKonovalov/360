@@ -81,7 +81,7 @@ Full details: [`.planning/milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
 
 **Plans**: 2 plansPlans:
 
-- [ ] 15-01-PLAN.md — DB foundation: user_model_settings table + agent_run audit columns + userModelSettings query module + schema push + integration tests
+- [x] 15-01-PLAN.md — DB foundation: user_model_settings table + agent_run audit columns + userModelSettings query module + schema push + integration tests
 - [ ] 15-02-PLAN.md — Catalog: refresh-model-catalog script + models:fetch + committed snapshot + pure allowlist/slug filter functions + tests
 
 ### Phase 16: Failover Orchestration
@@ -158,7 +158,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 12. Branding & User Zones | v1.2 | 2/2 | Complete   | 2026-08-01 |
 | 13. Collapse & Resize Coexistence | v1.2 | 2/2 | Complete   | 2026-08-01 |
 | 14. Contrast Audit & UAT Matrix | v1.2 | 2/2 | Complete   | 2026-08-01 |
-| 15. Model Registry Foundation + Persistence | v1.3 | 0/TBD | Not started | - |
+| 15. Model Registry Foundation + Persistence | v1.3 | 1/2 | In Progress | |
 | 16. Failover Orchestration | v1.3 | 0/TBD | Not started | - |
 | 17. Settings UI + List Source | v1.3 | 0/TBD | Not started | - |
 | 18. Verification Gate | v1.3 | 0/TBD | Not started | - |
