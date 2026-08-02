@@ -78,7 +78,7 @@ Each task was committed atomically:
 2. **Task 2: catalog.test.ts provider-aware contracts** - `567bb91b` (test)
 3. **Task 3: settings.ts union validation + callers migrated** - `2170f5ba` (feat)
 
-**Plan metadata:** `pending` (docs: complete plan)
+**Plan metadata:** `3d68cdd3` (docs: complete plan)
 
 ## Files Created/Modified
 - `src/lib/models/catalog.ts` - Provider registry: `ModelProviderId`, `PROVIDER_GATES`, `SERVABLE_PROVIDERS`, `getServableIdsForProvider`, `getUnionServableIds`, `getProviderForModelId`; `getAllowlistedServableIds` removed; `ANTHROPIC_ALLOWLIST`, `FAST_MODEL_ID`, `getModelDisplayName`, `opencodeSlugToModelId` kept byte-identical (D-04: slug mapper stays Anthropic/opencode-only).
