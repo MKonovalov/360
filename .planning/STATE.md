@@ -2,16 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: AI Model Settings
-status: milestone_complete
-last_updated: 2026-08-02T17:14:39.971Z
-last_activity: 2026-08-02
+status: Awaiting next milestone
+last_updated: "2026-08-02T17:36:05.805Z"
+last_activity: 2026-08-02 — Milestone v1.3 completed and archived
 progress:
-  total_phases: 18
-  completed_phases: 18
+  total_phases: 4
+  completed_phases: 4
   total_plans: 12
   completed_plans: 12
   percent: 100
-stopped_at: Milestone complete (Phase 18 was final phase)
 ---
 
 # Project State
@@ -25,12 +24,10 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 
 ## Current Position
 
-Phase: 18
-Plan: Not started
-Status: Milestone complete
-Last activity: 2026-08-02
-
-Progress: [██████████] 100%
+Phase: Milestone v1.3 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-08-02 — Milestone v1.3 completed and archived
 
 ## Performance Metrics
 
@@ -125,4 +122,4 @@ Resume file: None
 
 ## Operator Next Steps
 
-- Plan Phase 15 with `/gsd-plan-phase 15` (Model Registry Foundation + Persistence — confirm the migration apply flow first)
+- Start the next milestone with /gsd-new-milestone

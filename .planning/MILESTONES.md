@@ -1,5 +1,26 @@
 # Milestones
 
+## v1.3 AI Model Settings (Shipped: 2026-08-02)
+
+**Phases completed:** 4 phases, 12 plans, 30 tasks
+
+**Key accomplishments:**
+
+- Per-user AI model settings persisted via a Clerk-userId-keyed `user_model_settings` table with atomic full-value upsert (raw provider IDs, `text[]` fallbacks), plus `agent_run` `model_used`/`model_chain` audit columns and a `createRun` insert seam — with the D-01 `drizzle-kit push` apply flow executed against live Neon.
+- Dev-time `opencode models --verbose` snapshot script (repo-root scripts/, node-builtins only) producing a committed 1131-model catalog.json, plus a pure, mock-free catalog module whose roster-verified (2026-08-02) sonnet-only allowlist gates the servable set — zero runtime opencode dependency, src/ stays exec-free.
+- classifyModelError (RetryError-unwrap-first, explicit statusCode switch — D-03) + isFailoverEligible predicate + resolveModelChain (D-08 dedupe → D-10 cap-2 → allowlist gate → REG-05 default) in a zero-mock pure module, with catalog.ts gaining FAST_MODEL_ID + getModelDisplayName and a 12-case mock-free classifier/resolver test matrix
+- runAgent converted from a single-model generateText call into the bounded failover chain loop: iterate LanguageModel[], classify each attempt's error via modelConfig, advance only on failover-eligible classes (404/5xx/connection), cap each attempt with timeout { totalMs } (35s primary / 20s fallback → 55s worst case < 60s maxDuration), and return the { modelUsed, usedFallback } audit identity that Phase 15's createRun seam persists
+- analyzeCompany now takes (companyId, userId), resolves the authenticated user's model chain ONCE at entry (FAL-01 snapshot-at-entry) and threads the resulting LanguageModel[] into runAgent; 429 maps to a distinct D-04 rate_limited reason; the Analyze route captures { userId }, emits the rate_limited 502 branch, persists modelUsed/modelChain via createRun (FAL-05), and returns the locked flat { modelUsed, usedFallback, modelUsedName } 201 body that 16-04's status strip consumes
+- D-04 `rate_limited` staff copy row ('Rate limited — try again in a moment') + D-06 success-after-fallback note (' — ran on {display name} (fallback)') in AnalyzeRunStatus, driven by the flat optional { modelUsed, modelUsedName, usedFallback } API response fields, with zero new dependencies
+- NavKey union and getActiveNavKey now cover `'settings'` (exact-match-only, sibling-prefix guard intact), the collapsed-rail tooltip map gains `settings: 'Settings'`, the sidebar Manage group shows a badge-free Settings item below Reviews, and both ExplorerMenu callers (companies/personas) list a Settings entry — all locked by 4 new Vitest cases (22 total green) with zero new dependencies.
+- The persistence half of the Settings surface: `saveSettingsAction` locks the immutable gate-first → zod → servable-set → dedupe → atomic-upsert ordering behind a seven-case security matrix (zero live calls, all external deps mocked), and the 2026-08-02 D-01 live-roster re-verify confirms the undated `claude-haiku-4-5` is still absent — so `ANTHROPIC_ALLOWLIST` stays sonnet-only (D-02), the content both the pickers and the action validate against.
+- The Settings surface staff interact with: a Reviews-pattern server page at `/settings` (gate → fetch → server-computed servable models → render) feeding a client form that stages a draft primary + ordered-fallback chain with cost-captioned servable-only pickers, up/down reorder, and a full save lifecycle through the plan 17-02 Server Action — with the client-side staleness gate (D-10/D-11) as the primary mechanism keeping non-runnable models out of the DB. Sonnet-only today (D-02), so the fallback section renders the muted note; the branch structure is ready for a roster expansion.
+- 6 new tests closing VER-01's four loop-level failover gaps (401, 403, output/schema, RetryError-wrapped 404) and VER-02's catalog/chain cells (real-snapshot + partial-chain), plus the 18-VER-01-MATRIX.md traceability artifact mapping all 13 PITFALLS checklist items onto exactly one proof surface — zero production code changes.
+- Live-browser VER-03 proof: settings → pick primary (claude-sonnet-4-6) → save → Analyze on Altana → Postgres agent_run row id=3 records model_used=claude-sonnet-4-6 with model_chain=[claude-sonnet-4-6], recorded as 6/6 passing tests in 18-UAT.md, folded into 18-VERIFICATION.md with the SC-3 satisfied-by-extension disposition, and closing the 16-HUMAN-UAT pending items — zero production code changes.
+- VER-04 closed by a human-approved Vercel preview: PR #1 (chore/18-verification-gate → main) auto-built by the GitHub integration (A1 confirmed), the fresh full CLI deployment at https://360-arclumen-g3pye9c3d-mkonovalovs-projects.vercel.app renders /settings exactly "Claude Sonnet 4.6" with cost caption from the committed catalog.json — no 500, no empty state, no opencode//gpt-/gemini- rows, anonymous visitors gated by Clerk sign-in — recorded into 18-VERIFICATION.md with status: passed, 8/8 truths, and the zero-hit exec|spawn grep gate (ASVS V7). Zero production code changes.
+
+---
+
 ## v1.2 Exa-Style Left Panel (Shipped: 2026-08-01)
 
 **Phases completed:** 5 phases, 10 plans, 26 tasks
