@@ -34,6 +34,10 @@ describe('getActiveNavKey', () => {
     expect(getActiveNavKey('/reviews/9')).toBe('reviews');
   });
 
+  it("returns 'settings' for the settings index", () => {
+    expect(getActiveNavKey('/settings')).toBe('settings');
+  });
+
   it('returns null for the sign-in route', () => {
     expect(getActiveNavKey('/sign-in')).toBeNull();
   });
@@ -44,5 +48,9 @@ describe('getActiveNavKey', () => {
 
   it('returns null for a sibling prefix (boundary guard)', () => {
     expect(getActiveNavKey('/companies-archive')).toBeNull();
+  });
+
+  it('returns null for a /settings sibling prefix (boundary guard)', () => {
+    expect(getActiveNavKey('/settings-archive')).toBeNull();
   });
 });

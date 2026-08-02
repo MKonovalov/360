@@ -14,6 +14,14 @@ describe('getNavTooltipLabel', () => {
     expect(getNavTooltipLabel('personas', 0)).toBe('Key Personas');
   });
 
+  it("returns the verbatim 'Settings' label for the settings key, ignoring the count", () => {
+    expect(getNavTooltipLabel('settings', 0)).toBe('Settings');
+  });
+
+  it("returns the verbatim 'Settings' label for the settings key with a positive count", () => {
+    expect(getNavTooltipLabel('settings', 3)).toBe('Settings');
+  });
+
   it("returns plain 'Reviews' for the reviews key when the pending count is zero", () => {
     expect(getNavTooltipLabel('reviews', 0)).toBe('Reviews');
   });
