@@ -101,7 +101,7 @@ Plans:
 **Wave 1**
 
 - [x] 19-01-PLAN.md — Provider registry (D-05 rename → `getServableIdsForProvider` + `PROVIDER_GATES` + union + provider-scoped lookup + collision canary) + REG-07 union save validation + page call-site swap
-- [ ] 19-02-PLAN.md — `OPENROUTER_API_KEY` optional server-only env declaration + D-08 `structuredOutputs` snapshot capability field + one-time snapshot regen (D-07 roster-verify)
+- [x] 19-02-PLAN.md — `OPENROUTER_API_KEY` optional server-only env declaration + D-08 `structuredOutputs` snapshot capability field + one-time snapshot regen (D-07 roster-verify)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -187,7 +187,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 16. Failover Orchestration | v1.3 | 4/4 | Complete    | 2026-08-02 |
 | 17. Settings UI + List Source | v1.3 | 3/3 | Complete    | 2026-08-02 |
 | 18. Verification Gate | v1.3 | 3/3 | Complete    | 2026-08-02 |
-| 19. Provider Registry + Servable Model Source | v1.4 | 1/5 | In Progress|  |
+| 19. Provider Registry + Servable Model Source | v1.4 | 2/5 | In Progress|  |
 | 20. Cross-Provider Run Path | v1.4 | 0/TBD | Not started | - |
 | 21. Settings UI | v1.4 | 0/TBD | Not started | - |
 | 22. Verification Gate | v1.4 | 0/TBD | Not started | - |

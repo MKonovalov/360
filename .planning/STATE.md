@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Multi-Provider AI Model Configuration
 status: executing
-last_updated: "2026-08-02T19:23:24.977Z"
+last_updated: "2026-08-02T19:33:32.862Z"
 last_activity: 2026-08-02
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 5
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 ## Current Position
 
 Phase: 19 (Provider Registry + Servable Model Source) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-08-02
 
-Progress: [██░░░░░░░░] 20%
+Progress: [████░░░░░░] 40%
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Progress: [██░░░░░░░░] 20%
 
 *Updated after each plan completion*
 | Phase 19 P1 | 3 min | 3 tasks | 5 files |
+| Phase 19 P02 | 5 | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -73,6 +74,8 @@ Recent decisions affecting current work:
 - [Phase 19]: PROVIDER_GATES data map: anthropic = ANTHROPIC_ALLOWLIST (sonnet-only, REG-04), openrouter = {} (full active catalog per D-02/SET-07)
 - [Phase 19]: getProviderForModelId scopes the find to the two servable providerIDs — never a bare id find (Anti-Pattern 1 / T-19-03 collision canary)
 - [Phase 19]: saveSettingsAction widens to getUnionServableIds (REG-07) — cross-provider chains accepted, non-servable ids rejected with invalid_model
+- [Phase 19]: structuredOutputs is a first-class snapshot field derived from live OpenRouter supported_parameters by exact-id join (D-08) — never a code-side map, never a global strict:false
+- [Phase 19]: refresh-model-catalog.ts throws (aborts, no write) if the live OpenRouter fetch fails — the committed snapshot stays usable (T-19-06)
 
 ### Pending Todos
 
@@ -103,7 +106,7 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-02T19:22:41.613Z
+Last session: 2026-08-02T19:30:40.242Z
 Stopped at: Phase 19 context gathered
 Resume file: None
 

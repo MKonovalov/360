@@ -10,7 +10,7 @@ Requirements for milestone v1.4. Each maps to a roadmap phase.
 ### Provider Registry + Servable Model Source
 
 - [x] **REG-01**: User can select the AI Provider for their model configuration — Anthropic (existing) or OpenRouter (new) — in the Settings AI Model Configuration card
-- [ ] **REG-02**: `@openrouter/ai-sdk-provider@^3.0.0` is installed; `OPENROUTER_API_KEY` declared in `env.ts` (optional, non-`PUBLIC_`, mirroring the D-15 `ANTHROPIC_API_KEY` degrade-gracefully pattern), `.env.example`, and Vercel env
+- [x] **REG-02**: `@openrouter/ai-sdk-provider@^3.0.0` is installed; `OPENROUTER_API_KEY` declared in `env.ts` (optional, non-`PUBLIC_`, mirroring the D-15 `ANTHROPIC_API_KEY` degrade-gracefully pattern), `.env.example`, and Vercel env
 - [x] **REG-03**: OpenRouter servable set = all active `providerID === 'openrouter'` rows in the committed catalog snapshot (~336 models), with `~latest` aliases and `:free` variants included but labeled per SET-07
 - [x] **REG-04**: Anthropic servable set unchanged — `ANTHROPIC_ALLOWLIST` sonnet-only gate still applies
 - [x] **REG-05**: Provider identity derived from the catalog by model id (servable-scoped lookup + collision canary) — NO `user_model_settings` schema change, no provider column
@@ -69,7 +69,7 @@ Deferred to future releases. Tracked but not in the current roadmap.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | REG-01 | Phase 19 | Complete |
-| REG-02 | Phase 19 | Pending |
+| REG-02 | Phase 19 | Complete |
 | REG-03 | Phase 19 | Complete |
 | REG-04 | Phase 19 | Complete |
 | REG-05 | Phase 19 | Complete |
