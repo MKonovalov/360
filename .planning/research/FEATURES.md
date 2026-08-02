@@ -1,22 +1,58 @@
 # Feature Research
 
-**Domain:** Per-user AI model settings (primary model + ordered fallback chain) for an internal staff tool — ArcLumen 360 v1.3
+**Domain:** Multi-provider AI model configuration (AI Provider selector above the Primary model) — ArcLumen 360 v1.4
 **Researched:** 2026-08-02
-**Confidence:** HIGH (in-repo integration points + opencode mechanics, empirically verified); MEDIUM (OhMyOpenCode behavior — docs/community sources)
+**Confidence:** HIGH (in-repo verified: catalog id-space geometry, form/save/run machinery, OpenRouter SDK contract); MEDIUM (ecosystem norms for provider-switch UX — inferred from OpenRouter/LiteLLM/Cursor patterns, not first-party UX research)
 
-## Failover UX Contract (the milestone's core question)
+## Design Decisions (the milestone's five questions, answered)
 
-The milestone asks: *when the primary model fails, does the user see it, does the run silently retry, is there an indicator of which model actually ran?*
+### Q1 — When the user switches the AI Provider, what happens to the already-selected primary/fallback models?
 
-**Answer — model on OhMyOpenCode/opencode:**
+**Answer: reset the PRIMARY to the new provider's default; leave FALLBACKS untouched.**
 
-| Question | OhMyOpenCode/opencode behavior | v1.3 recommendation |
-|---|---|---|
-| Does the user see the failure? | No. Model resolution is config-driven and automatic (`doctor --verbose` is the only introspection surface). No interactive retry prompt. | No. **Silent retry within the run.** The existing Analyze UX already shows one "Analyzing…" strip; staff never sees per-model attempts. |
-| Does the run silently retry? | Yes — `fallback_models` ("Fallback models on API errors") is tried in order; opencode core itself has *no* fallback, this is OMO's addition. | Yes — retry down the ordered chain inside the same request/run, bounded by the 60s Vercel `maxDuration` ceiling (D-07). Only retry on *retryable* errors (429 / 5xx / timeout / overloaded), never on 400/401/404 (auth, bad request, model-not-found) or validation failures. |
-| Is there an indicator of which model ran? | In OMO: only via `doctor`/logs. In this app's observability: Langfuse traces already carry the model name per `generateText` (OTel `gen_ai.request.model`) via `@langfuse/vercel-ai-sdk`. | **Table stakes:** durable record — `agent_run.modelUsed` (+ `modelsAttempted`) column and the existing Langfuse trace. **Differentiator:** a subtle "ran on Claude Sonnet 4.6 (fallback)" line in the Analyze run-status strip on success-after-fallback. |
+Reasoning, grounded in verified catalog facts:
 
-**Contract in one sentence:** *one run, silent retry down the chain, fail loud only when the whole chain is exhausted, and the actual model is recorded everywhere it matters (run row + trace) and shown subtly where it helps (status strip on fallback).*
+- Anthropic servable ids are bare (`claude-sonnet-4-6`); every OpenRouter id is vendor-slug-prefixed (`anthropic/claude-fable-5`, `deepseek/deepseek-v4-flash-latest`, `~anthropic/claude-sonnet-latest`). The two id spaces are **disjoint** — verified against the committed snapshot: 0 OpenRouter ids collide with Anthropic ids (even after stripping `~`).
+- "Keep-if-valid-in-new-provider" therefore degenerates to "always reset" *today*: no selected Anthropic id is ever valid in the OpenRouter servable set, and vice versa.
+- **Still implement keep-if-valid as a one-line guard** (if the current primary IS in the new provider's servable set, keep it). It is free, and it future-proofs the form against a provider whose id space ever overlaps (e.g. a first-party OpenAI provider whose bare ids could collide). The reset-to-default branch is the *de facto* path.
+- **Fallbacks are NOT reset by a primary-provider switch.** Cross-provider fallback chains are an explicit v1.4 requirement ("a fallback may come from a different provider than the primary"), so a fallback from the *other* provider is a valid configuration, not an error. Destroying it on provider switch would make cross-provider chains impossible to construct in any sensible order.
+- Show a non-blocking hint when the primary was auto-reset: "Primary switched to {provider default name}." No modal, no confirm — draft-staged per D-07 (nothing persists until Save).
+
+This mirrors how the ecosystem treats model identity: model ids are provider-qualified namespaces (OpenRouter `anthropic/…`, LiteLLM `model_list` with `provider/` prefixes, Cursor's per-provider config blocks), and switching provider context means selecting into that provider's namespace. Nothing "survives" a provider change because a model belongs to exactly one provider.
+
+### Q2 — Should the fallback pickers show all providers' models or only the selected provider's?
+
+**Answer: ALL servable providers' models (grouped by provider). Only the PRIMARY picker is provider-scoped.**
+
+- The milestone requires cross-provider fallback chains — a fallback picker restricted to the primary's provider makes that requirement unfulfillable. The fallback options are the **servable union**: `anthropic ∩ allowlist` (1 model today) ∪ `openrouter active` (336 models).
+- The existing D-08/D-09 client dedupe (primary excluded from fallbacks; no repeated ids) carries over unchanged — it filters by id, and ids are unique across the union.
+- **Grouping is required, not optional, at 337 options.** A flat 336-row Select is unusable. Group by provider (SelectGroup/SelectLabel) in the fallback pickers; within OpenRouter's 336 rows, the catalog's `family` field (`claude-fable`, `deepseek-v4-flash`, …) enables a second grouping level (see Differentiators).
+
+### Q3 — Persistence: provider column on the settings row, or derived from the catalog by model id?
+
+**Answer: DERIVE from the catalog by servable-set membership. No schema change, no provider column.**
+
+- The catalog is already the single source of truth for provider identity: every row carries `providerID` plus `api.npm`/`api.url` (the OpenRouter rows point at `@openrouter/ai-sdk-provider`). A provider column would duplicate catalog truth and drift on catalog refresh (T-17-03: "the ONLY source of truth").
+- The save action must validate ids against the catalog anyway; provider truth already lives there. The row already stores ids "as the APP instantiates them" (schema comment) — OpenRouter ids are self-describing (`deepseek/…` ⇒ `createOpenRouter()` constructor).
+- **CRITICAL scoping rule:** the id→provider lookup must be **servable-set-scoped**, never raw-catalog-scoped. Verified: 342 catalog ids appear under multiple providerIDs (opencode mirrors anthropic/google/openai — `claude-sonnet-4-6` exists as both `opencode` and `anthropic` rows). A raw first-match lookup returns the wrong provider. The lookup must be: "which servable set contains this id" — exactly the membership the save action already computes. Implement `providerForModel(id)` in `catalog.ts` as a pure helper over the servable union, and add a **Vitest canary** asserting no id exists in two servable providers (locks the collision-free invariant; if a future provider breaks it, the test fails before runtime ambiguity does).
+- **The `~` prefix is a catalog-data concern, not a persistence concern.** `~anthropic/claude-sonnet-latest` is what the picker displays and what the DB stores (verbatim catalog id — keeps the staleness gate and picker↔DB one-to-one). The SDK expects `anthropic/claude-sonnet-latest` (verified: Context7 `@openrouter/ai-sdk-provider` examples use `openrouter('anthropic/claude-3.5-sonnet')`). **Normalize at the instantiation seam** (strip `~`) in the same place `opencodeSlugToModelId` lives, AND write the normalized id to `model_used`/`model_chain` so audit rows record what the SDK actually received. Flag for STACK research: pin the `~` semantics (snapshot marker vs. runtime alias) before implementation.
+- Schema comment must be updated: "NEVER provider-prefixed" is no longer true by construction for OpenRouter ids (vendor slug is intrinsic to the OR id). Constraint rewrite, not a migration.
+- **No migration, no zod change, no 7-case-matrix change** — the servable-set check just widens from `getAllowlistedServableIds(catalog)` (anthropic-only) to a union. This is the cheapest correct option and the reason it wins.
+
+### Q4 — Table-stakes behaviors the provider selector must have
+
+- **Loading state:** the form is client-side but receives server-computed props (page.tsx pattern); provider switch is instant client state — no async. The only async is the existing Save `useTransition`. Table stake: **picker options are server-computed props, never client-fetched** (keep T-17-09: catalog.json never enters a client bundle).
+- **Empty provider catalog:** a provider with zero servable models must be **disabled with a reason** in the selector ("No runnable models"), not selectable-into-an-empty-picker. Anthropic always has 1 (sonnet allowlist) and OpenRouter has 336 active — but the code must not assume; the per-provider empty state is required for the D-10/D-11 "no silent dead end" truth.
+- **No provider selected:** must never be a state. Default = provider of the saved primary (derived, Q3); when no settings exist, default = Anthropic (FAST_MODEL_ID chain). The selector always holds a value.
+- **Staleness gate stays union-wide:** `staleIds` logic unchanged, but `servableIds` becomes the union. An OpenRouter primary must not be flagged stale just because it isn't Anthropic's.
+- **Provider availability copy:** if `OPENROUTER_API_KEY` is unset, the run path returns `not_configured` (D-15 mirror). Table stake: the UI doesn't block (save is allowed — same as today's Anthropic handling), but the empty/save-state copy must not promise a runnable chain that isn't. No key entry in Settings (BYOK is a v1.3 anti-feature that stays).
+
+### Q5 — Differentiators worth having
+
+- **Provider grouping + family grouping in fallback pickers** (SelectGroup). Makes the 337-option union navigable; the catalog already ships `family` per row. MEDIUM.
+- **Provider badge on chain entries** — a small "Anthropic" / "OpenRouter" chip next to the primary and each fallback's current value (and in the audit/status strip via `model_used`). LOW, high trust value — staff sees *which vendor's bill* a fallback would hit.
+- **Per-provider default primary** — the reset-on-switch target. Anthropic default stays `claude-sonnet-4-6`; OpenRouter needs a designated default (recommend: cheapest active, or a pinned sensible one — pick during planning). Without this, "reset to default" is undefined. LOW.
+- **Search/filter inside the OpenRouter picker** — 336 rows needs more than grouping eventually; a Combobox-style search is the upgrade path. MEDIUM–HIGH. (Grouping first, search as P2.)
 
 ---
 
@@ -26,112 +62,108 @@ The milestone asks: *when the primary model fails, does the user see it, does th
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Settings nav item + route | Every Manage-group tool has a Settings entry; the v1.2 sidebar chrome is the established pattern | LOW | Add `settings` to `NavKey` union + `getActiveNavKey` (Vitest suite grows a case), `getNavTooltipLabel`, new `SidebarMenuButton` under the **Manage** group (next to Reviews); new `/settings` page inside the `(dashboard)` route group behind `requireStaffAccess()`. |
-| Per-user persistence keyed by Clerk userId | "My model choice" must survive reloads and differ per staff member | LOW | New Drizzle table following the in-repo precedent (`recentlyViewed`/`importBatch`: `userId: text('user_id')` — "Clerk userId, opaque string — no FK (Clerk is external)"). One row per user: `primaryModelId` + `fallbackModels` (jsonb ordered array — matches `usageTokens`/`evidenceAppendix` jsonb pattern). |
-| Settings page: primary model selector + ordered fallback list | The explicit milestone deliverable, OMO-style | MEDIUM | Two controls: primary `<Select>` + an ordered reorderable list (up/down, remove, add) for fallbacks. Load = server read (Server Action or RSC), save = one Server Action with `requireStaffAccess()`. Enforce ≥1 fallback optional, primary required, no duplicates. |
-| Model list sourced from opencode (the `/models` source) | The milestone's stated registry source | MEDIUM | **Two sources verified live:** (a) CLI `opencode models` (~1,130 `provider/model` lines; `--verbose` appends JSON metadata blocks: id, name, family, cost, `status: active/deprecated`, context/output limits, `api.{npm,url}`); (b) headless server `GET /api/model` (clean JSON `{location, data[]}`, but only the *enabled/runnable* set — here just 24 `opencode/*` free zen models). **Recommendation:** snapshot into a DB registry table (see Dependencies); the CLI snapshot script is the primary path. |
-| Agent consumes the config with error-driven failover | The entire point of the milestone — first consumer is the Analytic Agent | MEDIUM–HIGH | `runAgent` currently takes ONE model (`anthropic(FAST_MODEL_ID)` default, `FAST_MODEL_ID = 'claude-sonnet-4-6'` verified 2026-08-01). Change to accept a chain; loop attempts with retryable-error classification; return `modelUsed`/`modelsAttempted`. The fail-closed gate (`validateRunArtifacts`) runs only after the final successful attempt. |
-| Record which model actually ran | Trust + debugging; feeds the existing Langfuse observability (OBSV-01) | LOW | Add `modelUsed` + `modelsAttempted` to `agent_run` (jsonb like `usageTokens`); Langfuse already captures model per attempt via the SDK. |
-| Graceful degradation when the registry is empty/stale | Mirrors the repo's `not_configured` pattern (D-15, optional env keys) | LOW | Registry empty → Settings shows a "model list not synced" empty state; agent keeps the hardcoded `FAST_MODEL_ID` default. Never crash the app because a dev machine didn't sync. |
-| Only selectable models the app can actually run | A picker full of models that 502 at runtime is a broken feature | MEDIUM | The app runtime has **only `@ai-sdk/anthropic` + `ANTHROPIC_API_KEY`** installed. The opencode catalog spans 75+ providers. Either (a) restrict the runnable set to Anthropic-family IDs (`anthropic/*` — zero new deps), or (b) add `@ai-sdk/openai-compatible` pointed at `https://opencode.ai/zen/v1` with the machine's `OPENCODE_API_KEY` to unlock zen models. Registry must mark `runnable` vs `listed`; UI filters (or badges). **(a) is the v1.3 path; (b) is a later milestone.** |
-| Validate model ids against the registry before use | Untrusted user input must never reach `generateText({model})` | LOW | Zod-validate stored ids; the registry table is the allowlist. Matches the repo's route-side zod + fail-safe conventions. |
+| AI Provider selector above Primary | The milestone's headline; without it there is no multi-provider story | LOW | shadcn Select with two items (Anthropic / OpenRouter), value derived from saved primary's provider (Q3); always has a value; disabled-with-reason when a provider's servable set is empty (Q4) |
+| Provider-scoped Primary picker | "Selecting a provider refreshes the Primary model list" is the milestone's core interaction | LOW–MEDIUM | Primary options = servable set of the selected provider only; on switch, keep-if-valid else reset to provider default (Q1); draft-only per D-07 |
+| Union-scoped fallback pickers | Cross-provider fallback chains are a hard requirement | MEDIUM | Fallback options = all servable providers' models (Q2); D-08/D-09 dedupe unchanged; grouping by provider required at 337 rows |
+| Per-provider default primary | Reset-on-switch needs a defined target (Q1) | LOW | Anthropic: `FAST_MODEL_ID`. OpenRouter: choose during planning (cheapest active or pinned model) |
+| Staleness gate operates on the servable union | A saved OpenRouter primary must stay saveable when Anthropic is selected | LOW | `servableIds` = anthropic∩allowlist ∪ openrouter-active; `staleIds`/`isStale`/`saveDisabled` logic untouched |
+| Save action validates against the union | The 7-case security matrix must accept valid OpenRouter ids | LOW | `getAllowlistedServableIds` → union helper; zod shape unchanged (provider derived, Q3); matrix case count unchanged |
+| Provider-aware instantiation in the run path | `modelChain.map(id => anthropic(id))` is hardcoded today and must dispatch per provider | MEDIUM | New pure `providerForModel(id)` (servable-scoped, Q3) + a `languageModelFor(id)` seam in analyzeCompany; `runAgent` loop/timeouts unchanged |
+| `~` normalization at the instantiation + audit seams | Snapshot ids (`~anthropic/...`) are not what the SDK accepts | LOW–MEDIUM | Strip at instantiation like `opencodeSlugToModelId`; write normalized id to `model_used`/`model_chain` (Q3); flag `~` semantics to STACK |
+| OpenRouter key gate | `OPENROUTER_API_KEY` env, D-15 mirror | LOW | Add optional key to `env.ts`; `analyzeCompany` `not_configured` gate extended per used provider; UI copy only — no key entry |
+| Server-computed picker props | Keep the committed-snapshot + props-only contract (CAT-04/T-17-09) | LOW | page.tsx passes grouped servable sets; catalog.json stays server-only |
 
 ### Differentiators (Competitive Advantage)
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| **Ordered user fallback chain** | opencode core has NO fallback — OMO's `fallback_models` is the fork's differentiator; shipping it as a first-class per-user UI beats both | MEDIUM | The exact OMO semantics: resolution = user choice → fallback list → built-in default (`FAST_MODEL_ID`). |
-| **"Which model ran" transparency** | Staff trusts analysis more when they can see (and audit in Langfuse) that a fallback produced the result; feeds the existing human-reviewed queue with confidence | LOW–MEDIUM | Subtle mono line in `AnalyzeRunStatus` on success-after-fallback: "ran on Claude Sonnet 4.6 (fallback)" — styled with existing token palette (no new UI language). |
-| **Rich registry metadata in the picker** | The opencode snapshot carries name, family, cost ($/MTok), context window, active/deprecated status — a dropdown with `(family · $3/$15 · 1M ctx · active)` beats any plain list | LOW–MEDIUM | Data is already in the snapshot; render cost/context from the registry table; gray out `deprecated`. |
-| **General agent model registry** | The Analytic Agent is consumer #1; the registry is agent-agnostic so future agents (per PROJECT.md future candidates: AI-drafted outreach) read the same config | MEDIUM | Keep the registry + settings tables model-agnostic (no agent_id column in v1.3 — the "per-agent assignment" selector is explicitly future work). |
+| Provider grouping + family grouping in fallback pickers | 337 options are only navigable grouped; `family` field already in the snapshot | MEDIUM | SelectGroup per provider; optionally SelectGroup per family inside OpenRouter |
+| Provider badge on chain entries + audit strip | Staff sees which vendor serves each slot and which actually ran | LOW | Chip next to each picker value; reuse `getModelDisplayName`-style resolution + `modelUsed` on success-after-fallback |
+| Search inside the OpenRouter picker | 336 rows eventually needs type-ahead, not just grouping | MEDIUM–HIGH | Combobox/Command upgrade path; grouping first, search P2 |
+| Cross-provider chain transparency copy | "Primary runs Anthropic; if it fails, fallback runs DeepSeek via OpenRouter" | LOW | One-line helper under the chain; reinforces the new capability |
 
 ### Anti-Features (Commonly Requested, Often Problematic)
 
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| Proxying opencode's `/config/providers` (or any endpoint returning credentials) | "Live" model/provider data with zero snapshot lag | **Empirically verified: the response contains the raw API key (`"key":"sk-…"`).** One proxy mistake exfiltrates the machine's opencode credential to every browser | Only `GET /api/model` (verified secret-free) or CLI snapshot; never `/config`, never `/config/providers`; server-side fetch only, never client-side |
-| Listing the full 1,130-model catalog as selectable | "Why can't I pick GPT-5.4?" | ~95% of it cannot run — the app has one provider package/key. Dead selects → confusing 502s → trust erosion | Filter to `runnable`; show the rest only as a "not available in this app" state; add provider support in a later milestone |
-| Per-user bring-your-own-key (BYOK) | Power users want their own API keys | Multi-tenant credential storage = a full security program (encryption, rotation, abuse); far beyond a settings UI; contradicts "any staff user = staff" | Shared app-level keys only; registry-allowlisted models; BYOK as an explicit future candidate with security review |
-| Cross-family auto-fallback without guardrails (e.g. Claude → GPT) | "More fallbacks = more resilience" | OMO docs are explicit: prompts are family-tuned ("Sisyphus → GPT: no GPT prompt, will degrade significantly"). The Analyze prompt is Claude-tuned; a GPT fallback silently produces lower-quality proposals | Constrain chains to the same family (Anthropic) in v1.3; add a "cross-family allowed" flag + prompt-family detection later |
-| Per-model advanced settings in v1.3 (variant, thinking budget, temperature, reasoningEffort) | OMO's per-fallback-model settings look powerful | Config explosion; each knob needs model-family validation; the milestone scope is explicitly "primary + ordered fallback" | Ship the chain only; store `variant`/`reasoningEffort` as future-ready nullable jsonb, render later |
-| Writing user settings back into the local opencode/OMO config file | "Keep one source of truth" | The opencode config is a dev machine's global tool state — not multi-user, not deployable, not auditable; app DB is the source of truth | App DB (`userModelSettings` table) is the single source; opencode stays a read-only snapshot source |
-| Interactive "retry with fallback?" prompt on failure | "Let the user choose" | Interrupts the one-run mental model; OMO/opencode never do this; the 60s budget makes a mid-run human round-trip impossible | Silent retry + fail-loud when exhausted (existing ERROR_COPY pattern in `AnalyzeRunStatus`) |
-| Auto-refresh of the registry on every Settings visit | "Always live" | Localhost unreachable from Vercel; refresh is a dev-machine act, not a request-time act | On-demand sync script (dev machine) + `syncedAt` timestamp + "Last synced" UI; never a request-time fetch |
+| Free-text model id input ("power" override) | "I know exactly which model I want" | Breaks the servable-set security model (T-17-03) — arbitrary ids reach `generateText` | Picker + committed snapshot only; new models enter via roster + allowlist, not the UI |
+| Provider column on `user_model_settings` | "Self-describing rows" | Duplicates catalog truth; drifts on snapshot refresh; requires migration; the save action must cross-check the catalog anyway | Derive from catalog by servable-set membership (Q3) + collision canary test |
+| Per-provider API-key entry in Settings (BYOK) | "Let me bring my own OpenRouter key" | v1.3 anti-feature, stays: multi-tenant credential storage is a security program | Shared app-level keys (`OPENROUTER_API_KEY` env); BYOK needs a dedicated security milestone |
+| Flat 336-row Select (no grouping/search) | "Just show me all the models" | Unusable; the picker becomes a scroll-test | Provider grouping (required) + family grouping + search (P2) |
+| Auto-switch provider based on selected fallback | "Keep my fallback's provider" | Primary and fallback providers are independent by design (Q1/Q2); magic coupling confuses the reset contract | Explicit provider selector + explicit cross-provider fallbacks |
+| Live-fetching the OpenRouter catalog at runtime | "Always current" | Same as v1.3: Vercel can't reach dev-machine sources; refresh is a dev-machine script act | Committed snapshot + refresh script + catalog sync date footer (already built) |
+| Per-provider sub-tabs / multi-step wizard | "More structure" | Over-engineered for two providers; adds navigation state for zero benefit | One selector + grouped pickers |
 
 ---
 
 ## Feature Dependencies
 
 ```
-Settings nav item + /settings route
-    └──requires──> NavKey union + getActiveNavKey + getNavTooltipLabel updates (nav.ts, sidebar-collapse.ts + Vitest suites)
-    └──requires──> (dashboard) route group + requireStaffAccess gate (existing shell)
+AI Provider selector
+    └──requires──> providerForModel(id) derived from the servable union (catalog.ts pure helper)
+    └──requires──> page.tsx passes grouped servable sets + per-provider defaults (props-only contract)
+    └──requires──> servable-union builder: anthropic∩allowlist ∪ openrouter-active (generalize getAllowlistedServableIds)
 
-Settings page (primary + fallback selectors)
-    └──requires──> userModelSettings table (Clerk userId keyed) + Server Actions (save/load)
-    └──requires──> modelRegistry table (the allowlist the picker reads)
-                       └──requires──> opencode snapshot sync (CLI `opencode models --verbose` or server GET /api/model)
-                                      run on the DEV machine — opencode is localhost-only (verified)
+Provider-scoped Primary picker + reset-on-switch
+    └──requires──> per-provider default primary (Anthropic FAST_MODEL_ID; OpenRouter TBD in planning)
+    └──requires──> keep-if-valid guard over the new provider's servable set (one-line, future-proof)
+    └──uses──> existing draft staging (D-07) + staleness gate (D-10/D-11) — no new machinery
 
-Agent error-driven failover
-    └──requires──> runAgent chain support (accept ordered models, loop attempts)
-    └──requires──> retryable-error classifier (pure function — Vitest target; AI SDK error classes: AI_APICallError.statusCode, AI_NoSuchModelError, AI_RetryError)
-    └──requires──> userModelSettings read at run time (route handler fetches by auth().userId)
-    └──requires──> 60s maxDuration budget management (D-07) — chain length/time budget bounded
-    └──requires──> agent_run.modelUsed / modelsAttempted columns
+Union-scoped fallback pickers
+    └──requires──> servable-union builder (above)
+    └──uses──> existing D-08/D-09 client dedupe (id-based — unchanged)
+    └──enhances──> provider/family SelectGroup labels (differentiator)
 
-"Which model ran" status-strip indicator
-    └──requires──> analyze route returns modelUsed in its JSON body
-    └──enhances──> AnalyzeRunStatus component (already owns the run state machine)
+Save action widening
+    └──requires──> servable-union builder in saveSettingsAction (replaces getAllowlistedServableIds call)
+    └──unchanged──> requireStaffAccess → zod → union check → dedupe backstop → atomic upsert → revalidatePath
+    └──unchanged──> zod schema { primaryModel, fallbacks } — provider derived, never sent by the client
 
-Registry marks runnable vs listed
-    └──requires──> runtime provider map (anthropic → @ai-sdk/anthropic; future: zen → @ai-sdk/openai-compatible) — v1.3 ships the anthropic entry only
+Provider-aware run path
+    └──requires──> providerForModel(id) importable from catalog.ts into modelConfig/analyzeCompany
+    └──requires──> languageModelFor(id) seam replacing modelChain.map(id => anthropic(id))
+    └──requires──> @openrouter/ai-sdk-provider runtime dependency + OPENROUTER_API_KEY env (STACK)
+    └──requires──> ~ strip at instantiation + normalized model_used/model_chain audit ids
+    └──uses──> runAgent loop, timeouts, failover classification — unchanged
 
-[Settings page] ──feeds──> [agent failover]  (the config the agent consumes)
-[modelRegistry] ──feeds──> [Settings picker] + [runtime provider resolution] (allowlist + id→provider map)
-[Langfuse tracing] ──enhances──> [record which model ran] (OTel gen_ai.request.model already emitted per attempt)
+[servable-union builder] ──feeds──> [provider selector] + [primary picker] + [fallback pickers] + [save action] + [run path]
+[OpenRouter SDK contract] ──informs──> [~ normalization seam] + [id shape persisted verbatim]
 ```
 
 ### Dependency Notes
 
-- **Settings nav → nav.ts contract chain:** `NavKey` is a closed union consumed by `getActiveNavKey` (11-case Vitest lock), `getNavTooltipLabel` (Vitest copy contract), and `AppSidebar`. Adding `'settings'` touches all three + their test suites — small, but it is a locked contract, not a one-liner (QLTY-01 precedent).
-- **Settings page → registry:** the picker must read the registry, so the registry table + sync script are a prerequisite *phase* before the page is usable. Without a snapshot the page shows the empty state (graceful, table-stakes).
-- **Registry → opencode sync is a dev-machine act:** opencode (`~/.opencode/bin/opencode`, v1.18.10) binds `127.0.0.1` by default and lives only on the dev machine. Vercel cannot reach it. The snapshot (script → DB) is the only production-viable path — "live at refresh, cached at read." This is the single most important architectural dependency in the milestone (see STACK.md/ARCHITECTURE.md).
-- **Failover → error classification:** without a correct retryable/non-retryable split, the chain either retries permanent errors (wasted 60s budget, triple 401s) or gives up on transient ones (false failures). This is the highest-risk logic — make it a pure, tested function (repo's Vitest pure-function precedent).
-- **Failover → 60s ceiling:** Vercel Hobby `maxDuration = 60` is a hard, user-confirmed constraint on the analyze route (D-07). Each attempt costs wall-clock; a 3-model chain must either be fast models or carry a time budget. This bounds chain length in v1.3 (recommend primary + 2 fallbacks, Anthropic family).
-- **Registry → runtime provider map:** the opencode id (`anthropic/claude-sonnet-4-6`) must resolve to an AI SDK provider instance. v1.3 ships one mapping (anthropic). The map is the seam where zen/openai/google support lands later.
-- **`agent_run.modelUsed` → status strip:** the route handler persists `modelUsed` and returns it in the JSON body; `AnalyzeRunStatus` renders the fallback note only when `modelUsed !== primary`.
+- **`providerForModel` is the keystone** — one pure, tested function unblocks the selector's default, the primary reset, the save validation, and the run path. It must be servable-scoped (342 raw-catalog ids span multiple providers — raw lookup returns wrong answers) and locked with a collision canary.
+- **The save action changes the smallest of anything**: widen one membership check from `getAllowlistedServableIds` to the union. The 7-case matrix, zod schema, atomic-upsert contract, and revalidatePath are untouched — the existing security machinery is provider-agnostic because validation is membership-based.
+- **The run path is the biggest change**: `analyzeCompany` line 68 (`models: modelChain.map((id) => anthropic(id))`) is the single hardcoded provider seam. Everything downstream (`runAgent`, timeouts, failover, `model_used`) is provider-agnostic.
+- **`resolveModelChain` allowlist param must accept the union**, not `ANTHROPIC_ALLOWLIST` (modelConfig.ts:73 default). Cap-2 and dedupe stay.
+- **`~` semantics need pinning before implementation** (STACK flag): whether `~` is a snapshot-internal marker or a runtime alias changes where normalization lives. The safe default: store verbatim, normalize at instantiation + audit.
 
 ---
 
 ## MVP Definition
 
-### Launch With (v1.3)
+### Launch With (v1.4)
 
-- [x] Settings nav item (Manage group) + `/settings` route behind `requireStaffAccess()` — *the entry point*.
-- [ ] `modelRegistry` table + sync script (runs `opencode models --verbose`, parses JSON blocks, upserts; stores id, provider, name, family, cost, context, status, api package, syncedAt) — *the source; gated to dev machine execution*.
-- [ ] `userModelSettings` table + Server Actions (save/load) — *per-user persistence, Clerk userId keyed, jsonb fallback array*.
-- [ ] Settings page: primary `<Select>` + ordered fallback list (add/remove/reorder), restricted to **runnable** models, ids zod-validated against the registry — *the deliverable UI*.
-- [ ] `runAgent` chain: accepts ordered models, attempts sequentially, retries only on retryable errors, bounded by a time budget under 60s — *the failover engine*.
-- [ ] `agent_run.modelUsed` + `modelsAttempted` persisted; Langfuse trace already shows per-attempt model — *"which model ran" is durable*.
-- [ ] Fail-loud when the whole chain is exhausted (existing `analysis_failed` path + ERROR_COPY) — *no silent empty results*.
-- [ ] Empty-registry degradation: Settings empty state + agent keeps `FAST_MODEL_ID` default — *never breaks the shipped agent*.
+- [ ] `providerForModel(id)` + servable-union builder in `catalog.ts`, with a Vitest collision canary (no id in two servable providers) — *the keystone; everything else hangs off it*.
+- [ ] AI Provider selector (Anthropic / OpenRouter) above the Primary model — derived default, always-valued, disabled-with-reason on empty provider (Q4).
+- [ ] Provider-scoped Primary picker with keep-if-valid → reset-to-provider-default on switch (Q1); draft-only per D-07.
+- [ ] Union-scoped fallback pickers grouped by provider (Q2); D-08/D-09 dedupe unchanged.
+- [ ] Save action widened to the union; zod + matrix + upsert untouched (Q3).
+- [ ] Provider-aware instantiation in `analyzeCompany` (`languageModelFor(id)` seam) + `OPENROUTER_API_KEY` env gate (D-15 mirror).
+- [ ] `~` normalization at instantiation + normalized `model_used`/`model_chain` audit ids.
+- [ ] Per-provider default primary (OpenRouter default chosen in planning).
 
-### Add After Validation (v1.3.x)
+### Add After Validation (v1.4.x)
 
-- [ ] "ran on X (fallback)" line in `AnalyzeRunStatus` on success-after-fallback — *transparency differentiator; needs route body to carry modelUsed*.
-- [ ] "Last synced" timestamp + explicit dev-only "Refresh models" action on the Settings page.
-- [ ] Render registry metadata (family · cost · context · deprecated) in the picker.
-- [ ] Chain-length/time-budget tuning after real-world 429/5xx observation.
+- [ ] Family grouping inside the OpenRouter picker (uses the snapshot's `family` field).
+- [ ] Provider badge on chain entries + "ran on X (via OpenRouter)" status-strip note.
+- [ ] Search/type-ahead inside the OpenRouter picker (Combobox/Command upgrade).
 
 ### Future Consideration (v2+)
 
-- [ ] Zen/openai/google provider support via `@ai-sdk/openai-compatible` + `https://opencode.ai/zen/v1` (needs the OPENCODE_API_KEY strategy decided — shared key vs. service identity).
-- [ ] Per-agent model assignment (registry stays agent-agnostic; a per-agent override selector).
-- [ ] Cross-family fallback with prompt-family detection (OMO's "dangerous overrides" lesson).
-- [ ] Per-model settings (variant/reasoningEffort/thinking) — schema-ready, render later.
-- [ ] `small_model` (cheap model for background/labeling work) second selector.
-- [ ] BYOK — only with a dedicated security milestone.
+- [ ] More providers (OpenAI first-party, Google) — same union-builder + providerForModel machinery, one allowlist entry + one constructor each.
+- [ ] Provider-scoped per-provider model limits / cost caps in the picker.
+- [ ] BYOK for OpenRouter — only with a dedicated security milestone.
 
 ---
 
@@ -139,20 +171,17 @@ Registry marks runnable vs listed
 
 | Feature | User Value | Implementation Cost | Priority |
 |---------|------------|---------------------|----------|
-| Settings nav item + route | HIGH | LOW | P1 |
-| Registry table + sync script | HIGH | MEDIUM | P1 |
-| Per-user settings table + Server Actions | HIGH | LOW | P1 |
-| Settings page (primary + fallback, runnable-only) | HIGH | MEDIUM | P1 |
-| runAgent chain + retryable-error classifier | HIGH | MEDIUM–HIGH | P1 |
-| modelUsed/modelsAttempted + trace | MEDIUM | LOW | P1 |
-| Fail-loud on chain exhaustion | HIGH | LOW | P1 |
-| Empty-registry graceful degradation | MEDIUM | LOW | P1 |
-| "ran on X (fallback)" status line | MEDIUM | LOW–MEDIUM | P2 |
-| Registry metadata in picker | MEDIUM | LOW–MEDIUM | P2 |
-| Last-synced + refresh action | LOW | LOW | P2 |
-| Zen/provider expansion | MEDIUM | HIGH | P3 |
-| Per-agent assignment | MEDIUM | MEDIUM | P3 |
-| Per-model advanced settings | LOW | MEDIUM | P3 |
+| `providerForModel` + servable-union builder + canary | HIGH | MEDIUM | P1 |
+| AI Provider selector above Primary | HIGH | LOW | P1 |
+| Provider-scoped Primary picker + reset-on-switch | HIGH | LOW–MEDIUM | P1 |
+| Union-scoped fallback pickers (provider-grouped) | HIGH | MEDIUM | P1 |
+| Save action widened to union | HIGH | LOW | P1 |
+| Provider-aware instantiation + OpenRouter key gate | HIGH | MEDIUM | P1 |
+| `~` normalization + audit ids | MEDIUM | LOW–MEDIUM | P1 |
+| Per-provider default primary | HIGH | LOW | P1 |
+| Provider badge on chain entries + status strip | MEDIUM | LOW | P2 |
+| Family grouping inside OpenRouter picker | MEDIUM | MEDIUM | P2 |
+| Search/type-ahead in OpenRouter picker | MEDIUM | MEDIUM–HIGH | P2 |
 
 **Priority key:**
 - P1: Must have for launch
@@ -163,24 +192,25 @@ Registry marks runnable vs listed
 
 ## Competitor Feature Analysis
 
-| Feature | opencode core (v1.18.10, verified) | OhMyOpenCode / OMO (docs) | ArcLumen 360 v1.3 (our plan) |
-|---------|------------------------------------|---------------------------|------------------------------|
-| Model list source | `/models` dialog; `opencode models` CLI; server `GET /api/model` | Same (delegates to opencode) | Snapshot of `opencode models --verbose` → DB registry |
-| Primary model selection | Config `model` key (`provider/model`), `/models` dialog | Same + per-agent/per-category `model` overrides | Per-user `<Select>` persisted per Clerk user |
-| Ordered fallback chain | **None — no error-driven fallback** | `fallback_models` ("Fallback models on API errors"), string or array with per-model settings | Per-user ordered list (jsonb), OMO-resolution semantics |
-| Resolution priority | `--model` flag → config → last-used → internal priority | UI-selected → user override → category default → user fallback_models → built-in provider chain → system default | user settings → fallback chain → `FAST_MODEL_ID` built-in default |
-| "Which model ran" visibility | Trace/log only | `doctor --verbose` | `agent_run.modelUsed` + Langfuse OTel attribute + (P2) status-strip note |
-| Retry UX | None (error surfaces) | Silent automatic | Silent automatic, fail-loud on exhaustion |
-| Credential model | Machine-level provider auth (`opencode auth`) | Same | Shared app-level keys; **never** proxy `/config/providers` |
+| Feature | OpenRouter (own UI) | LiteLLM (config) | Cursor (IDE) | ArcLumen 360 v1.4 (our plan) |
+|---------|--------------------|------------------|--------------|------------------------------|
+| Provider selection | Per-model filter / provider column in the catalog | `model_list` entries carry `provider/` prefixes | Per-provider config blocks in settings.json | AI Provider selector above the Primary model |
+| Primary model | Explicit `model` field (or `openrouter/auto`) | `model_name` → `litellm_params.model` | `default_model` after options are available | Provider-scoped primary picker + per-provider default |
+| Cross-provider fallback | `models` array spans providers, walked on error | `fallbacks: {"gpt-5.5": ["claude-opus-4.8", ...]}` — explicitly cross-provider | Mid-task model switching, provider-qualified | Union-scoped fallback pickers; any provider per slot (Q2) |
+| What survives a provider change | Model ids are namespaced; "provider" isn't a separate UI state | N/A (config file) | N/A (per-conversation) | Primary resets to provider default; fallbacks survive (Q1) |
+| Provider identity source | Part of the model id (`anthropic/…`) | `provider/` prefix in model string | Config block key | Derived from catalog by servable-set membership (Q3) |
+
+**Ecosystem takeaway:** every serious multi-provider tool treats model identity as provider-qualified namespaces and cross-provider fallback as a first-class list. None persist "provider" separately from the model id. Our derive-from-catalog approach matches the ecosystem's de-facto model; our explicit provider *selector* (vs. config files) is the staff-facing simplification.
 
 ---
 
 ## Sources
 
-- **Verified live (HIGH):** `opencode models` / `opencode models opencode --verbose` on the local installation (v1.18.10, `~/.opencode/bin/opencode`); `opencode serve` + `GET /api/model` (24-model runnable set, secret-free) and `GET /config/providers` (⚠ contains raw API key — leak hazard confirmed); `@opencode-ai/sdk` route definitions (`/api/model`, `/config`, `/config/providers`); opencode config docs (`https://opencode.ai/docs/models/` — `model` key, `provider/model` ids, variants, no fallback).
-- **OhMyOpenCode behavior (MEDIUM — docs/community, not run locally):** `oh-my-opencode`/`oh-my-openagent` config reference (`fallback_models`, resolution priority, per-model settings, model catalog) — github.com/code-yeongyu/oh-my-opencode docs (configuration.md, agent-model-matching.md) and encodedocs.com model-resolution page.
-- **In-repo integration points (HIGH — code read):** `src/lib/nav.ts` + `src/lib/nav.test.ts` (NavKey contract), `src/lib/sidebar-collapse.ts` + test, `src/components/layout/app-sidebar.tsx` (Manage group), `src/components/layout/app-shell-layout.tsx`, `src/lib/auth/requireStaffAccess.ts`, `src/lib/db/schema.ts` (userId/text/jsonb patterns; `agent_run`), `src/lib/agents/runAgent.ts` (single-model seam, `FAST_MODEL_ID`), `src/lib/agents/analyzeCompany.ts` (fail-closed gate, not_configured), `src/app/api/companies/[id]/analyze/route.ts` (60s maxDuration, fail-loud mapping), `src/components/agents/analyze-run-status.tsx` (ERROR_COPY), `src/lib/env.ts` (optional-key degradation).
+- **In-repo verified (HIGH):** `src/lib/models/catalog.json` (1131 rows; 8 providerIDs; OpenRouter 336 active rows all `@openrouter/ai-sdk-provider`; 11 `~`-prefixed "latest" aliases; 342 ids spanning multiple providers — `claude-sonnet-4-6` exists as opencode + anthropic; zero OpenRouter↔Anthropic id collisions even after `~` strip); `src/lib/models/catalog.ts` (`getAllowlistedServableIds`, `ANTHROPIC_ALLOWLIST`, `opencodeSlugToModelId`); `src/components/settings/model-settings-form.tsx` (draft staging, staleness gate, D-08/D-09 dedupe, cost captions); `src/app/actions/settings.ts` (7-case matrix); `src/app/(dashboard)/settings/page.tsx` (server-computed props); `src/lib/agents/modelConfig.ts` (`resolveModelChain`, allowlist param); `src/lib/agents/analyzeCompany.ts:68` (hardcoded `anthropic(id)` seam); `src/lib/agents/runAgent.ts` (provider-agnostic loop); `src/lib/db/schema.ts:288` (`userModelSettings`, "stored as instantiated, never provider-prefixed" comment); `src/lib/env.ts` (optional-key pattern).
+- **OpenRouter AI SDK provider (HIGH — Context7 `/openrouterteam/ai-sdk-provider`):** `createOpenRouter({ apiKey, baseURL, api_keys })`; model ids are `provider/model` strings (`openrouter('anthropic/claude-3.5-sonnet')`); config, types, and examples docs.
+- **Ecosystem norms (MEDIUM — vendor docs/blogs, not first-party UX research):** OpenRouter routing docs (`models` fallback array spans providers; model routing vs provider routing are separate decisions); LiteLLM multi-provider gateway guide (`fallbacks` map is explicitly cross-provider); Cursor model-switching guide (provider-qualified model ids, default model set after options exist). Caveat: none of these document a *separate provider selector UI* with reset semantics — Q1's keep-if-valid/reset choice is our design, informed by their id-namespacing model.
 
 ---
-*Feature research for: ArcLumen 360 v1.3 AI Model Settings*
+
+*Feature research for: ArcLumen 360 v1.4 Multi-Provider AI Model Configuration*
 *Researched: 2026-08-02*
