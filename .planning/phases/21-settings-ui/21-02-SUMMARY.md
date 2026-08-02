@@ -122,3 +122,10 @@ None - no external service configuration required (no env changes, no new npm de
 
 *Phase: 21-settings-ui*
 *Completed: 2026-08-02*
+
+## Self-Check: PASSED
+
+- Files: `src/components/settings/model-picker-logic.ts`, `src/components/settings/model-picker-logic.test.ts`, `.planning/phases/21-settings-ui/21-02-SUMMARY.md` — all FOUND
+- Commits: `35617605` (Task 1 RED test), `0c69783f` (Task 1 GREEN feat), `d9c48204` (SUMMARY docs), `d402d8e2` (STATE/ROADMAP docs) — all present in git log
+- TDD gate: `test(...)` commit `35617605` strictly precedes `feat(...)` commit `0c69783f` in git history
+- Gates: `npx vitest run src/components/settings/model-picker-logic.test.ts` exit 0 (21 tests); full suite 30 files/356 tests pass, no regressions; `npx tsc --noEmit` exit 0; `grep -c "catalog.json" model-picker-logic.ts` → 0; single `import type` line, zero value imports
