@@ -38,11 +38,52 @@ export function opencodeSlugToModelId(slug: string): string | null {
   return slug.slice('anthropic/'.length); // 'anthropic/claude-sonnet-4-6' → 'claude-sonnet-4-6'
 }
 
-// CAT-03: snapshot → servable (Anthropic, active) → allowlist-intersected raw
-// IDs. The snapshot is the menu; the allowlist is the gate (D-03).
-export function getAllowlistedServableIds(catalog: ModelCatalog): string[] {
-  return catalog.models
-    .filter((m) => m.providerID === 'anthropic' && m.status !== 'deprecated')
-    .map((m) => m.id)
-    .filter((id): id is string => ANTHROPIC_ALLOWLIST.includes(id));
+// D-01..D-06: provider registry. Provider identity is DERIVED from the catalog
+// by model id (never persisted, never client-sent, never string surgery).
+export type ModelProviderId = 'anthropic' | 'openrouter';
+
+// D-02/D-03: per-provider gates as DATA. anthropic = the hand-curated sonnet
+// allowlist (D-03, REG-04); openrouter = full catalog — the absence of an
+// allowlist means all active openrouter rows are servable (D-02/SET-07: the
+// `~latest`/`:free` rows are INCLUDED; labels land in Phase 21).
+export const PROVIDER_GATES: Record<ModelProviderId, { allowlist?: readonly string[] }> = {
+  anthropic: { allowlist: ANTHROPIC_ALLOWLIST },
+  openrouter: {},
+};
+
+export const SERVABLE_PROVIDERS: readonly ModelProviderId[] = ['anthropic', 'openrouter'];
+
+// CAT-03: snapshot → servable (provider, active) → gate-intersected raw IDs.
+// The snapshot is the menu; the per-provider gate is the lock (D-03/D-05).
+export function getServableIdsForProvider(
+  catalog: ModelCatalog,
+  provider: ModelProviderId,
+): string[] {
+  const active = catalog.models
+    .filter((m) => m.providerID === provider && m.status !== 'deprecated')
+    .map((m) => m.id);
+  const allowlist = PROVIDER_GATES[provider].allowlist;
+  // A present allowlist is the gate (an empty allowlist serves nothing); a
+  // missing allowlist means the full active set is servable (openrouter, D-02).
+  return allowlist ? active.filter((id) => allowlist.includes(id)) : active;
+}
+
+// D-05/REG-07: the union servable set across all servable providers, deduped
+// by id. The two id spaces are disjoint today (bare anthropic ids vs
+// vendor/model openrouter ids) but Set is the lock against future overlap.
+export function getUnionServableIds(catalog: ModelCatalog): string[] {
+  return [...new Set(SERVABLE_PROVIDERS.flatMap((p) => getServableIdsForProvider(catalog, p)))];
+}
+
+// Anti-Pattern 1: MUST scope the find to the two servable providers — the
+// snapshot holds dual opencode/anthropic rows for the same id (e.g.
+// claude-sonnet-5 exists as opencode AND anthropic; anthropic/claude-sonnet-5
+// exists as openrouter AND vercel) and a bare m.id === id find() returns the
+// opencode/vercel row (sorts first). Only the two servable providerIDs may
+// match (T-19-03).
+export function getProviderForModelId(catalog: ModelCatalog, id: string): ModelProviderId | null {
+  const row = catalog.models.find(
+    (m) => m.id === id && (m.providerID === 'anthropic' || m.providerID === 'openrouter'),
+  );
+  return row ? (row.providerID as ModelProviderId) : null;
 }
