@@ -137,4 +137,10 @@ describe('resolveModelChain', () => {
       resolveModelChain({ primaryModel: 'x', fallbackModels: ['y'] }, ['a', 'b']),
     ).toEqual([FAST_MODEL_ID]);
   });
+
+  it('a partial chain (primary + one fallback) passes through intact when allowlisted', () => {
+    expect(
+      resolveModelChain({ primaryModel: 'a', fallbackModels: ['b'] }, ['a', 'b']),
+    ).toEqual(['a', 'b']);
+  });
 });

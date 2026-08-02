@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import catalogJson from './catalog.json';
 import {
   opencodeSlugToModelId,
   getAllowlistedServableIds,
@@ -78,6 +79,11 @@ describe('opencodeSlugToModelId', () => {
 describe('getAllowlistedServableIds', () => {
   it('returns exactly the allowlisted, non-deprecated anthropic raw IDs — no dated-ID leakage, no opencode/ leakage (CAT-03)', () => {
     expect(getAllowlistedServableIds(fixture)).toEqual(['claude-sonnet-4-6']);
+  });
+
+  it('committed 1131-model snapshot yields exactly the servable allowlist — zero leakage (CAT-03)', () => {
+    expect(getAllowlistedServableIds(catalogJson)).toEqual(['claude-sonnet-4-6']);
+    expect(getAllowlistedServableIds(catalogJson).some((id) => id.includes('/'))).toBe(false);
   });
 });
 
