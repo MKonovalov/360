@@ -90,6 +90,26 @@ describe('runAgent (09-01-01)', () => {
     expect(result).toEqual({ ...resolvedRun, modelUsed: 'claude-sonnet-4-6', usedFallback: false });
   });
 
+  it('preserves prototype getters on the result (output/usage survive — 16-HUMAN-UAT regression)', async () => {
+    // ai@7's GenerateTextResult exposes output/usage/finishReason as PROTOTYPE
+    // getters. A { ...result } spread drops them (only own keys copied),
+    // which would make analyzeCompany's run.output.* throw at runtime. Build
+    // the mock with real prototype getters to pin the Object.create+assign fix.
+    const getterRun = Object.create({}) as typeof resolvedRun;
+    Object.defineProperty(getterRun, 'output', { get: () => resolvedRun.output, enumerable: true });
+    Object.defineProperty(getterRun, 'usage', { get: () => resolvedRun.usage, enumerable: true });
+    Object.defineProperty(getterRun, 'steps', { value: resolvedRun.steps, enumerable: true });
+    mocks.generateText.mockResolvedValueOnce(getterRun);
+
+    const result = await runAgent({ company, liveSignals: [] });
+
+    expect(result.output).toEqual(resolvedRun.output);
+    expect(result.usage).toEqual(resolvedRun.usage);
+    expect(result.steps).toEqual(resolvedRun.steps);
+    expect(result.modelUsed).toBe('claude-sonnet-4-6');
+    expect(result.usedFallback).toBe(false);
+  });
+
   it('defaults to the fast Anthropic model (T-09-SC model-string re-verify)', async () => {
     await runAgent({ company, liveSignals: [] });
     expect(mocks.anthropic).toHaveBeenCalledWith('claude-sonnet-4-6');
@@ -116,7 +136,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
   const apiErr = (statusCode: number) =>
     new APICallError({ message: `http ${statusCode}`, url: 'u', requestBodyValues: {}, statusCode });
 
-  it('primary 404 advances to the fallback with a 20s second-attempt budget', async () => {
+  it('primary 404 advances to the fallback with the fallback budget on attempt 2', async () => {
     mocks.generateText
       .mockRejectedValueOnce(apiErr(404))
       .mockResolvedValueOnce(resolvedRun);
@@ -128,7 +148,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     });
 
     expect(mocks.generateText).toHaveBeenCalledTimes(2);
-    expect(mocks.generateText.mock.calls[1][0].timeout).toEqual({ totalMs: 20000 });
+    expect(mocks.generateText.mock.calls[1][0].timeout).toEqual({ totalMs: 50000 });
     expect(result).toEqual({ ...resolvedRun, modelUsed: 'claude-sonnet-4-6', usedFallback: true });
   });
 
@@ -160,7 +180,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     expect(mocks.generateText).toHaveBeenCalledTimes(2);
   });
 
-  it('per-attempt { totalMs } budgets: 35s primary, 20s fallback (FAL-04)', async () => {
+  it('per-attempt { totalMs } budgets: 54s primary, 50s fallback, clamped to loop wall (FAL-04)', async () => {
     mocks.generateText.mockRejectedValueOnce(apiErr(404)).mockResolvedValueOnce(resolvedRun);
 
     await runAgent({
@@ -169,8 +189,29 @@ describe('runAgent failover loop (FAL-03/04)', () => {
       models: [mocks.anthropic(), mocks.anthropic()],
     });
 
-    expect(mocks.generateText.mock.calls[0][0].timeout).toEqual({ totalMs: 35000 });
-    expect(mocks.generateText.mock.calls[1][0].timeout).toEqual({ totalMs: 20000 });
+    expect(mocks.generateText.mock.calls[0][0].timeout).toEqual({ totalMs: 54000 });
+    expect(mocks.generateText.mock.calls[1][0].timeout).toEqual({ totalMs: 50000 });
+  });
+
+  it('every attempt is clamped to the remaining loop budget — chain length cannot blow the 60s wall (WR-03)', async () => {
+    // A 3-model chain: attempt 0 gets the 54s cap, attempts 1-2 shrink as the
+    // wall budget is consumed — never a static 20s that would silently total
+    // 94s across three attempts.
+    mocks.generateText
+      .mockRejectedValueOnce(apiErr(500))
+      .mockRejectedValueOnce(apiErr(500))
+      .mockResolvedValueOnce(resolvedRun);
+
+    await runAgent({
+      company,
+      liveSignals: [],
+      models: [mocks.anthropic(), mocks.anthropic(), mocks.anthropic()],
+    });
+
+    const timeouts = mocks.generateText.mock.calls.map((c) => c[0].timeout.totalMs);
+    expect(timeouts[0]).toBeLessThanOrEqual(54000);
+    expect(timeouts[1]).toBeLessThanOrEqual(timeouts[0]);
+    expect(timeouts[2]).toBeLessThanOrEqual(timeouts[1]);
   });
 
   it('RetryError-wrapped 5xx unwraps and still advances (Pitfall 3)', async () => {

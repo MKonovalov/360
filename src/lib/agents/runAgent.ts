@@ -12,9 +12,18 @@ export interface RunAgentInput {
   // D-09: the ordered chain — the single-model seam is replaced by the loop
   // below; a one-element chain runs through the exact same path.
   models?: LanguageModel[];
-  // FAL-04 per-attempt budgets: 35s primary / 20s fallback → 55s worst case.
+  // FAL-04 per-attempt budgets (16-HUMAN-UAT gap fix): the ORIGINAL 35s/20s
+  // defaults aborted real tool-loop analyses — live runs measure 43-50s
+  // (webSearch steps). Each attempt is now clamped to the remaining loop
+  // budget, so the 60s Vercel wall holds for ANY chain length (WR-03 closure):
+  // primary gets the full budget, a fast-failing primary (404/connection/
+  // early 5xx) leaves ~50s for a complete fallback analysis.
   timeouts?: { primaryMs: number; fallbackMs: number };
 }
+
+// FAL-04 loop wall: maxDuration=60 (route.ts:16) minus ~6s for DB writes +
+// trace URL lookup — the loop itself may never consume more than this.
+const LOOP_BUDGET_MS = 54_000;
 
 // LanguageModel is a union of string-form global provider IDs and object-form
 // models (LanguageModelV4/V3/V2): the string member IS the model id, the
@@ -36,10 +45,18 @@ export async function runAgent({
   company,
   liveSignals,
   models = [anthropic(FAST_MODEL_ID)],
-  timeouts = { primaryMs: 35_000, fallbackMs: 20_000 },
+  timeouts = { primaryMs: 54_000, fallbackMs: 50_000 },
 }: RunAgentInput) {
+  const startedAt = Date.now();
   let lastError: unknown;
   for (let i = 0; i < models.length; i++) {
+    // FAL-04: every attempt is clamped to the remaining LOOP_BUDGET_MS so the
+    // 60s Vercel wall holds for ANY chain length (WR-03 closure), and a real
+    // 43-50s tool-loop analysis is never aborted by a static per-attempt cap.
+    const elapsedMs = Date.now() - startedAt;
+    const remainingMs = Math.max(0, LOOP_BUDGET_MS - elapsedMs);
+    const attemptMs = i === 0 ? timeouts.primaryMs : timeouts.fallbackMs;
+    const totalMs = Math.min(attemptMs, remainingMs);
     try {
       const result = await generateText({
         model: models[i],
@@ -49,14 +66,24 @@ export async function runAgent({
         output: Output.object({ schema: outputSchema }),
         // FAL-04 why-comment (house convention): { totalMs } is the TOTAL
         // budget for this call INCLUDING the SDK's own retries + backoff
-        // (verified: mergeAbortSignals feeds the retry loop's abort signal) —
-        // the 55s worst case (35+20) holds under Vercel's 60s maxDuration
-        // (route.ts:16). Keep SDK default maxRetries: 2; do not hand-roll
-        // AbortController + setTimeout.
-        timeout: { totalMs: i === 0 ? timeouts.primaryMs : timeouts.fallbackMs },
+        // (verified: mergeAbortSignals feeds the retry loop's abort signal).
+        // The loop wall (LOOP_BUDGET_MS = 54s) leaves ~6s for DB writes +
+        // trace URL lookup under Vercel's 60s maxDuration (route.ts:16).
+        // Keep SDK default maxRetries: 2; do not hand-roll AbortController +
+        // setTimeout. A 43-50s real analysis completes; a fast-failing
+        // primary leaves the fallback its ~50s share.
+        timeout: { totalMs },
       });
       // FAL-05: audit identity — modelUsed/usedFallback flow to persistence.
-      return { ...result, modelUsed: modelIdOf(models[i]), usedFallback: i > 0 };
+      // Object.create + assign (NOT { ...result } spread): ai@7's result
+      // exposes output/usage/finishReason as PROTOTYPE getters, and spread
+      // copies only own enumerable keys — a spread would silently drop them
+      // and analyzeCompany's run.output.* access would throw at runtime
+      // (16-HUMAN-UAT gap fix; invisible to TS + mocked tests).
+      return Object.assign(Object.create(Object.getPrototypeOf(result)), result, {
+        modelUsed: modelIdOf(models[i]),
+        usedFallback: i > 0,
+      });
     } catch (err) {
       lastError = err;
       if (!isFailoverEligible(classifyModelError(err))) throw err; // Pitfall 2/3: never burn fallbacks
