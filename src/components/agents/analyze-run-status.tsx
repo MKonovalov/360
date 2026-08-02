@@ -20,7 +20,13 @@ export const ANALYZE_START_EVENT = 'arclumen:analyze:start';
 type RunState =
   | { status: 'idle' }
   | { status: 'running' }
-  | { status: 'success'; proposalCount: number }
+  | {
+      status: 'success';
+      proposalCount: number;
+      modelUsed?: string;
+      modelUsedName?: string;
+      usedFallback?: boolean;
+    }
   | { status: 'successNoNew' }
   | { status: 'failure'; reason: string; errors?: string[] };
 
@@ -32,6 +38,7 @@ const ERROR_COPY: Record<string, string> = {
   not_configured: 'Analysis is not configured — contact admin',
   gate_failed: "The company data doesn't meet the requirements for analysis",
   analysis_failed: 'The analysis failed',
+  rate_limited: 'Rate limited — try again in a moment',
   persist_failed: 'The analysis could not be saved',
   network: 'The analysis service could not be reached',
   action_failed: 'The analysis could not be started',
@@ -74,10 +81,21 @@ export function AnalyzeRunStatus({
       if (generation !== requestGeneration.current) return;
 
       if (res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { proposalCount?: number };
+        const data = (await res.json().catch(() => ({}))) as {
+          proposalCount?: number;
+          modelUsed?: string;
+          modelUsedName?: string;
+          usedFallback?: boolean;
+        };
         const proposalCount = data.proposalCount ?? 0;
         if (proposalCount > 0) {
-          setState({ status: 'success', proposalCount });
+          setState({
+            status: 'success',
+            proposalCount,
+            modelUsed: data.modelUsed,
+            modelUsedName: data.modelUsedName,
+            usedFallback: data.usedFallback,
+          });
         } else {
           // D-11: run completed but produced zero NEW proposals — state WHY,
           // don't silently succeed (UI-SPEC §2).
@@ -123,7 +141,11 @@ export function AnalyzeRunStatus({
   if (state.status === 'success') {
     return (
       <div className="flex items-center gap-2">
-        <p className="text-[14px] font-semibold leading-[1.5] text-slate-900">Analysis complete</p>
+        <p className="text-[14px] font-semibold leading-[1.5] text-slate-900">
+          {`Analysis complete${
+            state.usedFallback ? ` — ran on ${state.modelUsedName ?? state.modelUsed} (fallback)` : ''
+          }`}
+        </p>
         <Link href="/reviews" className="text-[14px] font-normal leading-[1.5] text-indigo-600">
           {`Review ${state.proposalCount} proposal${state.proposalCount === 1 ? '' : 's'}`}
         </Link>
