@@ -467,19 +467,19 @@ npx drizzle-kit push
 
 **No compliance, retention, or security-standard claims are assumed** — see Security Domain; everything above is derived from verified sources.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Haiku 4.5 roster status at execution time (D-02 gate)**
+1. **RESOLVED: Haiku 4.5 roster status at execution time (D-02 gate)**
    - What we know: as of 2026-08-02, live `GET /v1/models` has `claude-sonnet-4-6` but **not** `claude-haiku-4-5` (only dated `claude-haiku-4-5-20251001`).
    - What's unclear: whether Anthropic adds an undated Haiku alias before Phase 15 executes (unlikely in days).
    - Recommendation: plan the allowlist as `['claude-sonnet-4-6']`; include an execution-time roster re-verify task (D-02's own mechanism) that adds haiku-4-5 **only if** the live check passes; otherwise the roster ships sonnet-only and Haiku 4.5 is deferred (surfaces to the user at plan review — this is a locked-decision content change, not a decision reversal).
 
-2. **`createdAt` on `user_model_settings` (D-06 reading)**
+2. **RESOLVED: `createdAt` on `user_model_settings` (D-06 reading)**
    - What we know: D-06 says "`updatedAt` only"; the ARCHITECTURE research the decision resolves ships both `createdAt` + `updatedAt`; every existing repo table has `createdAt`.
    - What's unclear: strict vs. intent reading of D-06.
    - Recommendation: include `createdAt` (repo convention; harmless; matches the research shape). Planner may omit if strict reading preferred — note it in the plan so the executor knows which.
 
-3. **`db:push` npm script nicety (Claude discretion)**
+3. **RESOLVED: `db:push` npm script nicety (Claude discretion)**
    - What we know: D-01 leaves it optional.
    - Recommendation: add `"db:push": "drizzle-kit push"` — cheap DX win, no behavior change.
 

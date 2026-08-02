@@ -29,7 +29,7 @@ created: 2026-08-02
 
 - **After every task commit:** Run `npx vitest run src/lib/models/catalog.test.ts` (fast, pure)
 - **After every plan wave:** Run `npm test` (full suite)
-- **Before `/gsd-verify-work`:** Full suite green + `drizzle-kit push` applied + `models:fetch` snapshot regenerated + `grep exec|spawn|child_process src/` clean
+- **Before `/gsd-verify-work`:** Full suite green + `drizzle-kit push` applied + `models:fetch` snapshot regenerated + `grep -rE "node:child_process|execFileSync\(|execSync\(|spawnSync\(|spawn\(" src/` clean (call-site/import pattern — the naive `grep exec|spawn|child_process` variant is unsatisfiable: 11 baseline false positives on `execute`/`executive`/`executes`, and word-boundary variants miss `execFileSync(`/`spawnSync(`)
 - **Max feedback latency:** 60 seconds
 
 ---
