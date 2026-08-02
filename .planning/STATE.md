@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: AI Model Settings
 status: planning
-last_updated: "2026-08-02T13:25:35.797Z"
+last_updated: "2026-08-02T13:37:18.737Z"
 last_activity: 2026-08-02
 progress:
   total_phases: 4
@@ -97,9 +97,9 @@ Items acknowledged and carried forward from v1.1/v1.2 milestone close, still ope
 
 ## Session Continuity
 
-Last session: 2026-08-02T13:25:35.786Z
-Stopped at: Phase 17 context gathered
-Resume file: .planning/phases/17-settings-ui-list-source/17-CONTEXT.md
+Last session: 2026-08-02T13:37:18.678Z
+Stopped at: Phase 17 UI-SPEC approved
+Resume file: .planning/phases/17-settings-ui-list-source/17-UI-SPEC.md
 
 ## Operator Next Steps
 
