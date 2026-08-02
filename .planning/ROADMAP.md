@@ -149,7 +149,7 @@ Full details: [`.planning/milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
 **Plans**: 3 plansPlans:
 **Wave 1**
 
-- [ ] 18-01-PLAN.md — VER-01/02 Vitest matrices: 4 loop-level failover tests + real-snapshot catalog + partial-chain resolve tests + 18-VER-01-MATRIX.md (13-item checklist map)
+- [x] 18-01-PLAN.md — VER-01/02 Vitest matrices: 4 loop-level failover tests + real-snapshot catalog + partial-chain resolve tests + 18-VER-01-MATRIX.md (13-item checklist map)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -183,7 +183,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 15. Model Registry Foundation + Persistence | v1.3 | 2/2 | Complete    | 2026-08-02 |
 | 16. Failover Orchestration | v1.3 | 4/4 | Complete    | 2026-08-02 |
 | 17. Settings UI + List Source | v1.3 | 3/3 | Complete    | 2026-08-02 |
-| 18. Verification Gate | v1.3 | 0/TBD | Not started | - |
+| 18. Verification Gate | v1.3 | 1/3 | In Progress|  |
 
 ---
 

@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: AI Model Settings
 status: executing
-last_updated: "2026-08-02T15:38:45.872Z"
-last_activity: 2026-08-02 -- Phase 18 planning complete
+last_updated: "2026-08-02T15:48:40.403Z"
+last_activity: 2026-08-02
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 12
-  completed_plans: 9
+  completed_plans: 10
   percent: 75
 ---
 
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-02)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** Phase 18 — verification gate
+**Current focus:** Phase 18 — verification-gate
 
 ## Current Position
 
-Phase: 18
-Plan: Not started
+Phase: 18 (verification-gate) — EXECUTING
+Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-08-02 -- Phase 18 planning complete
+Last activity: 2026-08-02
 
-Progress: [██████████] 100%
+Progress: [████████░░] 83%
 
 ## Performance Metrics
 
@@ -55,6 +55,7 @@ Progress: [██████████] 100%
 | Phase 17-settings-ui-list-source P01 | 2min | 2 tasks | 7 files |
 | Phase 17-settings-ui-list-source P02 | 6min | 3 tasks | 4 files |
 | Phase 17-settings-ui-list-source P03 | 7min | 2 tasks | 2 files |
+| Phase 18-verification-gate P01 | 3min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,9 @@ Recent decisions affecting current work:
 - [Phase 17]: Empty fallback rows are dropped before sending to the action — an in-progress row is not a model selection; sending it verbatim would trip invalid_model (SET-04 'empty fallback list is saveable' honored)
 - [Phase 17]: Stale option labels fall back to the raw id in the client — no snapshot access by design (client-bundle rule), matching getModelDisplayName's D-06 fallback rule
 - [Phase 17]: Sonnet-only branch keeps stale saved fallbacks removable (Rule 2 fix) — otherwise a stale fallback blocks Save forever with no row to clear it (D-10/D-11 must-have truth)
+- [Phase ?]: Phase 18 P01: Real-snapshot catalog test (import catalogJson) is the ONE deliberate exception to the fixture-decoupling convention — drift-guarded by its assertion, not the model count
+- [Phase ?]: Phase 18 P01: SC-3 forced-fail clause recorded as satisfied-by-extension via runAgent.test.ts RetryError-404 + exhaustion tests (D-18-02) — zero prod code changes, Vitest mocks are the reproducible forced-fail proof
+- [Phase ?]: Phase 18 P01: Checklist count corrected to 13 items (not 12); catalog.test.ts corrected to 9 tests (not 11) — carried verbatim into 18-VER-01-MATRIX.md
 
 ### Pending Todos
 
@@ -107,9 +111,9 @@ Items acknowledged and carried forward from v1.1/v1.2 milestone close, still ope
 
 ## Session Continuity
 
-Last session: 2026-08-02T14:59:53.312Z
+Last session: 2026-08-02T15:48:40.397Z
 Stopped at: Phase 18 context gathered
-Resume file: .planning/phases/18-verification-gate/18-CONTEXT.md
+Resume file: None
 
 ## Operator Next Steps
 
