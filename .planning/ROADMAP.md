@@ -160,7 +160,22 @@ Plans:
   4. The OpenRouter picker (336 rows) is usable via Command-pattern type-to-filter search + provider/family grouping, both in P1
   5. `~latest` aliases are labeled "always the latest" (drift caveat) and `:free` variants labeled rate-limited free tier (shared 50 req/day quota, fail-loud on cap); the staleness gate covers the union-wide servable set, the catalog freshness caption is retained, and cost captions include high-cost warnings (e.g. $150/M)
 
-**Plans**: TBD
+**Plans**: 5 plans
+Plans:
+**Wave 1**
+
+- [ ] 21-01-PLAN.md — Vendor shadcn Command/Popover + cmdk install + post-add verification (SET-06 infra; D-21-05 — NOT `@shadcn/combobox`)
+- [ ] 21-02-PLAN.md — `model-picker-logic.ts` + Vitest suite (Wave 0): search composite, suffix labels, high-cost, provider-switch reducer, union staleIds, grouping, slot dedupe (SET-03/04/06/07/08)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 21-03-PLAN.md — `settings/page.tsx` widened props: providers, servableByProvider, unionServableModels, defaults, savedChain (provider-scoped trimRow — Anti-Pattern 1; T-17-09) (SET-01/02/04/05)
+- [ ] 21-04-PLAN.md — `model-picker.tsx` Combobox wrapper: data-checked + composite round-trip + provider groups + badges + labels + cost warnings (SET-04/05/06/07)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 21-05-PLAN.md — `model-settings-form.tsx` provider dimension (selector + reset reducer + hint + union gate) + ModelPicker swaps + saved-chain recap; npm test + npm run build gate (SET-01..08)
+
 **UI hint**: yes
 
 ### Phase 22: Verification Gate
@@ -205,7 +220,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 18. Verification Gate | v1.3 | 3/3 | Complete    | 2026-08-02 |
 | 19. Provider Registry + Servable Model Source | v1.4 | 5/5 | Complete    | 2026-08-02 |
 | 20. Cross-Provider Run Path | v1.4 | 4/4 | Complete    | 2026-08-02 |
-| 21. Settings UI | v1.4 | 0/TBD | Not started | - |
+| 21. Settings UI | v1.4 | 0/5 | Not started | - |
 | 22. Verification Gate | v1.4 | 0/TBD | Not started | - |
 
 ---
