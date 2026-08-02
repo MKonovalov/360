@@ -409,8 +409,8 @@ it('402 billing never advances even cross-provider — throws on the primary (FA
 **CRITICAL './runAgent' mock factory fix (BLOCKER):** analyzeCompany.ts imports `isOpenRouterPlatformRateLimit` from './runAgent' (plan 20-03) — the pre-existing factory `vi.mock('./runAgent', () => ({ runAgent: mocks.runAgent }))` exports ONLY `runAgent`, so the helper would resolve to `undefined` → `TypeError: isOpenRouterPlatformRateLimit is not a function` in the rate_limited catch branch → the EXISTING 429 test AND the new platform/upstream reason tests all fail. The factory MUST spread the real module:
 ```typescript
 vi.mock('./runAgent', async () => ({
-  runAgent: mocks.runAgent,
   ...(await vi.importActual('./runAgent')), // real isOpenRouterPlatformRateLimit — split tests exercise real behavior
+  runAgent: mocks.runAgent,                 // override LAST — keeps the mock seam (later object-literal property wins; spread-first order is REQUIRED or the real runAgent clobbers the mock → live generateText, D-16 breach)
 }));
 ```
 D-16 safety of the spread (verified): the real runAgent module has NO module-level side effects — `./tools` constructs the Firecrawl client LAZILY (`getFirecrawl()` on first execute, tools.ts:10-17), `./modelFactory` resolves to THIS test's existing mock namespace (`{ instantiateChain }`; `defaultChain` is only evaluated as a default parameter at call time, never called), and 'ai' is the real installed package already loaded transitively. Zero live calls preserved.
