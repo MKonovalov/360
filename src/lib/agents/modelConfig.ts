@@ -6,7 +6,12 @@ import {
   NoObjectGeneratedError,
   LoadAPIKeyError,
 } from 'ai';
-import { ANTHROPIC_ALLOWLIST, FAST_MODEL_ID, getUnionServableIds } from '@/lib/models/catalog';
+import {
+  ANTHROPIC_ALLOWLIST,
+  FAST_MODEL_ID,
+  getUnionServableIds,
+  type ModelProviderId,
+} from '@/lib/models/catalog';
 // D-06: importing the JSON directly mirrors catalog.ts itself (ARCHITECTURE.md
 // Pattern 2 trade-off) and keeps the pure-module contract — no db/env/runAgent.
 import catalogJson from '@/lib/models/catalog.json';
@@ -28,7 +33,11 @@ export type ModelErrorClass =
   | 'input'
   | 'auth'
   | 'config'
-  | 'output';
+  | 'output'
+  // FAL-02: 402 — OpenRouter account-level credits exhausted, NEVER
+  // failover-eligible (advancing to any model would fail identically — nobody
+  // later "fixes" it into the advance set, PITFALLS 3).
+  | 'billing';
 
 export function classifyModelError(err: unknown): ModelErrorClass {
   // Pitfall 3: RetryError-unwrap-FIRST — status-code checks on the top-level
@@ -44,12 +53,20 @@ export function classifyModelError(err: unknown): ModelErrorClass {
     // does NOT exist in ai@7 (verified); do not import it.
     if (code === undefined) return 'connection';
     if (code === 404) return 'model_not_found';
+    // FAL-02 (PITFALLS 3): 402 — OpenRouter account-level credits exhausted;
+    // advancing to any model would fail identically, never failover-eligible.
+    if (code === 402) return 'billing';
     if (code === 429) return 'rate_limited'; // D-01: never advances
-    if (code >= 500) return 'server_error'; // D-02: advances
+    if (code >= 500) return 'server_error'; // D-02: advances — 502/503 on OpenRouter are model-availability signals, the purest failover case (FAL-02); stay eligible, comment-only, never reclassified
     if (code === 401 || code === 403) return 'auth';
     return 'input'; // 400/422/other 4xx
   }
   if (NoSuchModelError.isInstance(err)) return 'model_not_found';
+  // D-20-05/06: OpenRouter mid-stream 429s (finish_reason: "error" after HTTP
+  // 200) surface here as 'output' via the flat generateText contract — safe
+  // (fail loud, never burn a fallback wrongly). Accepted + documented, NOT
+  // reclassified in Phase 20 (would require digging the v7 step/stream result
+  // shape beyond budget). Phase 22's error matrix records the expected behavior.
   if (InvalidResponseDataError.isInstance(err) || NoObjectGeneratedError.isInstance(err)) return 'output';
   if (LoadAPIKeyError.isInstance(err)) return 'config';
   if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
@@ -67,6 +84,23 @@ export function classifyModelError(err: unknown): ModelErrorClass {
 // (it would advance on 429) — do not copy it.
 export function isFailoverEligible(cls: ModelErrorClass): boolean {
   return cls === 'model_not_found' || cls === 'server_error' || cls === 'connection';
+}
+
+// FAL-03 4-cell matrix (D-20-07 — decision uses ONLY provider identity, never
+// the response body): rate_limited advances ONLY on a cross-provider hop; all
+// other eligible classes (404/5xx/connection) advance regardless — v1.3
+// same-provider behavior preserved verbatim (D-01/D-03), hop-aware advance is
+// a DELIBERATE TESTED EXTENSION, not a relaxation.
+// from/to are nullable (getProviderForModelId returns null on catalog drift /
+// last-model sentinel) — fail-closed: a null provider identity never advances
+// a 429 (locked in the 4-cell matrix tests).
+export function shouldAdvance(
+  cls: ModelErrorClass,
+  from: ModelProviderId | null,
+  to: ModelProviderId | null,
+): boolean {
+  if (cls !== 'rate_limited') return true; // v1.3 verbatim
+  return from !== null && to !== null && from !== to; // 429: same-provider never advances (D-01/D-03)
 }
 
 export type ModelSettingsRow = { primaryModel: string; fallbackModels: string[] } | undefined;
