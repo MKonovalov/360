@@ -79,7 +79,7 @@ Full details: [`.planning/milestones/v1.3-ROADMAP.md`](milestones/v1.3-ROADMAP.m
 **Phase Numbering:** Continues from v1.3 (which ended at Phase 18) — v1.4 starts at Phase 19.
 
 - [x] **Phase 19: Provider Registry + Servable Model Source** - Two-provider foundation: catalog registry with per-provider servable rules (OpenRouter full catalog incl. labeled `~latest`/`:free`; Anthropic sonnet-only allowlist), provider-derived-from-catalog lookup + collision canary, `modelFactory` provider-aware instantiation seam, `@openrouter/ai-sdk-provider@^3.0.0` + `OPENROUTER_API_KEY` env gate, and union-wide save validation (completed 2026-08-02)
-- [ ] **Phase 20: Cross-Provider Run Path** - Provider-aware classifier (`billing` class for 402, 502/503 model-availability semantics), hop-aware 429 policy with 4-cell matrix, chain-aware env gate, and provider-accurate `model_used`/`model_chain` audit for cross-provider chains
+- [x] **Phase 20: Cross-Provider Run Path** - Provider-aware classifier (`billing` class for 402, 502/503 model-availability semantics), hop-aware 429 policy with 4-cell matrix, chain-aware env gate, and provider-accurate `model_used`/`model_chain` audit for cross-provider chains (completed 2026-08-02)
 - [ ] **Phase 21: Settings UI** - AI Provider selector above Primary, provider-scoped Primary picker with keep-if-valid → default reset, union-grouped fallback pickers with Command search + provider badges, `~latest`/`:free` labels, union-wide staleness gate
 - [ ] **Phase 22: Verification Gate** - Vitest collision/429-hop/error matrices, end-to-end OpenRouter-primary Analyze → `model_used` UAT, OpenRouter-only chain proof, security-matrix grep, live-browser provider-switch/picker UAT
 
@@ -143,7 +143,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 20-04-PLAN.md — route status map (not_configured→400 named key, billing→402, rate_limited→429; D-20-11 minimal blast radius) + FAL-05 audit-wiring verification + full-suite/tsc/build gate (FAL-02, FAL-04, FAL-05)
+- [x] 20-04-PLAN.md — route status map (not_configured→400 named key, billing→402, rate_limited→429; D-20-11 minimal blast radius) + FAL-05 audit-wiring verification + full-suite/tsc/build gate (FAL-02, FAL-04, FAL-05)
 
 **Research flag**: small targeted check only — confirm `APICallError.responseBody` is populated by the installed provider before writing `isOpenRouterPlatformRateLimit`; classifier taxonomy otherwise fully specified
 
@@ -204,7 +204,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 17. Settings UI + List Source | v1.3 | 3/3 | Complete    | 2026-08-02 |
 | 18. Verification Gate | v1.3 | 3/3 | Complete    | 2026-08-02 |
 | 19. Provider Registry + Servable Model Source | v1.4 | 5/5 | Complete    | 2026-08-02 |
-| 20. Cross-Provider Run Path | v1.4 | 3/4 | In Progress|  |
+| 20. Cross-Provider Run Path | v1.4 | 4/4 | Complete   | 2026-08-02 |
 | 21. Settings UI | v1.4 | 0/TBD | Not started | - |
 | 22. Verification Gate | v1.4 | 0/TBD | Not started | - |
 

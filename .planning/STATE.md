@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Multi-Provider AI Model Configuration
-status: executing
-last_updated: "2026-08-02T21:18:09.135Z"
+status: verifying
+last_updated: "2026-08-02T21:25:09.388Z"
 last_activity: 2026-08-02
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 9
-  completed_plans: 8
-  percent: 25
+  completed_plans: 9
+  percent: 50
 ---
 
 # Project State
@@ -26,10 +26,10 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 
 Phase: 20 (Cross-Provider Run Path) — EXECUTING
 Plan: 4 of 4
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-02
 
-Progress: [█████████░] 89%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -59,6 +59,7 @@ Progress: [█████████░] 89%
 | Phase 20-cross-provider-run-path P01 | 3min | 2 tasks | 2 files |
 | Phase 20-cross-provider-run-path P02 | 5 | 2 tasks | 2 files |
 | Phase 20-cross-provider-run-path P03 | 8min | 2 tasks | 2 files |
+| Phase 20-cross-provider-run-path P04 | 2min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -100,6 +101,9 @@ Recent decisions affecting current work:
 - [Phase ?]: D-20-03 execution: the pre-DB fast gate is FIRECRAWL-only — ANTHROPIC is a provider key, so it moves into the chain-aware named-key path (an openrouter-only chain runs with only OPENROUTER set; an ANTHROPIC-missing anthropic chain names ANTHROPIC_API_KEY)
 - [Phase ?]: FAL-04/D-20-01/02: missingProviderKey checks the RESOLVED chain's provider set all-or-nothing at run entry; unknown ids (null provider) are skipped — the union servable gate upstream (resolveModelChain) already excludes non-servable ids
 - [Phase ?]: D-20-10: 402 maps to billing 'provider credits exhausted'; 429 maps to rate_limited with the diagnostics-split platform/upstream message — message values are fixed server-side constants (T-20-09), only key NAMES surface in missingKey (T-20-07)
+- [Phase ?]: D-20-09/10/11 execution: not_configured -> 400 with message naming the missing key (undefined on the bare FIRECRAWL fast-gate path - JSON drops it); billing -> 402 'provider credits exhausted'; rate_limited -> 429 with result.message; the 502 family untouched
+- [Phase ?]: FAL-05 is verification-only (RESEARCH caveat 6): Phase 19/20-02 already wired modelUsed/modelChain; proven by 3 greps + a tsx identity smoke rather than new code
+- [Phase ?]: The catalog stores ~latest aliases with a LEADING ~ ('~anthropic/claude-sonnet-latest'), not 'anthropic/claude-sonnet-latest' - the plan's smoke literal would fail; corrected smoke uses the real alias and still proves the FAL-05 intent (ids resolve to providers, flow verbatim)
 
 ### Pending Todos
 
@@ -130,8 +134,8 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-02T21:18:09.126Z
-Stopped at: Completed 20-03-PLAN.md
+Last session: 2026-08-02T21:25:09.381Z
+Stopped at: Completed 20-04-PLAN.md (Phase 20 complete)
 Resume file: None
 
 ## Operator Next Steps
