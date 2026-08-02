@@ -31,6 +31,7 @@ const fixture: ModelCatalog = {
       api: { npm: '@ai-sdk/openai-compatible', url: 'https://opencode.ai/zen/v1' },
       cost: { input: 0, output: 0 },
       limit: { context: 200000, output: 32000 },
+      structuredOutputs: true,
     },
     {
       id: 'claude-sonnet-4-6',
@@ -41,6 +42,7 @@ const fixture: ModelCatalog = {
       api: { npm: '@ai-sdk/anthropic', url: '' },
       cost: { input: 3, output: 15 },
       limit: { context: 1000000, output: 128000 },
+      structuredOutputs: true,
     },
     {
       id: 'claude-sonnet-4-5-20250929',
@@ -51,6 +53,7 @@ const fixture: ModelCatalog = {
       api: { npm: '@ai-sdk/anthropic', url: '' },
       cost: { input: 3, output: 15 },
       limit: { context: 1000000, output: 128000 },
+      structuredOutputs: true,
     },
     {
       id: 'claude-haiku-4-5-20251001',
@@ -61,6 +64,7 @@ const fixture: ModelCatalog = {
       api: { npm: '@ai-sdk/anthropic', url: '' },
       cost: { input: 0.8, output: 4 },
       limit: { context: 200000, output: 64000 },
+      structuredOutputs: true,
     },
     {
       id: 'big-pickle',
@@ -71,6 +75,7 @@ const fixture: ModelCatalog = {
       api: { npm: '@ai-sdk/openai-compatible', url: 'https://opencode.ai/zen/v1' },
       cost: { input: 0, output: 0 },
       limit: { context: 200000, output: 32000 },
+      structuredOutputs: true,
     },
     {
       id: 'anthropic/claude-sonnet-4.6',
@@ -81,6 +86,7 @@ const fixture: ModelCatalog = {
       api: { npm: '@openrouter/ai-sdk-provider', url: '' },
       cost: { input: 3, output: 15 },
       limit: { context: 1000000, output: 128000 },
+      structuredOutputs: true,
     },
     {
       id: 'openai/gpt-oss-20b:free',
@@ -91,6 +97,7 @@ const fixture: ModelCatalog = {
       api: { npm: '@openrouter/ai-sdk-provider', url: '' },
       cost: { input: 0, output: 0 },
       limit: { context: 128000, output: 32000 },
+      structuredOutputs: true,
     },
   ],
 };
