@@ -167,9 +167,45 @@ export function ModelSettingsForm({
 
         <div className="flex flex-col gap-2 border-t border-slate-100 pt-4">
           {servableModels.length === 1 ? (
-            <p className="text-[12px] font-normal leading-[1.4] text-slate-500">
-              No additional models available — only one model is runnable right now.
-            </p>
+            <>
+              <p className="text-[12px] font-normal leading-[1.4] text-slate-500">
+                No additional models available — only one model is runnable right now.
+              </p>
+              {/* A stale saved fallback must stay renderable and removable even
+                  in the sonnet-only branch (D-10/D-11 must-have truth):
+                  otherwise the stale id lingers in the draft, Save is blocked,
+                  and no row exists to clear it with. Replacement is impossible
+                  here (no other servable models), so remove is the only exit. */}
+              {fallbacks.map((fb, i) =>
+                isStale(fb) ? (
+                  <div key={i} className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <Select value={fb} onValueChange={() => {}}>
+                        <SelectTrigger id={`fallback-${i + 1}`} className="flex-1 min-w-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={fb} disabled>
+                            <span>{optionLabel(fb)}</span>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Remove fallback"
+                        onClick={() => removeFallback(i)}
+                      >
+                        <X />
+                      </Button>
+                    </div>
+                    <p className="text-[14px] font-normal leading-[1.5] text-red-600">
+                      This model is no longer runnable — pick a replacement before saving.
+                    </p>
+                  </div>
+                ) : null
+              )}
+            </>
           ) : (
             <>
               <p className="text-[12px] font-normal leading-[1.4] text-slate-500">
