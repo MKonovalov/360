@@ -95,10 +95,10 @@ Deferred to future releases. Tracked but not in the current roadmap.
 | VER-05 | Phase 22 | Pending |
 
 **Coverage:**
-- v1 requirements: 24 total
-- Mapped to phases: 24
+- v1 requirements: 25 total
+- Mapped to phases: 25
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-08-02*
-*Last updated: 2026-08-02 after initial definition*
+*Last updated: 2026-08-02 after roadmap creation (all 25 v1.4 requirements mapped to Phases 19-22)*

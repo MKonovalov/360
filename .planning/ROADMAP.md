@@ -6,6 +6,7 @@
 - ✅ **v1.1 Start Page + Import + Analytic Agent** — Phases 5-9 (shipped 2026-08-01)
 - ✅ **v1.2 Exa-Style Left Panel** — Phases 10-14 (shipped 2026-08-02)
 - ✅ **v1.3 AI Model Settings** — Phases 15-18 (shipped 2026-08-02)
+- 🚧 **v1.4 Multi-Provider AI Model Configuration** — Phases 19-22 (in progress)
 
 ## Phases
 
@@ -71,10 +72,86 @@ Full details: [`.planning/milestones/v1.3-ROADMAP.md`](milestones/v1.3-ROADMAP.m
 
 </details>
 
+🚧 **v1.4 Multi-Provider AI Model Configuration (Phases 19-22) — IN PROGRESS**
+
+**Milestone Goal:** Add an AI Provider selector to Settings above the Primary model — Anthropic (existing) plus OpenRouter (new) — so the Primary model picker refreshes from the selected provider's servable source, and the Analytic Agent can resolve and run model chains whose entries (primary and fallbacks) come from either provider.
+
+**Phase Numbering:** Continues from v1.3 (which ended at Phase 18) — v1.4 starts at Phase 19.
+
+- [ ] **Phase 19: Provider Registry + Servable Model Source** - Two-provider foundation: catalog registry with per-provider servable rules (OpenRouter full catalog incl. labeled `~latest`/`:free`; Anthropic sonnet-only allowlist), provider-derived-from-catalog lookup + collision canary, `modelFactory` provider-aware instantiation seam, `@openrouter/ai-sdk-provider@^3.0.0` + `OPENROUTER_API_KEY` env gate, and union-wide save validation
+- [ ] **Phase 20: Cross-Provider Run Path** - Provider-aware classifier (`billing` class for 402, 502/503 model-availability semantics), hop-aware 429 policy with 4-cell matrix, chain-aware env gate, and provider-accurate `model_used`/`model_chain` audit for cross-provider chains
+- [ ] **Phase 21: Settings UI** - AI Provider selector above Primary, provider-scoped Primary picker with keep-if-valid → default reset, union-grouped fallback pickers with Command search + provider badges, `~latest`/`:free` labels, union-wide staleness gate
+- [ ] **Phase 22: Verification Gate** - Vitest collision/429-hop/error matrices, end-to-end OpenRouter-primary Analyze → `model_used` UAT, OpenRouter-only chain proof, security-matrix grep, live-browser provider-switch/picker UAT
+
+### Phase 19: Provider Registry + Servable Model Source
+
+**Goal**: The app recognizes two AI providers — Anthropic (existing) and OpenRouter (new) — via a catalog registry with per-provider servable rules (OpenRouter full catalog incl. labeled `~latest`/`:free`, Anthropic sonnet-only), provider identity derived from the catalog (no schema change), a provider-aware instantiation seam, and union-wide save validation.
+**Depends on**: Phase 18 (v1.3 — shipped 2026-08-02); first phase of v1.4
+**Requirements**: REG-01, REG-02, REG-03, REG-04, REG-05, REG-06, REG-07
+**Success Criteria** (what must be TRUE):
+
+  1. The Settings AI Model Configuration card can express a provider choice — Anthropic (existing) or OpenRouter (new) — as a first-class selection backed by a provider registry, with the choice validatable end-to-end
+  2. `@openrouter/ai-sdk-provider@^3.0.0` is installed and `OPENROUTER_API_KEY` is declared optional, server-only in `env.ts` + `.env.example` + Vercel env, mirroring the D-15 `ANTHROPIC_API_KEY` degrade-gracefully pattern
+  3. The OpenRouter servable set is all active `providerID === 'openrouter'` rows in the committed snapshot (~336 models) with `~latest` aliases and `:free` variants INCLUDED but labeled per SET-07; the Anthropic servable set is unchanged (`ANTHROPIC_ALLOWLIST` sonnet-only)
+  4. Provider identity is derived from the catalog by model id via a servable-scoped lookup with a collision canary (`claude-sonnet-5` → anthropic, `anthropic/claude-sonnet-5` → openrouter), and raw ids pass through verbatim (never `~`-stripped, never prefix-collapsed) — `user_model_settings` schema unchanged
+  5. A single `modelFactory` seam instantiates any servable chain id to its provider's `LanguageModel` (`anthropic(id)` or `openrouter(id)` by catalog `providerID`), is the only module importing provider SDKs, and `saveSettingsAction` validates each submitted id against its own provider's servable set (union-wide) before the atomic upsert
+
+**Plans**: TBD
+
+**Research flag**: small targeted re-verification at phase start only (createOpenRouter strict-compat + structured-output + env-key behavior against the INSTALLED package) — skip deep research; open decisions (OpenRouter default primary slug, `strict:false` per-model pass) are product calls locked at planning
+
+### Phase 20: Cross-Provider Run Path
+
+**Goal**: The Analytic Agent can resolve and run cross-provider fallback chains safely — a fallback may come from a different provider than the primary — with an extended error classifier (402 billing, 502/503 model-availability), a hop-aware 429 policy, a chain-aware env gate at entry, and audit columns recording the actual provider id served.
+**Depends on**: Phase 19
+**Requirements**: FAL-01, FAL-02, FAL-03, FAL-04, FAL-05
+**Success Criteria** (what must be TRUE):
+
+  1. An Analyze run whose chain spans providers executes end-to-end — a fallback from a different provider than the primary runs and serves when the primary fails
+  2. A 402 error classifies as `billing` (never failover-eligible, distinct structured reason "provider credits exhausted"); 502/503 stay `server_error`/failover-eligible and are documented as OpenRouter model-availability signals
+  3. 429 failover is hop-aware — `rate_limited` advances ONLY when the next model is on a different provider/key; same-provider 429 keeps v1.3's never-advance behavior — locked by a 4-cell Vitest matrix
+  4. A chain spanning providers requires both providers' keys at run entry; an unset key for any provider present in the resolved chain returns `not_configured` at entry (never a mid-chain crash or silent skip)
+  5. `agent_run.model_used`/`model_chain` record the actual provider id served — OpenRouter slugs recorded as-saved, `~latest` aliases included verbatim
+
+**Plans**: TBD
+
+**Research flag**: small targeted check only — confirm `APICallError.responseBody` is populated by the installed provider before writing `isOpenRouterPlatformRateLimit`; classifier taxonomy otherwise fully specified
+
+### Phase 21: Settings UI
+
+**Goal**: Staff can select an AI Provider (Anthropic + OpenRouter) above the Primary model in the AI Model Configuration card — the Primary picker refreshes from the selected provider's servable source, fallback pickers span the union with provider/family grouping and Command-pattern search, provider badges disambiguate same-name models, and `~latest`/`:free` rows carry their labels.
+**Depends on**: Phase 19 (can proceed in parallel with Phase 20 — decoupled via the DB + props-only contract)
+**Requirements**: SET-01, SET-02, SET-03, SET-04, SET-05, SET-06, SET-07, SET-08
+**Success Criteria** (what must be TRUE):
+
+  1. The AI Model Configuration card renders an always-valued AI Provider selector (Anthropic + OpenRouter) above the Primary model picker; choosing a provider refreshes the Primary picker from that provider's servable source
+  2. Switching the provider follows keep-if-valid → reset-to-provider-default (OpenRouter default = pinned concrete slug chosen in planning); draft-only per D-07, fallbacks preserved, non-blocking hint shown
+  3. Fallback pickers show the union of all providers' servable models grouped by provider + family, with provider badges on picker rows and saved chain entries (disambiguating `claude-sonnet-5` vs `anthropic/claude-sonnet-5`)
+  4. The OpenRouter picker (336 rows) is usable via Command-pattern type-to-filter search + provider/family grouping, both in P1
+  5. `~latest` aliases are labeled "always the latest" (drift caveat) and `:free` variants labeled rate-limited free tier (shared 50 req/day quota, fail-loud on cap); the staleness gate covers the union-wide servable set, the catalog freshness caption is retained, and cost captions include high-cost warnings (e.g. $150/M)
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 22: Verification Gate
+
+**Goal**: The milestone's correctness claims are proven — Vitest matrices lock the collision resolution, the 429 hop table, and the error taxonomy; end-to-end UAT proves an OpenRouter primary serves through Analyze into the audit columns; OpenRouter-only chains run with only the OpenRouter key; the security-matrix grep proves no key leakage; live-browser UAT proves provider-switch draft preservation, picker search/grouping, and badge disambiguation.
+**Depends on**: Phases 19, 20, 21
+**Requirements**: VER-01, VER-02, VER-03, VER-04, VER-05
+**Success Criteria** (what must be TRUE):
+
+  1. Vitest matrices lock: the collision matrix (`claude-sonnet-5` → anthropic, `anthropic/claude-sonnet-5` → openrouter), the 4-cell 429 hop table, and the error matrix (402 never advances w/ billing reason; 502/503 advance; platform vs upstream 429)
+  2. End-to-end UAT: save an OpenRouter primary → Analyze on a company → `agent_run.model_used` matches the saved OpenRouter slug
+  3. An OpenRouter-only chain runs successfully with only `OPENROUTER_API_KEY` set (no Anthropic key required)
+  4. Security-matrix grep is clean — `OPENROUTER` absent from client components / Server Action returns / no `NEXT_PUBLIC_*` leakage
+  5. Live-browser UAT proves provider-switch draft preservation, picker search/grouping, badge disambiguation, and that no `~`/`:free` id is ever savable-or-served outside its labels
+
+**Plans**: TBD
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|-----------------|--------|-----------|
@@ -96,7 +173,11 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 16. Failover Orchestration | v1.3 | 4/4 | Complete    | 2026-08-02 |
 | 17. Settings UI + List Source | v1.3 | 3/3 | Complete    | 2026-08-02 |
 | 18. Verification Gate | v1.3 | 3/3 | Complete    | 2026-08-02 |
+| 19. Provider Registry + Servable Model Source | v1.4 | 0/TBD | Not started | - |
+| 20. Cross-Provider Run Path | v1.4 | 0/TBD | Not started | - |
+| 21. Settings UI | v1.4 | 0/TBD | Not started | - |
+| 22. Verification Gate | v1.4 | 0/TBD | Not started | - |
 
 ---
 
-*Roadmap for v1.3 created 2026-08-02. All 25 v1.3 requirements mapped across Phases 15-18 (build order A: model registry + persistence → B: failover orchestration → C: settings UI + list source → D: verification gate, per research SUMMARY.md Implications for Roadmap). Phase 15 carries the migration-apply-flow confirmation (`drizzle-kit push` vs generate+commit — the one MEDIUM research flag); Phase 16 carries the Pitfall-11 pre-flight note (verify ai@7.0.45 dist types before writing the failover loop). Full v1.2 detail archived in `.planning/milestones/v1.2-ROADMAP.md`.*
+*Roadmap for v1.4 created 2026-08-02. All 25 v1.4 requirements mapped across Phases 19-22 (build order A: provider registry + servable model source → B: cross-provider run path → C: settings UI → D: verification gate, per research SUMMARY.md Implications for Roadmap — verified and refined against the research skeleton). Locked product decisions honored: `~latest`/`:free` INCLUDED + labeled (overrides PITFALLS 2/4 exclusion); hop-aware 429 advance (FAL-03); OpenRouter default = pinned concrete slug chosen in planning (SET-03); picker grouping + Command search both in P1 (SET-06); provider derived from catalog, no schema change (REG-05). Research flags: Phase 19 small targeted re-verify of installed @openrouter/ai-sdk-provider at phase start; Phase 20 small targeted APICallError.responseBody check; Phase 21 standard patterns — skip research-phase. Full v1.3 detail archived in `.planning/milestones/v1.3-ROADMAP.md`.*
