@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: AI Model Settings
-status: executing
-last_updated: "2026-08-02T16:04:12.486Z"
+status: verifying
+last_updated: "2026-08-02T17:03:18.004Z"
 last_activity: 2026-08-02
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 12
-  completed_plans: 11
-  percent: 75
+  completed_plans: 12
+  percent: 100
 ---
 
 # Project State
@@ -26,10 +26,10 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 
 Phase: 18 (verification-gate) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-02
 
-Progress: [█████████░] 92%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Progress: [█████████░] 92%
 | Phase 17-settings-ui-list-source P03 | 7min | 2 tasks | 2 files |
 | Phase 18-verification-gate P01 | 3min | 3 tasks | 4 files |
 | Phase 18 P02 | 21min | 3 tasks | 3 files |
+| Phase 18 P03 | 45min | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -87,6 +88,9 @@ Recent decisions affecting current work:
 - [Phase ?]: Phase 18 P01: Checklist count corrected to 13 items (not 12); catalog.test.ts corrected to 9 tests (not 11) — carried verbatim into 18-VER-01-MATRIX.md
 - [Phase 18]: Postgres assertion targets model_used/model_chain columns only (Pitfall 5) — usedFallback is response-only (route.ts:111), never queried as a DB column
 - [Phase 18]: SC-3 forced-fail clause recorded as satisfied-by-extension via runAgent.test.ts RetryError-404 + exhaustion tests (D-18-02) — no production fail hook added, zero src/ changes
+- [Phase ?]: A1 confirmed: the Vercel GitHub integration auto-built the PR #1 preview; the post-fix deployment used a fresh full CLI deploy (NOT --prebuilt, per D-18-03)
+- [Phase ?]: Vercel DATABASE_URL migrated off the v1.0-era Neon integration secret to an explicit project env var pointing at the known-good DB (ep-proud-bread-agmksetk) — rule-3 Vercel-config fix, zero src/ changes
+- [Phase ?]: Verified preview URL (sole VER-04 evidence URL): https://360-arclumen-g3pye9c3d-mkonovalovs-projects.vercel.app — human-approved across all 5 how-to-verify steps
 
 ### Pending Todos
 
@@ -114,7 +118,7 @@ Items acknowledged and carried forward from v1.1/v1.2 milestone close, still ope
 
 ## Session Continuity
 
-Last session: 2026-08-02T16:01:31.850Z
+Last session: 2026-08-02T17:03:17.998Z
 Stopped at: Phase 18 context gathered
 Resume file: None
 

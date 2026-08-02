@@ -45,7 +45,7 @@ Requirements for v1.3 "AI Model Settings" — per-user AI model management (prim
 - [x] **VER-01**: Vitest covers the failover matrix — 401/403 and output/schema errors do NOT advance the chain, retryable connection/model-not-found errors DO, and the chain exhausts to the last model
 - [x] **VER-02**: Vitest locks the catalog filter (allowlist ∩ snapshot → servable provider IDs) and the model-chain resolution (default, partial, full chains)
 - [x] **VER-03**: Live-browser UAT proves the end-to-end flow: Settings → pick primary + fallback → save → run Analyze → `model_used` reflects the chosen model (and a fallback when the primary is forced to fail)
-- [ ] **VER-04**: The deployed (Vercel preview) app loads the model list without any local opencode — committed snapshot fallback works
+- [x] **VER-04**: The deployed (Vercel preview) app loads the model list without any local opencode — committed snapshot fallback works
 
 ## Future Requirements (deferred)
 
@@ -95,7 +95,7 @@ Which phases cover which requirements. Updated 2026-08-02 during v1.3 roadmap cr
 | VER-01 | Phase 18 | Complete |
 | VER-02 | Phase 18 | Complete |
 | VER-03 | Phase 18 | Complete |
-| VER-04 | Phase 18 | Pending |
+| VER-04 | Phase 18 | Complete |
 | MRG-01 | Deferred | Deferred |
 | MRG-02 | Deferred | Deferred |
 | MRG-03 | Deferred | Deferred |
