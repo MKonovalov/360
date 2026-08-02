@@ -1,10 +1,11 @@
 ---
 phase: 18
 slug: verification-gate
-status: ready
+status: complete
 nyquist_compliant: true
 wave_0_complete: true
 created: 2026-08-02
+updated: 2026-08-02
 ---
 
 # Phase 18 — Validation Strategy
@@ -39,11 +40,11 @@ created: 2026-08-02
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 18-01-01 | 01 | 1 | VER-01 | — | Loop-level: 401/403/output-schema never advance (single attempt, fail loud per D-06); RetryError-wrapped 404 advances to fallback; exhaustion rethrows last error | unit (mocked seams) | `npx vitest run src/lib/agents/runAgent.test.ts` | ❌ W0 — extend | ⬜ pending |
-| 18-01-02 | 01 | 1 | VER-02 | T-18-01 | Real-snapshot catalog test pins committed `catalog.json` → `['claude-sonnet-4-6']` (no `opencode/`, no dated-ID leakage); optional partial-chain resolve test | unit (pure) | `npx vitest run src/lib/models/catalog.test.ts src/lib/agents/modelConfig.test.ts` | ❌ W0 — additive | ⬜ pending |
-| 18-01-03 | 01 | 1 | VER-01/02/03/04 | — | `18-VER-01-MATRIX.md` artifact: requirement → test → assertion map + 13-item PITFALLS checklist mapping (D-18-01/D-18-04) | artifact | grep-verified rows exist | ❌ W0 — new | ⬜ pending |
-| 18-02-01 | 02 | 2 | VER-03 | T-18-04 | Live-browser UAT: settings→Analyze→`agent_run.model_used` == saved primary; absorbs 16-HUMAN-UAT 2 items + 17-03 `<human-check>`; SC-3 forced-fail satisfied-by-extension via Vitest (D-18-02) | live-browser UAT | `npm run dev` + Postgres `SELECT model_used, model_chain FROM agent_run ORDER BY id DESC LIMIT 1;` | ❌ W0 — `18-UAT.md` | ⬜ pending |
-| 18-03-01 | 03 | 3 | VER-04 | T-18-05 | PR → Vercel preview: `/settings` renders from committed `catalog.json` (no 500, no empty, no `opencode/`); zero-hit `exec\|spawn\|child_process` grep in `src/` | deployed check + grep gate | `grep -rE "node:child_process\|execFileSync(\|execSync(\|spawnSync(\|spawn\(" src/` → 0 hits; preview URL | ❌ W0 — evidence | ⬜ pending |
+| 18-01-01 | 01 | 1 | VER-01 | — | Loop-level: 401/403/output-schema never advance (single attempt, fail loud per D-06); RetryError-wrapped 404 advances to fallback; exhaustion rethrows last error | unit (mocked seams) | `npx vitest run src/lib/agents/runAgent.test.ts` | ✅ `e5a04a11` | ✅ green |
+| 18-01-02 | 01 | 1 | VER-02 | T-18-01 | Real-snapshot catalog test pins committed `catalog.json` → `['claude-sonnet-4-6']` (no `opencode/`, no dated-ID leakage); optional partial-chain resolve test | unit (pure) | `npx vitest run src/lib/models/catalog.test.ts src/lib/agents/modelConfig.test.ts` | ✅ `93fd7e1c` | ✅ green |
+| 18-01-03 | 01 | 1 | VER-01/02/03/04 | — | `18-VER-01-MATRIX.md` artifact: requirement → test → assertion map + 13-item PITFALLS checklist mapping (D-18-01/D-18-04) | artifact | grep-verified rows exist (4 VER subsections, 13 dispositions) | ✅ `3bd6f1d4` | ✅ green |
+| 18-02-01 | 02 | 2 | VER-03 | T-18-04 | Live-browser UAT: settings→Analyze→`agent_run.model_used` == saved primary; absorbs 16-HUMAN-UAT 2 items + 17-03 `<human-check>`; SC-3 forced-fail satisfied-by-extension via Vitest (D-18-02) | live-browser UAT | `npm run dev` + Postgres `SELECT model_used, model_chain FROM agent_run ORDER BY id DESC LIMIT 1;` (row id=3, `model_used: claude-sonnet-4-6`) | ✅ `18-UAT.md` | ✅ green |
+| 18-03-01 | 03 | 3 | VER-04 | T-18-05 | PR → Vercel preview: `/settings` renders from committed `catalog.json` (no 500, no empty, no `opencode/`); zero-hit `exec\|spawn\|child_process` grep in `src/` | deployed check + grep gate | `grep -rE "node:child_process\|execFileSync(\|execSync(\|spawnSync(\|spawn\(" src/` → 0 hits; preview URL `360-arclumen-g3pye9c3d-mkonovalovs-projects.vercel.app` | ✅ `18-VERIFICATION.md` | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -51,12 +52,12 @@ created: 2026-08-02
 
 ## Wave 0 Requirements
 
-- [ ] `src/lib/agents/runAgent.test.ts` — extend with 4 loop cases: 401 (mirror `:164-171`), 403 (same pattern), output/schema (`InvalidResponseDataError`/`NoObjectGeneratedError`, imported from `ai`), RetryError-wrapped 404 (mirror `:217-236`); all in `describe('runAgent failover loop (FAL-03/04)')` (line 124)
-- [ ] `src/lib/models/catalog.test.ts` — (recommended) additive real-snapshot test: `getAllowlistedServableIds(await readFile('src/lib/models/catalog.json'))` → `['claude-sonnet-4-6']`
-- [ ] `src/lib/agents/modelConfig.test.ts` — (optional) explicit partial-chain pass-through test
-- [ ] `.planning/phases/18-verification-gate/18-VER-01-MATRIX.md` — new artifact (D-18-01/D-18-04)
-- [ ] `.planning/phases/18-verification-gate/18-UAT.md` — VER-03 live run record (17-UAT.md format)
-- [ ] `.planning/phases/18-verification-gate/18-VERIFICATION.md` — phase-gate evidence incl. SC-3 satisfied-by-extension disposition
+- [x] `src/lib/agents/runAgent.test.ts` — extend with 4 loop cases: 401 (mirror `:164-171`), 403 (same pattern), output/schema (`InvalidResponseDataError`/`NoObjectGeneratedError`, imported from `ai`), RetryError-wrapped 404 (mirror `:217-236`); all in `describe('runAgent failover loop (FAL-03/04)')` (line 124)
+- [x] `src/lib/models/catalog.test.ts` — (recommended) additive real-snapshot test: `getAllowlistedServableIds(await readFile('src/lib/models/catalog.json'))` → `['claude-sonnet-4-6']`
+- [x] `src/lib/agents/modelConfig.test.ts` — (optional) explicit partial-chain pass-through test
+- [x] `.planning/phases/18-verification-gate/18-VER-01-MATRIX.md` — new artifact (D-18-01/D-18-04)
+- [x] `.planning/phases/18-verification-gate/18-UAT.md` — VER-03 live run record (17-UAT.md format)
+- [x] `.planning/phases/18-verification-gate/18-VERIFICATION.md` — phase-gate evidence incl. SC-3 satisfied-by-extension disposition
 - Framework: Vitest already installed + configured — no framework gap
 
 ---
@@ -77,11 +78,23 @@ created: 2026-08-02
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 15s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 15s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** verified 2026-08-02
+
+---
+
+## Validation Audit 2026-08-02
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 0 |
+| Resolved | 5/5 rows ✅ green (all planned outputs delivered) |
+| Escalated | 0 |
+
+**Audit evidence:** quick-run suite 47/47 green (runAgent 17, modelConfig 13, catalog 10, settings 7); full suite 294 passed (verifier re-run); `18-VER-01-MATRIX.md` has 4 VER subsections + 13 dispositions; `18-UAT.md` 6/6 pass; grep gate 0 hits; preview URL renders `/settings` from committed catalog (human-approved). No Nyquist gaps — the validation strategy WAS the phase deliverable, and every row of the Per-Task Map is now green.
