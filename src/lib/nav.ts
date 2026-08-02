@@ -3,7 +3,7 @@
 // drive-by "simplification" (QLTY-01; PITFALLS Pitfall 7). The key is the
 // ROUTE segment ('personas'), not the visible label ('Key Personas').
 
-export type NavKey = 'start' | 'companies' | 'personas' | 'reviews';
+export type NavKey = 'start' | 'companies' | 'personas' | 'reviews' | 'settings';
 
 export function getActiveNavKey(pathname: string): NavKey | null {
   if (pathname === '/') return 'start'; // exact — every route is a prefix match for '/'
@@ -11,5 +11,8 @@ export function getActiveNavKey(pathname: string): NavKey | null {
   if (pathname === '/companies' || pathname.startsWith('/companies/')) return 'companies';
   if (pathname === '/personas' || pathname.startsWith('/personas/')) return 'personas';
   if (pathname === '/reviews' || pathname.startsWith('/reviews/')) return 'reviews';
+  // /settings is a leaf page with no detail routes — exact match only, so a
+  // sibling prefix like /settings-archive can never false-highlight it.
+  if (pathname === '/settings') return 'settings';
   return null; // /sign-in, '', unknown
 }
