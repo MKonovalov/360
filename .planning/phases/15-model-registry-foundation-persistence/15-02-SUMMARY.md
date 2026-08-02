@@ -91,7 +91,7 @@ Each task was committed atomically:
 2. **Task 2: refresh-model-catalog script + models:fetch + committed snapshot** — `78949d1b` (feat)
 3. **Task 3: catalog.ts pure module + catalog.test.ts + build/grep gates** — `8e0f1b69` (feat; RED→GREEN in one commit — test-first order followed, separate RED commit not required by this plan)
 
-**Plan metadata:** pending (final docs commit)
+**Plan metadata:** `358c169f` (docs: complete model catalog snapshot plan)
 
 ## Files Created/Modified
 
