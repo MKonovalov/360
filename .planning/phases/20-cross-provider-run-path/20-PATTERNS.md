@@ -70,20 +70,23 @@ if (APICallError.isInstance(err)) {
 if (InvalidResponseDataError.isInstance(err) || NoObjectGeneratedError.isInstance(err)) return 'output';
 ```
 
-**Hop-aware predicate** (NEW — recommended: next to `isFailoverEligible` l.68-70 in this same pure module; placement is Claude's discretion but this keeps the 4-cell matrix D-16-testable with zero mocks). Add `type ModelProviderId` to the catalog import (l.9). The composition order in the loop matters — `isFailoverEligible(cls)` runs FIRST so `billing`/`config`/`output` never reach `shouldAdvance`:
+**Hop-aware predicate** (NEW — recommended: next to `isFailoverEligible` l.68-70 in this same pure module; placement is Claude's discretion but this keeps the 4-cell matrix D-16-testable with zero mocks). Add `type ModelProviderId` to the catalog import (l.9). The composition order in the loop matters — `isFailoverEligible(cls)` short-circuits so `billing`/`config`/`output` never reach `shouldAdvance`; `rate_limited` is the FAL-03 carve-out that DOES reach it:
 ```typescript
 // FAL-03 4-cell matrix (D-20-07 — decision uses ONLY provider identity,
 // never the response body): rate_limited advances ONLY on a cross-provider
 // hop; all other eligible classes (404/5xx/connection) advance regardless —
 // v1.3 same-provider behavior preserved verbatim, hop-aware advance is a
 // DELIBERATE TESTED EXTENSION, not a relaxation (D-01/D-03).
+// from/to are nullable (getProviderForModelId returns null on catalog drift /
+// last-model sentinel) — fail-closed: a null provider identity never advances
+// a 429 (checked in the 4-cell matrix tests).
 export function shouldAdvance(
   cls: ModelErrorClass,
-  from: ModelProviderId,
-  to: ModelProviderId,
+  from: ModelProviderId | null,
+  to: ModelProviderId | null,
 ): boolean {
   if (cls !== 'rate_limited') return true; // v1.3 verbatim
-  return from !== to; // 429: same-provider never advances (D-01/D-03)
+  return from !== null && to !== null && from !== to; // 429: same-provider never advances (D-01/D-03)
 }
 ```
 
@@ -101,23 +104,26 @@ import catalogJson from '@/lib/models/catalog.json';
 ```
 (`@/lib/models/catalog.json` is a static JSON import — unaffected by any `vi.mock('@/lib/models/catalog', ...)` in tests.)
 
-**Loop composition** (l.86-89) — the ONLY decision change; the budget clamp (l.51-58) and the `generateText` call (l.60-75) are untouched:
+**Loop composition** (l.86-89) — the ONLY decision change; the budget clamp (l.51-58) and the `generateText` call (l.60-75) are untouched. NOTE: the composition MUST OR the rate_limited carve-out — `isFailoverEligible('rate_limited')` is false by locked D-03, so a literal `isFailoverEligible(cls) && shouldAdvance(...)` would make the cross-provider 429 advance never fire (silent FAL-03 fail):
 ```typescript
     } catch (err) {
       lastError = err;
       // FAL-03 (D-20-07): hop-aware advance — provider identity ONLY
       // (getProviderForModelId on from/to model ids), never the response
-      // body. isFailoverEligible FIRST so billing/4xx/output/config never
-      // reach shouldAdvance. Same-provider 429 keeps v1.3 never-advance
+      // body. isFailoverEligible covers the D-03 set (404/5xx/connection)
+      // and short-circuits so billing/4xx/output/config never reach
+      // shouldAdvance; cls === 'rate_limited' is the FAL-03 carve-out that
+      // reaches shouldAdvance — same-provider 429 keeps v1.3 never-advance
       // (D-01/D-03). D-20-05: mid-stream 429s classify 'output' and never
       // reach this branch (accepted + documented, no detection path).
       const cls = classifyModelError(err);
       const from = getProviderForModelId(catalogJson, modelIdOf(models[i]));
       const to = i + 1 < models.length ? getProviderForModelId(catalogJson, modelIdOf(models[i + 1])) : null;
-      if (!(isFailoverEligible(cls) && shouldAdvance(cls, from, to))) throw err; // Pitfall 2/3: never burn fallbacks
+      const eligible = isFailoverEligible(cls) || cls === 'rate_limited';
+      if (!(eligible && shouldAdvance(cls, from, to))) throw err; // Pitfall 2/3: never burn fallbacks
     }
 ```
-> **Planner decision — null `to`:** `to` is `null` on the last model (loop would `throw lastError` at l.91 anyway) or on catalog drift (unreachable post-gate). Recommend fail-closed: `shouldAdvance` receiving `null` `to` returns false — or keep the signature `ModelProviderId` and let the loop treat a `null` `to` as "don't advance". Pick one in the plan; either satisfies D-01 conservatism.
+> **Planner decision — null `to` (DECIDED):** `to` is `null` on the last model (loop would `throw lastError` at l.91 anyway) or on catalog drift (unreachable post-gate). The signature is null-tolerant and FAIL-CLOSED — `shouldAdvance('rate_limited', ...)` with a null from/to returns false (never advances a 429); non-429 eligible classes advance regardless of identity (v1.3 verbatim). The fail-closed null cases are locked in the 4-cell matrix tests (plan 20-01).
 
 **Diagnostics helper** (NEW — module-scope in runAgent.ts per D-20-08: loop-side, NOT inside pure `classifyModelError`; reads the error object's fields only — no provider SDK import needed, `APICallError` is already imported from `'ai'` at l.1):
 ```typescript
@@ -400,6 +406,15 @@ it('402 billing never advances even cross-provider — throws on the primary (FA
 
 **Analog:** itself. The env mock seam (l.8-27) and the not_configured gate test (l.204-216 — clear → assert → restore, because `vi.clearAllMocks` clears call history but not directly-assigned property values).
 
+**CRITICAL './runAgent' mock factory fix (BLOCKER):** analyzeCompany.ts imports `isOpenRouterPlatformRateLimit` from './runAgent' (plan 20-03) — the pre-existing factory `vi.mock('./runAgent', () => ({ runAgent: mocks.runAgent }))` exports ONLY `runAgent`, so the helper would resolve to `undefined` → `TypeError: isOpenRouterPlatformRateLimit is not a function` in the rate_limited catch branch → the EXISTING 429 test AND the new platform/upstream reason tests all fail. The factory MUST spread the real module:
+```typescript
+vi.mock('./runAgent', async () => ({
+  runAgent: mocks.runAgent,
+  ...(await vi.importActual('./runAgent')), // real isOpenRouterPlatformRateLimit — split tests exercise real behavior
+}));
+```
+D-16 safety of the spread (verified): the real runAgent module has NO module-level side effects — `./tools` constructs the Firecrawl client LAZILY (`getFirecrawl()` on first execute, tools.ts:10-17), `./modelFactory` resolves to THIS test's existing mock namespace (`{ instantiateChain }`; `defaultChain` is only evaluated as a default parameter at call time, never called), and 'ai' is the real installed package already loaded transitively. Zero live calls preserved.
+
 **CRITICAL env seam addition** — the hoisted env (l.10-13) MUST gain `OPENROUTER_API_KEY` (Phase 20's gate reads it; without it, every test whose chain resolves to an openrouter id fails at the new gate):
 ```typescript
 const mocks = vi.hoisted(() => ({
@@ -411,7 +426,7 @@ const mocks = vi.hoisted(() => ({
   },
   // ...unchanged...
 ```
-The existing `not_configured` test (l.204-216) clears `ANTHROPIC_API_KEY` + `FIRECRAWL_API_KEY` — with the chain-aware gate, clearing `ANTHROPIC_API_KEY` still fails via `missingProviderKey` on the anthropic default chain (same reason, shape may gain `missingKey`), and clearing `FIRECRAWL_API_KEY` fails at the fast gate. Update the expected shape + restore block accordingly.
+The existing `not_configured` test (l.204-216) is REWORKED to clear ONLY `FIRECRAWL_API_KEY` — the fast gate is FIRECRAWL-only (D-20-03), so clearing ANTHROPIC no longer hits the fast gate: it flows to `missingProviderKey` on the anthropic default chain and returns the NAMED `{ ok: false, reason: 'not_configured', missingKey: 'ANTHROPIC_API_KEY' }`. FIRECRAWL cleared → fast gate fires → bare `{ ok: false, reason: 'not_configured' }` (no missingKey — FIRECRAWL is provider-independent). The EXISTING 429 test (l.262-271) gains `message: 'upstream provider rate limit'` (real helper on a bare APICallError: no data, no rate-limit headers → upstream).
 
 **New chain-aware gate cases** (mirror the l.204-216 template; the mixed-chain fixture uses real snapshot ids — `claude-sonnet-4-6` + `anthropic/claude-sonnet-4.6`, both verified present — so the REAL `resolveModelChain` + real `getProviderForModelId` (catalog is NOT mocked in this test) resolve both providers):
 ```typescript
