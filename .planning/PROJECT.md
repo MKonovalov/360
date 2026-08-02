@@ -62,6 +62,8 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 - ✓ Branding + user zones: top wordmark + org-label zone, bottom Clerk-identity zone (`useUser()` avatar/initials + display name, first in-app sign-out to `/sign-in`) + full-width "Give us feedback" pill to the D2 mailto — all sidebar-token-only (BRND-01..04) — validated in Phase 12 (2026-08-01)
 - ✓ Collapse & resize coexistence: always-visible collapse button + 48px icon-rail (`collapsible="icon"`), 28px letter-mark, ~200ms rail tooltips incl. `Reviews (N)`, drag-resize 200-400 clamp + `sidebar_width`/`sidebar_state` cookies + ⌘B unchanged (COLR-01..03) — validated in Phase 13 (2026-08-01)
 - ✓ Live-browser UAT matrix: expanded/collapsed/mobile × 4 routes × active/inactive with screenshots, computed-style WCAG AA audit of all 6 shipped token pairs, and Exa divergence review (QLTY-03, QLTY-02 re-audited live) — validated in Phase 14 (2026-08-01); full detail in `14-UAT.md` / `14-VERIFICATION.md`
+- ✓ Model registry persistence foundation: per-user `user_model_settings` table (Clerk-userId keyed, raw provider IDs, atomic full-value upsert, absence → default chain) + `agent_run.model_used`/`model_chain` durable audit columns with `createRun` insert seam; live Neon schema applied via `drizzle-kit push` (D-01 confirmed) — validated in Phase 15 (2026-08-02), REG-01..05, including the 4-case integration test proven against a real Postgres (concurrent-upsert atomicity included)
+- ✓ Servable model catalog: dev-time `scripts/refresh-model-catalog.ts` (repo-root, node-builtins only) shells local `opencode models`, writes a committed trimmed snapshot (`src/lib/models/catalog.json`, 1131 models) with zero runtime opencode dependency; pure allowlist∩snapshot filter + slug→raw-ID mapping, mock-free tests, catalog ships with the build — validated in Phase 15 (2026-08-02), CAT-01..04, D-02 roster gate executed (sonnet-4-6 verified, haiku-4-5 deferred — no dated IDs)
 
 ### Active
 
@@ -79,6 +81,8 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 - Existing short-link staff tool — being retired soon; not actively extended or migrated as part of this build
 
 ## Current State
+
+**Milestone v1.3 (AI Model Settings) in progress — Phase 15 complete 2026-08-02.** 2/2 plans executed (Model Registry Foundation + Persistence), REG-01..05 + CAT-01..04 validated 8/8 with 2/2 human UAT items passed (integration test 4/4 against real Postgres; `models:fetch` regeneration clean). The durable persistence layer (atomic per-user model upsert, run audit columns) and the Vercel-safe servable model catalog are shipped. Next: Phase 16 Failover Orchestration (FAL-01..05).
 
 **Milestone v1.2 (Exa-Style Left Panel) shipped 2026-08-02.** All 5 phases complete (10 plans, 26 tasks), 19/19 requirements validated, milestone archived to `.planning/milestones/v1.2-*`. The sidebar is now a tokenized Exa-style panel: scoped 8-token light theme (`#fbfcfd` + 0.5px hairline), Explore/Manage intent-grouped nav with a tested gray active state, branding + Clerk user zone with the app's first in-app sign-out, a 48px icon-rail collapse coexisting with the preserved drag-resize/⌘B/cookie contract, and a fully-passing live-browser proof — 18/18 UAT tests (12-cell matrix + interactions), 6/6 WCAG AA contrast pairs, and an element-wise Exa divergence review. Post-close quick fixes: avatar asset added to the header, topbar duplicate toggle removed (mobile opener relocated to the content area), collapse persistence across route-group navigation, and the collapsed-rail group-label click-intercept bug fixed.
 
@@ -177,4 +181,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-02 — v1.3 AI Model Settings milestone started*
+*Last updated: 2026-08-02 — v1.3 Phase 15 (Model Registry Foundation + Persistence) complete*
