@@ -1,7 +1,8 @@
 ---
 phase: 17
 slug: settings-ui-list-source
-status: draft
+status: approved
+reviewed_at: 2026-08-02
 shadcn_initialized: true
 preset: b2fA
 created: 2026-08-02
@@ -40,7 +41,7 @@ This phase does **not** introduce a new visual system. It extends the exact cont
 
 ## Spacing Scale
 
-8-point scale, reused verbatim from the existing contract. Page container matches Reviews exactly (`flex flex-col gap-8 p-8`; the reviews container uses `gap-12` — this page uses `gap-8` because the form card is the only major block below the h1).
+8-point scale, reused verbatim from the existing contract. Page container: `flex flex-col gap-8 p-8` — the reviews-page container shape with a tighter page gap (`gap-8` = 32px; the reviews page uses `gap-12` = 48px) since the form card is the only major block below the h1.
 
 | Token | Value | Usage |
 |-------|-------|-------|
@@ -48,8 +49,8 @@ This phase does **not** introduce a new visual system. It extends the exact cont
 | sm | 8px | `gap-2` between select row and arrow/remove controls, `gap-2` in button groups |
 | md | 16px | `gap-4` between form blocks, `p-4` empty-state callout padding |
 | lg | 24px | `p-6` form-card padding, `gap-6` between primary and fallback sections |
-| xl | 32px | Page padding `p-8` (reviews page container verbatim) |
-| 2xl | 48px | `gap-8` page-level spacing between h1 and card (see note) |
+| xl | 32px | Page padding `p-8` and `gap-8` page-level spacing between h1 and card |
+| 2xl | 48px | Not used this phase |
 | 3xl | 64px | Not used this phase |
 
 Exceptions:
