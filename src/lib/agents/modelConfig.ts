@@ -6,10 +6,13 @@ import {
   NoObjectGeneratedError,
   LoadAPIKeyError,
 } from 'ai';
-import { ANTHROPIC_ALLOWLIST, FAST_MODEL_ID } from '@/lib/models/catalog';
+import { ANTHROPIC_ALLOWLIST, FAST_MODEL_ID, getUnionServableIds } from '@/lib/models/catalog';
+// D-06: importing the JSON directly mirrors catalog.ts itself (ARCHITECTURE.md
+// Pattern 2 trade-off) and keeps the pure-module contract — no db/env/runAgent.
+import catalogJson from '@/lib/models/catalog.json';
 
 // Pure model-chain resolution + AI-SDK error classification (D-16 — zero live
-// calls). D-08 dedupe → D-10 cap → allowlist filter → REG-05 default all live
+// calls). D-08 dedupe → D-10 cap → union servable gate → REG-05 default all live
 // here in one pure, tested place; classifyModelError is the single gate the
 // failover loop consults (Pitfall 2/3). Imports only 'ai' + '@/lib/models/
 // catalog' — never db/env/runAgent (constraint 11).
@@ -70,11 +73,11 @@ export type ModelSettingsRow = { primaryModel: string; fallbackModels: string[] 
 
 export function resolveModelChain(
   settings: ModelSettingsRow,
-  allowlist: readonly string[] = ANTHROPIC_ALLOWLIST,
+  servableIds: readonly string[] = getUnionServableIds(catalogJson),
 ): string[] {
   const raw = settings ? [settings.primaryModel, ...settings.fallbackModels] : [];
   // D-08: stable-unique dedupe — never attempt the same model twice.
-  const deduped = [...new Set(raw)].filter((id) => allowlist.includes(id)); // Pitfall 1/7: allowlist gate
+  const deduped = [...new Set(raw)].filter((id) => servableIds.includes(id)); // Pitfall 1/7: union servable gate
   // D-10: cap AFTER dedupe at primary + 1 fallback (FAL-03 budget honesty).
   const capped = deduped.slice(0, 2);
   // REG-05: no settings (or nothing servable) → the documented default.
