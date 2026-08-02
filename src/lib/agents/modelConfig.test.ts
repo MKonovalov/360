@@ -7,7 +7,7 @@ import {
   NoObjectGeneratedError,
   LoadAPIKeyError,
 } from 'ai';
-import { classifyModelError, isFailoverEligible, resolveModelChain } from './modelConfig';
+import { classifyModelError, isFailoverEligible, resolveModelChain, shouldAdvance } from './modelConfig';
 import { FAST_MODEL_ID } from '@/lib/models/catalog';
 
 // FAL-02/FAL-03 pure unit coverage (D-16): zero mocks, zero live calls — real
@@ -51,6 +51,29 @@ describe('classifyModelError', () => {
     const cls = classifyModelError(retry);
     expect(cls).toBe('server_error');
     expect(isFailoverEligible(cls)).toBe(true);
+  });
+
+  it('classifies 402 as billing — NEVER failover-eligible (FAL-02)', () => {
+    const cls = classifyModelError(apiErr(402));
+    expect(cls).toBe('billing');
+    expect(isFailoverEligible(cls)).toBe(false);
+  });
+
+  it('keeps 502/503 as server_error — failover-eligible model-availability signals (FAL-02)', () => {
+    for (const code of [502, 503]) {
+      expect(classifyModelError(apiErr(code))).toBe('server_error');
+      expect(isFailoverEligible(classifyModelError(apiErr(code)))).toBe(true);
+    }
+  });
+
+  it('unwraps a RetryError-wrapped 402 to billing (Pitfall 3 unwrap-first)', () => {
+    const retry = new RetryError({
+      message: 'retries exhausted',
+      reason: 'maxRetriesExceeded',
+      errors: [apiErr(402)],
+    });
+    expect(classifyModelError(retry)).toBe('billing');
+    expect(isFailoverEligible('billing')).toBe(false);
   });
 
   it('classifies an APICallError with NO statusCode as connection and eligible (D-02 — AIConnectionError does not exist)', () => {
@@ -106,6 +129,34 @@ describe('classifyModelError', () => {
 
     expect(classifyModelError(new Error('something unexpected'))).toBe('input');
     expect(isFailoverEligible('input')).toBe(false);
+  });
+});
+
+describe('shouldAdvance — FAL-03 4-cell matrix (provider-keyed, D-20-07)', () => {
+  it('rate_limited never advances same-provider; advances cross-provider', () => {
+    expect(shouldAdvance('rate_limited', 'anthropic', 'anthropic')).toBe(false); // v1.3 verbatim
+    expect(shouldAdvance('rate_limited', 'openrouter', 'openrouter')).toBe(false); // v1.3 verbatim
+    expect(shouldAdvance('rate_limited', 'anthropic', 'openrouter')).toBe(true); // FAL-03
+    expect(shouldAdvance('rate_limited', 'openrouter', 'anthropic')).toBe(true); // FAL-03
+  });
+
+  it('non-429 eligible classes advance regardless of provider (v1.3 preserved, not a relaxation)', () => {
+    for (const cls of ['model_not_found', 'server_error', 'connection'] as const) {
+      expect(shouldAdvance(cls, 'anthropic', 'anthropic')).toBe(true);
+      expect(shouldAdvance(cls, 'openrouter', 'anthropic')).toBe(true);
+    }
+  });
+
+  it('billing/4xx/output/config never reach shouldAdvance (isFailoverEligible false)', () => {
+    for (const cls of ['billing', 'input', 'output', 'config', 'auth'] as const) {
+      expect(isFailoverEligible(cls)).toBe(false);
+    }
+  });
+
+  it('fail-closed null provider identity never advances a 429; non-429 unaffected', () => {
+    expect(shouldAdvance('rate_limited', 'anthropic', null)).toBe(false); // catalog drift / last-model sentinel
+    expect(shouldAdvance('rate_limited', null, 'openrouter')).toBe(false); // catalog drift / last-model sentinel
+    expect(shouldAdvance('server_error', null, null)).toBe(true); // non-429 eligible unaffected by unknown identity
   });
 });
 
