@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Multi-Provider AI Model Configuration
 status: executing
-last_updated: "2026-08-02T19:14:23.664Z"
-last_activity: 2026-08-02 -- Phase 19 planning complete
+last_updated: "2026-08-02T19:23:24.977Z"
+last_activity: 2026-08-02
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 5
-  completed_plans: 0
+  completed_plans: 1
   percent: 0
 ---
 
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-02)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** Milestone v1.4 — roadmap defined; Phase 19 ready to plan
+**Current focus:** Phase 19 — Provider Registry + Servable Model Source
 
 ## Current Position
 
-Phase: 19 of 22 (Provider Registry + Servable Model Source) — not started
-Plan: —
+Phase: 19 (Provider Registry + Servable Model Source) — EXECUTING
+Plan: 2 of 5
 Status: Ready to execute
-Last activity: 2026-08-02 -- Phase 19 planning complete
+Last activity: 2026-08-02
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██░░░░░░░░] 20%
 
 ## Performance Metrics
 
@@ -51,6 +51,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: Stable — v1.3 delivered its full 4-phase cycle in one day
 
 *Updated after each plan completion*
+| Phase 19 P1 | 3 min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -68,6 +69,10 @@ Recent decisions affecting current work:
 - **Roadmap (v1.4): Vendor curation posture (Conflict 7) resolved toward full catalog + labels** — full 336-row catalog ships (REG-03) with vendor badges + egress copy + cost captions (SET-05/SET-08) rather than a curated subset; `openai/o1-pro` $150/M warning included.
 - [Phase 19 pre-flag]: small targeted re-verification at phase start only — createOpenRouter strict-compat + structured-output + env-key against the INSTALLED package (PITFALLS G; tarball d.ts already verified in research but re-check post-install).
 - [Phase 20 pre-flag]: confirm `APICallError.responseBody` is populated by the installed provider before writing `isOpenRouterPlatformRateLimit` (PITFALLS 3, AI-SDK drift discipline).
+- [Phase 19]: getAllowlistedServableIds removed outright (D-05 remove-and-migrate) — no deprecated alias; all 3 callers migrated in the same change so next build stays green
+- [Phase 19]: PROVIDER_GATES data map: anthropic = ANTHROPIC_ALLOWLIST (sonnet-only, REG-04), openrouter = {} (full active catalog per D-02/SET-07)
+- [Phase 19]: getProviderForModelId scopes the find to the two servable providerIDs — never a bare id find (Anti-Pattern 1 / T-19-03 collision canary)
+- [Phase 19]: saveSettingsAction widens to getUnionServableIds (REG-07) — cross-provider chains accepted, non-servable ids rejected with invalid_model
 
 ### Pending Todos
 
@@ -98,9 +103,9 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-02T18:45:05.624Z
+Last session: 2026-08-02T19:22:41.613Z
 Stopped at: Phase 19 context gathered
-Resume file: .planning/phases/19-provider-registry-servable-model-source/19-CONTEXT.md
+Resume file: None
 
 ## Operator Next Steps
 
