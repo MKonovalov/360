@@ -16,21 +16,22 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 
 **v1.1 Start Page + Import + Analytic Agent** — 5 phases, 27 plans, 32 tasks, 31/31 requirements validated. Delivered: stacked full-width list/detail layout on both explorers, Start Page dashboard, shared ExplorerMenu, CSV import with partial-commit validation + rollback, Apollo.io/Prospeo enrichment with provenance, and the web-search Analytic Agent with a human-reviewed proposal queue + Langfuse tracing.
 
-## Current Milestone: v1.3 AI Model Settings
+## Current Milestone: v1.4 Multi-Provider AI Model Configuration
 
-**Goal:** Give each staff user a Settings surface to manage the AI models used by AI agents — a primary model plus an ordered fallback chain — with the available-models list sourced live from the local opencode installation, and the Analytic Agent consuming the config with error-driven failover.
+**Goal:** Add an AI Provider selector to Settings above the Primary model — Anthropic (existing) plus OpenRouter (new) — so the Primary model picker refreshes from the selected provider's model source, and the Analytic Agent can resolve and run model chains whose entries (primary and fallbacks) come from either provider.
 
 **Target features:**
-- New "Settings" menu item (in the shared ExplorerMenu / sidebar chrome)
-- Settings page: per-user primary AI model + ordered fallback models (OMO-style)
-- Available-models list fetched live from opencode (the `/models` source)
-- Per-user persistence (Clerk user keyed)
-- Analytic Agent reads the config; on a provider/model failure it retries down the fallback chain
-- General agent model registry — the Analytic Agent is the first consumer, future agents read the same config
+- "AI Provider" selector above the Primary model in the AI Model Configuration card
+- Provider choices: Anthropic (existing) and OpenRouter (new)
+- Selecting a provider refreshes the Primary model list from that provider's servable source
+- OpenRouter: full servable catalog (all active rows in the committed snapshot, ~336 models); Anthropic stays sonnet-only (existing `ANTHROPIC_ALLOWLIST`)
+- Cross-provider fallback chains — a fallback may come from a different provider than the primary
+- Provider-aware model instantiation in the agent run path (`anthropic()` / OpenRouter provider) + new `@openrouter/ai-sdk-provider` runtime dependency
+- `OPENROUTER_API_KEY` env gate mirroring the D-15 `ANTHROPIC_API_KEY` pattern
 
-**Status:** SHIPPED 2026-08-02 — see Milestone Status above. (Note: the "available-models list sourced live from opencode" goal was resolved as a committed catalog snapshot with zero runtime opencode dependency — D-18-03 — which is the safer reading of the same intent.)
+**Status:** In planning — requirements and roadmap pending.
 
-**Next milestone after v1.3:** not yet scoped. See "Future Candidates (Beyond v1.2)".
+**Open questions for research:** persist a provider column on `user_model_settings` vs derive provider from the catalog by model id; per-chain API-key gating when a chain spans providers; OpenRouter id shape in the snapshot (ids carry a `~` prefix).
 
 ## Requirements
 
@@ -75,7 +76,7 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 ### Active
 
 - [ ] Persona 360 "Related Knowledge" showing real Arcpedia articles end-to-end — code path proven identical to the working Company path, but the current seed Persona dataset has no name that matches real Arcpedia content; needs either updated seed data or acceptance of the gap (see `04-HUMAN-UAT.md`)
-- [ ] v1.3 AI Model Settings: final verification gate (Phase 18) — settings UI + per-user primary/fallback AI models and failover are built; the end-to-end settings→Analyze→`model_used` proof lands in VER-01..04 — see Current Milestone
+- [ ] v1.4 AI Provider selection: AI Provider selector (Anthropic + OpenRouter) above the Primary model, provider-scoped Primary picker, cross-provider fallback chains, provider-aware model instantiation, `OPENROUTER_API_KEY` gate — see Current Milestone
 
 ### Out of Scope
 
@@ -188,4 +189,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-02 — v1.3 AI Model Settings milestone complete (4 phases, 12 plans, 25/25 requirements)*
+*Last updated: 2026-08-02 — v1.4 Multi-Provider AI Model Configuration milestone started*

@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.3
-milestone_name: AI Model Settings
-status: Awaiting next milestone
-last_updated: "2026-08-02T17:36:05.805Z"
-last_activity: 2026-08-02 — Milestone v1.3 completed and archived
+milestone: v1.4
+milestone_name: Multi-Provider AI Model Configuration
+status: planning
+last_updated: "2026-08-02T18:08:36.395Z"
+last_activity: 2026-08-02
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 12
-  completed_plans: 12
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-02)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** Milestone complete
+**Current focus:** Milestone v1.4 — defining requirements
 
 ## Current Position
 
-Phase: Milestone v1.3 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-08-02 — Milestone v1.3 completed and archived
+Status: Defining requirements
+Last activity: 2026-08-02 — Milestone v1.4 started
 
 ## Performance Metrics
 
