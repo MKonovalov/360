@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Multi-Provider AI Model Configuration
-status: executing
-last_updated: "2026-08-02T19:45:05.898Z"
+status: verifying
+last_updated: "2026-08-02T19:54:13.571Z"
 last_activity: 2026-08-02
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
-  completed_plans: 4
-  percent: 0
+  completed_plans: 5
+  percent: 25
 ---
 
 # Project State
@@ -26,10 +26,10 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 
 Phase: 19 (Provider Registry + Servable Model Source) — EXECUTING
 Plan: 5 of 5
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-02
 
-Progress: [████████░░] 80%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -55,6 +55,7 @@ Progress: [████████░░] 80%
 | Phase 19 P02 | 5 | 3 tasks | 5 files |
 | Phase 19 P03 | 3min | 2 tasks | 2 files |
 | Phase 19 P04 | 3min | 2 tasks | 2 files |
+| Phase 19 P05 | 6min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,9 @@ Recent decisions affecting current work:
 - [Phase 19]: resolveModelChain default widens from ANTHROPIC_ALLOWLIST to getUnionServableIds(catalogJson) (D-06) — only behavioral change of 19-04; dedupe/cap-2/REG-05 default byte-identical (provider-agnostic)
 - [Phase 19]: resolveModelChain param renamed allowlist → servableIds; ANTHROPIC_ALLOWLIST import kept (plan-mandated, noUnusedLocals off)
 - [Phase 19]: modelConfig imports catalog.json directly mirroring catalog.ts (ARCHITECTURE.md Pattern 2) — pure-module contract intact (constraint 11)
+- [Phase 19]: runAgent defaults via defaultChain() — last hardcoded anthropic(FAST_MODEL_ID) default gone from the run path; factory default stays Anthropic fast path (D-11)
+- [Phase 19]: analyzeCompany maps chain ids once at entry via instantiateChain(modelChain) — Pitfall 11 comment preserved; env gate untouched (D-11/FAL-04 is Phase 20)
+- [Phase 19]: Explicit-models tests use string-form LanguageModel stubs ('m1') — plan's {provider,modelId} literals fail tsc against the LanguageModel union (Rule 1 fix)
 
 ### Pending Todos
 
@@ -115,7 +119,7 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-02T19:45:05.892Z
+Last session: 2026-08-02T19:53:59.068Z
 Stopped at: Completed 19-04-PLAN.md
 Resume file: None
 

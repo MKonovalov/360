@@ -78,7 +78,7 @@ Full details: [`.planning/milestones/v1.3-ROADMAP.md`](milestones/v1.3-ROADMAP.m
 
 **Phase Numbering:** Continues from v1.3 (which ended at Phase 18) — v1.4 starts at Phase 19.
 
-- [ ] **Phase 19: Provider Registry + Servable Model Source** - Two-provider foundation: catalog registry with per-provider servable rules (OpenRouter full catalog incl. labeled `~latest`/`:free`; Anthropic sonnet-only allowlist), provider-derived-from-catalog lookup + collision canary, `modelFactory` provider-aware instantiation seam, `@openrouter/ai-sdk-provider@^3.0.0` + `OPENROUTER_API_KEY` env gate, and union-wide save validation
+- [x] **Phase 19: Provider Registry + Servable Model Source** - Two-provider foundation: catalog registry with per-provider servable rules (OpenRouter full catalog incl. labeled `~latest`/`:free`; Anthropic sonnet-only allowlist), provider-derived-from-catalog lookup + collision canary, `modelFactory` provider-aware instantiation seam, `@openrouter/ai-sdk-provider@^3.0.0` + `OPENROUTER_API_KEY` env gate, and union-wide save validation (completed 2026-08-02)
 - [ ] **Phase 20: Cross-Provider Run Path** - Provider-aware classifier (`billing` class for 402, 502/503 model-availability semantics), hop-aware 429 policy with 4-cell matrix, chain-aware env gate, and provider-accurate `model_used`/`model_chain` audit for cross-provider chains
 - [ ] **Phase 21: Settings UI** - AI Provider selector above Primary, provider-scoped Primary picker with keep-if-valid → default reset, union-grouped fallback pickers with Command search + provider badges, `~latest`/`:free` labels, union-wide staleness gate
 - [ ] **Phase 22: Verification Gate** - Vitest collision/429-hop/error matrices, end-to-end OpenRouter-primary Analyze → `model_used` UAT, OpenRouter-only chain proof, security-matrix grep, live-browser provider-switch/picker UAT
@@ -110,7 +110,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 19-05-PLAN.md — run-path seam swaps (`runAgent` → `defaultChain()`, `analyzeCompany` → `instantiateChain`) + constraint-11 repo-wide grep + build gate
+- [x] 19-05-PLAN.md — run-path seam swaps (`runAgent` → `defaultChain()`, `analyzeCompany` → `instantiateChain`) + constraint-11 repo-wide grep + build gate
 
 **Research flag**: small targeted re-verification at phase start only (createOpenRouter strict-compat + structured-output + env-key behavior against the INSTALLED package) — skip deep research; open decisions (OpenRouter default primary slug, `strict:false` per-model pass) are product calls locked at planning
 
@@ -187,7 +187,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 16. Failover Orchestration | v1.3 | 4/4 | Complete    | 2026-08-02 |
 | 17. Settings UI + List Source | v1.3 | 3/3 | Complete    | 2026-08-02 |
 | 18. Verification Gate | v1.3 | 3/3 | Complete    | 2026-08-02 |
-| 19. Provider Registry + Servable Model Source | v1.4 | 4/5 | In Progress|  |
+| 19. Provider Registry + Servable Model Source | v1.4 | 5/5 | Complete   | 2026-08-02 |
 | 20. Cross-Provider Run Path | v1.4 | 0/TBD | Not started | - |
 | 21. Settings UI | v1.4 | 0/TBD | Not started | - |
 | 22. Verification Gate | v1.4 | 0/TBD | Not started | - |
