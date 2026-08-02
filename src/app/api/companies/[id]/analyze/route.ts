@@ -67,18 +67,29 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         // T-09-03: surfaced to the client but never persisted (D-03).
         return Response.json({ error: 'gate_failed', errors: result.errors ?? [] }, { status: 422 });
       case 'not_configured':
-        // D-15: client shows the "not configured" message, not a 500.
-        return Response.json({ error: 'not_configured' }, { status: 503 });
+        // D-20-01/09: 400 (was 503, D-15) + names the missing key so staff
+        // know which provider to configure (Phase 21 surfaces the pickers;
+        // D-20-04 keeps the gate-only surface in Phase 20). The undefined
+        // message on the bare fast-gate path (FIRECRAWL, no missingKey) is
+        // intentional — JSON drops it.
+        return Response.json(
+          { error: 'not_configured', message: result.missingKey ? `${result.missingKey} not configured` : undefined },
+          { status: 400 },
+        );
+      case 'billing':
+        // FAL-02 (D-20-10): account-level credits exhausted — distinct 402 so
+        // the UI can branch on status + reason (never a generic 502).
+        return Response.json({ error: 'billing', message: result.message ?? 'provider credits exhausted' }, { status: 402 });
       case 'company_not_found':
         return Response.json({ error: 'company_not_found' }, { status: 404 });
       case 'db_error':
         // Data-layer failure during analysis — analysis-domain, not persist.
         return Response.json({ error: 'analysis_failed', message: 'db_error' }, { status: 502 });
       case 'rate_limited':
-        // D-04: distinct staff-facing reason — the client strip maps it via
-        // its ERROR_COPY row. Same 502 status as analysis_failed; only 429
-        // gets a carve-out from the generic reason.
-        return Response.json({ error: 'rate_limited' }, { status: 502 });
+        // D-20-09: distinct 429 (was the D-04 502 carve-out) + the
+        // platform-vs-upstream reason from the runAgent diagnostics helper
+        // (D-20-07).
+        return Response.json({ error: 'rate_limited', message: result.message }, { status: 429 });
       default:
         return Response.json({ error: 'analysis_failed', message: 'unknown_error' }, { status: 502 });
     }
