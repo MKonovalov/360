@@ -78,12 +78,23 @@ describe('classifyModelError', () => {
 
   it('classifies output/schema/config errors as never eligible; NoSuchModelError as eligible', () => {
     expect(classifyModelError(new InvalidResponseDataError({ data: {} }))).toBe('output');
-    expect(classifyModelError(new NoObjectGeneratedError({ message: 'no object generated' }))).toBe('output');
+    expect(classifyModelError(new NoObjectGeneratedError({
+      message: 'no object generated',
+      response: { id: 'resp-1', timestamp: new Date(0), modelId: 'claude-sonnet-4-6' },
+      usage: {
+        inputTokens: 0,
+        inputTokenDetails: { noCacheTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
+        outputTokens: 0,
+        outputTokenDetails: { textTokens: 0, reasoningTokens: 0 },
+        totalTokens: 0,
+      },
+      finishReason: 'error',
+    }))).toBe('output');
     expect(classifyModelError(new LoadAPIKeyError({ message: 'missing API key' }))).toBe('config');
     expect(isFailoverEligible('output')).toBe(false);
     expect(isFailoverEligible('config')).toBe(false);
 
-    const cls = classifyModelError(new NoSuchModelError({ modelId: 'claude-sonnet-4-6' }));
+    const cls = classifyModelError(new NoSuchModelError({ modelId: 'claude-sonnet-4-6', modelType: 'languageModel' }));
     expect(cls).toBe('model_not_found');
     expect(isFailoverEligible(cls)).toBe(true);
   });

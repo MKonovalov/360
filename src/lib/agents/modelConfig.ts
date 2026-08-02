@@ -1,0 +1,82 @@
+import {
+  APICallError,
+  RetryError,
+  NoSuchModelError,
+  InvalidResponseDataError,
+  NoObjectGeneratedError,
+  LoadAPIKeyError,
+} from 'ai';
+import { ANTHROPIC_ALLOWLIST, FAST_MODEL_ID } from '@/lib/models/catalog';
+
+// Pure model-chain resolution + AI-SDK error classification (D-16 — zero live
+// calls). D-08 dedupe → D-10 cap → allowlist filter → REG-05 default all live
+// here in one pure, tested place; classifyModelError is the single gate the
+// failover loop consults (Pitfall 2/3). Imports only 'ai' + '@/lib/models/
+// catalog' — never db/env/runAgent (constraint 11).
+
+// D-04: 'rate_limited' is its own class so the route can emit the distinct
+// structured reason. D-03: switch on statusCode explicitly — never
+// `err.isRetryable` (it includes 429, which D-01 carves out).
+export type ModelErrorClass =
+  | 'model_not_found'
+  | 'server_error'
+  | 'connection'
+  | 'rate_limited'
+  | 'input'
+  | 'auth'
+  | 'config'
+  | 'output';
+
+export function classifyModelError(err: unknown): ModelErrorClass {
+  // Pitfall 3: RetryError-unwrap-FIRST — status-code checks on the top-level
+  // error see RetryError, not the APICallError underneath (lastError = errors
+  // [last], one property access).
+  if (RetryError.isInstance(err)) {
+    return classifyModelError(err.lastError);
+  }
+  if (APICallError.isInstance(err)) {
+    const code = err.statusCode;
+    // D-02: connection errors surface as APICallError with NO statusCode
+    // (provider-utils handleFetchError wraps fetch failures) — AIConnectionError
+    // does NOT exist in ai@7 (verified); do not import it.
+    if (code === undefined) return 'connection';
+    if (code === 404) return 'model_not_found';
+    if (code === 429) return 'rate_limited'; // D-01: never advances
+    if (code >= 500) return 'server_error'; // D-02: advances
+    if (code === 401 || code === 403) return 'auth';
+    return 'input'; // 400/422/other 4xx
+  }
+  if (NoSuchModelError.isInstance(err)) return 'model_not_found';
+  if (InvalidResponseDataError.isInstance(err) || NoObjectGeneratedError.isInstance(err)) return 'output';
+  if (LoadAPIKeyError.isInstance(err)) return 'config';
+  if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+    // OQ-1 (adopted): a timeout after SDK retries means the endpoint is
+    // effectively unavailable — advance so the fallback share of the 55s
+    // budget (35+20) is actually used.
+    return 'connection';
+  }
+  return 'input'; // unknown — fail loud, single attempt (Pitfall 2)
+}
+
+// D-03 predicate — the ONLY failover-eligible set: 404 OR >=500 OR
+// connection/NoSuchModelError. 429/4xx/output/config never advance. The
+// ARCHITECTURE.md `isRetryable || 404` example is SUPERSEDED by D-01/D-03
+// (it would advance on 429) — do not copy it.
+export function isFailoverEligible(cls: ModelErrorClass): boolean {
+  return cls === 'model_not_found' || cls === 'server_error' || cls === 'connection';
+}
+
+export type ModelSettingsRow = { primaryModel: string; fallbackModels: string[] } | undefined;
+
+export function resolveModelChain(
+  settings: ModelSettingsRow,
+  allowlist: readonly string[] = ANTHROPIC_ALLOWLIST,
+): string[] {
+  const raw = settings ? [settings.primaryModel, ...settings.fallbackModels] : [];
+  // D-08: stable-unique dedupe — never attempt the same model twice.
+  const deduped = [...new Set(raw)].filter((id) => allowlist.includes(id)); // Pitfall 1/7: allowlist gate
+  // D-10: cap AFTER dedupe at primary + 1 fallback (FAL-03 budget honesty).
+  const capped = deduped.slice(0, 2);
+  // REG-05: no settings (or nothing servable) → the documented default.
+  return capped.length > 0 ? capped : [FAST_MODEL_ID];
+}
