@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { APICallError, RetryError } from 'ai';
+import { APICallError, InvalidResponseDataError, RetryError } from 'ai';
 
 // 09-01-01 anchor: runAgent is the mockable seam (D-16 — zero live calls in
 // tests). Mock 'ai' (generateText + Output.object spy; keep real
@@ -170,6 +170,33 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     expect(mocks.generateText).toHaveBeenCalledTimes(1);
   });
 
+  it('401 never advances — single attempt, throws (Pitfall 2)', async () => {
+    mocks.generateText.mockRejectedValueOnce(apiErr(401));
+
+    await expect(
+      runAgent({ company, liveSignals: [], models: [mocks.anthropic(), mocks.anthropic()] }),
+    ).rejects.toThrow();
+    expect(mocks.generateText).toHaveBeenCalledTimes(1);
+  });
+
+  it('403 never advances — single attempt, throws (Pitfall 2)', async () => {
+    mocks.generateText.mockRejectedValueOnce(apiErr(403));
+
+    await expect(
+      runAgent({ company, liveSignals: [], models: [mocks.anthropic(), mocks.anthropic()] }),
+    ).rejects.toThrow();
+    expect(mocks.generateText).toHaveBeenCalledTimes(1);
+  });
+
+  it('output/schema errors never advance — single attempt, throws (D-01)', async () => {
+    mocks.generateText.mockRejectedValueOnce(new InvalidResponseDataError({ data: {} }));
+
+    await expect(
+      runAgent({ company, liveSignals: [], models: [mocks.anthropic(), mocks.anthropic()] }),
+    ).rejects.toThrow();
+    expect(mocks.generateText).toHaveBeenCalledTimes(1);
+  });
+
   it('chain exhaustion rethrows the LAST error — never a silent switch (D-06)', async () => {
     const lastErr = apiErr(502);
     mocks.generateText.mockRejectedValueOnce(apiErr(500)).mockRejectedValueOnce(lastErr);
@@ -221,6 +248,27 @@ describe('runAgent failover loop (FAL-03/04)', () => {
           message: 'max retries exceeded',
           reason: 'maxRetriesExceeded',
           errors: [apiErr(500)],
+        }),
+      )
+      .mockResolvedValueOnce(resolvedRun);
+
+    const result = await runAgent({
+      company,
+      liveSignals: [],
+      models: [mocks.anthropic(), mocks.anthropic()],
+    });
+
+    expect(mocks.generateText).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({ ...resolvedRun, modelUsed: 'claude-sonnet-4-6', usedFallback: true });
+  });
+
+  it('RetryError-wrapped 404 unwraps to model_not_found and still advances (Pitfall 3)', async () => {
+    mocks.generateText
+      .mockRejectedValueOnce(
+        new RetryError({
+          message: 'max retries exceeded',
+          reason: 'maxRetriesExceeded',
+          errors: [apiErr(404)],
         }),
       )
       .mockResolvedValueOnce(resolvedRun);
