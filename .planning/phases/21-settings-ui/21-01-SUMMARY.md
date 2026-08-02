@@ -113,3 +113,9 @@ None - no external service configuration required (no env changes; cmdk is a pur
 
 *Phase: 21-settings-ui*
 *Completed: 2026-08-02*
+
+## Self-Check: PASSED
+
+- Files: `src/components/ui/command.tsx`, `src/components/ui/popover.tsx`, `src/components/ui/input-group.tsx`, `src/components/ui/textarea.tsx`, `.planning/phases/21-settings-ui/21-01-SUMMARY.md` — all FOUND
+- Commits: `a99b13c3` (Task 1 feat), `7b77e64d` (SUMMARY docs), `190bc185` (STATE/ROADMAP docs) — all present in git log
+- Gates: `npx tsc --noEmit` exit 0; dangling-import grep = 0; cmdk in package.json + package-lock.json; no yarn.lock; select.tsx + 4 consumers untouched
