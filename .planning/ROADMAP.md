@@ -153,7 +153,7 @@ Full details: [`.planning/milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 18-02-PLAN.md — VER-03 live-browser UAT (settings → Analyze → model_used) with human-verify checkpoint; absorbs 16-HUMAN-UAT + 17-03 items; 18-UAT.md + 18-VERIFICATION.md (SC-3 satisfied-by-extension)
+- [x] 18-02-PLAN.md — VER-03 live-browser UAT (settings → Analyze → model_used) with human-verify checkpoint; absorbs 16-HUMAN-UAT + 17-03 items; 18-UAT.md + 18-VERIFICATION.md (SC-3 satisfied-by-extension)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -183,7 +183,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 15. Model Registry Foundation + Persistence | v1.3 | 2/2 | Complete    | 2026-08-02 |
 | 16. Failover Orchestration | v1.3 | 4/4 | Complete    | 2026-08-02 |
 | 17. Settings UI + List Source | v1.3 | 3/3 | Complete    | 2026-08-02 |
-| 18. Verification Gate | v1.3 | 1/3 | In Progress|  |
+| 18. Verification Gate | v1.3 | 2/3 | In Progress|  |
 
 ---
 
