@@ -14,7 +14,7 @@ Requirements for milestone v1.4. Each maps to a roadmap phase.
 - [x] **REG-03**: OpenRouter servable set = all active `providerID === 'openrouter'` rows in the committed catalog snapshot (~336 models), with `~latest` aliases and `:free` variants included but labeled per SET-07
 - [x] **REG-04**: Anthropic servable set unchanged — `ANTHROPIC_ALLOWLIST` sonnet-only gate still applies
 - [x] **REG-05**: Provider identity derived from the catalog by model id (servable-scoped lookup + collision canary) — NO `user_model_settings` schema change, no provider column
-- [ ] **REG-06**: Provider-aware model instantiation — `modelFactory` routes each chain id to `anthropic(id)` or `openrouter(id)` by catalog `providerID`; raw ids passed verbatim (never `~`-stripped, never prefix-collapsed)
+- [x] **REG-06**: Provider-aware model instantiation — `modelFactory` routes each chain id to `anthropic(id)` or `openrouter(id)` by catalog `providerID`; raw ids passed verbatim (never `~`-stripped, never prefix-collapsed)
 - [x] **REG-07**: `saveSettingsAction` validates each submitted id against its own provider's servable set (union-wide) before the atomic upsert
 
 ### Cross-Provider Run Path
@@ -73,7 +73,7 @@ Deferred to future releases. Tracked but not in the current roadmap.
 | REG-03 | Phase 19 | Complete |
 | REG-04 | Phase 19 | Complete |
 | REG-05 | Phase 19 | Complete |
-| REG-06 | Phase 19 | Pending |
+| REG-06 | Phase 19 | Complete |
 | REG-07 | Phase 19 | Complete |
 | FAL-01 | Phase 20 | Pending |
 | FAL-02 | Phase 20 | Pending |

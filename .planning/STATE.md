@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Multi-Provider AI Model Configuration
 status: executing
-last_updated: "2026-08-02T19:33:32.862Z"
+last_updated: "2026-08-02T19:40:23.457Z"
 last_activity: 2026-08-02
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 5
-  completed_plans: 2
+  completed_plans: 3
   percent: 0
 ---
 
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 ## Current Position
 
 Phase: 19 (Provider Registry + Servable Model Source) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Ready to execute
 Last activity: 2026-08-02
 
-Progress: [████░░░░░░] 40%
+Progress: [██████░░░░] 60%
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Progress: [████░░░░░░] 40%
 *Updated after each plan completion*
 | Phase 19 P1 | 3 min | 3 tasks | 5 files |
 | Phase 19 P02 | 5 | 3 tasks | 5 files |
+| Phase 19 P03 | 3min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -76,6 +77,10 @@ Recent decisions affecting current work:
 - [Phase 19]: saveSettingsAction widens to getUnionServableIds (REG-07) — cross-provider chains accepted, non-servable ids rejected with invalid_model
 - [Phase 19]: structuredOutputs is a first-class snapshot field derived from live OpenRouter supported_parameters by exact-id join (D-08) — never a code-side map, never a global strict:false
 - [Phase 19]: refresh-model-catalog.ts throws (aborts, no write) if the live OpenRouter fetch fails — the committed snapshot stays usable (T-19-06)
+- [Phase 19]: modelFactory is the single provider-aware instantiation seam (constraint 11) — instantiateModel dispatches by catalog providerID with raw ids verbatim (D-04); instantiateChain maps once at entry (FAL-01); defaultChain stays the Anthropic fast path in Phase 19 (D-11)
+- [Phase 19]: OPENROUTER_DEFAULT_MODEL_ID = 'anthropic/claude-sonnet-4.6' + PROVIDER_DEFAULT_MODELS exported as named constants for Phase 21's provider-switch reset (D-07)
+- [Phase 19]: createOpenRouter({ compatibility: 'strict' }) with the option EXPLICIT (bare defaults to 'compatible'); no apiKey (auto-loads OPENROUTER_API_KEY); D-08 per-model structuredOutputs strict:false only for snapshot-flagged non-strict models — never global
+- [Phase 19]: openrouter row lookup for the D-08 flag is provider-scoped (m.providerID === 'openrouter') — a bare id find reads the inert kilo/vercel flag for 54 dual-listed non-strict models and silently skips the opt-out (Rule 1 auto-fix)
 
 ### Pending Todos
 
@@ -106,7 +111,7 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-02T19:30:40.242Z
+Last session: 2026-08-02T19:39:12.402Z
 Stopped at: Phase 19 context gathered
 Resume file: None
 

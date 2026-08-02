@@ -105,7 +105,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 19-03-PLAN.md — `modelFactory` provider-aware instantiation seam (`instantiateModel`/`instantiateChain`/`defaultChain` + D-07 default constants + per-model strict flag)
+- [x] 19-03-PLAN.md — `modelFactory` provider-aware instantiation seam (`instantiateModel`/`instantiateChain`/`defaultChain` + D-07 default constants + per-model strict flag)
 - [ ] 19-04-PLAN.md — `resolveModelChain` union-servable default (D-06) + cross-provider chain cases
 
 **Wave 3** *(blocked on Wave 2 completion)*
@@ -187,7 +187,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 16. Failover Orchestration | v1.3 | 4/4 | Complete    | 2026-08-02 |
 | 17. Settings UI + List Source | v1.3 | 3/3 | Complete    | 2026-08-02 |
 | 18. Verification Gate | v1.3 | 3/3 | Complete    | 2026-08-02 |
-| 19. Provider Registry + Servable Model Source | v1.4 | 2/5 | In Progress|  |
+| 19. Provider Registry + Servable Model Source | v1.4 | 3/5 | In Progress|  |
 | 20. Cross-Provider Run Path | v1.4 | 0/TBD | Not started | - |
 | 21. Settings UI | v1.4 | 0/TBD | Not started | - |
 | 22. Verification Gate | v1.4 | 0/TBD | Not started | - |
