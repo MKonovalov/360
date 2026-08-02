@@ -123,11 +123,13 @@ Full details: [`.planning/milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
   4. Saving persists immediately via a Server Action (gated by `requireStaffAccess()`, zod-validated against the catalog) and the form reflects the saved state after reload
   5. The model pickers show only models the app can actually run — the allowlist ∩ committed snapshot, never the raw opencode catalog rows — so no pick can save a model that 404s on the next run
 
-**Plans**: TBD (refined during planning)
+**Plans**: 3 plans
 **UI hint**: yes
 Plans:
 
-- [ ] 17-01-PLAN.md — TBD
+- [ ] 17-01-PLAN.md — Nav wiring: 'settings' NavKey + tooltip map + sidebar Manage-group item + ExplorerMenu entries (SET-01)
+- [ ] 17-02-PLAN.md — D-01 roster re-verify + saveSettingsAction Server Action with security matrix tests (SET-06/SET-07)
+- [ ] 17-03-PLAN.md — /settings server page + model-settings-form client form (pickers, fallback reorder, save lifecycle) (SET-02..06)
 
 ### Phase 18: Verification Gate
 
