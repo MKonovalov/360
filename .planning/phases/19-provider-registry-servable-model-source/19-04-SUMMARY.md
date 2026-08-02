@@ -66,7 +66,7 @@ Each task was committed atomically:
 1. **Task 1: modelConfig.ts — union servable default (D-06)** - `07014013` (feat)
 2. **Task 2: modelConfig.test.ts — cross-provider chain cases** - `7b9f8b9e` (test)
 
-**Plan metadata:** `[pending]` (docs: complete plan)
+**Plan metadata:** `eb626557` (docs: complete plan)
 
 ## Files Created/Modified
 - `src/lib/agents/modelConfig.ts` - Import line gains `getUnionServableIds` + a `catalog.json` import (with why-comment); `resolveModelChain` default argument widens from `ANTHROPIC_ALLOWLIST` to `getUnionServableIds(catalogJson)` with the parameter renamed to `servableIds`; header comment "allowlist filter" → "union servable gate". No other lines changed.
