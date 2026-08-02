@@ -143,4 +143,19 @@ describe('resolveModelChain', () => {
       resolveModelChain({ primaryModel: 'a', fallbackModels: ['b'] }, ['a', 'b']),
     ).toEqual(['a', 'b']);
   });
+
+  it('accepts a cross-provider chain when both ids are in the union (D-06)', () => {
+    expect(
+      resolveModelChain(
+        { primaryModel: 'claude-sonnet-4-6', fallbackModels: ['anthropic/claude-sonnet-latest'] },
+        ['claude-sonnet-4-6', 'anthropic/claude-sonnet-latest'],
+      ),
+    ).toEqual(['claude-sonnet-4-6', 'anthropic/claude-sonnet-latest']);
+  });
+
+  it('drops ids not in the union servable set', () => {
+    expect(
+      resolveModelChain({ primaryModel: 'not-in-union', fallbackModels: [] }, ['claude-sonnet-4-6']),
+    ).toEqual([FAST_MODEL_ID]);
+  });
 });
