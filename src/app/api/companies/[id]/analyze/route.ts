@@ -9,6 +9,7 @@ import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { analyzeCompany, type AnalyzeResult } from '@/lib/agents/analyzeCompany';
 import { createRun } from '@/lib/db/queries/runs';
 import { insertProposals } from '@/lib/db/queries/proposals';
+import { getModelDisplayName } from '@/lib/models/catalog';
 import { initLangfuse, getTraceUrl } from '@/lib/telemetry/langfuse';
 
 // Vercel Hobby ceiling (D-07): the client strip tells staff "this can take up
@@ -22,7 +23,9 @@ const companyIdSchema = z.coerce.number().int().positive();
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   // Single gate, first call (D-06/T-09-01) — the same function every protected
   // page/action uses; redirect('/sign-in') throws for anonymous callers.
-  await requireStaffAccess();
+  // FAL-01: capture the authenticated userId — the ONLY user identifier that
+  // ever reaches the settings query (T-16-04); never client-supplied.
+  const { userId } = await requireStaffAccess();
 
   const { id } = await params; // Next 16 App Router: params is a Promise
   const parsed = companyIdSchema.safeParse(id);
@@ -49,7 +52,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     ({ result, traceId } = await startActiveObservation(
       'analyze-company',
       async (span) => {
-        const res = await analyzeCompany(companyId);
+        const res = await analyzeCompany(companyId, userId);
         return { result: res, traceId: span.traceId };
       },
       { asType: 'span' },
@@ -71,6 +74,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       case 'db_error':
         // Data-layer failure during analysis — analysis-domain, not persist.
         return Response.json({ error: 'analysis_failed', message: 'db_error' }, { status: 502 });
+      case 'rate_limited':
+        // D-04: distinct staff-facing reason — the client strip maps it via
+        // its ERROR_COPY row. Same 502 status as analysis_failed; only 429
+        // gets a carve-out from the generic reason.
+        return Response.json({ error: 'rate_limited' }, { status: 502 });
       default:
         return Response.json({ error: 'analysis_failed', message: 'unknown_error' }, { status: 502 });
     }
@@ -91,8 +99,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   // Fail-loud success (D-06/Pitfall 5): never a silent-[] shape. proposalCount
-  // rides along so the client strip can render "N proposals queued".
-  return Response.json({ ...run, proposalCount: result.proposals.length }, { status: 201 });
+  // rides along so the client strip can render "N proposals queued". The FLAT
+  // audit shape (OQ-2 locked): modelUsed/modelChain already ride on ...run
+  // (createRun .returning()); usedFallback + modelUsedName added explicitly.
+  // modelUsedName is server-computed (D-07) — catalog.json is server-only, and
+  // getModelDisplayName falls back to the raw id when absent from the snapshot.
+  return Response.json(
+    {
+      ...run,
+      proposalCount: result.proposals.length,
+      usedFallback: result.usedFallback,
+      modelUsedName: getModelDisplayName(result.modelUsed),
+    },
+    { status: 201 },
+  );
 }
 
 // Persist helper (inline — under the ~40-line threshold): one run row carrying
@@ -113,6 +133,10 @@ async function persistRunAndProposals(
     usageTokens: result.usage,
     evidenceAppendix: result.output.evidenceAppendix,
     hypotheses: result.output.keyUncertainties,
+    // FAL-05 (REG-04 seam): the model that actually served + the resolved
+    // chain snapshot — agent_run is the durable audit truth (D-14).
+    modelUsed: result.modelUsed,
+    modelChain: result.modelChain,
   });
   await insertProposals(run.id, companyId, result.proposals);
   return run;
