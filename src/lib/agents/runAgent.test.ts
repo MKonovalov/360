@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { APICallError, RetryError } from 'ai';
 
 // 09-01-01 anchor: runAgent is the mockable seam (D-16 — zero live calls in
 // tests). Mock 'ai' (generateText + Output.object spy; keep real
@@ -84,7 +85,9 @@ describe('runAgent (09-01-01)', () => {
       stopWhen: expect.anything(),
       output: outputSpec,
     });
-    expect(result).toEqual(resolvedRun);
+    // Phase 16: the return grows to { ...result, modelUsed, usedFallback } —
+    // updated deliberately (Pitfall 10 checklist), assertion NOT deleted.
+    expect(result).toEqual({ ...resolvedRun, modelUsed: 'claude-sonnet-4-6', usedFallback: false });
   });
 
   it('defaults to the fast Anthropic model (T-09-SC model-string re-verify)', async () => {
@@ -95,6 +98,100 @@ describe('runAgent (09-01-01)', () => {
   it('never calls initLangfuse (telemetry is the global registerTelemetry from Task 2)', async () => {
     await runAgent({ company, liveSignals: [] });
     expect(mocks.initLangfuse).not.toHaveBeenCalled();
+  });
+});
+
+describe('runAgent failover loop (FAL-03/04)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.anthropic.mockReturnValue({ provider: 'anthropic', modelId: 'claude-sonnet-4-6' });
+    mocks.generateText.mockResolvedValue(resolvedRun);
+    mocks.outputObject.mockReturnValue(outputSpec);
+  });
+
+  // Common Operation 1 (research): construct REAL SDK error instances — the
+  // vi.mock('ai') uses importOriginal spread, so APICallError/RetryError stay
+  // the actual classes and classifyModelError (unmocked, real modelConfig)
+  // classifies them by marker + statusCode.
+  const apiErr = (statusCode: number) =>
+    new APICallError({ message: `http ${statusCode}`, url: 'u', requestBodyValues: {}, statusCode });
+
+  it('primary 404 advances to the fallback with a 20s second-attempt budget', async () => {
+    mocks.generateText
+      .mockRejectedValueOnce(apiErr(404))
+      .mockResolvedValueOnce(resolvedRun);
+
+    const result = await runAgent({
+      company,
+      liveSignals: [],
+      models: [mocks.anthropic(), mocks.anthropic()],
+    });
+
+    expect(mocks.generateText).toHaveBeenCalledTimes(2);
+    expect(mocks.generateText.mock.calls[1][0].timeout).toEqual({ totalMs: 20000 });
+    expect(result).toEqual({ ...resolvedRun, modelUsed: 'claude-sonnet-4-6', usedFallback: true });
+  });
+
+  it('429 never advances — single attempt, throws (D-01)', async () => {
+    mocks.generateText.mockRejectedValueOnce(apiErr(429));
+
+    await expect(
+      runAgent({ company, liveSignals: [], models: [mocks.anthropic(), mocks.anthropic()] }),
+    ).rejects.toThrow();
+    expect(mocks.generateText).toHaveBeenCalledTimes(1);
+  });
+
+  it('400 never advances — single attempt, throws (Pitfall 2)', async () => {
+    mocks.generateText.mockRejectedValueOnce(apiErr(400));
+
+    await expect(
+      runAgent({ company, liveSignals: [], models: [mocks.anthropic(), mocks.anthropic()] }),
+    ).rejects.toThrow();
+    expect(mocks.generateText).toHaveBeenCalledTimes(1);
+  });
+
+  it('chain exhaustion rethrows the LAST error — never a silent switch (D-06)', async () => {
+    const lastErr = apiErr(502);
+    mocks.generateText.mockRejectedValueOnce(apiErr(500)).mockRejectedValueOnce(lastErr);
+
+    await expect(
+      runAgent({ company, liveSignals: [], models: [mocks.anthropic(), mocks.anthropic()] }),
+    ).rejects.toThrow(lastErr);
+    expect(mocks.generateText).toHaveBeenCalledTimes(2);
+  });
+
+  it('per-attempt { totalMs } budgets: 35s primary, 20s fallback (FAL-04)', async () => {
+    mocks.generateText.mockRejectedValueOnce(apiErr(404)).mockResolvedValueOnce(resolvedRun);
+
+    await runAgent({
+      company,
+      liveSignals: [],
+      models: [mocks.anthropic(), mocks.anthropic()],
+    });
+
+    expect(mocks.generateText.mock.calls[0][0].timeout).toEqual({ totalMs: 35000 });
+    expect(mocks.generateText.mock.calls[1][0].timeout).toEqual({ totalMs: 20000 });
+  });
+
+  it('RetryError-wrapped 5xx unwraps and still advances (Pitfall 3)', async () => {
+    mocks.generateText
+      .mockRejectedValueOnce(
+        new RetryError({
+          message: 'max retries exceeded',
+          reason: 'maxRetriesExceeded',
+          errors: [apiErr(500)],
+        }),
+      )
+      .mockResolvedValueOnce(resolvedRun);
+
+    const result = await runAgent({
+      company,
+      liveSignals: [],
+      models: [mocks.anthropic(), mocks.anthropic()],
+    });
+
+    expect(mocks.generateText).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({ ...resolvedRun, modelUsed: 'claude-sonnet-4-6', usedFallback: true });
   });
 });
 
