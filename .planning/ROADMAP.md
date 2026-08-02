@@ -146,10 +146,12 @@ Full details: [`.planning/milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
   3. Live-browser UAT proves the end-to-end flow: Settings → pick primary + fallback → save → run Analyze → `agent_run.model_used` reflects the chosen model, and a forced-fail primary shows the fallback serving and recorded
   4. A deployed Vercel preview loads the Settings model list without any local opencode — the committed snapshot renders (no 500, no empty list), and grep confirms zero `exec|spawn|child_process` in `src/`
 
-**Plans**: TBD (refined during planning)
+**Plans**: 3 plans
 Plans:
 
-- [ ] 18-01-PLAN.md — TBD
+- [ ] 18-01-PLAN.md — VER-01/02 Vitest matrices: 4 loop-level failover tests + real-snapshot catalog + partial-chain resolve tests + 18-VER-01-MATRIX.md (13-item checklist map)
+- [ ] 18-02-PLAN.md — VER-03 live-browser UAT (settings → Analyze → model_used) with human-verify checkpoint; absorbs 16-HUMAN-UAT + 17-03 items; 18-UAT.md + 18-VERIFICATION.md (SC-3 satisfied-by-extension)
+- [ ] 18-03-PLAN.md — VER-04 PR → Vercel preview: /settings renders from committed catalog.json (no 500/empty/opencode/), auth-gate check, zero-hit exec|spawn|child_process grep gate
 
 ## Progress
 
