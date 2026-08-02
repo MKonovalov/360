@@ -1,63 +1,16 @@
-# Stack Research
+# Stack Research — v1.3 AI Model Settings
 
-**Domain:** Data-heavy B2B ICP/account-intelligence explorer (admin/dashboard-style internal tool — recall.ai bot explorer / Clay / CRM-lite record browser pattern)
-**Researched:** 2026-07-22
-**Confidence:** MEDIUM-HIGH (framework/data-layer direction verified via current npm registry + official docs + multiple independent sources; some CLI-behavior details are single-source and flagged LOW)
+**Domain:** Per-user AI model management for ArcLumen 360 — (a) fetching the available-models list from the local opencode installation (the source behind opencode's `/models` command), and (b) persisting + serving per-user model preferences (primary + ordered fallback chain) to the Analytic Agent at runtime.
+**Researched:** 2026-08-02
+**Confidence:** HIGH (every claim verified against the live opencode CLI 1.18.10, the installed `ai@7.0.45`/`@ai-sdk/anthropic@4.0.26` packages, the live models.dev API, and the existing codebase conventions)
 
-## Answering the Core Questions
+## Executive Answer
 
-### 1. Is Astro SSR still a reasonable choice for this dashboard, or does React/Next.js fit better?
+**Model list (a):** opencode's `/models` TUI command is backed by the CLI command `opencode models` — a plain-text list of `provider/model` IDs, with `--verbose` emitting one JSON record per model (id, providerID, name, cost, context/output limits, status, and — critically — `api.npm`, the AI SDK package that serves the model). Verified live: `opencode models --verbose` yields **1130 records (1128 active)** in ~2.2s, JSON on stdout. The underlying registry is models.dev (opencode caches it at `~/.cache/opencode/models.json`; byte-identical to `https://models.dev/api.json` — 177 providers, 5939 models — but opencode's CLI *filters* to the 1130 it can actually route). **Because the app runs on Vercel serverless where no opencode CLI exists, the correct integration is a committed snapshot**: a fetch script shells out to `opencode models --verbose` on the dev machine, normalizes the records, and writes a trimmed `src/data/opencode-models.json` that the settings page reads. "Live from opencode" = re-run `npm run models:fetch` whenever the list should refresh; the settings UI shows the snapshot's timestamp. No new runtime dependency.
 
-**Recommendation: migrate to Next.js (App Router).** Confidence: MEDIUM-HIGH.
+**Persistence + serving (b):** A new Drizzle table `userModelSettings` (userId keyed, mirroring the existing `recentlyViewed` pattern — `text` userId, no Clerk FK) stores `primaryModel` + an ordered `fallbackModels` jsonb array. Stored IDs use the **vendor-normalized** `provider/model` form (the same format `opencode models <provider>` itself prints), because the runtime registry maps the provider segment to an installed `@ai-sdk/*` provider factory via the snapshot's `api.npm` field. The Analytic Agent thread: route handler (already holds `userId` from `requireStaffAccess()`) → reads settings → registry resolves `[primary, ...fallbacks]` → passes them into `analyzeCompany` → `runAgent` loops `generateText` with an **error-driven failover loop** (ai@7.0.45 has no built-in fallback helper — verified; the loop keys on `APICallError`/`NoSuchModelError`/`LoadAPIKeyError`, ~20 lines). Default with no settings row = today's exact behavior (`anthropic('claude-sonnet-4-6')`).
 
-Astro's own documentation draws the line explicitly: Astro is a **content-focused, multi-page** framework (marketing sites, docs, blogs); frameworks like Next.js/SvelteKit are built for **application-like** experiences — "logged-in admin dashboards, inboxes, social networks" are named as the class of thing Astro is *not* optimized for ([Why Astro — docs.astro.build](https://docs.astro.build/en/concepts/why-astro/)). ArcLumen 360 is precisely that: a fully-authenticated, no-SEO-value, highly-interactive master-detail UI (collapsible nav + live search/filter + selected-row detail pane) with state that must flow between multiple UI regions on every interaction.
-
-Astro's islands-architecture is the specific mismatch. Each interactive region (nav, list, detail pane) would need to be its own hydrated island (`client:load`), and keeping "which company is selected" in sync between the list island and the detail-pane island requires reaching for an external store (nanostores, or a hand-rolled event bus) rather than the ordinary single-component-tree state a React app gets for free. This is a well-documented friction point for exactly this UI shape, not a hypothetical one (multiple independent sources agree on this specific limitation — see Sources). There is also no content/SEO requirement here to justify Astro's zero-JS-by-default tradeoff — the entire surface sits behind Clerk auth, so "ship less JS to anonymous visitors" isn't a real constraint on this build.
-
-Practically for this codebase: the existing Astro app is a thin 4-page redirect bridge with no shared component library and no client-side framework usage today (confirmed in `.planning/codebase/ARCHITECTURE.md`) — there is very little Astro-specific investment to preserve. The two things worth explicitly carrying forward are **Clerk** (same Clerk project/dashboard config, swap `@clerk/astro` → `@clerk/nextjs`) and **Vercel** (same project, but drop the Astro adapter entirely — Next.js is Vercel's native, zero-adapter framework).
-
-**Bonus fix:** this migration also resolves the Node-runtime pin bug that was worked around in commit `4e8b9a04` (`@astrojs/vercel` forcing `nodejs18.x`). Next.js on Vercel has no adapter layer — the Node version is set directly in Vercel Project Settings (or `engines` in `package.json`), with no framework-specific runtime translation to fight. See the Node version note in Platform section below — Node 20 is being deprecated on Vercel Oct 1, 2026, so this is also a chance to move off it.
-
-**If the team prefers to minimize churn and stay on Astro:** it's not impossible — use React islands for nav/list/detail via `@astrojs/react`, share selection state through `nanostores` (`@nanostores/react`), and accept the added indirection. This is listed as the explicit alternative below, but is not the primary recommendation.
-
-### 2. Is Sanity CMS appropriate for structured Company/Persona records with relations, or does this call for a real database?
-
-**Recommendation: Postgres (Neon, via Vercel's native integration) + Drizzle ORM.** Confidence: HIGH.
-
-Sanity is a headless CMS built around an editorial workflow: a Studio UI for content editors, document drafts/publish states, and GROQ as a content-query language. It *can* model references between document types (a Persona document referencing a Company document), so "relations" alone aren't a hard blocker — but the shape of this data and its trajectory argue strongly for a real relational database instead:
-
-- **Milestone 1 already implies structured, filterable, joinable data**: Company ↔ Persona is a real one-to-many/many-to-many relationship that needs to support search, filtering by signal type/strength, and "linked personas"/"linked company" lookups — this is exactly what SQL joins and indexes are for, and exactly what GROQ reference-dereferencing is a workaround for.
-- **The stated pipeline beyond milestone 1** (scoring/prioritization algorithm, enrichment API writes from Clearbit/Apollo/ZoomInfo-style sources, CRM sync) is a programmatic-write-heavy, aggregation-heavy workload. That's a database problem, not a content-editing problem — Sanity's per-document mutation API and rate limits are the wrong shape for high-frequency enrichment writes, and there's no SQL aggregation for building a scoring layer later.
-- **No editorial/collaboration need**: nobody is drafting/reviewing marketing copy for a Company record — this is structured business data, not content.
-
-Use **Neon Postgres via the Vercel Marketplace integration** (Vercel's own "Vercel Postgres" product was sunset in 2025; Neon is its direct technical successor and is now the first-class Postgres option in the Vercel dashboard — one-click provision, auto-sets `DATABASE_URL`/`DATABASE_URL_UNPOOLED`) with **Drizzle ORM** (TypeScript-first schema + query builder, lightweight/serverless-friendly, pairs naturally with `@neondatabase/serverless`'s HTTP driver for low cold-start latency on Vercel functions). Prisma is a reasonable alternative but its engine binary adds cold-start weight that Drizzle avoids — not a hard blocker, just a worse fit for a serverless-per-request model.
-
-For milestone 1's stated "manual/seed dataset," Postgres full-text search (`tsvector`/`ILIKE`) is sufficient for search/filter — do not reach for Algolia/Meilisearch/Elasticsearch until real data volume or fuzzy-matching needs justify it.
-
-**Sanity's fate:** retire it from this app's core data model. If there's ever a genuine editorial-content need later (e.g., a "playbooks" or internal-docs surface), Sanity could be reintroduced for *that* narrow purpose — but it should not hold Company/Persona records going forward.
-
-### 3. UI/component libraries for collapsible-nav + searchable-list + detail-pane layout
-
-**Recommendation: shadcn/ui + TanStack Table + TanStack Virtual (add when needed) + cmdk + nuqs.** Confidence: MEDIUM-HIGH.
-
-- **shadcn/ui's `Sidebar` component/blocks** are built for exactly this layout — `SidebarProvider` manages collapsed/expanded state, with `SidebarHeader`/`SidebarContent`/`SidebarGroup`/`SidebarMenu` sub-components and ready-made dashboard-sidebar blocks (`ui.shadcn.com/blocks/sidebar`). This is the single best-fit off-the-shelf match for the "collapsible left nav" requirement.
-- **TanStack Table** for the searchable/filterable Company and Persona lists — headless, so it pairs directly with shadcn's table primitives (shadcn's own docs demonstrate this combination) and gives sorting/filtering/column-state for free while you own the markup/styling.
-- **TanStack Virtual** — add only once a list is large enough to need it (rule of thumb: a few hundred+ rows rendered at once, or an infinite-scroll list). Milestone 1's seed dataset almost certainly doesn't need it yet; treat it as the answer when real enrichment data grows the Company/Persona tables, not a day-1 dependency.
-- **cmdk** — command-palette-style fast search/jump-to-record (the shadcn `Command` component wraps this) — a strong fit for "anyone on the team can pull up a company or persona in seconds," matching the stated Core Value.
-- **nuqs** — type-safe URL search-param state. Use it to drive "which record is selected" (e.g. `?company=acme-corp`) so the master-detail selection is shareable/bookmarkable/back-button-safe, without a custom global store.
-- **TanStack Query** — client-side data fetching/caching for the interactive parts (live search-as-you-type, filter changes, detail-pane swap) sitting on top of Next.js Route Handlers/Server Actions; Server Components still own the first-paint data fetch.
-- Supporting: **Zod** for validating API/query-param shapes (the existing codebase has zero runtime validation today — this closes that gap for the new data layer); **date-fns** for "last-updated" badge formatting; **sonner** (shadcn's recommended toast) for any async-action feedback; **lucide-react** for icons (shadcn's default icon set).
-
-**Note on shadcn/ui internals (LOW confidence, single-source, verify at implementation time):** recent shadcn CLI versions have started defaulting new inits to Base UI primitives instead of Radix UI. Radix remains fully supported and has a much larger base of examples/tutorials — unless there's a specific reason to try Base UI, explicitly choose Radix when running `shadcn init` for stability.
-
-### 4. Keeping Clerk auth + Vercel deploy (Node 20 pinned) without disruption
-
-**Recommendation: same Clerk project/config, swap SDK; same Vercel project, drop the adapter, move off Node 20.** Confidence: HIGH.
-
-- **Clerk**: this is a config/dashboard-level integration (publishable key, secret key, domain/subdomain cookie scoping for `arclumenpartners.com` + `360`/`go` subdomains — all documented in `.planning/codebase/STACK.md` and `ARCHITECTURE.md`). None of that changes. Only the SDK package changes: `@clerk/astro` → `@clerk/nextjs` (current: `7.5.22`). Next.js is Clerk's original and most mature integration — `clerkMiddleware()` exists for Next.js exactly as it does for Astro, with the same `auth()`/route-protection model, so this is a like-for-like swap, not a re-implementation of auth logic.
-  - **Next.js 16 renamed `middleware.ts` to `proxy.ts`** (old filename still works but is deprecated) — Clerk's `clerkMiddleware()` works under either name; only the file name changes. Worth flagging so whoever scaffolds the app doesn't get tripped up by outdated Clerk tutorials still showing `middleware.ts`.
-- **Vercel**: same Vercel project (`360-arclumen`, already linked via `.vercel/project.json`), same custom domain (`360.arclumenpartners.com`). What goes away: `@astrojs/vercel` and its runtime-pinning workaround entirely — Next.js deploys on Vercel natively with no adapter, so the whole class of bug fixed in commit `4e8b9a04` (adapter forcing `nodejs18.x`) cannot recur.
-  - **Node version**: don't re-pin to Node 20. Vercel is deprecating Node 20 in Project Settings on **October 1, 2026** (per Vercel's own changelog) — since this is a fresh build, set the Vercel Project Settings Node version to **22.x** (current LTS) via `package.json` `engines` (`"node": "22.x"`) and let Vercel pick it up directly — there's no adapter-level override to fight anymore.
+**No new runtime dependencies are required for v1.3.** The only new packages would be future provider SDKs (`@ai-sdk/openai`, `@ai-sdk/google`, `@ai-sdk/openai-compatible`) — deferred until a second provider API key is configured; the registry is designed to absorb them automatically via `api.npm`.
 
 ## Recommended Stack
 
@@ -65,118 +18,151 @@ For milestone 1's stated "manual/seed dataset," Postgres full-text search (`tsve
 
 | Technology | Version | Purpose | Why Recommended |
 |------------|---------|---------|-----------------|
-| Next.js (App Router) | 16.2.11 | Full-stack React framework, hosting for the explorer | Native Vercel framework (no adapter/runtime-pin issues); Server Components for first-paint data + Client Components for interactive master-detail; App Router is the stable, default pattern |
-| React | 19.2.8 | UI library | Required by Next.js 16; shadcn/ui, TanStack libraries all target React 19 |
-| TypeScript | 5.6+ | Language | Already the project's language; carries over unchanged |
-| Tailwind CSS | 4.3.3 | Styling | Already in use in this repo (v3); v4's CSS-first config (`@theme`) is what current shadcn/ui targets |
-| @clerk/nextjs | 7.5.22 | Auth SDK | Direct swap for `@clerk/astro`; same Clerk project/dashboard config, no auth re-implementation |
-| Neon Postgres (via Vercel Marketplace) | — (managed service) | Primary datastore for Company/Persona records | Relational data with real joins/filters; direct successor to the sunset "Vercel Postgres" product; one-click Vercel integration auto-wires `DATABASE_URL` |
-| Drizzle ORM | 0.45.2 | Typed query builder / schema | TypeScript-first, serverless-friendly (no heavy engine binary), pairs with Neon's HTTP driver for low cold-start latency |
-| drizzle-kit | 0.31.10 | Migrations/schema tooling | Companion CLI to Drizzle ORM for generating/running SQL migrations |
-| @neondatabase/serverless | 1.1.0 | Postgres driver | HTTP-based driver purpose-built for serverless/edge functions on Vercel |
+| opencode CLI `models` command | 1.18.10 (local install at `~/.opencode/bin/opencode`, on PATH) | Model-list source — the exact `/models` backend | Verified live: `opencode models [provider]` prints `provider/model` IDs (filterable by provider), `--verbose` adds JSON metadata (cost, limits, status, `api.npm`), `--pure` excludes plugin models (1113 IDs), `--refresh` re-syncs from models.dev. This is a **dev-time fetch tool, not an app dependency** — the app never shells out to it. |
+| Snapshot fetch script (`scripts/fetch-models.ts`) + committed `src/data/opencode-models.json` | repo script (tsx, already a devDep) | Bridge the local CLI to the deployed app | Vercel serverless has no opencode binary. The script runs `opencode models --verbose` (records are multi-line pretty JSON starting at column 0 on stdout), accumulates records, trims to UI-needed fields, and writes the committed JSON (~100-200KB, not the 3.3MB raw registry). Read at render time by the settings Server Component. |
+| Drizzle `userModelSettings` table (existing `drizzle-orm`, existing `schema.ts`) | drizzle-orm 0.45.2 (installed) | Per-user model preference persistence | Follows the proven user-keyed pattern: `userId text not null` (Clerk external, no FK — same as `recentlyViewed`), `primaryModel text`, `fallbackModels jsonb` (ordered array — same jsonb-array precedent as `company.techStack`), `updatedAt timestamp`, `unique(userId)` + upsert via `onConflictDoUpdate` (exactly the `recordView` pattern). One row per user. |
+| Query module `src/lib/db/queries/userModelSettings.ts` | repo module | Read/write settings, pure query layer | House convention: query modules never catch (callers own error handling), named exports, no `db.transaction()` (neon-http has none). Exports `getModelSettingsForUser(userId)` (returns row or null) and `upsertModelSettings(userId, { primaryModel, fallbackModels })`. |
+| Runtime model registry `src/lib/models/registry.ts` | repo module | Map stored `provider/model` → callable AI SDK model | Reads the snapshot's `api.npm` to select the provider factory (`@ai-sdk/anthropic` → `createAnthropic()`, etc. — verified factory API) and the model's `api.url` (empty = vendor default endpoint = directly servable; custom URL = opencode/OpenRouter/gateway proxy = NOT servable from Vercel). Lazily constructs provider instances; **only includes providers with an env key set** (mirrors the `not_configured` degrade-gracefully pattern in `env.ts`). Exposes `resolveModels(ids: string[]): LanguageModel[]` — pure, unit-testable. |
+| Error-driven failover loop (`runWithFallback`, in `src/lib/models/failover.ts` or inline in `runAgent`) | repo module (~20 lines) | Retry down the fallback chain on provider/model failure | Verified ai@7.0.45 exports: **no built-in fallback/multi-model helper exists**. The AI SDK throws `APICallError` (has `statusCode` + `isRetryable`, covers 429/4xx/5xx), `NoSuchModelError` (bad/retired model id), `LoadAPIKeyError` (missing key) — all `instanceof AISDKError`. Loop: try `generateText` with model[i]; on those errors continue to model[i+1]; `NoObjectGeneratedError` (structured-output failure) is model-dependent, so it should also trigger failover; prompt/validation errors (`InvalidPromptError`, `TypeValidationError`) rethrow. |
+| `ai` + `@ai-sdk/anthropic` (existing) | ai 7.0.45, @ai-sdk/anthropic 4.0.26 (installed) | Runtime generation | No new AI SDK dependency for v1.3 — the app's only configured key is `ANTHROPIC_API_KEY`, so the servable set is the 36 anthropic models. The registry's `api.npm` mapping is the growth path: adding `OPENAI_API_KEY` + `@ai-sdk/openai` makes the 36 OpenAI models servable with zero code changes beyond the package install. |
 
 ### Supporting Libraries
 
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| shadcn/ui (CLI: `shadcn`) | CLI 4.14.0 | Component source (Sidebar, Table, Command, Badge, etc.) | Scaffold collapsible nav (`Sidebar` block), status badges, and base primitives at project start |
-| @tanstack/react-table | 8.21.3 | Headless table logic | Company/Persona list sorting, filtering, column state |
-| @tanstack/react-virtual | 3.14.8 | List virtualization | Add once a list renders hundreds+ rows at once or uses infinite scroll — not needed for milestone-1 seed data |
-| @tanstack/react-query | 5.101.4 | Client data fetching/caching | Search-as-you-type, filter changes, detail-pane swap without full navigation |
-| cmdk | 1.1.1 | Command palette | Fast "jump to company/persona" search (powers shadcn's `Command` component) |
-| nuqs | 2.9.1 | URL search-param state | Drive master-detail selection (`?company=slug`) so it's shareable/bookmarkable |
-| zod | 4.4.3 | Runtime validation | Validate API/query inputs and Drizzle query results at the boundary — closes the "no validation" gap noted in the current codebase |
-| date-fns | 4.4.0 | Date formatting | "Last updated" badges, signal timestamps |
-| lucide-react | 1.25.0 | Icons | shadcn/ui's default icon set |
-| sonner | 2.0.7 | Toasts | Async action feedback (shadcn's recommended toast library) |
-| @clerk/themes | 2.4.57 | Clerk UI theming | Match Clerk's hosted `<SignIn/>`/`<UserButton/>` to the app's Tailwind theme |
+| shadcn/ui primitives (already vendored, `nova` preset) | shadcn 4.14.0 (installed) | Select/combobox + list-reorder UI on the settings page | Primary-model selector and per-slot fallback selects — use the already-vendored Select/Button/Badge. **No new UI package.** |
+| `zod` (installed, 4.4.3) | 4.4.3 | Server Action input validation | `modelSettingsSchema` for the upsert action — model IDs validated as `provider/model` strings against the snapshot's known set (reject unknown IDs fail-loud, matching the reject-input pattern in `reviews.ts`). |
+| `nuqs` (installed, 2.9.1) | 2.9.1 | URL state | **Not needed for a settings form** — listed to say explicitly: don't introduce it here. |
+| `@langfuse/vercel-ai-sdk` (installed, 5.9.1) | 5.9.1 | Per-run tracing | The AI SDK instrumentation emits `ai.model.id` per span automatically — with failover, the trace already shows which model actually served. Optionally record `servingModel` + `modelsTried` on the `agentRun` row (small jsonb addition) so the review queue shows it without opening Langfuse. |
+| Vitest (installed, 4.1.10) | 4.1.10 | Unit tests | Registry resolver + failover loop are pure functions — add `registry.test.ts` / `failover.test.ts` following the existing no-mocking-library, pure-function-only harness. Extend `nav.test.ts` (11-case suite) with the `/settings` case. |
 
 ### Development Tools
 
 | Tool | Purpose | Notes |
 |------|---------|-------|
-| ESLint + Next.js config | Linting | Ships with `create-next-app`; keep TypeScript strict mode from the existing `tsconfig.json` |
-| Vercel CLI | Deploy/preview | Already a devDependency in this repo; usage pattern carries over unchanged |
-| Vitest or Playwright (pick one when tests are prioritized) | Testing | Current codebase has zero tests (flagged in `.planning/codebase/CONCERNS.md`) — not a milestone-1 blocker, but flag for roadmap |
+| `npm run models:fetch` (new script → `tsx scripts/fetch-models.ts`) | Refresh the committed opencode model snapshot | Resolve binary: `process.env.OPENCODE_BIN` → `which opencode` → `~/.opencode/bin/opencode` fallback. Run `opencode models --verbose` capturing stdout. Fail with a clear message if opencode isn't installed (snapshot stays usable — the app only needs the committed JSON). |
+| `drizzle-kit generate` (installed 0.31.10) | New `userModelSettings` migration | Existing `drizzle.config.ts` (schema `./src/lib/db/schema.ts`, out `./drizzle`) — add the table, run `npx drizzle-kit generate`, apply. |
+| Live re-verify (Playwright MCP) | UAT of settings page + failover | The milestone's established live-browser pattern; also exercise the analyze route with a deliberately bad primary to observe the fallback in the Langfuse trace. |
 
 ## Installation
 
 ```bash
-# Core (fresh Next.js app inside this repo, replacing the Astro app)
-npx create-next-app@latest --typescript --tailwind --app --eslint
+# Core — NO new runtime dependencies for v1.3.
+# (The registry is provider-factory-driven; nothing to install for anthropic-only.)
 
-# Auth
-npm install @clerk/nextjs @clerk/themes
+# Dev tooling — none required either: the fetch script runs on the existing tsx devDep.
 
-# Data layer
-npm install drizzle-orm @neondatabase/serverless
-npm install -D drizzle-kit
+# Model-list fetch (writes src/data/opencode-models.json)
+npm run models:fetch
 
-# UI / dashboard
-npx shadcn@latest init
-npx shadcn@latest add sidebar table badge command sonner
-npm install @tanstack/react-table @tanstack/react-query cmdk nuqs zod date-fns lucide-react
+# DB migration for userModelSettings
+npx drizzle-kit generate
+```
 
-# Add later, only once list sizes require it
-npm install @tanstack/react-virtual
+**Future provider additions (only when a key is configured):**
+
+```bash
+npm install @ai-sdk/openai          # OPENAI_API_KEY
+npm install @ai-sdk/google          # GOOGLE_GENERATIVE_AI_API_KEY
+npm install @ai-sdk/openai-compatible  # deepseek/glm/zhipuai and other custom-URL providers with a baseURL
 ```
 
 ## Alternatives Considered
 
 | Recommended | Alternative | When to Use Alternative |
-|-------------|-------------|--------------------------|
-| Next.js (App Router) | Stay on Astro + React islands + nanostores | Team strongly prioritizes minimizing framework churn over developer ergonomics for the interactive master-detail UI; accept added state-sharing complexity |
-| Next.js (App Router) | Plain Vite + React Router SPA + Vercel serverless functions | If there's a strong preference to avoid Next.js's opinionated caching/RSC model for an internal-only, auth-gated tool with no SEO need — viable but loses Next's built-in Server Components/streaming and Vercel's zero-config framework preset |
-| Neon Postgres + Drizzle | Prisma ORM | Team has existing Prisma expertise; accept slightly higher cold-start latency from Prisma's engine binary on serverless |
-| Neon Postgres + Drizzle | Supabase (Postgres + built-in auth/storage) | If the team later wants a bundled Postgres+Storage+Realtime platform instead of Clerk+Neon separately — not recommended here since Clerk auth is already a hard constraint |
-| shadcn/ui (Radix) | shadcn/ui (Base UI, new CLI default) | Team wants to try shadcn's newer primitive layer; Radix has a larger base of examples/tutorials today, so default to Radix unless there's a specific reason to switch |
+|-------------|-------------|-------------------------|
+| opencode CLI snapshot (committed JSON) | `https://models.dev/api.json` fetched at build time | If the milestone's "local opencode installation" phrasing is relaxed to "the registry opencode uses". models.dev is public, keyless, content-identical to opencode's cache (verified byte-identical `zhipuai.glm-5` record, same 5939 models / 177 providers) — but it is **unfiltered**: opencode's CLI reduces 5939 → 1130 models it can actually route, and that filtering is the whole point of sourcing "from opencode". Stick with the CLI snapshot. |
+| opencode CLI snapshot | `@opencode-ai/sdk` (1.18.11 on npm) programmatic API | Never for this app. The SDK talks to a **running** opencode server (`opencode serve`); you'd need to host opencode somewhere reachable from Vercel — heavyweight, out of scope, and adds a moving dependency. Use only if the model list ever needs to be *queried live* rather than snapshotted. |
+| Committed snapshot | Per-request `opencode models` shell-out | Never — ~2.2s cold start per call and no binary on Vercel. |
+| Committed snapshot | Read `~/.cache/opencode/models.json` directly | Never — internal cache format (brittle across versions), and the file is the *unfiltered* registry, not opencode's 1130-model view. |
+| Store `provider/model` vendor-normalized IDs | Store the literal `opencode/<id>` router form the unfiltered `/models` TUI displays | The unfiltered TUI shows every model as `opencode/<id>` (the router prefix). Storing that adds an indirection at runtime (registry must map router→vendor). The filtered form `opencode models <provider>` prints `anthropic/claude-sonnet-4-6` — the vendor form maps 1:1 onto AI SDK provider factories. Normalize in the fetch script (snapshot records already carry `providerID`/`api.npm`). |
+| Custom failover loop | A `fallback`/`retry` npm package | ai@7.0.45 ships no fallback helper (verified exports); a generic retry package can't distinguish model-scoped errors from prompt bugs. ~20 lines of typed code beats a dependency. |
 
 ## What NOT to Use
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| Sanity CMS for Company/Persona records | Built for editorial content workflows (drafts, Studio UI), not structured/relational business data that needs joins, aggregation, and high-frequency programmatic writes from future enrichment APIs | Neon Postgres + Drizzle ORM |
-| Astro islands for the whole master-detail UI | Cross-island state sharing (list selection → detail pane) requires external stores and manual wiring for a pattern React handles natively; no SEO/content benefit exists behind Clerk auth to justify the tradeoff | Next.js App Router (Client Components share state via ordinary React state/URL params) |
-| `@astrojs/vercel` adapter / Node 20 pin | The adapter forced `nodejs18.x` requiring a manual pin workaround (commit `4e8b9a04`); Node 20 is also being deprecated on Vercel Oct 1, 2026 | Next.js deploys natively on Vercel with no adapter; pin Node 22.x via `engines` |
-| Algolia/Meilisearch/Elasticsearch (for milestone 1) | Overkill for a manual/seed dataset with no live enrichment yet — adds infra and cost with no current data-volume justification | Postgres full-text search (`tsvector`)/`ILIKE` filtering; revisit if data volume or fuzzy-match needs grow |
-| TanStack Virtual on day one | Adds complexity (fixed-height rows, scroll-container plumbing) before there's data volume to justify it | Plain rendered lists/tables for milestone-1 seed data; add virtualization when a list crosses a few hundred rows |
-| Prisma (unless team preference) | Engine-binary cold starts are a worse fit for Vercel's per-request serverless functions than Drizzle's lightweight query builder | Drizzle ORM + `@neondatabase/serverless` |
+| `@opencode-ai/sdk` in the app | Requires a running `opencode serve` host; useless on Vercel serverless | `opencode models --verbose` CLI snapshot |
+| `@openrouter/ai-sdk-provider`, `@ai-sdk/gateway` | 641 of the 1130 opencode models route through OpenRouter/gateway/open-code-proxy custom URLs (`api.url` set, 757 custom-URL total) — the app has none of those credentials. Listing them is fine; wiring them is out of scope | Registry gates on `api.url` empty + env key; those models render disabled in the UI |
+| models.dev raw registry as the settings source | 5939 models, no opencode provider filtering — pollutes the picker with models opencode itself can't serve | `opencode models` output (1130) |
+| Per-request model-list fetch | 2.2s CLI cold start / 3.3MB network pull per request on a settings page | Committed snapshot, refreshed by `npm run models:fetch` |
+| A generic retry/fallback npm package | Wrong failure taxonomy; ai@7 errors are model-scoped | The ~20-line `APICallError`/`NoSuchModelError` loop |
+| Reading `~/.cache/opencode/models.json` | Internal format; unfiltered; missing on CI | The CLI command |
+| A `settings` route outside `(dashboard)` | Breaks the shared sidebar shell + nav layout used by Start/Reviews | `src/app/(dashboard)/settings/page.tsx` (matches the route group's existing structure) |
 
 ## Stack Patterns by Variant
 
-**If the team decides to keep Astro despite the recommendation above:**
-- Use `@astrojs/react` for islands hosting shadcn/ui components, `@nanostores/react` for cross-island selection state
-- Keep `@clerk/astro` (no SDK swap needed)
-- Data layer recommendation (Neon + Drizzle) is unaffected by this choice — it's independent of the frontend framework
+**If the milestone means literally "sourced from the local opencode installation" (recommended reading):**
+- Use the CLI snapshot (`opencode models --verbose` → committed `src/data/opencode-models.json`).
+- Because the snapshot is a local-machine artifact, commit it and treat refresh as a deliberate `npm run models:fetch` action; show `generatedAt` in the UI so staleness is visible.
 
-**If milestone 2+ adds live enrichment API integration:**
-- Postgres becomes even more clearly the right call — enrichment writes (Clearbit/Apollo/ZoomInfo-style) are exactly the high-frequency, structured-write workload Sanity is a poor fit for
-- Consider a background job runner (Vercel Cron + Route Handlers, or Inngest/Trigger.dev) for enrichment sync — out of scope for this research pass but worth flagging for that phase
+**If "live" must mean zero manual refresh in production:**
+- Add a CI step (GitHub Action on `opencode` upgrade detection, or a scheduled job) that re-runs `models:fetch` and opens a PR when the diff is non-empty — still snapshot-based, no runtime fetch.
+- Or relax the source: fetch models.dev at build time on Vercel. (Not recommended — loses opencode's filtering.)
+
+**If a second provider key is configured (e.g. `OPENAI_API_KEY`):**
+- `npm install @ai-sdk/openai`; the registry's `api.npm` mapping picks up the provider automatically; settings UI's servable filter expands; the same failover loop crosses providers (anthropic primary → openai fallback).
+
+**If a model id in a stored preference is no longer in the snapshot (retired/deprecated):**
+- `resolveModels` returns the models it can serve and drops unknown ones; if the result is empty, fall back to the current default `[anthropic('claude-sonnet-4-6')]` (fail-soft, matching the house "degrade toward a known-good state" pattern) rather than failing the Analyze action.
 
 ## Version Compatibility
 
 | Package A | Compatible With | Notes |
-|-----------|------------------|-------|
-| next@16.2.11 | react@19.2.8 / react-dom@19.2.8 | Next.js 16 requires React 19 |
-| @clerk/nextjs@7.5.22 | next@16.x (App Router) | Clerk's Next.js SDK tracks current Next.js majors closely; confirm no pinned peer-dep ceiling at implementation time |
-| tailwindcss@4.3.3 | shadcn CLI 4.14.0 | shadcn's current CLI generates Tailwind v4 CSS-first config (`@theme`); do not mix with the repo's existing Tailwind v3 config — this is a breaking migration, not additive |
-| drizzle-orm@0.45.2 | @neondatabase/serverless@1.1.0 | Use Drizzle's `neon-http` (or `neon-serverless`) driver adapter to pair the two |
-| Next.js 16 | `middleware.ts` → `proxy.ts` rename | Old filename still functions but is deprecated; new Clerk/Next.js tutorials may reference either name — Clerk's `clerkMiddleware()` works unchanged under both |
+|-----------|-----------------|-------|
+| ai 7.0.45 | @ai-sdk/anthropic 4.0.26 (both installed) | Verified working together in production (Phase 9). `generateText` `model` param accepts any `LanguageModel` — heterogeneous provider arrays type-check. |
+| ai 7.0.45 error surface | `@ai-sdk/provider` 4.0.4 (installed transitively) | Exports `APICallError` (`statusCode`, `isRetryable`, `instanceof AISDKError`), `NoSuchModelError`, `LoadAPIKeyError`, `NoObjectGeneratedError`. **`TooManyRequestsError` does NOT exist in this version** (a 429 surfaces as `APICallError` with `isRetryable: true`) — don't import it. |
+| `createAnthropic()` / `createOpenAI()` factories | ai 7.0.45 | Verified: provider instances are callable — `provider('model-id')` returns the language model. This is the registry's construction path. |
+| opencode CLI 1.18.10 | macOS (darwin), Node 22.x | `opencode models [provider]`, `--verbose` (JSON on stdout, multi-line records), `--pure` (1113 models vs 1130), `--refresh`. ~2.2s cold start — fine for a fetch script, never per-request. CLI surface may shift across minor versions; the fetch script should parse defensively (skip non-JSON lines, tolerate missing fields) and the snapshot stays valid if the command changes (re-verify `models:fetch` after opencode upgrades). |
+| opencode's model registry | models.dev public API | Verified byte-identical (`~/.cache/opencode/models.json` == `https://models.dev/api.json`; 177 providers, 5939 models). opencode CLI filters to 1130 servable. |
+| drizzle-orm 0.45.2 | neon-http driver (existing) | `onConflictDoUpdate` with a composite/unique target works (verified in `recentlyViewed`). `jsonb` column typing via `.$type<>` (existing precedent: `company.techStack`, `importBatch.mapping`). |
+
+## Integration Points (how the pieces connect)
+
+```
+opencode CLI (dev machine)                ── npm run models:fetch ──▶  src/data/opencode-models.json  (committed)
+                                                                              │
+Settings page  src/app/(dashboard)/settings/page.tsx  ◀──── reads snapshot + getModelSettingsForUser(userId)
+      │  (client sub-component: primary select + ordered fallback slots, reorder via shadcn primitives)
+      ▼  'use server'
+src/app/actions/modelSettings.ts  ── zod-validated upsert ──▶  userModelSettings table (unique(userId), onConflictDoUpdate)
+
+Analyze route  src/app/api/companies/[id]/analyze/route.ts
+      ├─ requireStaffAccess()  →  userId
+      ├─ getModelSettingsForUser(userId)  →  { primaryModel, fallbackModels[] }
+      ├─ resolveModels([primary, ...fallbacks])  →  LanguageModel[]   (registry gates on api.npm + api.url + env key)
+      └─ analyzeCompany(companyId, { models })  →  runAgent({ models })  →  runWithFallback(models, () => generateText({...}))
+           ├─ APICallError / NoSuchModelError / NoObjectGeneratedError  →  next model in chain
+           ├─ default (no settings row)  →  [anthropic('claude-sonnet-4-6')]  (today's behavior, unchanged)
+           └─ Langfuse span records ai.model.id of the serving model automatically (OBSV-01 continuity)
+```
+
+**Touch-points that must change (existing code):**
+- `src/lib/nav.ts` — `NavKey` union gains `'settings'` + a `getActiveNavKey` branch for `/settings`; the 11-case Vitest suite in `nav.test.ts` grows a case (the suite is the regression lock — QLTY-01).
+- `src/lib/agents/runAgent.ts` — `RunAgentInput.model` (currently unused by callers) becomes `models?: LanguageModel[]`; the failover loop lives here (it already wraps the single `generateText` call, so the step cap `isStepCount(12)`, tools, and `Output.object` stay intact per attempt).
+- `src/lib/agents/analyzeCompany.ts` — signature gains an optional `models` passthrough (defaults to the current constant); keeps its `not_configured` env gate and fail-closed validation unchanged.
+- Sidebar nav (shared `app-shell-layout.tsx` / nav items) — "Settings" item in the Manage group (alongside Reviews), following the Exa-style anatomy; active state via the extended `getActiveNavKey`.
+
+## What NOT to Add (scope guard for v1.3)
+
+| Don't add | Instead |
+|-----------|---------|
+| Any new npm runtime dependency | The milestone is fully servable with ai@7 + @ai-sdk/anthropic + the committed snapshot (verified) |
+| `@opencode-ai/sdk` | CLI snapshot |
+| Per-request model fetching / polling | Committed JSON + explicit `models:fetch` refresh |
+| A "test model connection" ping feature | The Analyze route itself is the live test; a saved setting is exercised on the next run and its failure/failover lands in the Langfuse trace |
+| Writing model-list metadata into the DB | The snapshot is static data; only *preferences* are per-user DB state |
+| Multi-tenant / org-scoped settings | Milestone is per-user only (matches the app's "any authenticated user = staff" model); the table is trivially extensible with an org column later |
 
 ## Sources
 
-- [Why Astro — docs.astro.build](https://docs.astro.build/en/concepts/why-astro/) — official framing of content-focused vs. application use cases (HIGH confidence)
-- npm registry (`npm view <pkg> version`, executed 2026-07-22) — ground-truth current versions for `next`, `react`, `@clerk/nextjs`, `@clerk/astro`, `astro`, `@astrojs/vercel`, `tailwindcss`, `shadcn`, `drizzle-orm`, `drizzle-kit`, `@neondatabase/serverless`, `@vercel/postgres`, `@tanstack/react-table`, `@tanstack/react-virtual`, `@tanstack/react-query`, `cmdk`, `nuqs`, `zod`, `date-fns`, `lucide-react`, `sonner`, `@clerk/themes` (HIGH confidence — verified live, not training data)
-- [Vercel: Node.js 20 is being deprecated — changelog](https://vercel.com/changelog/node-js-20-is-being-deprecated) — official deprecation date (Oct 1, 2026) (HIGH confidence)
-- [Vercel: Supported Node.js versions](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions) — current supported versions (24.x default, 22.x, 20.x) (HIGH confidence)
-- [Neon: Vercel Postgres transition guide](https://neon.com/docs/guides/vercel-postgres-transition-guide) — official confirmation Neon is the successor to the sunset Vercel Postgres product (HIGH confidence)
-- [Neon for Vercel — Marketplace](https://vercel.com/marketplace/neon) — current integration path (HIGH confidence)
-- [shadcn/ui: Sidebar component](https://ui.shadcn.com/docs/components/radix/sidebar) and [Sidebar blocks](https://ui.shadcn.com/blocks/sidebar) — official docs for the collapsible-nav component (HIGH confidence)
-- [shadcn/ui: Tailwind v4 docs](https://ui.shadcn.com/docs/tailwind-v4) — official CLI/Tailwind v4 integration notes (HIGH confidence)
-- [Clerk: clerkMiddleware() SDK reference](https://clerk.com/docs/reference/nextjs/clerk-middleware) and [Next.js Quickstart](https://clerk.com/docs/nextjs/getting-started/quickstart) — official Next.js integration pattern (HIGH confidence)
-- WebSearch synthesis on "Astro vs Next.js for dashboards," "shadcn base default," and "Next.js 16 proxy.ts rename" — cross-referenced across multiple independent articles; individual blog-post sources not independently fetched, so treated as MEDIUM confidence except where corroborated by the official docs above; the Base-UI-default CLI claim is flagged explicitly as LOW confidence pending verification at implementation time
-- `.planning/codebase/STACK.md`, `.planning/codebase/ARCHITECTURE.md`, `.planning/PROJECT.md` — existing repo state and constraints (ground truth for this repo)
+- **opencode CLI 1.18.10 (live verification)** — `opencode models`, `opencode models <provider>`, `--verbose`, `--pure`, `--refresh`; 1130 records / 1128 active; JSON on stdout; `~/.opencode/bin/opencode` on PATH — HIGH confidence
+- **`~/.cache/opencode/models.json` vs `https://models.dev/api.json`** — content-identical (177 providers, 5939 models, byte-equal `zhipuai.glm-5` record) — HIGH confidence
+- **Installed packages (node_modules)** — `ai@7.0.45` exports (error classes, no fallback helper), `@ai-sdk/provider@4.0.4` (no `TooManyRequestsError`), `@ai-sdk/anthropic@4.0.26` (factory + callable provider), `drizzle-orm@0.45.2` — HIGH confidence
+- **Context7 `/vercel/ai`** — `createAnthropic`/`createOpenAI` factory docs, `NoSuchModelError`/`APICallError` semantics, "provider('model-id')" construction pattern — HIGH confidence
+- **Codebase conventions** — `src/lib/db/schema.ts`, `queries/recentlyViewed.ts`, `runAgent.ts` (model seam), `analyzeCompany.ts`, `api/companies/[id]/analyze/route.ts`, `actions/reviews.ts`, `lib/nav.ts`, `env.ts` (degrade-gracefully gate), `drizzle.config.ts` — HIGH confidence
+- **npm registry** — `@opencode-ai/sdk@1.18.11` exists (rejected: requires running server), `@opencode-ai/plugin@1.18.11` — MEDIUM confidence (not installed locally)
 
 ---
-*Stack research for: Data-heavy B2B ICP/account-intelligence explorer dashboard*
-*Researched: 2026-07-22*
+*Stack research for: ArcLumen 360 v1.3 AI Model Settings*
+*Researched: 2026-08-02*

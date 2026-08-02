@@ -2,8 +2,9 @@ import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { PersonaList } from '@/components/personas/persona-list';
 import { PersonaSearchInput } from '@/components/personas/persona-search-input';
 import { PersonaFilters } from '@/components/personas/persona-filters';
+import { ExplorerMenu } from '@/components/explorer/explorer-menu';
 import { listDistinctCurrentCompanyNames } from '@/lib/db/queries/personas';
-import { parsePersonaFilters } from '@/lib/params/personaFilters';
+import { parsePersonaFilters, parseSelectedId } from '@/lib/params/personaFilters';
 
 // Belt-and-suspenders alongside the layout's auth gate (mirrors
 // CompaniesPage) — every page under /personas gates itself too, so the
@@ -16,23 +17,25 @@ export default async function PersonasPage({
   await requireStaffAccess();
 
   const filters = parsePersonaFilters(await searchParams);
+  const selectedId = parseSelectedId(await searchParams);
   const currentCompanies = (await listDistinctCurrentCompanyNames()).map((row) => row.name);
 
   return (
-    <div className="grid grid-cols-[minmax(320px,1fr)_2fr] gap-8 p-8">
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <PersonaSearchInput />
-          <PersonaFilters currentCompanies={currentCompanies} />
-        </div>
-        <PersonaList filters={filters} selectedId={undefined} />
+    <div className="flex flex-col gap-4 p-8">
+      <div className="flex items-center justify-end">
+        <ExplorerMenu
+          variant="labeled"
+          items={[
+            { label: 'Import', href: '/personas/import' },
+            { label: 'Settings', href: '/settings' },
+          ]}
+        />
       </div>
-      {/* D-07 mobile pattern: no persona selected here, so on narrow
-          viewports only the list shows — this placeholder pane is
-          desktop-only, never an empty detail pane on mobile. */}
-      <div className="hidden min-h-48 items-center justify-center rounded-lg border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500 md:flex">
-        Select a persona to view details
+      <div className="flex flex-wrap items-center gap-3">
+        <PersonaSearchInput />
+        <PersonaFilters currentCompanies={currentCompanies} />
       </div>
+      <PersonaList filters={filters} selectedId={selectedId} />
     </div>
   );
 }

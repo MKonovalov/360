@@ -83,6 +83,28 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+/* Phase 10 — sidebar light theme (scoped; zero vendored edits; @theme inline untouched) */
+[data-sidebar="sidebar"] {
+  --sidebar: #fbfcfd;                   /* 1 panel — reference value (FEATURES.md) */
+  --sidebar-foreground: #333333;        /* 2 base text 12.30:1; /70 labels 4.89:1 */
+  --sidebar-primary: #333333;           /* 3 primary surface (letter-mark box, buttons) */
+  --sidebar-primary-foreground: #ffffff;/* 4 on primary 12.63:1 */
+  --sidebar-accent: #909090;            /* 5 hover/active pill — 3.11:1 vs panel (AA 1.4.11) */
+  --sidebar-accent-foreground: #111111; /* 6 on pill 5.91:1; on panel 18.38:1 */
+  --sidebar-border: #e5e7eb;            /* 7 hairline — gray-200 reference (decorative) */
+  --sidebar-ring: #787878;              /* 8 focus ring — 4.30:1 vs panel */
+}
+
+/* Companion rules — same block/location in globals.css. Required for PANE-01/QLTY-02
+   WITHOUT vendored edits (PITFALLS Pitfalls 3 & 5): */
+[data-slot="sidebar-container"] {
+  border-color: var(--sidebar-border);  /* hairline uses --sidebar-border, not global --border */
+  border-right-width: 0.5px;            /* desktop-only element — reference 0.5px hairline */
+}
+[data-sidebar="sidebar"] * {
+  outline-color: var(--sidebar-ring);   /* neutralizes global outline-ring/50 leak (≈1.7:1) */
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);

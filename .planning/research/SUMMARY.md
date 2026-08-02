@@ -1,171 +1,165 @@
-# Project Research Summary
+# Research Summary — v1.3 AI Model Settings
 
-**Project:** ArcLumen 360 (milestone 1 — B2B ICP / account-intelligence explorer)
-**Domain:** Data-heavy B2B ICP/account-intelligence explorer — internal, Clerk-authenticated master-detail dashboard (recall.ai Explorer Dashboard / Clay / CRM-lite record browser pattern) for GBS/SSC transformation advisory
-**Researched:** 2026-07-22
-**Confidence:** MEDIUM-HIGH
+**Project:** ArcLumen 360 (internal staff demand-gen tool)
+**Domain:** Per-user AI model management — primary model + ordered fallback chain for AI agents, model list sourced from the local opencode installation, error-driven failover consumed by the Analytic Agent
+**Milestone:** v1.3 (per-user AI model settings)
+**Researched:** 2026-08-02
+**Confidence:** HIGH overall — three research files HIGH (live-verified opencode CLI 1.18.10, installed `ai@7.0.45`/`@ai-sdk/anthropic@4.0.26` node_modules, direct codebase reads); two MEDIUM sub-flags (OhMyOpenCode behavior is docs-sourced; the Drizzle migration apply flow is unconfirmed)
 
 ## Executive Summary
 
-ArcLumen 360 milestone 1 is a browsing/viewing layer for Company and Persona records — the same "look at records, search, filter, drill into detail" shell that Apollo, ZoomInfo, 6sense, Clay, and ChartHop all started as, before layering in enrichment, scoring, and CRM sync. Research across stack, features, architecture, and pitfalls converges on one clear build strategy: model the data properly and completely from day one (typed signals, many-to-many Company↔Persona relationships, nullable/array fields shaped like a real enrichment API), while deliberately keeping the *functional* scope to manual/seed data, badges-not-scores, and no roles — matching PROJECT.md's explicit v1 exclusions. The data-model decisions are the highest-leverage, hardest-to-reverse choices in this project; the UI-scope decisions are comparatively low-risk because they're explicitly deferred rather than under-researched.
+v1.3 adds a Settings surface where each staff user picks a primary AI model plus an ordered fallback chain, with the model list sourced from the local opencode installation and the Analytic Agent consuming the config via error-driven failover. Research verified the reference pattern: **opencode core has no error-driven fallback — ordered fallback is OhMyOpenCode's `fallback_models` addition, resolved silently (no interactive retry), never surfaced to the user.** v1.3 replicates exactly that: one run, silent retry down the chain, fail loud only when the whole chain is exhausted, and the model that actually served recorded durably (`agent_run` columns + the existing Langfuse trace, per the D-14 "DB is truth, Langfuse is mirror" rule).
 
-The stack research makes a strong, well-sourced case for migrating off the existing thin Astro shell to Next.js (App Router) — Astro's own documentation explicitly names "logged-in admin dashboards" as the class of app it isn't optimized for, and the specific UI shape here (collapsible nav + list + detail pane sharing selection state) is exactly the cross-island state-coordination problem Astro forces you to solve manually. It also recommends retiring Sanity from the Company/Persona data model in favor of Neon Postgres + Drizzle ORM, since milestone 1 already implies joinable, filterable, aggregatable relational data and the stated pipeline (scoring, enrichment writes, CRM sync) is a database workload, not a content-editing workload. Clerk and Vercel carry forward with minimal disruption (SDK swap only; dropping the Astro adapter also permanently fixes the Node-runtime-pin bug from commit `4e8b9a04`).
+**The single architectural constraint dominates the design: Vercel serverless cannot reach a local opencode installation.** Verified empirically — `opencode serve` binds `127.0.0.1`, there is no binary and no `~/.config/opencode` cache in serverless, and a request-time shell-out would throw (and would be an RCE-adjacent subprocess on the request path). The model list is therefore a **dev-machine snapshot**: a fetch script runs `opencode models --verbose` on the developer's machine and writes a committed, trimmed JSON file (`src/data/opencode-models.json` / `src/lib/models/catalog.json`); the settings page reads the committed snapshot; refresh is a deliberate `npm run models:fetch`. Second, **the opencode catalog is a menu, not a guarantee**: it lists 1,130 `provider/model` slugs across 75+ providers, while the app has only `@ai-sdk/anthropic` + `ANTHROPIC_API_KEY`, and `anthropic('id')` does zero client-side validation (bad/dated IDs only fail at runtime as a 404 — the exact v1.1 incident class). The curated **allowlist** (verified-runnable models) is the source of truth; the opencode list is only a dev-machine display enhancement that degrades gracefully to the allowlist when opencode is absent. A secret-leak hazard was confirmed: opencode's `GET /config/providers` returns the machine's raw API key — never proxy it.
 
-The most important risk this research surfaces is schema debt, not feature debt: pitfalls research (grounded partly in this repo's own `CONCERNS.md`) flags that hand-seeding data tempts teams into unstructured signal blobs, rigid 1:1 Company-Persona links, and "always complete" seed shapes — all of which are cheap to avoid now (typed signal records, a join/history table, nullable/array fields) and expensive to retrofit once UI and seed data both assume the wrong shape. A second, lower-urgency risk is the "any authenticated Clerk user = full access" model carried forward unexamined into a product now surfacing competitive-intelligence data for a broader audience — acceptable for v1 if centralized and documented, but must be revisited before milestone 2 adds external access or CRM sync.
+The integration surface is small, well-precedented, and needs **zero new runtime npm dependencies**: a `settings` key added to the locked `NavKey` contract (nav.ts + Vitest suites), a `/settings` route in the `(dashboard)` group behind `requireStaffAccess()`, one new Drizzle table (`userModelSettings`, Clerk-`userId`-keyed, no FK — the `recentlyViewed` pattern), a `LanguageModel[]`-shaped chain replacing the single-model `runAgent` seam, a pure `classifyModelError`/`isFailoverEligibleError` gate so **only provider/model errors (404/model-not-found) advance the chain — never validation, auth, or rate-limit errors** — and `agent_run.modelUsed`/`modelChain` audit columns. The Vercel Hobby 60s `maxDuration` ceiling bounds the chain to **primary + 1 fallback** with per-attempt timeouts (PITFALLS budget math: `attempts × per-attempt budget + SDK backoff ≤ 60s`). The biggest risks are config-drift (a saved ID that 404s — mitigated by the failover loop + allowlist), the 60s ceiling being blown by compounding SDK retries, and the "settings stored but never consumed" wiring gap (locked by one end-to-end UAT: change settings → Analyze → `agent_run.model_used` matches).
 
 ## Key Findings
 
-### Recommended Stack
-
-Migrate the existing thin Astro/Clerk/Sanity app to **Next.js (App Router)** for the frontend/hosting layer, replace **Sanity** with **Neon Postgres + Drizzle ORM** as the Company/Persona datastore, and build the UI on **shadcn/ui** (Sidebar, Table, Command) plus the **TanStack** ecosystem. Clerk and Vercel carry forward with only an SDK swap (`@clerk/astro` → `@clerk/nextjs`) and adapter removal (no more Astro-Vercel Node-version workaround).
+### Recommended Stack (from STACK.md — HIGH)
 
 **Core technologies:**
-- Next.js 16 (App Router) — native Vercel framework, no adapter/runtime-pin issues, Server Components for first-paint + Client Components for interactive master-detail
-- Neon Postgres (via Vercel Marketplace) + Drizzle ORM — relational data with real joins/filters; serverless-friendly, low cold-start vs. Prisma
-- @clerk/nextjs — direct swap for `@clerk/astro`, same Clerk project/dashboard config, no auth re-implementation
-- shadcn/ui (Sidebar, Table, Command blocks) + TanStack Table/Query + nuqs + cmdk — collapsible nav, searchable lists, URL-driven master-detail selection, fast command-palette search
-- Postgres full-text search (`tsvector`/`ILIKE`) for milestone-1 scale — do not reach for Algolia/Meilisearch/Elasticsearch until real data volume justifies it; same logic applies to TanStack Virtual (add only once lists grow past a few hundred rows)
+- **opencode CLI `models` command (v1.18.10, dev-time tool only)** — the exact `/models` TUI backend. `opencode models` prints 1,130 `provider/model` IDs; `--verbose` adds JSON metadata (name, family, cost, context/output limits, status, and critically `api.npm` — the AI SDK package that serves the model). Never a runtime dependency — the deployed app never shells out.
+- **Committed model snapshot (`npm run models:fetch` → `src/data/opencode-models.json`)** — the only Vercel-safe bridge. Fetch script shells `opencode models --verbose` on the dev machine, trims to UI-needed fields (~100–200KB, not the 3.3MB raw registry), writes the committed JSON; settings page imports it at render time; UI shows `generatedAt`. Binary resolution: `OPENCODE_BIN` → `which opencode` → `~/.opencode/bin/opencode`; fails with a clear message if absent (snapshot stays usable).
+- **Drizzle `userModelSettings` table** — per-user persistence: `userId text not null` (Clerk external, no FK — `recentlyViewed` pattern), `primaryModel text`, `fallbackModels` (ordered array), `updatedAt timestamp`, one row per user, upsert via `onConflictDoUpdate` (the `recordView` pattern).
+- **Query module `src/lib/db/queries/userModelSettings.ts`** — `getModelSettingsForUser(userId)` + `upsertModelSettings(...)`; house convention: query modules never catch, no `db.transaction()` (neon-http has none).
+- **Runtime model registry `src/lib/models/registry.ts`** — maps stored IDs → callable AI SDK models via the snapshot's `api.npm` (provider factory selection) and `api.url` (empty = vendor default = servable; custom URL = opencode/OpenRouter/gateway proxy = NOT servable from Vercel). Only includes providers with an env key set (the `not_configured` degrade pattern). Exposes `resolveModels(ids)` — pure, unit-testable.
+- **Error-driven failover loop (`runWithFallback`, ~20 lines)** — verified `ai@7.0.45` has no built-in fallback helper. Loops `generateText` per model; continues on `APICallError`/`NoSuchModelError` (and `NoObjectGeneratedError` — structured-output failure is model-dependent); rethrows prompt/validation errors (`InvalidPromptError`, `TypeValidationError`).
+- **Existing `ai@7.0.45` + `@ai-sdk/anthropic@4.0.26`** — zero new runtime deps. The registry's `api.npm` mapping is the growth path: adding `OPENAI_API_KEY` + `@ai-sdk/openai` makes OpenAI models servable with no code change beyond the install.
 
-### Expected Features
+**Critical version facts (verified against installed node_modules):** `ai@7.0.45` + `@ai-sdk/anthropic@4.0.26` work together in production (Phase 9). `APICallError` has `statusCode` + `isRetryable` (defaults to 408/409/429/≥500 — **a 404 is NOT retryable by default and must be added explicitly**). `RetryError` wraps the last error after the SDK's built-in `maxRetries: 2` backoff. **`TooManyRequestsError` does NOT exist in this version — never import it; classify 429 via `statusCode === 429`.** `anthropic('id')` returns a `LanguageModel` (`AnthropicProvider extends ProviderV4`) but does no client-side model validation. Models.dev (`https://models.dev/api.json`) is content-identical to opencode's cache but **unfiltered** (5,939 models vs opencode's 1,130 servable) — don't use it as the settings source.
 
-ArcLumen 360 v1 sits squarely at the "browsing shell" layer every category leader (Apollo, ZoomInfo, 6sense, Clay, ChartHop) started from, deliberately deferring the data-pipeline layer that differentiates them commercially.
+### Expected Features (from FEATURES.md — HIGH in-repo/opencode, MEDIUM OMO)
 
-**Must have (table stakes):**
-- Company record: firmographics, tech stack, buying/intent signal badges (source + last-updated), linked personas
-- Persona record: role/seniority, career history, linked company
-- Search + filter across both lists; master-detail pane (list stays visible, detail fills main area)
-- Signal/status badges visible in list rows (not just detail) for scan-and-triage
-- Collapsible left nav (Companies / Key Personas); empty/loading/error states
+**Must have (table stakes, all P1):** Settings nav item + `/settings` route behind `requireStaffAccess()`; per-user persistence keyed by Clerk `userId`; settings page (primary `<Select>` + ordered reorderable fallback list); model list from the opencode snapshot restricted to **runnable** models (Anthropic-only in v1.3 — the app has one provider package/key); agent consumes the config with error-driven failover; `agent_run.modelUsed` + `modelsAttempted` (feeds the D-14 durable audit + existing Langfuse); fail-loud when the chain is exhausted (existing `analysis_failed` + ERROR_COPY); graceful empty-registry degradation (agent keeps the `FAST_MODEL_ID` default — never breaks the shipped agent).
 
-**Should have (differentiators, model now even if not fully built):**
-- GBS/SSC-specific signal taxonomy (cost pressure, immature GBS org, new CFO/GBS head, transformation announcement) as first-class structured fields — this is the actual "360 view" differentiator vs. generic sales-intelligence tools
-- Shared team visibility of tribal knowledge (the whole point of centralizing signals that currently live in scattered inboxes) — arguably v1's real differentiator, not a "future" one
-- Saved/custom filter views (v1.x, once real usage shows repeated filter patterns)
+**Should have (differentiators, P2):** "ran on X (fallback)" line in the Analyze status strip on success-after-fallback (needs the route body to carry `modelUsed`); rich registry metadata in the picker (family · cost · context · deprecated) — data already in the snapshot; "Last synced" timestamp + dev-only refresh action; agent-agnostic registry so future agents (AI-drafted outreach) read the same config.
 
-**Defer (v2+, explicit anti-features):**
-- Live enrichment API integration (Clearbit/Apollo/ZoomInfo/Clay-style)
-- Scoring/prioritization algorithm
-- CRM sync / automated outreach
-- Multi-user roles/permissions
-- Automated career-history/org sync
+**Defer (v2+, P3):** cross-provider expansion (zen/openai/google via `@ai-sdk/openai-compatible` — needs the OPENCODE_API_KEY strategy decided); per-agent model assignment; cross-family fallback with prompt-family detection (OMO's explicit "prompt degradation" warning); per-model settings (variant/reasoningEffort/thinking — schema-ready, render later); `small_model` second selector; BYOK (needs a dedicated security milestone).
 
-### Architecture Approach
+**Anti-features (do NOT build):** proxying opencode's `/config/providers` (verified: returns the raw API key — exfiltration hazard); listing the full 1,130-model catalog as selectable (~95% can't run → dead selects → 502s); per-user BYOK in v1.3; unguarded cross-family fallback (Anthropic-tuned prompt degrades on GPT); interactive retry prompts (breaks the one-run model, impossible in the 60s budget); auto-refresh of the registry per request (localhost unreachable from Vercel).
 
-The core pattern — collapsible nav + searchable/filterable list + master-detail pane, with the URL as the single source of truth for selection/filters/search — is well-established (confirmed against Recall.ai's own Explorer Dashboard, which uses path-param deep links) and is **framework-agnostic**. Architecture research was conducted against the existing Astro stack (islands, `<ClientRouter />`, `transition:persist`), but per the Stack recommendation to migrate to Next.js, its patterns translate directly: one interactive region (not three) owns search+filter+list rendering, URL search params (via `nuqs`) and route params drive selection state, a `lib/data/*` layer isolates domain types (`Company`, `Persona`) from the backing store so a future data-source swap doesn't ripple into UI code, and relation resolution (Company↔Persona) happens inside that data layer, not per-page.
+### Architecture Approach (from ARCHITECTURE.md — HIGH)
 
-**Major components:**
-1. Left nav (section switcher, collapsible) — Companies / Key Personas
-2. List + filter region (single interactive owner of search/filter/list state) — feeds off SSR/Server-Component data, syncs to URL
-3. Detail pane (Company 360 / Persona 360) — firmographics, signals, linked records; minimal own interactivity needed
-4. Data-fetching layer (`lib/data/companies.ts`, `personas.ts`) — typed query functions shaping DB/CMS records into domain types, resolving Company↔Persona relations in one place
-5. Auth guard — centralized `requireAuth`/`requireStaffAccess` helper (replaces today's scattered inline `if (userId)` checks)
+The feature integrates with the existing app rather than creating new foundations. **Major components:**
+1. **`user_model_settings` table + `userModelSettings` query module** — per-user primary + ordered fallback; mirrors `recentlyViewed.ts` (Clerk-id keyed, no FK, atomic `onConflictDoUpdate` upsert — full-value write, never read-modify-write).
+2. **Settings page + form + Server Action** — server page in `(dashboard)/settings/` (mirrors `reviews/page.tsx`), client `model-settings-form.tsx`, `actions/settings.ts` ('use server', zod-validate at the boundary, `revalidatePath`).
+3. **Vendored generated catalog** — `scripts/refresh-model-catalog.ts` → committed `src/lib/models/catalog.json` + typed `catalog.ts` (provider-filtered); a Server Component imports it — no runtime fetch.
+4. **Model-config resolver + failover predicate** — pure `resolveModelChain(primary, fallbacks, defaults)` + `isFailoverEligibleError(err)` in a testable module (repo's "Vitest pure functions only, zero live calls" D-16 rule).
+5. **Analyze route wiring** — route captures `{ userId }` from `requireStaffAccess()` (1-line change), threads it into `analyzeCompany(companyId, userId)` → `getUserModelSettings(userId)` → resolve chain → `runAgent({ models })`; missing row → defaults (never a gate failure).
+6. **`runAgent` failover loop** — `models?: LanguageModel[]` replaces the single-model seam (backward compatible: omitted → `[anthropic(FAST_MODEL_ID)]`, existing test still passes); per-attempt `generateText` with `timeout: { totalMs }`; first success returns; exhaustion rethrows last error (fail loud).
+7. **Nav contract + sidebar** — `NavKey` union gains `'settings'`; Manage-group item next to Reviews; 11-case + 7-case Vitest suites grow cases.
 
-### Critical Pitfalls
+**Key patterns:** Pattern 1 = per-user row with Clerk-id PK + atomic upsert (exact `recentlyViewed` precedent, verified against installed `drizzle-orm@0.45.2`); Pattern 2 = failover loop gated by a pure retry predicate (each `generateText` already emits its own Langfuse span — the loop needs no extra telemetry plumbing); Pattern 3 = vendored generated catalog (the only opencode-derived source that survives Vercel serverless). A missing settings row must NEVER surface as `gate_failed`/`not_configured` — no settings simply means the default chain. ⚠️ **MEDIUM flag:** `drizzle/meta/_journal.json` has **zero migration entries** — the live schema appears pushed/applied without committed migrations; the phase must confirm the repo's actual apply flow (`drizzle-kit push` vs generate+commit) before adding the table.
 
-1. **Signals modeled as unstructured text/notes instead of typed, sourced, dated facts** — model each signal as its own record (`signal_type`, `company_id`, `detected_at`, `source`, `strength`), never a freeform blob; badges/filtering (explicit v1 requirements) depend on this structure.
-2. **Company-Persona relationship modeled as a rigid 1:1 FK instead of many-to-many with history** — use a `PersonaCompanyRole`/employment join table (`is_current`, `start_date`/`end_date`) from day one; "previous companies" and multi-company relevance are already in scope and a 1:1 FK cannot represent them without a later migration.
-3. **Seed data shaped for hand-entry convenience, not for the future enrichment API's real shape** — make enrichment-sourced fields nullable/array-typed and add a `source`/`enriched_at` field now (even if always `"manual"`/`null`); spike-read one real enrichment API's schema before finalizing the seed schema.
-4. **"Any authenticated Clerk user = full access" carried forward unexamined** — this repo's own `CONCERNS.md` already flags this pattern; acceptable for v1 if centralized into one `requireStaffAccess()` function with an explicit code comment, but must be re-verified before milestone 2 (CRM sync, external/partner access).
-5. **List/detail UI built without URL-as-state-of-record or virtualization, assuming seed-data scale forever** — both are cheap to build in from the start (URL sync for selection/filters; a virtualized list component) and expensive to retrofit once real enrichment data grows the dataset.
+### Critical Pitfalls (from PITFALLS.md — HIGH, verified)
+
+The "one decision that prevents half of these pitfalls": **the opencode model list is a menu, not a guarantee, and not a runtime dependency — a curated, provider-filtered allowlist is the source of truth for "what the app can run".**
+
+1. **Model-ID drift (Pitfall 1 — CRITICAL):** the opencode slug `anthropic/claude-sonnet-4-6` is not the AI SDK string `claude-sonnet-4-6`; dated snapshot IDs (`claude-sonnet-4-5-20250929`) 404 weeks later — the v1.1 incident repeating through user config. *Avoid:* store the **raw provider model ID** (no `/`) in the DB, strip the provider prefix only after an `anthropic/` filter (never `opencode/*`), in one tested pure function; allowlist is truth; 404 classification is the backstop. **Prevented in Phase A + C.**
+2. **Non-failover errors wrongly retried (Pitfall 2):** a bare `catch → next model` burns the whole chain (and N× 12-step agent runs + Firecrawl) on a 400/422/401 or `LoadAPIKeyError` that fails identically on every model. *Avoid:* `classifyModelError(err) → 'model_not_found' | 'input' | 'auth' | 'transient' | 'config' | 'output'` as a pure function; only `model_not_found` advances. **Phase B.**
+3. **Auth/rate-limit vs model-not-found misclassification (Pitfall 3):** 429s are account-level (fallback on the same key hits the same limit — never chain-switch); a 404 hidden behind a `RetryError` never triggers fallback. *Avoid:* unwrap `RetryError` FIRST, then classify the underlying error; written rate-limit policy (429 → no chain-switch → fail loud with retry suggestion). **Phase B.**
+4. **SDK retries compounding app retries → 60s blowout (Pitfall 4/6):** one broken primary = 3 SDK attempts + backoff + fallback attempt; ~66s → Vercel kills the request mid-fallback (504). *Avoid:* budget explicitly — `maxAttempts` (recommend **primary + 1 fallback** in v1.3), per-attempt `timeout: { totalMs }` (verified supported in ai@7), document `attempts × per-attempt + SDK backoff ≤ 60s`. **Phase B, verified Phase D.**
+5. **Failover silently runs a different model (Pitfall 5):** nothing records that the primary was dead — and `agent_run` has no model column today (D-14 violation if only Langfuse knows). *Avoid:* `runAgent` returns `modelUsed` + `attempts[]`; persist `model_used` text + `model_chain` jsonb on `agent_run`; Langfuse spans are the visual, DB columns are the durable truth. **Phase A (columns) + Phase B (populate).**
+6. **Settings stored but never consumed (Pitfall 10):** the seam `RunAgentInput.model` never gets threaded to the saved config; settings become decorative. *Avoid:* make the seam chain-shaped and provider-agnostic (`LanguageModel[]`, not `ReturnType<typeof anthropic>`); the milestone's core acceptance test is: change settings → Analyze → `agent_run.model_used` matches. **Phase B + D.**
+7. **The opencode source breaks on Vercel (Pitfall 8):** shelling out at request time throws in serverless — dev works, production 500s. *Avoid:* never spawn in `src/`; committed snapshot + allowlist + (optionally) cached models.dev fetch; never-throws degradation helper. **Phase A + C.**
+8. **AI-SDK syntax drift (Pitfall 11):** training data says v5-era patterns (`agent:`, model strings to `generateText`, `NoSuchModelError` catching bad IDs) — ai@7 differs. *Avoid:* verify against installed `node_modules/ai/dist/index.d.ts` **before** writing the loop (the proven v1.1 mitigation); prefer the documented primitive contract. **Phase 0/planning note.**
 
 ## Implications for Roadmap
 
-Based on combined research, suggested phase structure:
+The four research files converge on a dependency-driven **Phase A → B → C → D** structure (PITFALLS' mapping table + ARCHITECTURE's build order agree; the pre-existing SUMMARY draft's "nav first" ordering is superseded — see Conflicts). Foundations first, riskiest consumer last, verification as a gate.
 
-### Phase 1: Foundation — Framework Migration, Auth, Data Model
-**Rationale:** Framework choice (Next.js vs. Astro) and datastore choice (Postgres vs. Sanity) are the highest-leverage, hardest-to-reverse decisions in this project and block every other phase. Doing schema modeling correctly here (typed signals, many-to-many relations, nullable/array fields) avoids the most expensive pitfalls in the whole research set.
-**Delivers:** Next.js App Router app scaffolded on the existing Vercel project (adapter dropped, Node 22 pinned); `@clerk/nextjs` wired with a centralized `requireAuth`/`requireStaffAccess` helper; Neon Postgres + Drizzle schema for `Company`, `Persona`, `Signal` (typed, sourced, dated), and `PersonaCompanyRole` (join/history table); seed dataset loaded via scripted/structured data (not hand-typed CMS entries).
-**Addresses:** Underpins every P1 feature in FEATURES.md; no user-facing feature ships yet, but nothing else can be built correctly without it.
-**Avoids:** Pitfalls 1, 2, and 3 (signal/relationship/seed-shape modeling) and lays groundwork for Pitfall 4 (centralized auth check); also eliminates the Node-20/Astro-adapter bug class from STACK.md.
+### Phase A: Model Registry Foundation + Persistence
+**Rationale:** every other pitfall's fix composes on the mapping function, the allowlist, the audit columns, and the atomic upsert; the pure functions are testable before any UI or loop exists (D-16 convention).
+**Delivers:** `user_model_settings` table + `userModelSettings` query module (atomic full-value upsert, `updatedAt`); `agent_run.model_used` + `model_chain` audit columns; `scripts/refresh-model-catalog.ts` → committed `src/lib/models/catalog.json` + typed `catalog.ts`; pure `opencodeSlugToModelId` (provider-filtered) + allowlist-filter functions + never-throws degradation helper; resolve the migration apply flow (MEDIUM flag).
+**Addresses (FEATURES.md):** registry table-equivalent (snapshot), per-user settings persistence foundation, modelUsed audit columns, empty-registry degradation.
+**Avoids (PITFALLS.md):** 1 (ID drift — storage format + mapping locked here), 5 (audit columns), 7 (filter fn), 8 (degradation helper), 9 (atomic upsert).
 
-### Phase 2: Company Explorer (list + detail)
-**Rationale:** Company is named first in PROJECT.md's Core Value and establishes the master-detail/URL-state pattern once, to be reused for Persona in Phase 3.
-**Delivers:** Collapsible left nav (shadcn `Sidebar`); Company list with search + filter (TanStack Table) and master-detail selection driven by URL params (`nuqs`); Company detail view (firmographics, tech stack, signal badges with source/date, linked personas).
-**Addresses:** FEATURES P1 — company list/detail, signal badges in list rows, collapsible nav, source/note field.
-**Avoids:** Pitfall 5 (build list with virtualization-ready structure and a `filterCompanies(params)` seam even if unused at seed scale) and Pitfall 6 (URL as source of truth for selection/filters from day one, not bolted on later).
+### Phase B: Failover Orchestration (the core value)
+**Rationale:** the riskiest consumer (touches the tested orchestrator) lands after the pure predicate is locked by tests, so the wiring change is a thin, provable slice.
+**Delivers:** `classifyModelError` pure function (RetryError-unwrap-first; only `model_not_found` advances; 429 → no chain-switch); `runAgent` chain loop (`LanguageModel[]` seam, per-attempt `timeout`, attempt cap → **primary + 1 fallback**); snapshot-chain-at-request-start (mid-run edits inert); route threads `userId` → `analyzeCompany(companyId, userId)` → resolve → pass chain; `runAgent`/`analyzeCompany` test updates; populate `model_used`/`model_chain`.
+**Addresses (FEATURES.md):** the entire P1 failover set — chain support, retryable-error classifier, 60s budget management, modelUsed/modelsAttempted.
+**Avoids (PITFALLS.md):** 2, 3, 4, 6, 9 (snapshot-at-entry), 10 (wiring — the core deliverable here, not a Phase-C afterthought).
 
-### Phase 3: Persona Explorer (list + detail)
-**Rationale:** Mirrors Phase 2's pattern almost exactly, so incremental risk and research need are low once the Company loop is validated.
-**Delivers:** Persona list with search/filter/master-detail; Persona detail view (role/title/seniority, career history via the `PersonaCompanyRole` join, linked company).
-**Addresses:** FEATURES P1 — persona list/detail.
-**Uses:** Same list+filter+detail architecture component from Phase 2; `PersonaCompanyRole` join table from Phase 1 for "previous companies."
+### Phase C: Settings UI + List Source
+**Rationale:** depends on Phase A (catalog + queries); can proceed in parallel with Phase B — the UI and the loop are decoupled by the DB.
+**Delivers:** `settings` NavKey + `getActiveNavKey`/tooltip branches + Vitest cases; Manage-group sidebar item; `(dashboard)/settings/page.tsx` + `model-settings-form.tsx` (primary Select + ordered reorderable fallback list, runnable-only, no duplicates, ≥0 fallbacks, zod-validated against the catalog) + `actions/settings.ts` (requireStaffAccess, upsert, revalidatePath); empty-registry empty state; (P2) "ran on X (fallback)" status line + metadata-rich picker + last-synced.
+**Addresses (FEATURES.md):** all table-stakes P1 UI + P2 differentiators.
+**Avoids (PITFALLS.md):** 1 (UI only offers allowlisted `anthropic/` rows), 7 (server-side double filter — never the 1130-row payload), 8 (no opencode dependency at request time — Vercel preview must render).
 
-### Phase 4: Cross-Record Search & Resilience Polish
-**Rationale:** Once both explorers exist, the stated Core Value ("pull up a company or persona in seconds," shareable/bookmarkable) needs a unified fast-search layer and needs its promises actually verified end-to-end, not just built.
-**Delivers:** `cmdk`-powered command palette for jump-to-any-record; empty/loading/error states across all lists and detail panes; explicit verification that pasting a company/persona detail URL into a new tab reproduces the exact view (deep-linking acceptance test).
-**Addresses:** FEATURES differentiator (fast shared lookup / centralizing tribal knowledge).
-**Avoids:** The UX pitfalls table (undated/unsourced badges, missing partial-data states) and closes out Pitfall 6's acceptance criteria explicitly rather than assuming Phase 2/3 already satisfied it.
+### Phase D: Verification Gate
+**Rationale:** the milestone's correctness claims are falsifiable checklists — a dedicated gate, not an afterthought.
+**Delivers:** Vitest matrices (400/401/403/422 → no fallback; 404 → fallback; wrapped-404; exhausted-retry 429; non-eligible errors rethrown); 60s budget checklist; live-browser UAT: settings → Analyze → `agent_run.model_used` matches (the core acceptance test); mid-run-edit inertness; two-tab concurrent saves; Vercel preview with no opencode; grep `exec|spawn|child_process` in `src/` = zero; existing `runAgent` default-model test updated deliberately, not deleted; Langfuse trace shows per-attempt spans with `ai.model.id`.
+**Addresses:** the full "Looks Done But Isn't" checklist (PITFALLS).
+**Avoids:** every pitfall's verification row.
 
 ### Phase Ordering Rationale
-
-- Framework/data-model decisions (Phase 1) must precede any UI work because both FEATURES.md and PITFALLS.md agree the schema shape (typed signals, many-to-many relations, nullable/array fields) is expensive to retrofit once seed data and UI both assume a shape.
-- Company before Persona (Phase 2 before 3) follows PROJECT.md's own Core Value framing and lets the master-detail/URL-state pattern be built once and validated before being reused, rather than building two list/detail implementations in parallel and risking drift.
-- Search/polish is deliberately last (Phase 4) because it depends on both explorers existing and is where the "looks done but isn't" checklist items (deep-linking, dated badges, empty states) get verified against real, complete features rather than partial ones.
-- Scoring, enrichment, CRM sync, and roles are explicitly out of this roadmap's scope per PROJECT.md and FEATURES.md's anti-features list — do not create a phase for them; they depend on production usage data from these four phases first.
+- **A before B and C:** schema→queries→catalog→pure logic are independently shippable foundations; both the failover runtime and the Settings UI consume them.
+- **B before D, C parallel to B:** the failover loop is the highest-risk logic and needs the pure classifier locked by tests before wiring into the tested orchestrator; the UI is decoupled via the DB.
+- **This ordering supersedes the earlier "nav/route first" draft** — nav is cheap and can ride with Phase C; starting with foundations prevents the pitfalls that the nav-first draft left unaddressed.
 
 ### Research Flags
+- **Phase 0 / planning pre-flight (all phases):** resolve the open decisions below; add the Pitfall 11 note to the phase plan — "verify `generateText` model option type, exported error classes, and `anthropic('id')` behavior against installed `ai@7.0.45`/`@ai-sdk/anthropic@4.0.26` dist types BEFORE writing the loop" (the proven v1.1 mitigation).
+- **Phase A:** confirm the migration apply flow (`drizzle-kit push` vs generate+commit) — the one MEDIUM-confidence item (empty `_journal.json`). Small, targeted check; not deep research.
+- **Phase C:** standard patterns (shadcn Select/Button/Badge already vendored, Server Actions, nav contract) — **skip research-phase**.
+- **Phase B:** failover taxonomy is fully specified by PITFALLS (verified against SDK source) — **skip research-phase**; no new ai@7 research needed.
+- **No phase needs `/gsd-plan-phase --research-phase`** unless the planner rejects the recommended resolutions of the conflicts below.
 
-Needs deeper research during planning:
-- **Phase 1:** Greenfield migration territory — Next.js 16 App Router + Clerk integration specifics (the `middleware.ts` → `proxy.ts` rename), Drizzle+Neon schema/migration tooling, and the shadcn CLI's Radix-vs-Base-UI default are all flagged LOW-MEDIUM confidence single-source findings in STACK.md that should be verified at implementation time, not assumed.
+## Conflicts / Open Decisions (planner MUST resolve)
 
-Standard patterns (skip research-phase):
-- **Phase 2 & 3:** Master-detail UI, shadcn `Sidebar`/`Table`/`Command`, TanStack Table/Query, URL state via `nuqs` are all well-documented, HIGH-confidence patterns (official docs + a named reference product, Recall.ai's Explorer Dashboard) — standard implementation, not novel research.
-- **Phase 4:** `cmdk`/command-palette integration is a well-documented shadcn pattern; the deep-linking acceptance check is a verification task, not a research task.
+1. **DB storage format — raw provider ID vs `provider/model` slug. [CONFLICT — HIGH impact]**
+   - ARCHITECTURE + PITFALLS (agree): store the **raw provider ID** (`claude-sonnet-4-6`) — PITFALLS' invariant is "saved values never contain `/`", and the mapping function strips the prefix at save. ARCHITECTURE's schema comment: "Model IDs as the APP instantiates them — never provider-prefixed catalog ids."
+   - STACK: store the **vendor-normalized `provider/model` form** (`anthropic/claude-sonnet-4-6`, the `opencode models <provider>` output), resolved at runtime by the registry's `api.npm` mapping.
+   - **Recommendation:** raw provider ID for v1.3 (Anthropic-only — removes the verbatim-feed 404 bug class and the `opencode/*` collision; matches the two most detailed files). Keep the registry's `api.npm` mapping as the seam so multi-provider support later only adds a provider column/mapping, not a storage migration. Planner must state this in PROJECT.md to end the ambiguity.
+2. **Catalog storage — committed JSON snapshot vs DB registry table. [CONFLICT — HIGH impact]**
+   - STACK + ARCHITECTURE (agree): committed JSON snapshot (`src/data/opencode-models.json` or `src/lib/models/catalog.json`), zero DB writes for static data.
+   - FEATURES: a `modelRegistry` DB table (upserted by the sync script). The earlier SUMMARY draft followed FEATURES — superseded.
+   - **Recommendation:** committed snapshot (Vercel-safe, no migration for static data, "only preferences are per-user DB state" scope guard). If "live" freshness is ever required, revisit with a cached models.dev fetch — never a DB table for static catalog data.
+3. **Failover taxonomy — only-404-advances vs any-`isRetryable`. [CONFLICT — HIGH impact]**
+   - PITFALLS (deepest, SDK-source-verified): classify first, **only `model_not_found` (404/`NoSuchModelError`) advances**; 429 → no chain-switch (account-level); auth → fail loud; `LoadAPIKeyError` → `not_configured`, never fallback; `RetryError` unwrapped first.
+   - ARCHITECTURE's `isFailoverEligibleError`: retries any `isRetryable` (incl. 429/5xx) + 404 — missing RetryError unwrap and the 429 policy. STACK lists `LoadAPIKeyError` as failover-eligible (wrong per PITFALLS — the whole chain shares one key).
+   - **Recommendation:** adopt PITFALLS' classification model wholesale (`classifyModelError` with RetryError-unwrap-first, only `model_not_found` advances). ARCHITECTURE's version is a reasonable v1 simplification but insufficient; the planner should not mix the two.
+4. **Chain length — primary + 1 vs primary + 2. [CONFLICT — LOW impact]**
+   - PITFALLS: **primary + 1 fallback** (budget math: 35s primary + 20s fallback + SDK backoff ≤ 60s). FEATURES: "primary + 2 fast fallbacks".
+   - **Recommendation:** primary + 1 for v1.3 (PITFALLS has the budget model and the 60s ceiling constraint); revisit with real-world 429/5xx observation (FEATURES' P2 tuning item). Max 3 in the UI to keep the option open.
+5. **`fallbackModels` column type — `text[]` vs jsonb. [MINOR]**
+   - ARCHITECTURE: `text('fallback_models').array()` — "the honest Postgres shape" for a homogeneous string list, typed `string[]` in Drizzle. STACK/FEATURES: jsonb (repo precedent: `company.techStack`, `usageTokens`).
+   - **Recommendation:** `text[]` (simpler, no `$type<>` casting, direct typing); jsonb is acceptable if repo-jsonb consistency is preferred. Either works with the upsert pattern — decide in Phase A, don't leave it open.
+6. **Output/schema-failure fallback — `NoObjectGeneratedError`/`InvalidResponseDataError`. [MINOR]**
+   - STACK: `NoObjectGeneratedError` should trigger failover (model-dependent). PITFALLS: default to **no fallback** (fail loud, gate never skipped); one fallback "defensible" if decided explicitly.
+   - **Recommendation:** no fallback on output/schema errors in v1.3 — the gate (`validateRunArtifacts`) must never be skipped; revisit if a weaker-model-produces-unparseable-JSON pattern shows up in traces.
+7. **Naming variance (non-blocking):** `src/lib/models/registry.ts` (STACK) vs `src/lib/agents/modelConfig.ts` (ARCHITECTURE); `modelUsed`/`modelsAttempted` (FEATURES) vs `model_used`/`model_chain` (PITFALLS); snapshot path `src/data/` vs `src/lib/models/`. Planner picks one consistent set; the functional shape is agreed.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | MEDIUM-HIGH | Framework/data-layer direction verified via official Astro docs + live npm registry versions + official Vercel/Neon/Clerk/shadcn docs; a few CLI-behavior details (shadcn's Base-UI-default claim) are single-source and explicitly flagged LOW |
-| Features | MEDIUM-HIGH | Feature landscape corroborated across multiple category leaders (Apollo, ZoomInfo, 6sense, Clay, ChartHop); the GBS/SSC-specific signal taxonomy is project-supplied domain knowledge, not independently verified against a live competitor in that niche |
-| Architecture | MEDIUM-HIGH | Master-detail/URL-state pattern confirmed via official Astro docs and Recall.ai's own Explorer Dashboard docs; however, this research was conducted assuming Astro is retained, while STACK.md recommends migrating to Next.js — patterns transfer conceptually but need explicit re-mapping during planning (see Gaps below) |
-| Pitfalls | MEDIUM | Data-modeling and UI pitfalls well-documented across CRM/CDP literature (MEDIUM); the Clerk-reuse and seed-to-integration pitfalls are grounded directly in this repo's own `CONCERNS.md` audit (HIGH, first-party evidence) |
+| Stack | HIGH | opencode CLI 1.18.10 + models.dev live-verified; installed `ai@7.0.45`/`@ai-sdk/anthropic@4.0.26`/`drizzle-orm@0.45.2` read from node_modules; `@opencode-ai/sdk` existence MEDIUM (not installed, rejected anyway) |
+| Features | HIGH (in-repo + opencode) · MEDIUM (OMO) | OMO `fallback_models` semantics from docs/community, not a local run — but v1.3 builds its own loop, so OMO is a reference, not a dependency |
+| Architecture | HIGH · one MEDIUM | migration apply flow unconfirmed (empty `_journal.json`) — verify in Phase A; all integration points read directly from on-disk source |
+| Pitfalls | HIGH | error-class semantics verified against installed SDK dist source; opencode claims executed live; app claims from direct code reads + v1.1/v1.2 decision records |
 
-**Overall confidence:** MEDIUM-HIGH
+**Overall confidence: HIGH** (with the two MEDIUM sub-flags above and the open decisions in the previous section).
 
 ### Gaps to Address
-
-- **Framework research/architecture mismatch:** STACK.md recommends migrating to Next.js (App Router); ARCHITECTURE.md's diagrams and code examples are written against the existing Astro stack (islands, `<ClientRouter />`, `transition:persist`). The underlying patterns (URL-as-state-of-record, single interactive region owning list+filter, domain-type decoupling from the backing store) apply regardless of framework, but the Astro-specific implementation details in ARCHITECTURE.md need translation to Next.js equivalents (Server Components + one Client Component + `nuqs`) during Phase 1/2 planning — do not apply ARCHITECTURE.md's code samples literally if the Next.js migration is adopted.
-- **Sanity retirement decision:** STACK.md recommends dropping Sanity for Company/Persona records in favor of Neon+Drizzle; ARCHITECTURE.md's system diagram still shows Sanity as the backing store (written before/independent of that recommendation). Confirm and document this decision explicitly at the start of Phase 1 rather than defaulting to "keep what's already integrated."
-- **shadcn CLI default primitive (Radix vs. Base UI):** LOW confidence, single source — explicitly choose Radix at `shadcn init` time unless there's a specific reason to try Base UI; verify current CLI behavior at implementation time.
-- **GBS/SSC signal taxonomy market validation:** The four named signals are project-supplied domain framing, not independently verified against a live competitor targeting this same niche — fine to build as v1's differentiator, but don't treat the taxonomy itself as externally validated; expect it to evolve once the team uses the tool.
-- **No test framework in place today:** Flagged in the existing codebase's `CONCERNS.md` and carried into STACK.md's dev-tools table — not a milestone-1 blocker, but the roadmap should pick (Vitest or Playwright) before scope grows past these four phases.
+- **Migration apply flow (MEDIUM):** confirm `drizzle-kit push` vs generate+commit in Phase A before touching `schema.ts`.
+- **Allowlist curation:** only `claude-sonnet-4-6` is currently roster-verified (2026-08-01, `GET /v1/models`); Phase A must re-verify any curated additions — the standing v1.1 practice, now part of allowlist maintenance.
+- **Open decisions 1–6:** must be resolved at planning (recommendations provided above) — they change schema, storage, and loop behavior.
+- **OMO semantics (docs-sourced):** if cross-family fallback or per-model settings are ever pursued (v2+), run OMO locally to confirm behavior rather than trusting docs.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- [Why Astro — docs.astro.build](https://docs.astro.build/en/concepts/why-astro/) — official framing of content-focused vs. application use cases
-- [Islands architecture - Astro Docs](https://docs.astro.build/en/concepts/islands/) — islands are isolated by default
-- [View transitions - Astro Docs](https://docs.astro.build/en/guides/view-transitions/) — `transition:persist`, `<ClientRouter />` rename
-- [Explorer Dashboard - Recall.ai Docs](https://docs.recall.ai/docs/explorer-dashboard) — reference product's path-param deep-link pattern
-- npm registry (executed 2026-07-22) — ground-truth current versions for the full recommended stack
-- [Vercel: Node.js 20 is being deprecated](https://vercel.com/changelog/node-js-20-is-being-deprecated); [Vercel: Supported Node.js versions](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions)
-- [Neon: Vercel Postgres transition guide](https://neon.com/docs/guides/vercel-postgres-transition-guide); [Neon for Vercel — Marketplace](https://vercel.com/marketplace/neon)
-- [shadcn/ui: Sidebar component](https://ui.shadcn.com/docs/components/radix/sidebar) / [Sidebar blocks](https://ui.shadcn.com/blocks/sidebar); [Tailwind v4 docs](https://ui.shadcn.com/docs/tailwind-v4)
-- [Clerk: clerkMiddleware() reference](https://clerk.com/docs/reference/nextjs/clerk-middleware); [Next.js Quickstart](https://clerk.com/docs/nextjs/getting-started/quickstart); [Role based access control with Clerk Organizations](https://clerk.com/blog/role-based-access-control-with-clerk-orgs); [B2B/B2C Roles and Permissions with Clerk Organizations](https://clerk.com/docs/guides/organizations/control-access/roles-and-permissions)
-- `.planning/codebase/STACK.md`, `.planning/codebase/ARCHITECTURE.md`, `.planning/codebase/STRUCTURE.md`, `.planning/codebase/CONCERNS.md`, `.planning/PROJECT.md` — first-party, ground truth for this repo's existing state and constraints
+- **opencode CLI 1.18.10 (live execution, 2026-08-02):** `opencode models`, `--verbose`/`--pure`/`--refresh`, `opencode models <provider>`, `opencode serve` + `GET /api/model` + `GET /config/providers` (raw-key leak confirmed); `~/.cache/opencode/models.json` vs `https://models.dev/api.json` byte-identical (177 providers, 5,939 models)
+- **Installed node_modules:** `ai@7.0.45` exports (`APICallError`/`RetryError`/`LoadAPIKeyError`/`InvalidResponseDataError`/`NoSuchModelError`/`LanguageModel`; NO `TooManyRequestsError`, no fallback helper), `@ai-sdk/provider@4.0.4` (`isRetryable` defaults 408/409/429/≥500, 404 not retryable), `@ai-sdk/anthropic@4.0.26` (factory + callable provider, no client-side validation), `drizzle-orm@0.45.2` (`onConflictDoUpdate`, jsonb/text[] typing)
+- **Context7 `/vercel/ai`:** `createAnthropic`/`createOpenAI` factory docs, error semantics, retry-with-exponential-backoff source (`maxRetries` 2, backoff 2s×2, retry-after honored), `timeout: { totalMs }`, `telemetry.metadata`, `ai.model.id`/`gen_ai.request.model` span attributes
+- **Codebase reads:** `schema.ts` (+ `recentlyViewed`/`usageTokens`/`agent_run` patterns), `queries/recentlyViewed.ts`, `runAgent.ts` (+ v1.1 dated-ID 404 comment, `FAST_MODEL_ID`), `analyzeCompany.ts` (`isMisconfigurationError` precedent, fail-closed gate), `api/companies/[id]/analyze/route.ts` (`maxDuration = 60`, `requireStaffAccess`, structured error contract), `nav.ts` + `nav.test.ts`, `app-sidebar.tsx`/`app-shell-layout.tsx`, `(dashboard)/layout.tsx` + `reviews/page.tsx`, `actions/reviews.ts`, `env.ts` (D-15 optional keys), `langfuse.ts` (D-14), v1.1/v1.2 PROJECT.md decision records (D-06, D-07, D-08, D-14, D-15, D-16)
 
 ### Secondary (MEDIUM confidence)
-- [What Is Firmographic Data | Apollo](https://www.apollo.io/insights/what-is-firmographic-data-and-why-does-it-matter-for-outbound-prospecting); [Building an ICP with Sales Intelligence | Apollo](https://www.apollo.io/insights/how-do-i-build-an-ideal-customer-profile-using-data-from-a-sales-intelligence-platform)
-- [ZoomInfo Data Overview](https://www.zoominfo.com/data); [ZoomInfo Intent Data](https://www.zoominfo.com/features/intent-data); [Buyer Intent Signals: 2026 Guide](https://pipeline.zoominfo.com/sales/intent-data-signals-that-matter)
-- [6sense Signalverse](https://6sense.com/signalverse/); [How 6sense Turns Buying Signals into Account Priorities](https://6sense.com/guides/account-prioritization/)
-- [Clay Waterfall enrichment](https://www.clay.com/waterfall-enrichment); [Enriching Company Data | Clay University](https://university.clay.com/lessons/enriching-company-data)
-- [Common Room — Signals product page](https://www.commonroom.io/product/signals/); [Capture every signal, everywhere | Common Room blog](https://www.commonroom.io/blog/capture-every-signal-everywhere/)
-- [ChartHop org chart resources](https://www.charthop.com/resource/what-is-org-chart-software), [buying considerations](https://www.charthop.com/resources/considerations-when-buying-org-chart-software), [docs](https://docs.charthop.com/org-chart)
-- [Transforming finance with GBS | EY](https://www.ey.com/en_us/services/consulting/finance-consulting-services/transforming-finance-with-global-business-services); [10 Shared Services Trends 2025 | Auxis](https://www.auxis.com/10-shared-services-trends-shaping-the-gbs-industry-in-2025/)
-- [Custom CRM Data Modeling](https://www.lowcode.agency/blog/custom-crm-objects-data-modeling); [CRM Data Model Explained](https://mriacrm.com/crm-data-model-explained-contacts-companies-deals-and-beyond/); [Normalizing Data Models Across CRMs](https://truto.one/blog/what-is-the-best-way-to-normalize-data-models-across-different-crms)
-- [CDP Event Schema Versioning](https://www.pathtoproject.com/blog/20260413-cdp-event-schema-versioning-without-breaking-activation); [Customer Data Processing for Intent Signals](https://www.datawhistl.com/blog/customer-data-processing-for-capturing-intent-signals-in-outbound-marketing-why-packaged-cdps-struggle-and-warehouse-native-architectures-win/)
-- [Rendering large lists without virtualization](https://rishandigital.com/reactjs/rendering-large-lists-without-virtualization-causing-slow-ui/); [10 Ways to Optimize Large List Rendering](https://www.fegno.com/10-proven-ways-to-optimize-large-list-rendering-in-react/)
-- [Sync React state with the URL](https://carlogino.com/blog/react-sync-state-with-url); [State Management | React Router](https://reactrouter.com/explanation/state-management)
-- [Multi-tenant authentication | Clerk](https://clerk.com/blog/multi-tenant-authentication-what-you-need-to-know)
-- [Master–detail interface - Wikipedia](https://en.wikipedia.org/wiki/Master%E2%80%93detail_interface)
-- [Building a multi-framework dashboard with Astro - LogRocket](https://blog.logrocket.com/building-multi-framework-dashboard-with-astro/); [Boost Performance with Astro Islands - Strapi](https://strapi.io/blog/astro-islands-architecture-explained-complete-guide)
-
-### Tertiary (LOW confidence)
-- WebSearch synthesis on "Astro vs Next.js for dashboards," "shadcn CLI Base UI default," and "Next.js 16 proxy.ts rename" — cross-referenced but individual blog posts not independently fetched; the Base-UI-default CLI claim explicitly needs verification at implementation time
-- [DEV Community: seed data quality](https://dev.to/joeauty/how-to-stop-living-with-your-seed-data-sucking-4lej) — single source, directionally consistent with general experience
-- Clearbit/Apollo enrichment API field-mapping patterns (Explorium.ai, ZoomInfo pipeline comparisons, Clearbit Help Center) — general shape reference only, not independently verified per-field
+- **OhMyOpenCode / oh-my-opencode docs (github.com/code-yeongyu/oh-my-opencode):** `fallback_models` semantics, resolution priority, per-model settings, cross-family degradation warnings — docs/community, not run locally
+- **npm registry:** `@opencode-ai/sdk@1.18.11` exists (rejected: requires a running `opencode serve` host), `@opencode-ai/plugin@1.18.11`
+- **Migration apply flow:** `drizzle/meta/_journal.json` has zero entries — push-vs-generate unconfirmed (verify in Phase A)
 
 ---
-*Research completed: 2026-07-22*
-*Ready for roadmap: yes*
+*Research completed: 2026-08-02*
+*Ready for roadmap: yes — pending resolution of Conflicts / Open Decisions 1–6 at planning*

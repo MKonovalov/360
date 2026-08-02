@@ -1,26 +1,12 @@
-import Link from 'next/link';
+import { ChevronDownIcon } from 'lucide-react';
 import { listPersonas, type PersonaFilters } from '@/lib/db/queries/personas';
 import { listCompanyRolesForPersona } from '@/lib/db/queries/companyPersonaRoles';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { TableCell } from '@/components/ui/table';
+import { ExplorerAccordionTable } from '@/components/explorer/explorer-accordion-table';
+import { ExplorerTableBehavior } from '@/components/explorer/explorer-table-behavior';
+import { PersonaDetail } from '@/components/personas/persona-detail';
 import { cn } from '@/lib/utils';
-
-// seniority is a fixed-but-extensible pgEnum storing slug values
-// (e.g. "c_level") — humanize for display rather than showing the raw slug
-// to a mixed/leadership audience.
-function humanizeEnum(value: string | null): string {
-  if (!value) return '—';
-  return value
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-}
+import { humanizeEnum } from '@/components/explorer/explorer-format';
 
 export async function PersonaList({
   filters,
@@ -39,7 +25,7 @@ export async function PersonaList({
       <div
         className={cn(
           'flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-8 text-center',
-          selectedId ? 'hidden md:flex' : 'flex'
+          selectedId != null ? 'hidden md:flex' : 'flex'
         )}
       >
         <p className="text-[18px] font-semibold leading-[1.2] text-slate-900">
@@ -68,7 +54,7 @@ export async function PersonaList({
           'flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-8 text-center',
           // D-07 mobile pattern: hide the list pane once a persona is
           // selected on narrow viewports so only the detail pane shows.
-          selectedId ? 'hidden md:flex' : 'flex'
+          selectedId != null ? 'hidden md:flex' : 'flex'
         )}
       >
         {hasActiveFilters ? (
@@ -104,48 +90,50 @@ export async function PersonaList({
     })
   );
 
+  // CR-02: `selectedId` (from `?selected=<id>`) may not match any row in the
+  // current filtered set — nonexistent id, deleted row, or filtered-out by
+  // the active filters. `renderDetail`/`notFound()` are only ever reached
+  // for a row already present in `rowsWithCurrentCompany`, so that case
+  // would otherwise silently render the plain list with nothing selected
+  // and no indication the D-03 legacy bookmark it came from pointed at
+  // something that's gone.
+  const selectedRowMissing =
+    selectedId != null && !rowsWithCurrentCompany.some((r) => r.persona.id === selectedId);
+
   return (
-    <div
-      className={cn(
-        'rounded-lg border border-slate-200 bg-white',
-        // D-07 mobile pattern: a selected persona hides the list on narrow
-        // viewports so only the detail pane shows.
-        selectedId ? 'hidden md:block' : 'block'
-      )}
-    >
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Title</TableHead>
-            <TableHead>Seniority</TableHead>
-            <TableHead>Current Company</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rowsWithCurrentCompany.map(({ persona, currentCompanyName }) => (
-            <TableRow
-              key={persona.id}
-              className={cn(
-                'min-h-12',
-                // Accent (indigo-600) selected-row indicator per UI-SPEC's
-                // Color section — accent marks selection state only
-                // (matches company-list.tsx's exact class shape).
-                persona.id === selectedId && 'border-l-2 border-l-indigo-600 bg-indigo-50/50'
-              )}
-            >
+    <div className="rounded-lg border border-slate-200 bg-white">
+      {selectedRowMissing ? (
+        <div className="border-b border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          {"The selected persona couldn't be found — it may have been deleted or no longer matches your filters."}
+        </div>
+      ) : null}
+      <ExplorerTableBehavior selectedId={selectedId}>
+        <ExplorerAccordionTable
+          columnLabels={['Name', 'Title', 'Seniority', 'Current Company']}
+          rows={rowsWithCurrentCompany}
+          getRowId={(row) => row.persona.id}
+          selectedId={selectedId}
+          renderRowCells={({ persona, currentCompanyName }, isExpanded) => (
+            <>
               <TableCell className="font-medium text-slate-900">
-                <Link href={`/personas/${persona.id}`} className="block">
+                <span className="flex items-center gap-1">
+                  <ChevronDownIcon
+                    className={cn(
+                      'size-4 shrink-0 text-slate-400 transition-transform',
+                      isExpanded && 'rotate-180'
+                    )}
+                  />
                   {persona.name}
-                </Link>
+                </span>
               </TableCell>
               <TableCell>{persona.title}</TableCell>
               <TableCell>{humanizeEnum(persona.seniority)}</TableCell>
               <TableCell>{currentCompanyName}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+            </>
+          )}
+          renderDetail={(row) => <PersonaDetail id={row.persona.id} />}
+        />
+      </ExplorerTableBehavior>
     </div>
   );
 }

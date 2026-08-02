@@ -1,6 +1,8 @@
 import { and, eq, ilike, exists, not, or, sql } from 'drizzle-orm';
 import { db } from '../index';
 import { persona, companyPersonaRole, company, signal, seniorityEnum } from '../schema';
+import { normalizeEmail, buildUpdatePatch } from '@/lib/import/dedupKeys';
+import type { PersonaAcceptedValues } from '@/lib/enrichment/reviewProposal';
 
 export interface PersonaFilters {
   search?: string;
@@ -106,6 +108,66 @@ export async function getPersonaById(id: number) {
   return rows[0];
 }
 
+// D-04/D-09/D-10 (Phase 7): upsert by normalized email, mirroring
+// upsertCompanyByDomain exactly. Blank email → always insert (D-04).
+// Non-blank email → normalize, select existing; if none → insert; if found →
+// build patch from non-blank fields only (D-10) and update by id.
+// No try/catch — same never-throw-internally convention as functions above.
+export interface UpsertPersonaInput {
+  name: string;
+  title?: string;
+  seniority?: (typeof seniorityEnum.enumValues)[number];
+  email?: string;
+  linkedinUrl?: string;
+}
+
+const PERSONA_PROVENANCE_FIELDS = ['title', 'seniority', 'linkedinUrl'] as const;
+
+function manualSources(input: UpsertPersonaInput): Record<string, 'manual'> {
+  return Object.fromEntries(
+    PERSONA_PROVENANCE_FIELDS.filter((field) => input[field] !== undefined).map((field) => [
+      field,
+      'manual' as const,
+    ])
+  );
+}
+
+export async function upsertPersonaByEmail(
+  row: UpsertPersonaInput
+): Promise<{ record: typeof persona.$inferSelect; action: 'created' | 'updated' }> {
+  if (!row.email) {
+    // D-04: blank email cell ALWAYS inserts a new persona — no dedup fallback
+    const [inserted] = await db
+      .insert(persona)
+      .values({ ...row, email: undefined, fieldSources: manualSources(row) })
+      .returning();
+    return { record: inserted, action: 'created' };
+  }
+  const normalized = normalizeEmail(row.email);
+  const existing = (await db.select().from(persona).where(eq(persona.email, normalized)))[0];
+  if (!existing) {
+    const [inserted] = await db
+      .insert(persona)
+      .values({ ...row, email: normalized, fieldSources: manualSources(row) })
+      .returning();
+    return { record: inserted, action: 'created' };
+  }
+  // D-09/D-10: full overwrite EXCEPT blank/undefined fields — buildUpdatePatch
+  // strips those so existing data is never cleared by a blank CSV cell.
+  const patch = buildUpdatePatch({ ...row, email: normalized });
+  const sources = manualSources(row);
+  const [updated] = await db
+    .update(persona)
+    .set({
+      ...patch,
+      fieldSources: sql`coalesce(${persona.fieldSources}, '{}'::jsonb) || ${JSON.stringify(sources)}::jsonb`,
+      version: sql`${persona.version} + 1`,
+    })
+    .where(eq(persona.id, existing.id))
+    .returning();
+  return { record: updated, action: 'updated' };
+}
+
 // Mirrors listDistinctIndustries — options for the "current company" filter
 // Select must come from the current-role join, not a plain company-table
 // distinct (a company must actually have a current persona to appear as a
@@ -116,4 +178,26 @@ export async function listDistinctCurrentCompanyNames() {
     .from(companyPersonaRole)
     .innerJoin(company, eq(companyPersonaRole.companyId, company.id))
     .where(eq(companyPersonaRole.isCurrent, true));
+}
+
+// Phase 8 (ENRC-02/ENRC-03): committed enrichment write for persona — mirrors
+// applyCompanyEnrichment. Writable columns are title/seniority/linkedinUrl;
+// name/email are never in `accepted` (the Server Action allowlist enforces it).
+export async function applyPersonaEnrichment(
+  id: number,
+  baseVersion: number,
+  accepted: PersonaAcceptedValues
+): Promise<boolean> {
+  const sources = Object.fromEntries(Object.keys(accepted).map((field) => [field, 'prospeo']));
+  const [updated] = await db
+    .update(persona)
+    .set({
+      ...accepted,
+      fieldSources: sql`coalesce(${persona.fieldSources}, '{}'::jsonb) || ${JSON.stringify(sources)}::jsonb`,
+      lastEnrichedAt: new Date(),
+      version: sql`${persona.version} + 1`,
+    })
+    .where(and(eq(persona.id, id), eq(persona.version, baseVersion)))
+    .returning({ id: persona.id });
+  return updated !== undefined;
 }

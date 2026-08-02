@@ -2,35 +2,17 @@ import { notFound } from 'next/navigation';
 import { getCompanyById } from '@/lib/db/queries/companies';
 import { listSignalsForCompany } from '@/lib/db/queries/signals';
 import { listPersonasForCompany } from '@/lib/db/queries/companyPersonaRoles';
+import { countPendingProposalsForCompany } from '@/lib/db/queries/proposals';
 import { Badge } from '@/components/ui/badge';
 import { SignalBadge } from '@/components/companies/signal-badge';
+import { ProposalBadge } from '@/components/companies/proposal-badge';
+import { AnalyzeRunStatus } from '@/components/agents/analyze-run-status';
 import { fetchArcpediaArticles } from '@/lib/arcpedia';
-
-// revenue_band/ownership_type are fixed-but-extensible pgEnums storing slug
-// values — humanize for display rather than showing the raw slug to a
-// mixed/leadership audience (mirrors company-list.tsx's convention).
-function humanizeEnum(value: string | null): string {
-  if (!value) return '—';
-  return value
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-}
-
-const dateFormatter = new Intl.DateTimeFormat('en-US', {
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric',
-});
-
-function FirmographicField({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-[12px] font-normal leading-[1.4] text-slate-500">{label}</p>
-      <p className="text-[14px] font-normal leading-[1.5] text-slate-900">{value}</p>
-    </div>
-  );
-}
+import { ExplorerCloseButton } from '@/components/explorer/explorer-table-behavior';
+import { EnrichMenu } from '@/components/enrichment/enrichment-review-dialog';
+import { RecordViewTracker } from '@/components/dashboard/record-view-tracker';
+import { humanizeEnum, dateFormatter, FirmographicField, FieldSourceBadge } from '@/components/explorer/explorer-format';
+import { env } from '@/lib/env';
 
 export async function CompanyDetail({ id }: { id: number }) {
   // EXPL-06/D-09: mirrors company-list.tsx's try/catch error-card pattern —
@@ -41,12 +23,14 @@ export async function CompanyDetail({ id }: { id: number }) {
   let company: Awaited<ReturnType<typeof getCompanyById>>;
   let signals: Awaited<ReturnType<typeof listSignalsForCompany>> = [];
   let personaRoles: Awaited<ReturnType<typeof listPersonasForCompany>> = [];
+  let pendingProposalCount = 0;
   try {
     company = await getCompanyById(id);
     if (company) {
-      [signals, personaRoles] = await Promise.all([
+      [signals, personaRoles, pendingProposalCount] = await Promise.all([
         listSignalsForCompany(id),
         listPersonasForCompany(id),
+        countPendingProposalsForCompany(id),
       ]);
     }
   } catch {
@@ -68,6 +52,9 @@ export async function CompanyDetail({ id }: { id: number }) {
     notFound();
   }
 
+  // D-04/Pitfall 4: fired only after the confirmed-exists check above — a
+  // broken/deleted-record deep link must never write a recentlyViewed row
+  // for a nonexistent id.
   // D-10: independent failure domain from the DB-fetch try/catch above —
   // fetchArcpediaArticles never throws (Task 1), so an Arcpedia
   // timeout/failure must never surface the DB error card above, and a
@@ -75,30 +62,48 @@ export async function CompanyDetail({ id }: { id: number }) {
   const articles = await fetchArcpediaArticles(company.name);
 
   return (
-    <div className="space-y-12 rounded-lg border border-slate-200 bg-white p-8">
+    <div className="relative space-y-12 bg-white p-8">
+      <RecordViewTracker recordType="company" recordId={company.id} />
+      <div className="absolute top-3 right-3 flex items-center gap-1">
+        <EnrichMenu
+          entityType="company"
+          recordId={company.id}
+          canEnrich={Boolean(company.domain && env.APOLLO_API_KEY && env.ENRICHMENT_REVIEW_SECRET)}
+          disabledReason={!company.domain ? 'Add a domain first' : 'Company enrichment is not configured'}
+          canAnalyze={Boolean(env.ANTHROPIC_API_KEY && env.FIRECRAWL_API_KEY)}
+          analyzeDisabledReason="Agent not configured"
+        />
+        <ExplorerCloseButton />
+      </div>
       <div>
         <h1 className="text-[24px] font-semibold leading-[1.2] text-slate-900">{company.name}</h1>
-        <p className="text-[14px] font-normal leading-[1.5] text-slate-500">
-          {company.industry ?? '—'}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="text-[14px] font-normal leading-[1.5] text-slate-500">
+            {company.industry ?? '—'}
+          </p>
+          <FieldSourceBadge source={company.fieldSources?.industry} />
+        </div>
       </div>
+
+      <AnalyzeRunStatus companyId={company.id} companyName={company.name} />
 
       <section>
         <h2 className="mb-4 text-[18px] font-semibold leading-[1.2] text-slate-900">
           Firmographics
         </h2>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <FirmographicField label="Employee Count" value={company.employeeCountBand ?? '—'} />
-          <FirmographicField label="HQ Location" value={company.hqLocation ?? '—'} />
-          <FirmographicField label="Revenue Band" value={humanizeEnum(company.revenueBand)} />
-          <FirmographicField label="Ownership Type" value={humanizeEnum(company.ownershipType)} />
+        <div className="grid grid-cols-2 gap-4 @lg:grid-cols-4">
+          <FirmographicField label="Employee Count" value={company.employeeCountBand ?? '—'} source={company.fieldSources?.employeeCountBand} />
+          <FirmographicField label="HQ Location" value={company.hqLocation ?? '—'} source={company.fieldSources?.hqLocation} />
+          <FirmographicField label="Revenue Band" value={humanizeEnum(company.revenueBand)} source={company.fieldSources?.revenueBand} />
+          <FirmographicField label="Ownership Type" value={humanizeEnum(company.ownershipType)} source={company.fieldSources?.ownershipType} />
         </div>
       </section>
 
       <section>
-        <h2 className="mb-4 text-[18px] font-semibold leading-[1.2] text-slate-900">
-          Tech Stack
-        </h2>
+        <div className="mb-4 flex items-center gap-2">
+          <h2 className="text-[18px] font-semibold leading-[1.2] text-slate-900">Tech Stack</h2>
+          <FieldSourceBadge source={company.fieldSources?.techStack} />
+        </div>
         {company.techStack && company.techStack.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {company.techStack.map((tool) => (
@@ -115,9 +120,12 @@ export async function CompanyDetail({ id }: { id: number }) {
       </section>
 
       <section>
-        <h2 className="mb-4 text-[18px] font-semibold leading-[1.2] text-slate-900">
-          Buying Signals
-        </h2>
+        <div className="mb-4 flex items-center gap-2">
+          <h2 className="text-[18px] font-semibold leading-[1.2] text-slate-900">
+            Buying Signals
+          </h2>
+          <ProposalBadge count={pendingProposalCount} />
+        </div>
         {signals.length > 0 ? (
           <ul className="space-y-2">
             {signals.map((signal) => (

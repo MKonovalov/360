@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useRef } from 'react';
+import { useSidebar } from '@/components/ui/sidebar';
 
 const MIN_WIDTH = 200;
 const MAX_WIDTH = 400;
@@ -17,6 +18,7 @@ export function SidebarResizeHandle() {
   const startXRef = useRef(0);
   const startWidthRef = useRef(0);
   const wrapperRef = useRef<HTMLElement | null>(null);
+  const { state } = useSidebar();
 
   const handlePointerMove = useCallback((event: PointerEvent) => {
     const delta = event.clientX - startXRef.current;
@@ -69,6 +71,14 @@ export function SidebarResizeHandle() {
     [handlePointerMove, handlePointerUp]
   );
 
+  // The 48px rail is fixed-width with no resize affordance, so the handle
+  // must not render — and crucially its imperative width write must never run
+  // mid-collapse, because the cookie-threaded width variable must stay at its
+  // last persisted value for the automatic restore on expand (D-04 / D-05).
+  // Placed after every hook (the callbacks are hooks too) so the hook count
+  // never varies between expanded and collapsed renders.
+  if (state === 'collapsed') return null;
+
   return (
     // A plain flex-item sibling (not absolutely positioned) — the
     // SidebarProvider wrapper is a flex row with default
@@ -81,7 +91,11 @@ export function SidebarResizeHandle() {
       aria-orientation="vertical"
       aria-label="Resize sidebar"
       onPointerDown={handlePointerDown}
-      className="hidden w-1 shrink-0 cursor-col-resize touch-none bg-transparent hover:bg-indigo-200 md:block"
+      // Flex sibling of <Sidebar>, outside the [data-sidebar="sidebar"] subtree,
+      // so scoped sidebar tokens do not resolve here. The foreground token at
+      // 10% opacity derives a neutral light-gray hover from global tokens,
+      // replacing the v1.1 colored hover (QLTY-04).
+      className="hidden w-1 shrink-0 cursor-col-resize touch-none bg-transparent hover:bg-foreground/10 md:block"
     />
   );
 }

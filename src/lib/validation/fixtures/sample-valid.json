@@ -1,0 +1,87 @@
+{
+  "airs_version": "0.1.0",
+  "report_id": "rpt-2026-07-13-0001",
+  "company_id": "co-helvetia-mittelstand",
+  "company_name": "Helvetia Mittelstand AG",
+  "client_key": "acme-gbs",
+  "assessed_at": "2026-07-13",
+  "analyst": "agent/int360-v0.1",
+  "bluf": {
+    "verdict": "active",
+    "confidence_band": "C1",
+    "strongest_evidence": "E1"
+  },
+  "engagement_context": "Acme GBS retained to assess near-term BPO/shared-services opportunity with Helvetia Mittelstand AG, a EUR 1.2B Swiss industrial Mittelstand firm.",
+  "signals": [
+    {
+      "signal_code": "S2",
+      "observed_at": "2026-06-18",
+      "source_url": "https://www.helvetia-mittelstand.example.com/news/gbs-centre",
+      "reliability": "R1",
+      "confidence": "C1",
+      "weight": 9,
+      "evidence_snippet": "Helvetia Mittelstand AG today opened a new Global Business Services centre in Katowice, consolidating finance and HR operations.",
+      "evidence_id": "E1"
+    },
+    {
+      "signal_code": "S3",
+      "observed_at": "2026-05-02",
+      "source_url": "https://www.helvetia-mittelstand.example.com/news/s4hana",
+      "reliability": "R2",
+      "confidence": "C2",
+      "weight": 8,
+      "evidence_snippet": "Company confirms multi-year S/4HANA migration programme across European entities.",
+      "evidence_id": "E2"
+    }
+  ],
+  "analysis": {
+    "hypotheses": [
+      {
+        "id": "H1",
+        "statement": "Active GBS buying intent now (BPO + ERP transformation underway).",
+        "status": "supported",
+        "diagnostic_evidence": ["E1", "E2"],
+        "would_change_mind": "A public cancellation of the GBS centre or S/4HANA programme."
+      },
+      {
+        "id": "H2",
+        "statement": "Intent is only latent / exploratory.",
+        "status": "refuted",
+        "diagnostic_evidence": ["E1"],
+        "would_change_mind": "Evidence that the GBS centre is advisory-only with no managed services."
+      }
+    ]
+  },
+  "intent_assessment": {
+    "composite_score": 15.4,
+    "trajectory": "rising",
+    "recommended_action": "Schedule discovery workshop with CFO office within 3 weeks; lead with S/4HANA-to-GBS operating-model play."
+  },
+  "key_uncertainties": [
+    "Deal size and incumbent BPO vendor unknown.",
+    "Whether GBS centre will insource or partner."
+  ],
+  "evidence_appendix": [
+    {
+      "evidence_id": "E1",
+      "url": "https://www.helvetia-mittelstand.example.com/news/gbs-centre",
+      "ingested_at": "2026-06-18T09:12:00Z",
+      "retention_tag": "public_biz",
+      "reliability": "R1",
+      "confidence": "C1"
+    },
+    {
+      "evidence_id": "E2",
+      "url": "https://www.helvetia-mittelstand.example.com/news/s4hana",
+      "ingested_at": "2026-05-02T14:30:00Z",
+      "retention_tag": "public_biz",
+      "reliability": "R2",
+      "confidence": "C2"
+    }
+  ],
+  "compliance_footer": {
+    "scip_gdpr_statement": "Collected public business info under SCIP Code of Ethics; GDPR Art.6(1)(f) legitimate interest, B2B public source.",
+    "personal_data_minimized": true,
+    "approved_by": "J. Analyst"
+  }
+}

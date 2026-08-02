@@ -1,0 +1,915 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - list [ref=e8]:
+      - listitem [ref=e9]:
+        - link "Start" [ref=e10] [cursor=pointer]:
+          - /url: /
+      - listitem [ref=e11]:
+        - link "Companies" [ref=e12] [cursor=pointer]:
+          - /url: /companies
+      - listitem [ref=e13]:
+        - link "Key Personas" [ref=e14] [cursor=pointer]:
+          - /url: /personas
+      - listitem [ref=e15]:
+        - link "Reviews" [ref=e16] [cursor=pointer]:
+          - /url: /reviews
+    - separator "Resize sidebar" [ref=e21]
+    - main [ref=e22]:
+      - button "Toggle Sidebar" [ref=e23]
+      - generic [ref=e25]:
+        - button "Menu" [ref=e27]
+        - generic [ref=e28]:
+          - textbox "Search companies..." [ref=e29]
+          - generic [ref=e30]:
+            - combobox [ref=e31]:
+              - generic: Industry
+            - combobox [ref=e32]:
+              - generic: Signal type
+            - combobox [ref=e33]:
+              - generic: Revenue band
+            - combobox [ref=e34]:
+              - generic: Ownership type
+        - table [ref=e39]:
+          - rowgroup [ref=e40]:
+            - row [ref=e41]:
+              - columnheader "Name" [ref=e42]
+              - columnheader "Industry" [ref=e43]
+              - columnheader "Employee Count" [ref=e44]
+              - columnheader "HQ Location" [ref=e45]
+              - columnheader "Revenue Band" [ref=e46]
+              - columnheader "Ownership Type" [ref=e47]
+              - columnheader "Signals" [ref=e48]
+          - rowgroup [ref=e49]:
+            - row [ref=e50] [cursor=pointer]:
+              - cell [ref=e51]
+              - cell "Financial Services" [ref=e55]
+              - cell "201-1000" [ref=e56]
+              - cell "New York, USA" [ref=e57]
+              - cell "1b 5b" [ref=e58]
+              - cell "Public" [ref=e59]
+              - cell "New CFO/GBS Head" [ref=e60]
+            - row [expanded] [active] [ref=e63] [cursor=pointer]:
+              - cell [ref=e64]
+              - cell "Manufacturing" [ref=e68]
+              - cell "5001-20000" [ref=e69]
+              - cell "Essen, Germany" [ref=e70]
+              - cell "1b 5b" [ref=e71]
+              - cell "Subsidiary" [ref=e72]
+              - cell "Immature GBS Org Transformation Announcement" [ref=e73]:
+                - generic [ref=e74]:
+                  - generic [ref=e75]: Immature GBS Org
+                  - generic [ref=e76]: Transformation Announcement
+            - row [ref=e1233]:
+              - cell [ref=e1234]:
+                - generic [ref=e1236]:
+                  - generic [ref=e1237]:
+                    - button "Menu" [ref=e1238]
+                    - button "Close" [ref=e1239]
+                  - generic [ref=e1240]:
+                    - heading "Gamma Placeholder AG" [level=1] [ref=e1241]
+                    - generic [ref=e1242]:
+                      - paragraph [ref=e1243]: Manufacturing
+                      - generic [ref=e1244]: Manual
+                  - generic [ref=e1245]:
+                    - heading "Firmographics" [level=2] [ref=e1246]
+                    - generic [ref=e1247]:
+                      - generic [ref=e1248]:
+                        - generic [ref=e1249]:
+                          - paragraph [ref=e1250]: Employee Count
+                          - generic [ref=e1251]: Manual
+                        - paragraph [ref=e1252]: 5001-20000
+                      - generic [ref=e1253]:
+                        - generic [ref=e1254]:
+                          - paragraph [ref=e1255]: HQ Location
+                          - generic [ref=e1256]: Manual
+                        - paragraph [ref=e1257]: Essen, Germany
+                      - generic [ref=e1258]:
+                        - generic [ref=e1259]:
+                          - paragraph [ref=e1260]: Revenue Band
+                          - generic [ref=e1261]: Manual
+                        - paragraph [ref=e1262]: 1b 5b
+                      - generic [ref=e1263]:
+                        - generic [ref=e1264]:
+                          - paragraph [ref=e1265]: Ownership Type
+                          - generic [ref=e1266]: Manual
+                        - paragraph [ref=e1267]: Subsidiary
+                  - generic [ref=e1268]:
+                    - generic [ref=e1269]:
+                      - heading "Tech Stack" [level=2] [ref=e1270]
+                      - generic [ref=e1271]: Manual
+                    - generic [ref=e1272]:
+                      - generic [ref=e1273]: SAP S/4HANA
+                      - generic [ref=e1274]: Ariba
+                      - generic [ref=e1275]: Power BI
+                  - generic [ref=e1276]:
+                    - heading "Buying Signals" [level=2] [ref=e1278]
+                    - list [ref=e1279]:
+                      - listitem [ref=e1280]:
+                        - generic [ref=e1281]: Immature GBS Org
+                        - generic [ref=e1282]: manual · Feb 10, 2026
+                      - listitem [ref=e1283]:
+                        - generic [ref=e1284]: Transformation Announcement
+                        - generic [ref=e1285]: manual · Mar 1, 2026
+                  - generic [ref=e1286]:
+                    - heading "Linked Personas" [level=2] [ref=e1287]
+                    - list [ref=e1288]:
+                      - listitem [ref=e1289]: Morgan Testcase — Head of Global Business Services
+                      - listitem [ref=e1290]: Sydney Placeholdt — Head of GBS Transformation
+                  - generic [ref=e1291]:
+                    - heading "Related Knowledge" [level=2] [ref=e1292]
+                    - list [ref=e1293]:
+                      - listitem [ref=e1294]:
+                        - link "Claude Fable" [ref=e1295] [cursor=pointer]:
+                          - /url: https://arcpedia.arclumen.de/wiki/claude-fable
+                        - paragraph [ref=e1296]: …built by AI for Strategy that replicates the workflow of a Tier-1 management consulting engagement. The skills are grouped into five…
+                      - listitem [ref=e1297]:
+                        - link "Closed-Loop Biopharma R&D Model" [ref=e1298] [cursor=pointer]:
+                          - /url: https://arcpedia.arclumen.de/wiki/closed-loop-biopharma-r-d-model
+                        - paragraph [ref=e1299]: …points that use AI to create systematic feedback across all stages. Consultancy McKinsey argues that merely applying AI to the…
+                      - listitem [ref=e1300]:
+                        - link "DrugGen-2" [ref=e1301] [cursor=pointer]:
+                          - /url: https://arcpedia.arclumen.de/wiki/druggen-2
+                        - paragraph [ref=e1302]: …assessment—including invalid structures—and a docking simulation against the therapeutic targets ACE and PPARγ. Docking employed…
+            - row [ref=e77] [cursor=pointer]:
+              - cell [ref=e78]
+              - cell "Retail" [ref=e82]
+              - cell "1001-5000" [ref=e83]
+              - cell "Chicago, USA" [ref=e84]
+              - cell "250m 1b" [ref=e85]
+              - cell "Private" [ref=e86]
+              - cell "Cost Pressure" [ref=e87]
+            - row [ref=e90] [cursor=pointer]:
+              - cell [ref=e91]
+              - cell "Healthcare" [ref=e95]
+              - cell "5001-20000" [ref=e96]
+              - cell "Boston, USA" [ref=e97]
+              - cell "1b 5b" [ref=e98]
+              - cell "Public" [ref=e99]
+              - cell "Transformation Announcement" [ref=e100]
+            - row [ref=e103] [cursor=pointer]:
+              - cell [ref=e104]
+              - cell "Logistics" [ref=e108]
+              - cell "201-1000" [ref=e109]
+              - cell "Rotterdam, Netherlands" [ref=e110]
+              - cell "50m 250m" [ref=e111]
+              - cell "Pe Backed" [ref=e112]
+              - cell "Immature GBS Org" [ref=e113]
+            - row [ref=e116] [cursor=pointer]:
+              - cell [ref=e117]
+              - cell "Energy" [ref=e121]
+              - cell "20000+" [ref=e122]
+              - cell "Houston, USA" [ref=e123]
+              - cell "5b Plus" [ref=e124]
+              - cell "Public" [ref=e125]
+              - cell "New CFO/GBS Head Cost Pressure" [ref=e126]:
+                - generic [ref=e127]:
+                  - generic [ref=e128]: New CFO/GBS Head
+                  - generic [ref=e129]: Cost Pressure
+            - row [ref=e130] [cursor=pointer]:
+              - cell [ref=e131]
+              - cell "Consumer Goods" [ref=e135]
+              - cell "1001-5000" [ref=e136]
+              - cell "London, UK" [ref=e137]
+              - cell "250m 1b" [ref=e138]
+              - cell "Family Owned" [ref=e139]
+              - cell "Immature GBS Org" [ref=e140]
+            - row [ref=e143] [cursor=pointer]:
+              - cell [ref=e144]
+              - cell "SaaS" [ref=e148]
+              - cell "51-200" [ref=e149]
+              - cell "Austin, USA" [ref=e150]
+              - cell "Under 50m" [ref=e151]
+              - cell "Private" [ref=e152]
+              - cell "Transformation Announcement New CFO/GBS Head" [ref=e153]:
+                - generic [ref=e154]:
+                  - generic [ref=e155]: Transformation Announcement
+                  - generic [ref=e156]: New CFO/GBS Head
+            - row [ref=e157] [cursor=pointer]:
+              - cell [ref=e158]
+              - cell "information technology & services" [ref=e162]
+              - cell "1001-5000" [ref=e163]
+              - cell "San Francisco, California, United States" [ref=e164]
+              - cell "250m 1b" [ref=e165]
+              - cell "Private" [ref=e166]
+              - cell "Cost Pressure" [ref=e167]
+            - row [ref=e170] [cursor=pointer]:
+              - cell [ref=e171]
+              - cell "Chemicals" [ref=e175]
+              - cell "—" [ref=e176]
+              - cell "Germany" [ref=e177]
+              - cell "—" [ref=e178]
+              - cell "—" [ref=e179]
+              - cell [ref=e180]
+            - row [ref=e181] [cursor=pointer]:
+              - cell [ref=e182]
+              - cell "Chemicals" [ref=e186]
+              - cell "—" [ref=e187]
+              - cell "Hungary" [ref=e188]
+              - cell "—" [ref=e189]
+              - cell "—" [ref=e190]
+              - cell [ref=e191]
+            - row [ref=e192] [cursor=pointer]:
+              - cell [ref=e193]
+              - cell "Chemicals" [ref=e197]
+              - cell "—" [ref=e198]
+              - cell "Romania" [ref=e199]
+              - cell "—" [ref=e200]
+              - cell "—" [ref=e201]
+              - cell [ref=e202]
+            - row [ref=e203] [cursor=pointer]:
+              - cell [ref=e204]
+              - cell "Chemicals" [ref=e208]
+              - cell "—" [ref=e209]
+              - cell "Slovenia" [ref=e210]
+              - cell "—" [ref=e211]
+              - cell "—" [ref=e212]
+              - cell [ref=e213]
+            - row [ref=e214] [cursor=pointer]:
+              - cell [ref=e215]
+              - cell "Chemicals" [ref=e219]
+              - cell "—" [ref=e220]
+              - cell "Netherlands" [ref=e221]
+              - cell "—" [ref=e222]
+              - cell "—" [ref=e223]
+              - cell [ref=e224]
+            - row [ref=e225] [cursor=pointer]:
+              - cell [ref=e226]
+              - cell "Chemicals" [ref=e230]
+              - cell "—" [ref=e231]
+              - cell "Spain" [ref=e232]
+              - cell "—" [ref=e233]
+              - cell "—" [ref=e234]
+              - cell [ref=e235]
+            - row [ref=e236] [cursor=pointer]:
+              - cell [ref=e237]
+              - cell "Chemicals" [ref=e241]
+              - cell "—" [ref=e242]
+              - cell "Finland" [ref=e243]
+              - cell "—" [ref=e244]
+              - cell "—" [ref=e245]
+              - cell [ref=e246]
+            - row [ref=e247] [cursor=pointer]:
+              - cell [ref=e248]
+              - cell "Chemicals" [ref=e252]
+              - cell "—" [ref=e253]
+              - cell "Hungary" [ref=e254]
+              - cell "—" [ref=e255]
+              - cell "—" [ref=e256]
+              - cell [ref=e257]
+            - row [ref=e258] [cursor=pointer]:
+              - cell [ref=e259]
+              - cell "Chemicals" [ref=e263]
+              - cell "—" [ref=e264]
+              - cell "Netherlands" [ref=e265]
+              - cell "—" [ref=e266]
+              - cell "—" [ref=e267]
+              - cell [ref=e268]
+            - row [ref=e269] [cursor=pointer]:
+              - cell [ref=e270]
+              - cell "Chemicals" [ref=e274]
+              - cell "—" [ref=e275]
+              - cell "Luxembourg" [ref=e276]
+              - cell "—" [ref=e277]
+              - cell "—" [ref=e278]
+              - cell [ref=e279]
+            - row [ref=e280] [cursor=pointer]:
+              - cell [ref=e281]
+              - cell "Chemicals" [ref=e285]
+              - cell "—" [ref=e286]
+              - cell "Poland" [ref=e287]
+              - cell "—" [ref=e288]
+              - cell "—" [ref=e289]
+              - cell [ref=e290]
+            - row [ref=e291] [cursor=pointer]:
+              - cell [ref=e292]
+              - cell "Chemicals" [ref=e296]
+              - cell "—" [ref=e297]
+              - cell "Italy" [ref=e298]
+              - cell "—" [ref=e299]
+              - cell "Private" [ref=e300]
+              - cell [ref=e301]
+            - row [ref=e302] [cursor=pointer]:
+              - cell [ref=e303]
+              - cell "Chemicals" [ref=e307]
+              - cell "—" [ref=e308]
+              - cell "Belgium" [ref=e309]
+              - cell "—" [ref=e310]
+              - cell "—" [ref=e311]
+              - cell [ref=e312]
+            - row [ref=e313] [cursor=pointer]:
+              - cell [ref=e314]
+              - cell "Chemicals" [ref=e318]
+              - cell "—" [ref=e319]
+              - cell "Portugal" [ref=e320]
+              - cell "—" [ref=e321]
+              - cell "—" [ref=e322]
+              - cell [ref=e323]
+            - row [ref=e324] [cursor=pointer]:
+              - cell [ref=e325]
+              - cell "Chemicals" [ref=e329]
+              - cell "—" [ref=e330]
+              - cell "Czech Republic" [ref=e331]
+              - cell "—" [ref=e332]
+              - cell "—" [ref=e333]
+              - cell [ref=e334]
+            - row [ref=e335] [cursor=pointer]:
+              - cell [ref=e336]
+              - cell "Chemicals" [ref=e340]
+              - cell "—" [ref=e341]
+              - cell "Poland" [ref=e342]
+              - cell "—" [ref=e343]
+              - cell "Private" [ref=e344]
+              - cell [ref=e345]
+            - row [ref=e346] [cursor=pointer]:
+              - cell [ref=e347]
+              - cell "Chemicals" [ref=e351]
+              - cell "—" [ref=e352]
+              - cell "Italy" [ref=e353]
+              - cell "—" [ref=e354]
+              - cell "Subsidiary" [ref=e355]
+              - cell [ref=e356]
+            - row [ref=e357] [cursor=pointer]:
+              - cell [ref=e358]
+              - cell "Chemicals" [ref=e362]
+              - cell "—" [ref=e363]
+              - cell "Belgium" [ref=e364]
+              - cell "—" [ref=e365]
+              - cell "Private" [ref=e366]
+              - cell [ref=e367]
+            - row [ref=e368] [cursor=pointer]:
+              - cell [ref=e369]
+              - cell "Crop Science / Agriculture" [ref=e373]
+              - cell "—" [ref=e374]
+              - cell "Lithuania" [ref=e375]
+              - cell "—" [ref=e376]
+              - cell "—" [ref=e377]
+              - cell [ref=e378]
+            - row [ref=e379] [cursor=pointer]:
+              - cell [ref=e380]
+              - cell "Crop Science / Agriculture" [ref=e384]
+              - cell "—" [ref=e385]
+              - cell "Czech Republic" [ref=e386]
+              - cell "—" [ref=e387]
+              - cell "Subsidiary" [ref=e388]
+              - cell [ref=e389]
+            - row [ref=e390] [cursor=pointer]:
+              - cell [ref=e391]
+              - cell "Crop Science / Agriculture" [ref=e395]
+              - cell "—" [ref=e396]
+              - cell "France" [ref=e397]
+              - cell "—" [ref=e398]
+              - cell "Cooperative" [ref=e399]
+              - cell [ref=e400]
+            - row [ref=e401] [cursor=pointer]:
+              - cell [ref=e402]
+              - cell "Crop Science / Agriculture" [ref=e406]
+              - cell "—" [ref=e407]
+              - cell "Belgium" [ref=e408]
+              - cell "—" [ref=e409]
+              - cell "Private" [ref=e410]
+              - cell [ref=e411]
+            - row [ref=e412] [cursor=pointer]:
+              - cell [ref=e413]
+              - cell "Crop Science / Agriculture" [ref=e417]
+              - cell "—" [ref=e418]
+              - cell "Belgium" [ref=e419]
+              - cell "—" [ref=e420]
+              - cell "—" [ref=e421]
+              - cell [ref=e422]
+            - row [ref=e423] [cursor=pointer]:
+              - cell [ref=e424]
+              - cell "Crop Science / Agriculture" [ref=e428]
+              - cell "—" [ref=e429]
+              - cell "France" [ref=e430]
+              - cell "—" [ref=e431]
+              - cell "Cooperative" [ref=e432]
+              - cell [ref=e433]
+            - row [ref=e434] [cursor=pointer]:
+              - cell [ref=e435]
+              - cell "Crop Science / Agriculture" [ref=e439]
+              - cell "—" [ref=e440]
+              - cell "Germany" [ref=e441]
+              - cell "—" [ref=e442]
+              - cell "Public" [ref=e443]
+              - cell [ref=e444]
+            - row [ref=e445] [cursor=pointer]:
+              - cell [ref=e446]
+              - cell "Crop Science / Agriculture" [ref=e450]
+              - cell "—" [ref=e451]
+              - cell "France" [ref=e452]
+              - cell "—" [ref=e453]
+              - cell "Cooperative" [ref=e454]
+              - cell [ref=e455]
+            - row [ref=e456] [cursor=pointer]:
+              - cell [ref=e457]
+              - cell "Crop Science / Agriculture" [ref=e461]
+              - cell "—" [ref=e462]
+              - cell "France" [ref=e463]
+              - cell "—" [ref=e464]
+              - cell "Cooperative" [ref=e465]
+              - cell [ref=e466]
+            - row [ref=e467] [cursor=pointer]:
+              - cell [ref=e468]
+              - cell "Crop Science / Agriculture" [ref=e472]
+              - cell "—" [ref=e473]
+              - cell "Spain" [ref=e474]
+              - cell "—" [ref=e475]
+              - cell "—" [ref=e476]
+              - cell [ref=e477]
+            - row [ref=e478] [cursor=pointer]:
+              - cell [ref=e479]
+              - cell "Crop Science / Agriculture" [ref=e483]
+              - cell "—" [ref=e484]
+              - cell "France" [ref=e485]
+              - cell "—" [ref=e486]
+              - cell "Private" [ref=e487]
+              - cell [ref=e488]
+            - row [ref=e489] [cursor=pointer]:
+              - cell [ref=e490]
+              - cell "Crop Science / Agriculture" [ref=e494]
+              - cell "—" [ref=e495]
+              - cell "Germany" [ref=e496]
+              - cell "—" [ref=e497]
+              - cell "Private" [ref=e498]
+              - cell [ref=e499]
+            - row [ref=e500] [cursor=pointer]:
+              - cell [ref=e501]
+              - cell "Crop Science / Agriculture" [ref=e505]
+              - cell "—" [ref=e506]
+              - cell "Germany" [ref=e507]
+              - cell "—" [ref=e508]
+              - cell "Cooperative" [ref=e509]
+              - cell [ref=e510]
+            - row [ref=e511] [cursor=pointer]:
+              - cell [ref=e512]
+              - cell "Crop Science / Agriculture" [ref=e516]
+              - cell "—" [ref=e517]
+              - cell "Netherlands" [ref=e518]
+              - cell "—" [ref=e519]
+              - cell "Public" [ref=e520]
+              - cell [ref=e521]
+            - row [ref=e522] [cursor=pointer]:
+              - cell [ref=e523]
+              - cell "Crop Science / Agriculture" [ref=e527]
+              - cell "—" [ref=e528]
+              - cell "Austria" [ref=e529]
+              - cell "—" [ref=e530]
+              - cell "Cooperative" [ref=e531]
+              - cell [ref=e532]
+            - row [ref=e533] [cursor=pointer]:
+              - cell [ref=e534]
+              - cell "Crop Science / Agriculture" [ref=e538]
+              - cell "—" [ref=e539]
+              - cell "Belgium" [ref=e540]
+              - cell "—" [ref=e541]
+              - cell "Private" [ref=e542]
+              - cell [ref=e543]
+            - row [ref=e544] [cursor=pointer]:
+              - cell [ref=e545]
+              - cell "Crop Science / Agriculture" [ref=e549]
+              - cell "—" [ref=e550]
+              - cell "Italy" [ref=e551]
+              - cell "—" [ref=e552]
+              - cell "Private" [ref=e553]
+              - cell [ref=e554]
+            - row [ref=e555] [cursor=pointer]:
+              - cell [ref=e556]
+              - cell "Crop Science / Agriculture" [ref=e560]
+              - cell "—" [ref=e561]
+              - cell "France" [ref=e562]
+              - cell "—" [ref=e563]
+              - cell "Cooperative" [ref=e564]
+              - cell [ref=e565]
+            - row [ref=e566] [cursor=pointer]:
+              - cell [ref=e567]
+              - cell "Manufacturing / Industrial" [ref=e571]
+              - cell "—" [ref=e572]
+              - cell "Spain" [ref=e573]
+              - cell "—" [ref=e574]
+              - cell "—" [ref=e575]
+              - cell [ref=e576]
+            - row [ref=e577] [cursor=pointer]:
+              - cell [ref=e578]
+              - cell "Manufacturing / Industrial" [ref=e582]
+              - cell "—" [ref=e583]
+              - cell "Belgium" [ref=e584]
+              - cell "—" [ref=e585]
+              - cell "—" [ref=e586]
+              - cell [ref=e587]
+            - row [ref=e588] [cursor=pointer]:
+              - cell [ref=e589]
+              - cell "Manufacturing / Industrial" [ref=e593]
+              - cell "—" [ref=e594]
+              - cell "Austria" [ref=e595]
+              - cell "—" [ref=e596]
+              - cell "Private" [ref=e597]
+              - cell [ref=e598]
+            - row [ref=e599] [cursor=pointer]:
+              - cell [ref=e600]
+              - cell "Manufacturing / Industrial" [ref=e604]
+              - cell "—" [ref=e605]
+              - cell "Germany" [ref=e606]
+              - cell "—" [ref=e607]
+              - cell "Private" [ref=e608]
+              - cell [ref=e609]
+            - row [ref=e610] [cursor=pointer]:
+              - cell [ref=e611]
+              - cell "Manufacturing / Industrial" [ref=e615]
+              - cell "—" [ref=e616]
+              - cell "Sweden" [ref=e617]
+              - cell "—" [ref=e618]
+              - cell "—" [ref=e619]
+              - cell [ref=e620]
+            - row [ref=e621] [cursor=pointer]:
+              - cell [ref=e622]
+              - cell "Manufacturing / Industrial" [ref=e626]
+              - cell "—" [ref=e627]
+              - cell "Germany" [ref=e628]
+              - cell "—" [ref=e629]
+              - cell "Private" [ref=e630]
+              - cell [ref=e631]
+            - row [ref=e632] [cursor=pointer]:
+              - cell [ref=e633]
+              - cell "Manufacturing / Industrial" [ref=e637]
+              - cell "—" [ref=e638]
+              - cell "Germany" [ref=e639]
+              - cell "—" [ref=e640]
+              - cell "Public" [ref=e641]
+              - cell [ref=e642]
+            - row [ref=e643] [cursor=pointer]:
+              - cell [ref=e644]
+              - cell "Manufacturing / Industrial" [ref=e648]
+              - cell "—" [ref=e649]
+              - cell "Spain" [ref=e650]
+              - cell "—" [ref=e651]
+              - cell "Private" [ref=e652]
+              - cell [ref=e653]
+            - row [ref=e654] [cursor=pointer]:
+              - cell [ref=e655]
+              - cell "Manufacturing / Industrial" [ref=e659]
+              - cell "—" [ref=e660]
+              - cell "Netherlands" [ref=e661]
+              - cell "—" [ref=e662]
+              - cell "—" [ref=e663]
+              - cell [ref=e664]
+            - row [ref=e665] [cursor=pointer]:
+              - cell [ref=e666]
+              - cell "Manufacturing / Industrial" [ref=e670]
+              - cell "—" [ref=e671]
+              - cell "Germany" [ref=e672]
+              - cell "—" [ref=e673]
+              - cell "Private" [ref=e674]
+              - cell [ref=e675]
+            - row [ref=e676] [cursor=pointer]:
+              - cell [ref=e677]
+              - cell "Manufacturing / Industrial" [ref=e681]
+              - cell "—" [ref=e682]
+              - cell "Germany" [ref=e683]
+              - cell "—" [ref=e684]
+              - cell "—" [ref=e685]
+              - cell [ref=e686]
+            - row [ref=e687] [cursor=pointer]:
+              - cell [ref=e688]
+              - cell "Manufacturing / Industrial" [ref=e692]
+              - cell "—" [ref=e693]
+              - cell "Germany" [ref=e694]
+              - cell "—" [ref=e695]
+              - cell "Private" [ref=e696]
+              - cell [ref=e697]
+            - row [ref=e698] [cursor=pointer]:
+              - cell [ref=e699]
+              - cell "Manufacturing / Industrial" [ref=e703]
+              - cell "—" [ref=e704]
+              - cell "Finland" [ref=e705]
+              - cell "—" [ref=e706]
+              - cell "—" [ref=e707]
+              - cell [ref=e708]
+            - row [ref=e709] [cursor=pointer]:
+              - cell [ref=e710]
+              - cell "Manufacturing / Industrial" [ref=e714]
+              - cell "—" [ref=e715]
+              - cell "Germany" [ref=e716]
+              - cell "—" [ref=e717]
+              - cell "—" [ref=e718]
+              - cell [ref=e719]
+            - row [ref=e720] [cursor=pointer]:
+              - cell [ref=e721]
+              - cell "Manufacturing / Industrial" [ref=e725]
+              - cell "—" [ref=e726]
+              - cell "Germany" [ref=e727]
+              - cell "—" [ref=e728]
+              - cell "—" [ref=e729]
+              - cell [ref=e730]
+            - row [ref=e731] [cursor=pointer]:
+              - cell [ref=e732]
+              - cell "Manufacturing / Industrial" [ref=e736]
+              - cell "—" [ref=e737]
+              - cell "Sweden" [ref=e738]
+              - cell "—" [ref=e739]
+              - cell "—" [ref=e740]
+              - cell [ref=e741]
+            - row [ref=e742] [cursor=pointer]:
+              - cell [ref=e743]
+              - cell "Manufacturing / Industrial" [ref=e747]
+              - cell "—" [ref=e748]
+              - cell "Spain" [ref=e749]
+              - cell "—" [ref=e750]
+              - cell "Private" [ref=e751]
+              - cell [ref=e752]
+            - row [ref=e753] [cursor=pointer]:
+              - cell [ref=e754]
+              - cell "Manufacturing / Industrial" [ref=e758]
+              - cell "—" [ref=e759]
+              - cell "Belgium" [ref=e760]
+              - cell "—" [ref=e761]
+              - cell "—" [ref=e762]
+              - cell [ref=e763]
+            - row [ref=e764] [cursor=pointer]:
+              - cell [ref=e765]
+              - cell "Manufacturing / Industrial" [ref=e769]
+              - cell "—" [ref=e770]
+              - cell "Netherlands" [ref=e771]
+              - cell "—" [ref=e772]
+              - cell "Private" [ref=e773]
+              - cell [ref=e774]
+            - row [ref=e775] [cursor=pointer]:
+              - cell [ref=e776]
+              - cell "Manufacturing / Industrial" [ref=e780]
+              - cell "—" [ref=e781]
+              - cell "Germany" [ref=e782]
+              - cell "—" [ref=e783]
+              - cell "Private" [ref=e784]
+              - cell [ref=e785]
+            - row [ref=e786] [cursor=pointer]:
+              - cell [ref=e787]
+              - cell "Pharma / Life Sciences" [ref=e791]
+              - cell "—" [ref=e792]
+              - cell "Netherlands" [ref=e793]
+              - cell "—" [ref=e794]
+              - cell "—" [ref=e795]
+              - cell [ref=e796]
+            - row [ref=e797] [cursor=pointer]:
+              - cell [ref=e798]
+              - cell "Pharma / Life Sciences" [ref=e802]
+              - cell "—" [ref=e803]
+              - cell "Denmark" [ref=e804]
+              - cell "—" [ref=e805]
+              - cell "—" [ref=e806]
+              - cell [ref=e807]
+            - row [ref=e808] [cursor=pointer]:
+              - cell [ref=e809]
+              - cell "Pharma / Life Sciences" [ref=e813]
+              - cell "—" [ref=e814]
+              - cell "Denmark" [ref=e815]
+              - cell "—" [ref=e816]
+              - cell "—" [ref=e817]
+              - cell [ref=e818]
+            - row [ref=e819] [cursor=pointer]:
+              - cell [ref=e820]
+              - cell "Pharma / Life Sciences" [ref=e824]
+              - cell "—" [ref=e825]
+              - cell "Germany" [ref=e826]
+              - cell "—" [ref=e827]
+              - cell "Subsidiary" [ref=e828]
+              - cell [ref=e829]
+            - row [ref=e830] [cursor=pointer]:
+              - cell [ref=e831]
+              - cell "Pharma / Life Sciences" [ref=e835]
+              - cell "—" [ref=e836]
+              - cell "Germany" [ref=e837]
+              - cell "—" [ref=e838]
+              - cell "Private" [ref=e839]
+              - cell [ref=e840]
+            - row [ref=e841] [cursor=pointer]:
+              - cell [ref=e842]
+              - cell "Pharma / Life Sciences" [ref=e846]
+              - cell "—" [ref=e847]
+              - cell "France" [ref=e848]
+              - cell "—" [ref=e849]
+              - cell "—" [ref=e850]
+              - cell [ref=e851]
+            - row [ref=e852] [cursor=pointer]:
+              - cell [ref=e853]
+              - cell "Pharma / Life Sciences" [ref=e857]
+              - cell "—" [ref=e858]
+              - cell "Sweden" [ref=e859]
+              - cell "—" [ref=e860]
+              - cell "—" [ref=e861]
+              - cell [ref=e862]
+            - row [ref=e863] [cursor=pointer]:
+              - cell [ref=e864]
+              - cell "Pharma / Life Sciences" [ref=e868]
+              - cell "—" [ref=e869]
+              - cell "Germany" [ref=e870]
+              - cell "—" [ref=e871]
+              - cell "—" [ref=e872]
+              - cell [ref=e873]
+            - row [ref=e874] [cursor=pointer]:
+              - cell [ref=e875]
+              - cell "Pharma / Life Sciences" [ref=e879]
+              - cell "—" [ref=e880]
+              - cell "Belgium" [ref=e881]
+              - cell "—" [ref=e882]
+              - cell "—" [ref=e883]
+              - cell [ref=e884]
+            - row [ref=e885] [cursor=pointer]:
+              - cell [ref=e886]
+              - cell "Pharma / Life Sciences" [ref=e890]
+              - cell "—" [ref=e891]
+              - cell "Sweden" [ref=e892]
+              - cell "—" [ref=e893]
+              - cell "Subsidiary" [ref=e894]
+              - cell [ref=e895]
+            - row [ref=e896] [cursor=pointer]:
+              - cell [ref=e897]
+              - cell "Pharma / Life Sciences" [ref=e901]
+              - cell "—" [ref=e902]
+              - cell "Germany" [ref=e903]
+              - cell "—" [ref=e904]
+              - cell "—" [ref=e905]
+              - cell [ref=e906]
+            - row [ref=e907] [cursor=pointer]:
+              - cell [ref=e908]
+              - cell "Pharma / Life Sciences" [ref=e912]
+              - cell "—" [ref=e913]
+              - cell "France" [ref=e914]
+              - cell "—" [ref=e915]
+              - cell "—" [ref=e916]
+              - cell [ref=e917]
+            - row [ref=e918] [cursor=pointer]:
+              - cell [ref=e919]
+              - cell "Pharma / Life Sciences" [ref=e923]
+              - cell "—" [ref=e924]
+              - cell "Spain" [ref=e925]
+              - cell "—" [ref=e926]
+              - cell "—" [ref=e927]
+              - cell [ref=e928]
+            - row [ref=e929] [cursor=pointer]:
+              - cell [ref=e930]
+              - cell "Pharma / Life Sciences" [ref=e934]
+              - cell "—" [ref=e935]
+              - cell "Finland" [ref=e936]
+              - cell "—" [ref=e937]
+              - cell "Private" [ref=e938]
+              - cell [ref=e939]
+            - row [ref=e940] [cursor=pointer]:
+              - cell [ref=e941]
+              - cell "Pharma / Life Sciences" [ref=e945]
+              - cell "—" [ref=e946]
+              - cell "Spain" [ref=e947]
+              - cell "—" [ref=e948]
+              - cell "—" [ref=e949]
+              - cell [ref=e950]
+            - row [ref=e951] [cursor=pointer]:
+              - cell [ref=e952]
+              - cell "Pharma / Life Sciences" [ref=e956]
+              - cell "—" [ref=e957]
+              - cell "Netherlands" [ref=e958]
+              - cell "—" [ref=e959]
+              - cell "—" [ref=e960]
+              - cell [ref=e961]
+            - row [ref=e962] [cursor=pointer]:
+              - cell [ref=e963]
+              - cell "Pharma / Life Sciences" [ref=e967]
+              - cell "—" [ref=e968]
+              - cell "Netherlands" [ref=e969]
+              - cell "—" [ref=e970]
+              - cell "—" [ref=e971]
+              - cell [ref=e972]
+            - row [ref=e973] [cursor=pointer]:
+              - cell [ref=e974]
+              - cell "Pharma / Life Sciences" [ref=e978]
+              - cell "—" [ref=e979]
+              - cell "Germany" [ref=e980]
+              - cell "—" [ref=e981]
+              - cell "Subsidiary" [ref=e982]
+              - cell [ref=e983]
+            - row [ref=e984] [cursor=pointer]:
+              - cell [ref=e985]
+              - cell "Pharma / Life Sciences" [ref=e989]
+              - cell "—" [ref=e990]
+              - cell "Austria" [ref=e991]
+              - cell "—" [ref=e992]
+              - cell "—" [ref=e993]
+              - cell [ref=e994]
+            - row [ref=e995] [cursor=pointer]:
+              - cell [ref=e996]
+              - cell "Transportation / Logistics" [ref=e1000]
+              - cell "—" [ref=e1001]
+              - cell "Latvia" [ref=e1002]
+              - cell "—" [ref=e1003]
+              - cell "—" [ref=e1004]
+              - cell [ref=e1005]
+            - row [ref=e1006] [cursor=pointer]:
+              - cell [ref=e1007]
+              - cell "Transportation / Logistics" [ref=e1011]
+              - cell "—" [ref=e1012]
+              - cell "Estonia" [ref=e1013]
+              - cell "—" [ref=e1014]
+              - cell "Public" [ref=e1015]
+              - cell [ref=e1016]
+            - row [ref=e1017] [cursor=pointer]:
+              - cell [ref=e1018]
+              - cell "Transportation / Logistics" [ref=e1022]
+              - cell "—" [ref=e1023]
+              - cell "Finland" [ref=e1024]
+              - cell "—" [ref=e1025]
+              - cell "—" [ref=e1026]
+              - cell [ref=e1027]
+            - row [ref=e1028] [cursor=pointer]:
+              - cell [ref=e1029]
+              - cell "Transportation / Logistics" [ref=e1033]
+              - cell "—" [ref=e1034]
+              - cell "France" [ref=e1035]
+              - cell "—" [ref=e1036]
+              - cell "—" [ref=e1037]
+              - cell [ref=e1038]
+            - row [ref=e1039] [cursor=pointer]:
+              - cell [ref=e1040]
+              - cell "Transportation / Logistics" [ref=e1044]
+              - cell "—" [ref=e1045]
+              - cell "Lithuania" [ref=e1046]
+              - cell "—" [ref=e1047]
+              - cell "Private" [ref=e1048]
+              - cell [ref=e1049]
+            - row [ref=e1050] [cursor=pointer]:
+              - cell [ref=e1051]
+              - cell "Transportation / Logistics" [ref=e1055]
+              - cell "—" [ref=e1056]
+              - cell "Germany" [ref=e1057]
+              - cell "—" [ref=e1058]
+              - cell "Private" [ref=e1059]
+              - cell [ref=e1060]
+            - row [ref=e1061] [cursor=pointer]:
+              - cell [ref=e1062]
+              - cell "Transportation / Logistics" [ref=e1066]
+              - cell "—" [ref=e1067]
+              - cell "Poland" [ref=e1068]
+              - cell "—" [ref=e1069]
+              - cell "—" [ref=e1070]
+              - cell [ref=e1071]
+            - row [ref=e1072] [cursor=pointer]:
+              - cell [ref=e1073]
+              - cell "Transportation / Logistics" [ref=e1077]
+              - cell "—" [ref=e1078]
+              - cell "Denmark/Sweden" [ref=e1079]
+              - cell "—" [ref=e1080]
+              - cell "—" [ref=e1081]
+              - cell [ref=e1082]
+            - row [ref=e1083] [cursor=pointer]:
+              - cell [ref=e1084]
+              - cell "Transportation / Logistics" [ref=e1088]
+              - cell "—" [ref=e1089]
+              - cell "Portugal" [ref=e1090]
+              - cell "—" [ref=e1091]
+              - cell "—" [ref=e1092]
+              - cell [ref=e1093]
+            - row [ref=e1094] [cursor=pointer]:
+              - cell [ref=e1095]
+              - cell "Transportation / Logistics" [ref=e1099]
+              - cell "—" [ref=e1100]
+              - cell "Finland" [ref=e1101]
+              - cell "—" [ref=e1102]
+              - cell "Public" [ref=e1103]
+              - cell [ref=e1104]
+            - row [ref=e1105] [cursor=pointer]:
+              - cell [ref=e1106]
+              - cell "Transportation / Logistics" [ref=e1110]
+              - cell "—" [ref=e1111]
+              - cell "Spain" [ref=e1112]
+              - cell "—" [ref=e1113]
+              - cell "Private" [ref=e1114]
+              - cell [ref=e1115]
+            - row [ref=e1116] [cursor=pointer]:
+              - cell [ref=e1117]
+              - cell "Transportation / Logistics" [ref=e1121]
+              - cell "—" [ref=e1122]
+              - cell "Hungary" [ref=e1123]
+              - cell "—" [ref=e1124]
+              - cell "Public" [ref=e1125]
+              - cell [ref=e1126]
+            - row [ref=e1127] [cursor=pointer]:
+              - cell [ref=e1128]
+              - cell "Pharma / Life Sciences" [ref=e1132]
+              - cell "501-1000" [ref=e1133]
+              - cell "Tuebingen, Baden-Wuerttemberg, Germany" [ref=e1134]
+              - cell "250m 1b" [ref=e1135]
+              - cell "—" [ref=e1136]
+              - cell "Cost Pressure New CFO/GBS Head Transformation Announcement" [ref=e1137]:
+                - generic [ref=e1138]:
+                  - generic [ref=e1139]: Cost Pressure
+                  - generic [ref=e1140]: New CFO/GBS Head
+                  - generic [ref=e1141]: Transformation Announcement
+            - row [ref=e1142] [cursor=pointer]:
+              - cell [ref=e1143]
+              - cell "airlines/aviation" [ref=e1147]
+              - cell "5001-10000" [ref=e1148]
+              - cell "Budapest, Budapest, Hungary" [ref=e1149]
+              - cell "5b Plus" [ref=e1150]
+              - cell "—" [ref=e1151]
+              - cell "New CFO/GBS Head Cost Pressure" [ref=e1152]:
+                - generic [ref=e1153]:
+                  - generic [ref=e1154]: New CFO/GBS Head
+                  - generic [ref=e1155]: Cost Pressure
+  - button "Open Next.js Dev Tools" [ref=e1161] [cursor=pointer]
+  - alert [ref=e1165]

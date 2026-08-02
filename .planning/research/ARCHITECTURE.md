@@ -1,251 +1,370 @@
 # Architecture Research
 
-**Domain:** Data-heavy explorer/admin dashboard (list-nav + master-detail, e.g. Recall.ai's Explorer Dashboard) built on an existing Astro + Clerk SSR app
-**Researched:** 2026-07-22
-**Confidence:** MEDIUM-HIGH (pattern itself is well-established and confirmed via Recall.ai's own docs; Astro-specific integration choices are a reasoned recommendation, not a single canonical "Astro dashboard" reference architecture — flagged where opinion vs. verified fact)
+**Domain:** Per-user AI model settings for a Next.js 16 App Router demand-gen app (ArcLumen 360, milestone v1.3)
+**Researched:** 2026-08-02
+**Confidence:** HIGH (all integration claims verified against on-disk source + installed package source + live `opencode` CLI; one MEDIUM item flagged)
 
-## Standard Architecture
+## Scope
 
-### System Overview
+This is a **subsequent-milestone architecture file** — it does not re-describe the app's foundations (Clerk auth, Drizzle+Neon, AppShellLayout, the Analytic Agent) as greenfield; it answers exactly how the new **user_model_settings** feature integrates with the existing architecture, per the six research questions (a)–(f) in the milestone context.
+
+## System Overview (as-is + the new feature)
 
 ```
-┌───────────────────────────────────────────────────────────────────────┐
-│                     Browser (staff user, signed in)                    │
-├───────────────────────────────────────────────────────────────────────┤
-│  ┌───────────────────────────────────────────────────────────────┐    │
-│  │  App Shell (persisted across navigation via Astro ClientRouter) │    │
-│  │  ┌───────────────┐  ┌──────────────────────────────────────┐  │    │
-│  │  │  Left Nav      │  │  List + Filter Island (client:load)   │  │    │
-│  │  │  Companies /   │  │  search box, filter chips, sort       │  │    │
-│  │  │  Key Personas  │  │  URL-param driven                     │  │    │
-│  │  │  (collapsible) │  └──────────────────┬───────────────────┘  │    │
-│  │  └───────────────┘                     │                      │    │
-│  └─────────────────────────────────────────┼──────────────────────┘    │
-│                                            ▼                           │
-│                              ┌──────────────────────────┐              │
-│                              │  Detail Pane (server-      │              │
-│                              │  rendered, no client JS)   │              │
-│                              │  Company 360 / Persona 360 │              │
-│                              └──────────────────────────┘              │
-└───────────────────────────────────────────┬───────────────────────────┘
-                                             │ HTTP request per route
-                                             ▼
-┌───────────────────────────────────────────────────────────────────────┐
-│         Clerk Middleware — src/middleware.ts (UNCHANGED)               │
-│         Populates Astro.locals.auth() on every request                 │
-└───────────────────────────┬────────────────────────────┬──────────────┘
-                            ▼                            ▼
-                ┌───────────────────────┐    ┌─────────────────────────┐
-                │  Astro SSR Pages       │    │  Data-Fetching Layer     │
-                │  /companies            │───▶│  src/lib/data/           │
-                │  /companies/[id]       │    │  companies.ts            │
-                │  /personas             │    │  personas.ts             │
-                │  /personas/[id]        │    │  (typed query functions) │
-                └───────────────────────┘    └────────────┬─────────────┘
-                                                            ▼
-                                              ┌──────────────────────────┐
-                                              │  Backing data store       │
-                                              │  (Sanity, retained or     │
-                                              │  replaced — see STACK.md) │
-                                              │  Company / Persona docs,  │
-                                              │  seed/manual for M1       │
-                                              └──────────────────────────┘
+┌─────────────────────────── (dashboard) route group ───────────────────────────┐
+│  (dashboard)/layout.tsx  → requireStaffAccess() → AppShellLayout             │
+│  ├─ /                      Start page          (existing)                    │
+│  ├─ /reviews               Reviews queue       (existing)                    │
+│  └─ /settings              Settings page       ★ NEW (b)                     │
+├─────────────────────────── /companies /personas route groups ────────────────┤
+│  companies/layout.tsx · personas/layout.tsx → requireStaffAccess() → shell   │
+│  company detail panel → ExplorerMenu → "Analyze" (existing)                  │
+└───────────────────────────────────────────────────────────────────────────────┘
+
+Agent run path (existing + ★ = new wiring):
+  POST /api/companies/[id]/analyze (route.ts)
+    → requireStaffAccess() → ★ { userId }        (c)
+    → initLangfuse()
+    → analyzeCompany(companyId) → ★ analyzeCompany(companyId, userId)   (c)
+        → ★ getUserModelSettings(userId)          (a)
+        → ★ resolveModelChain(settings, defaults) (pure, testable)
+        → runAgent({ ... }) → ★ runAgent with ordered models + failover loop  (e)
+            → generateText({ model, tools, prompt, stopWhen, output })
+            → on provider/model error → ★ retry next fallback
+    → gate → persist run + proposals (unchanged)
+
+Settings write path (★ new):
+  /settings page (server) → ModelSettingsForm (client) → settings.ts Server Action
+    → requireStaffAccess() → zod-validate → ★ upsertUserModelSettings(userId, …)
+    → revalidatePath('/settings')
+
+Model catalog (★ new, d):
+  dev machine:  scripts/refresh-model-catalog.ts → `opencode models` (or
+                ~/.cache/opencode/models.json) → src/lib/models/catalog.json (committed)
+  settings page: imports catalog.json (static, Vercel-safe)
 ```
 
-### Component Responsibilities
+## Component Responsibilities
 
-| Component | Responsibility | Typical Implementation |
-|-----------|----------------|-------------------------|
-| Left nav | Section switcher (Companies / Key Personas), collapsible | Astro server component, static per-request, no client JS needed for collapse/expand (CSS + tiny script, not a full framework island) |
-| List + Filter island | Renders the item list, owns search input + filter controls, keeps selected-item highlight in sync | Single interactive island (React/Preact/Svelte — whichever framework STACK.md lands on), hydrated with initial SSR data + URL state as props |
-| Detail pane | Renders full Company 360 / Persona 360 view for the selected id | Plain server-rendered Astro component — no interactivity needed, cheapest possible implementation |
-| Data-fetching layer | Typed functions that query the backing store and shape results into domain types (`Company`, `Persona`), decoupled from the CMS/DB record shape | `src/lib/data/companies.ts`, `src/lib/data/personas.ts` — mirrors the existing `src/lib/sanity.ts` convention, expanded with filter/search params and relation-expansion (linked personas ↔ company) |
-| URL/filter state | Single source of truth for search text, active filters, sort, and (for master-detail) the selected item id | Query string (`?q=&signal=&sort=`) + route param (`/companies/[id]`) — never client-only state, so state survives refresh/share/back-button |
-| Auth guard | Redirect unauthenticated staff to `/sign-in`, reuse existing binary `userId` check | Continue existing per-page `Astro.locals.auth()` pattern; consider extracting a shared `requireAuth(Astro)` helper into `src/lib/auth.ts` now that there will be 4+ protected pages instead of 1 (addresses the "business logic in frontmatter" anti-pattern already flagged in `CONCERNS.md`) |
+| Component | Responsibility | Implementation |
+|-----------|----------------|----------------|
+| `user_model_settings` table | Per-user primary + ordered fallback model IDs | NEW — `src/lib/db/schema.ts` (a) |
+| `userModelSettings` query module | `getUserModelSettings(userId)` / `upsertUserModelSettings(...)` | NEW — `src/lib/db/queries/userModelSettings.ts`, mirrors `recentlyViewed.ts` (a) |
+| Settings page | Server component: gates, reads settings + catalog, renders form | NEW — `src/app/(dashboard)/settings/page.tsx`, mirrors `(dashboard)/reviews/page.tsx` (b) |
+| Model settings form | Client form: primary select + ordered fallback list | NEW — `src/components/settings/model-settings-form.tsx` |
+| Settings Server Action | zod-validate + upsert + revalidatePath | NEW — `src/app/actions/settings.ts`, mirrors `actions/reviews.ts` (b) |
+| Model catalog | Static vendored list of runnable models (id, name, provider) | NEW — `src/lib/models/catalog.json` (generated) + `src/lib/models/catalog.ts` (filter/type) (d) |
+| Model-config resolver | Pure: settings row → ordered `anthropic(id)` chain; failover error predicate | NEW — `src/lib/agents/modelConfig.ts` (c, e) |
+| Analyze route | Threads `userId` into `analyzeCompany` | MODIFIED — `src/app/api/companies/[id]/analyze/route.ts` (c) |
+| `analyzeCompany` | Accepts userId, resolves + passes model chain | MODIFIED — `src/lib/agents/analyzeCompany.ts` (c) |
+| `runAgent` | Accepts ordered models; runs failover loop | MODIFIED — `src/lib/agents/runAgent.ts` (e) |
+| `getActiveNavKey` / sidebar | New `settings` key + Manage-group item | MODIFIED — `src/lib/nav.ts`, `src/components/layout/app-sidebar.tsx` (b) |
 
-## Recommended Project Structure
+## Recommended Project Structure (delta)
 
 ```
 src/
-├── middleware.ts                # UNCHANGED — Clerk auth wiring
-├── lib/
-│   ├── sanity.ts                 # existing shared client (retained or superseded per STACK.md)
-│   ├── auth.ts                   # NEW — requireAuth(Astro) helper, extracted from per-page duplication
-│   └── data/
-│       ├── companies.ts          # listCompanies(filters), getCompanyById(id) — returns domain types
-│       └── personas.ts           # listPersonas(filters), getPersonaById(id)
-├── types/
-│   └── domain.ts                 # Company, Persona, Signal, LinkedPersona/Company interfaces — decoupled from CMS schema
-├── layouts/
-│   └── AppLayout.astro           # NEW — left nav + shell chrome, wraps every explorer page
+├── app/
+│   ├── (dashboard)/
+│   │   ├── settings/
+│   │   │   └── page.tsx            # ★ NEW — server page (b)
+│   │   └── ...existing
+│   ├── actions/
+│   │   └── settings.ts             # ★ NEW — 'use server' (b)
+│   └── api/companies/[id]/analyze/route.ts   # MODIFIED — thread userId (c)
 ├── components/
-│   ├── nav/
-│   │   └── SectionNav.astro      # Companies / Key Personas switcher, collapsible
-│   ├── list/
-│   │   ├── ListFilterIsland.tsx  # the one interactive island: search + filter + list rendering
-│   │   └── ListItemBadge.astro   # signal-strength / last-updated badges (static)
-│   └── detail/
-│       ├── CompanyDetail.astro   # Company 360 view (firmographics, tech stack, signals, linked personas)
-│       └── PersonaDetail.astro   # Persona 360 view (role, seniority, prior companies, linked company)
-└── pages/
-    ├── companies/
-    │   ├── index.astro           # list-only state (no selection)
-    │   └── [id].astro            # list + detail (master-detail)
-    └── personas/
-        ├── index.astro
-        └── [id].astro
+│   ├── settings/
+│   │   └── model-settings-form.tsx # ★ NEW — client form (b)
+│   └── layout/app-sidebar.tsx      # MODIFIED — Settings item (b)
+├── lib/
+│   ├── agents/
+│   │   ├── modelConfig.ts          # ★ NEW — pure resolver + failover predicate (c/e)
+│   │   ├── runAgent.ts             # MODIFIED — ordered models + loop (e)
+│   │   ├── analyzeCompany.ts       # MODIFIED — userId param (c)
+│   │   └── *.test.ts               # MODIFIED + NEW pure tests (f)
+│   ├── db/
+│   │   ├── schema.ts               # MODIFIED — user_model_settings (a)
+│   │   └── queries/
+│   │       └── userModelSettings.ts # ★ NEW — query module (a)
+│   ├── models/
+│   │   ├── catalog.json            # ★ NEW — GENERATED, committed (d)
+│   │   └── catalog.ts              # ★ NEW — typed catalog access + filter (d)
+│   └── nav.ts                      # MODIFIED — 'settings' NavKey (b)
+├── scripts/
+│   └── refresh-model-catalog.ts    # ★ NEW — dev-machine generator (d)
 ```
 
 ### Structure Rationale
 
-- **`lib/data/`:** Isolates the query/shape layer from both the UI and the specific backing store, directly extending the existing `lib/sanity.ts` convention documented in `STRUCTURE.md`. This is the layer that changes if the team swaps Sanity for another store later (per PROJECT.md's open stack question) — UI components should never import `@sanity/client` directly.
-- **`types/domain.ts`:** Domain types (`Company`, `Persona`) are kept separate from any one backing store's record shape (unlike the current `ShortLinkRecord`, which is really a Sanity-shaped type used directly by pages). This separation matters more here because the stack itself may change under this data model.
-- **`components/list/ListFilterIsland`** is deliberately singular — one interactive component owns list rendering + search + filter, rather than splitting search/filter/list into three separately-hydrated islands that would need to coordinate state across island boundaries (Astro islands don't share state automatically; cross-island coordination is a common Astro dashboard pitfall).
-- **`pages/companies/[id].astro` vs `pages/companies/index.astro`:** kept as two routes (not one route with conditional rendering) so each is independently SSR-cacheable/shareable and matches Astro's file-based routing convention already established in this repo.
+- **Settings lives in `(dashboard)`** (not a new route group): `(dashboard)` already hosts non-explorer pages (`/reviews`) behind the exact gate + shell the Settings page needs. A new route group would duplicate `(dashboard)/layout.tsx` for zero benefit. Confidence HIGH — verified `(dashboard)/layout.tsx` and `(dashboard)/reviews/page.tsx` on disk.
+- **Query module under `lib/db/queries/`**: the repo convention (14 modules there today). `userModelSettings.ts` copies `recentlyViewed.ts`'s userId-keyed shape almost 1:1.
+- **Pure resolver + failover predicate in `lib/agents/modelConfig.ts`**: keeps the AI-domain decision logic testable under the repo's "Vitest pure functions only, zero live calls" (D-16) rule.
+- **Catalog generated into `lib/models/`**: a committed snapshot is the only opencode-derived source that survives Vercel serverless (see (d) below).
 
 ## Architectural Patterns
 
-### Pattern 1: URL-as-state-of-record for master-detail
+### Pattern 1: Per-user row with Clerk-id PK + upsert (a)
 
-**What:** The selected item's id lives in the route (`/companies/[id]`), and all filters/search/sort live in the query string. No client-only state holds anything that would be lost on refresh.
-**When to use:** Any list+detail explorer where users need to bookmark, share, or refresh a specific view — which is explicitly true here (leadership/execs "pulling up a company... in seconds").
-**Trade-offs:** Requires slightly more upfront plumbing (reading/writing query params) than plain component state, but eliminates an entire class of bugs (stale view after refresh, unshareable links) and is exactly the pattern Recall.ai's own Explorer Dashboard uses — bot detail is addressed as `/dashboard/explorer/bot/{BOT_ID}`, a path parameter, confirming this is the real-world convention for this exact type of tool.
+**What:** `user_model_settings` keyed by `userId` (Clerk opaque string, no FK — Clerk is external), one row per user, created/updated by upsert.
+**When to use:** Any per-user preference store. This exactly replicates `recentlyViewed.userId` (schema.ts L140) and its verified `onConflictDoUpdate` upsert (`recentlyViewed.ts` L18-21, confirmed against installed `drizzle-orm@0.45.2`).
+**Trade-offs:** Single row per user means no history — correct for a preference; a JSON column variant would be simpler but loses type safety per field and the `updated_at` discipline.
 
-**Example:**
-```
-GET /companies/acme-corp?signal=high&sort=updated_desc
-→ SSR reads searchParams + [id] from Astro.url / Astro.params
-→ calls listCompanies({ signal: 'high', sort: 'updated_desc' }) for the list pane
-→ calls getCompanyById('acme-corp') for the detail pane
-→ both rendered in one response
-```
-
-### Pattern 2: SSR-first list, client island only for interactivity
-
-**What:** The list is always fetched and rendered server-side on the initial request (fast, works without JS, auth already resolved by middleware). A single client island hydrates on top of that server-rendered list to handle search-as-you-type and filter-chip toggling, either by filtering the already-fetched array client-side (fine at M1's seed-data scale) or by triggering a client-side re-fetch to a small JSON API route as data grows.
-**When to use:** Astro's core strength is cheap SSR HTML; reserve client JS for the one piece of the page that genuinely needs it (live filtering) rather than converting the whole dashboard into a client-rendered SPA.
-**Trade-offs:** Keeps bundle size small and preserves the existing Clerk-per-request auth model without a SPA rewrite. Trade-off: keystroke-by-keystroke filtering that also needs to update the URL requires care to avoid a full-page navigation per keystroke (debounce + `history.replaceState`, not a full Astro route transition, for the query-string updates; only navigate on selection change or explicit submit).
-
-**Example:**
+**Example (schema delta, `src/lib/db/schema.ts`):**
 ```typescript
-// src/pages/companies/index.astro (frontmatter)
-const filters = parseFilters(Astro.url.searchParams);
-const companies = await listCompanies(filters); // SSR fetch
----
-<ListFilterIsland client:load initialItems={companies} initialFilters={filters} />
+// D-XX (v1.3): per-user AI model preference. Clerk userId is an opaque string,
+// NO FK (Clerk is external) — same pattern as recentlyViewed.userId (L140).
+export const userModelSettings = pgTable('user_model_settings', {
+  userId: text('user_id').primaryKey(),
+  // Model IDs as the APP instantiates them (e.g. 'claude-sonnet-4-6' passed to
+  // anthropic()) — never provider-prefixed catalog ids. The catalog is the
+  // join for display metadata; the DB stores plain ids only (Anti-pattern 4).
+  primaryModel: text('primary_model').notNull(),
+  // Drizzle-native ordered array (same shape as company.techStack, L61).
+  // jsonb was considered but text[] is a homogeneous string list — the
+  // array type is the honest Postgres shape and typed string[] in Drizzle.
+  fallbackModels: text('fallback_models').array().notNull().default([]),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+```
+**Example (query module, `src/lib/db/queries/userModelSettings.ts`):**
+```typescript
+import { eq } from 'drizzle-orm';
+import { db } from '../index';
+import { userModelSettings } from '../schema';
+
+// Query modules never catch (callers do) — house convention.
+export async function getUserModelSettings(userId: string) {
+  return db.query.userModelSettings.findFirst({ where: eq(userModelSettings.userId, userId) });
+}
+
+export async function upsertUserModelSettings(input: {
+  userId: string;
+  primaryModel: string;
+  fallbackModels: string[];
+}) {
+  await db
+    .insert(userModelSettings)
+    .values({ ...input, updatedAt: new Date() })
+    .onConflictDoUpdate({
+      target: userModelSettings.userId,
+      set: {
+        primaryModel: input.primaryModel,
+        fallbackModels: input.fallbackModels,
+        updatedAt: new Date(),
+      },
+    });
+}
 ```
 
-### Pattern 3: Persisted nav/list shell across navigation (Astro View Transitions)
+### Pattern 2: Failover loop with a pure retry predicate (e)
 
-**What:** Add `<ClientRouter />` (Astro's built-in view-transitions router) to the shared layout, and mark the left nav + list island with `transition:persist`. Astro's router then does client-side navigation between `/companies/[id]` routes without a full page reload/flash, and persisted elements keep their DOM state (scroll position, open filter dropdowns) across those navigations — the same experience Recall.ai's explorer gives you, without needing a client-side SPA router or a framework migration.
-**When to use:** Specifically for the master-detail navigation between list items, where a full-page reload per click would feel worse than the file-based-routing default.
-**Trade-offs:** This is a genuine Astro feature (confirmed via official docs), not experimental, but it does add the constraint that any client-side script/state on persisted islands must be written to tolerate being *not* re-initialized between navigations (Astro's own docs note this as a known adjustment cost). Verify current Astro version behavior against `docs.astro.build/en/guides/view-transitions/` before implementing, since the API was renamed from `<ViewTransitions />` to `<ClientRouter />` in a past major version — confirm which name applies to the version pinned in this repo's `package.json`.
+**What:** Attempt `generateText` down an ordered model chain; on a *provider/model* error, advance to the next model; on success return; on exhaustion rethrow the last error. The "is this worth falling back for?" decision is a **pure function** so it is unit-testable with constructed error instances (D-16 — no live calls).
+
+**When to use:** Any agent that must tolerate model-availability drift. Verified against the installed `@ai-sdk/provider` source (dist/index.js L52-66): `APICallError.isRetryable` defaults to `408/409/429/>=500` — **a 404 (model removed from roster, the exact failure `runAgent.ts` L7-12 documents for dated Sonnet ids) is NOT retryable by default**, so the predicate must add `statusCode === 404` explicitly. `AIConnectionError` (network) and `NoSuchModelError` (SDK-side unknown id — note `@ai-sdk/anthropic`'s model-id union has a `(string & {})` escape hatch, so bad ids reach the API and surface as `APICallError` 404, not `NoSuchModelError`; keep both in the predicate for forward-safety).
+
+**Trade-offs:** Retrying inside `runAgent` keeps the seam the existing tests mock (`runAgent.test.ts` mocks `generateText`), so the loop is testable without a provider. A per-attempt Langfuse span is nice but the AI SDK already emits a span per `generateText` call under the active observation — the loop itself needs no extra telemetry plumbing (OBSV-01 trace nesting survives; see Integration Points).
+
+**Example (`src/lib/agents/modelConfig.ts` — pure, co-located tests):**
+```typescript
+import { APICallError, AIConnectionError, NoSuchModelError } from 'ai';
+import { anthropic } from '@ai-sdk/anthropic';
+
+export type ModelChain = ReturnType<typeof anthropic>[];
+
+export function resolveModelChain(
+  primary: string | undefined,
+  fallbacks: string[] | undefined,
+  defaults: string[], // default chain when no user settings row
+): ModelChain {
+  const ids = [
+    ...(primary ? [primary] : []),
+    ...(fallbacks ?? []),
+    ...(defaults.length && !primary ? defaults : []),
+  ];
+  // The app only runs Anthropic today (sole installed @ai-sdk provider).
+  // Unknown/duplicate ids are filtered; the loop then skips any that 404.
+  return [...new Set(ids)].map((id) => anthropic(id));
+}
+
+export function isFailoverEligibleError(err: unknown): boolean {
+  if (err instanceof AIConnectionError) return true;      // network blip — retry
+  if (err instanceof NoSuchModelError) return true;       // SDK-side unknown id
+  if (err instanceof APICallError) {
+    // 404 = model not in roster (the dated-id failure runAgent.ts documents);
+    // 429/5xx/408/409 are SDK-default isRetryable.
+    return err.isRetryable || err.statusCode === 404;
+  }
+  return false; // InvalidPromptError, TypeValidationError, gate errors… retry won't help
+}
+```
+
+**Example (`src/lib/agents/runAgent.ts` — modified; loop returns first success):**
+```typescript
+export interface RunAgentInput {
+  company: CompanyInput;
+  liveSignals: LiveSignalInput[];
+  models?: ModelChain;            // ★ replaces the single `model?` seam
+}
+
+export async function runAgent({ company, liveSignals, models = [anthropic(FAST_MODEL_ID)] }: RunAgentInput) {
+  let lastError: unknown;
+  for (const model of models) {
+    try {
+      return await generateText({
+        model,
+        tools: { webSearch: webSearchTool },
+        prompt: buildAnalyzePrompt(company, liveSignals),
+        stopWhen: isStepCount(12),
+        output: Output.object({ schema: outputSchema }),
+      });
+    } catch (err) {
+      lastError = err;
+      if (!isFailoverEligibleError(err)) throw err; // never burn fallbacks on non-model errors
+    }
+  }
+  throw lastError; // chain exhausted — fail loud (D-06)
+}
+```
+Backward-compatible: the existing `runAgent.test.ts` default-model case still passes (`models` omitted → `[anthropic(FAST_MODEL_ID)]`).
+
+### Pattern 3: Vendored generated catalog (d)
+
+**What:** A dev-machine script runs the **local opencode installation** and writes a committed JSON snapshot; the settings page (a Server Component) imports it. No runtime fetch.
+**When to use:** Always for this app — **Vercel serverless cannot reach a "local opencode installation"** (localhost on a dev machine); the milestone's "live from opencode" is only achievable at *generation* time on the machine where opencode runs. Verified: the app deploys to Vercel serverless (`maxDuration = 60`, `src/proxy.ts`, neon-http), and `opencode serve` binds `127.0.0.1` by default.
+**Trade-offs:** The snapshot is stale until re-run. Acceptable — model rosters change weekly at most, and a 404 at runtime triggers the failover loop (Pattern 2), which is the safety net.
+
+**Verified opencode sources (all confirmed live on this machine, opencode 1.18.10):**
+- `opencode models [provider]` — CLI, 1,130 models across anthropic(17) / google(37) / kilo(345) / openai(13) / opencode(60) / opencode-go(17) / openrouter(335) / vercel(306); `--verbose` adds cost/limit metadata; `--refresh` re-pulls models.dev.
+- `~/.cache/opencode/models.json` — 3.3 MB cached models.dev database opencode syncs (the same data the CLI prints); every model carries `id`, `name`, `limit.context`, `cost`, `reasoning`, `tool_call`.
+- `opencode serve` → `GET /api/model` (HttpApi "List models"), `GET /api/model/default`, `GET /config/providers` — the HTTP surface, but only reachable on the machine running the server.
+
+**Recommendation (opinionated):** the generator script shells out to `opencode models --verbose` (or parses the cache file) and writes a **filtered** snapshot: only models whose provider the app has an SDK + key for. Today that is **Anthropic only** (`@ai-sdk/anthropic` is the sole installed provider SDK; `ANTHROPIC_API_KEY` is the only model-provider key in `src/lib/env.ts`). Catalog entry shape: `{ id, name, provider: 'anthropic', contextWindow? }` — the settings UI needs id + display name; context window is a nice-to-have. Do **not** ship the 3.3 MB raw database or 1,130 openrouter/kilo/opencode models the agent can never call (Anti-pattern 1).
 
 ## Data Flow
 
-### Request Flow
-
+### Settings write (new)
 ```
-Browser: click "Acme Corp" in list
+User edits primary/fallbacks in ModelSettingsForm
+    ↓ (Server Action: settings.ts)
+zod-validate input → requireStaffAccess() → upsertUserModelSettings(userId, …)
     ↓
-Astro ClientRouter intercepts navigation (client-side)
-    ↓
-GET /companies/acme-corp?signal=high  (query string carried over from current view)
-    ↓
-src/middleware.ts → Astro.locals.auth() populated (unchanged from today)
-    ↓
-src/pages/companies/[id].astro frontmatter:
-    - requireAuth(Astro) → redirect to /sign-in if no userId
-    - parseFilters(Astro.url.searchParams)
-    - listCompanies(filters)      → for the (persisted) list pane
-    - getCompanyById(params.id)   → for the detail pane, incl. linked personas
-    ↓
-Astro renders full HTML response (list pane content unchanged/persisted client-side,
-detail pane content swapped in)
-    ↓
-Response ← rendered HTML (no client-side JSON fetch required for this flow)
+revalidatePath('/settings')  →  re-render shows saved state (same pattern as reviews.ts)
 ```
 
-### State Management
-
+### Agent run with model config (new wiring on existing path)
 ```
-URL (query string + route param)
-    ↓ read on every SSR request
-Astro page frontmatter (server, per-request, stateless)
-    ↓ passed as props
-ListFilterIsland (client component)
-    ↓ user types/toggles filter
-Local component state (debounced) ←→ history.replaceState (updates URL, no navigation)
-    ↓ on Enter / item click
-Full navigation (ClientRouter) → new SSR request → state loop repeats
+ExplorerMenu "Analyze"  →  POST /api/companies/[id]/analyze
+    ↓
+requireStaffAccess() → { userId }          ★ userId now captured (route L25)
+    ↓
+analyzeCompany(companyId, userId)
+    ↓
+getUserModelSettings(userId)   (query module, may return undefined = no row)
+    ↓
+resolveModelChain(primary, fallbacks, [FAST_MODEL_ID])   (pure)
+    ↓
+runAgent({ models: chain }) → failover loop → first successful generateText
+    ↓
+deriveEvidenceAppendix → gate → dedup → persist run + proposals   (UNCHANGED — D-08 domains preserved)
 ```
 
-### Key Data Flows
+### Model catalog (new)
+```
+dev machine: scripts/refresh-model-catalog.ts → opencode models --verbose
+    → src/lib/models/catalog.json (committed)
+settings page (server): import catalog.json → filter by supported provider → render
+```
 
-1. **Initial load (`/companies`):** middleware → auth check → `listCompanies({})` → SSR list rendered → island hydrates with that data as its starting state.
-2. **Filter/search interaction:** user input → island updates local render (client-side filter of in-memory list at M1 scale) → URL query string updated via `history.replaceState` (no navigation) so the current view remains bookmarkable without a round trip per keystroke.
-3. **Item selection (master-detail):** click → ClientRouter navigation to `/companies/[id]?<same filters>` → new SSR response fetches both list (persisted, likely unchanged) and detail (new) → detail pane swapped in, list pane state preserved via `transition:persist`.
-4. **Linked-entity traversal:** from a Company detail pane, clicking a linked Persona navigates to `/personas/[id]` — the data-fetching layer resolves the relation (Sanity reference or foreign key) inside `getCompanyById`/`getPersonaById`, so the UI never needs to fetch relations separately.
+### State management
+
+No new client state beyond the form's local editing state. The saved settings are read **server-side per request** (`getUserModelSettings` in both the Settings page and the agent route) — no cache, matching the app's "read fresh from DB" posture (`recentlyViewed` has no cache either). The catalog is static (import-time constant).
 
 ## Scaling Considerations
 
 | Scale | Architecture Adjustments |
-|-------|---------------------------|
-| Milestone 1 (seed/manual data, dozens–low hundreds of records) | Client-side filtering of a fully-fetched list is fine and simplest — fetch all Companies/Personas once per page load, filter in the island. No pagination needed. |
-| Post-enrichment (thousands of records, live API data) | Move filtering/search server-side: paginate `listCompanies`, add a real search index (Sanity's built-in search, Postgres full-text, or Algolia/Meilisearch depending on what STACK.md lands on). Client island switches from filtering in-memory to debounced fetch-on-change against a JSON endpoint. |
-| Large scale (10k+ records, heavy concurrent staff usage) | Add caching at the data-fetching layer (short-TTL cache per filter combination), consider server-driven virtualization for the list pane. Not a milestone-1 concern — flag as a later-milestone research item, not something to build speculatively now. |
+|-------|--------------------------|
+| 0-100 users (current team) | One row per user, upsert per save, catalog snapshot re-run on demand — nothing more needed |
+| 1k-100k users | Add a `revalidateTag`-style catalog cache if it ever goes runtime-fetched; today it's a static import so cost is zero |
+| 100k+ users | `user_model_settings` is a trivial single-PK table; only the agent-run path matters (already traced/capped by `isStepCount(12)` + 60s budget) |
 
 ### Scaling Priorities
 
-1. **First bottleneck:** client-side "fetch everything, filter locally" stops working once the dataset is large enough that the initial list payload is slow/heavy — this is a *near-certain* post-M1 concern once enrichment APIs are wired in, but explicitly out of scope for M1 per PROJECT.md.
-2. **Second bottleneck:** relation resolution (Company ↔ Persona joins) done naively per-request could get slow with many-to-many links at scale — the data-fetching layer's join logic is the place to optimize (batch fetch, not N+1 queries) if/when this becomes measurable.
+1. **First bottleneck (realistic):** None for settings. The honest risk is *catalog staleness* (a model the user saved gets removed) — mitigated by the 404→fallback loop, not by scaling.
+2. **Second:** If "live" model lists become a requirement, move the catalog to a runtime fetch from models.dev with a long `cacheLife` — never from a local opencode server (unreachable from Vercel).
 
 ## Anti-Patterns
 
-### Anti-Pattern 1: Filter/selection state living only in client component state
+### Anti-Pattern 1: Listing every opencode model, including providers the app can't call
 
-**What people do:** Store the search text, active filters, and "which item is selected" purely in React/framework component state (e.g. `useState`), with no URL sync.
-**Why it's wrong:** Breaks the exact use case this project cares about most — "pull up a company... in seconds" and share it with a colleague. A refresh or a shared link loses the view entirely. This is also the #1 reason master-detail dashboards get rebuilt later.
-**Do this instead:** URL query string + route param is the state of record (see Pattern 1); component state is just a debounced local mirror of it.
+**What people do:** Feed all 1,130 `opencode models` entries into the Settings select so it "looks complete."
+**Why it's wrong:** Users pick an openrouter/kilo/opencode-routed model → the agent instantiates `anthropic('<that id>')` → guaranteed 404 at run time. The list advertises capability that doesn't exist.
+**Do this instead:** Filter the generated catalog to installed provider SDKs + configured keys (Anthropic today). When a second provider lands (adds SDK + key), regenerate.
 
-### Anti-Pattern 2: Splitting search box, filter chips, and list into separate Astro islands
+### Anti-Pattern 2: Runtime fetch to a "local" opencode from Vercel
 
-**What people do:** Hydrate the search input as one island, the filter sidebar as another, and the list as a third, assuming they'll naturally stay in sync.
-**Why it's wrong:** Astro islands are isolated by default — they don't share state unless you wire up an explicit store (nanostores, a shared context, or custom events). Three independently-hydrated islands trying to coordinate filter state is a well-known Astro dashboard footgun and adds real complexity for no benefit here.
-**Do this instead:** One island (`ListFilterIsland`) owns search input, filter controls, and list rendering together. If the search/filter UI later needs to be reused elsewhere independently of the list, share state via a single small store (e.g., nanostores, which Astro ships first-party support for), not via prop-drilling across independently mounted islands.
+**What people do:** Design a route handler that hits `http://127.0.0.1:4096/api/model` (or shells `opencode models`) on every Settings page load.
+**Why it's wrong:** Vercel serverless runs in AWS — no dev-machine opencode, no shell, no localhost. It works in `next dev` and 404s in production, silently if errors are swallowed.
+**Do this instead:** Generate at build/dev time and commit (Pattern 3). A future runtime-fetch variant must point at a *publicly reachable* opencode server or models.dev, with caching.
 
-### Anti-Pattern 3: Coupling UI components directly to the CMS/DB record shape
+### Anti-Pattern 3: Failing over on every error type
 
-**What people do:** Import `@sanity/client` types (or ORM row types) directly into page/component code, the way `ShortLinkRecord` is used directly today.
-**Why it's wrong:** PROJECT.md explicitly leaves the backing store open for re-evaluation (Sanity "may be repurposed or replaced"). If UI code is written against Sanity's GROQ projection shape, changing the store means touching every page.
-**Do this instead:** Define `Company`/`Persona` domain types in `src/types/domain.ts` and have `src/lib/data/*.ts` be the only place that knows about the actual backing store, translating its records into domain types before returning them.
+**What people do:** `try { return await generateText(...) } catch { /* next model */ }` — swallowing gate/validation/schema errors and burning fallback tokens.
+**Why it's wrong:** `InvalidPromptError`, `TypeValidationError`, and the app's own `gate_failed` are deterministic — a different model produces the same failure. Retrying them hides real bugs (violates D-06 fail-loud).
+**Do this instead:** Gate with `isFailoverEligibleError` (Pattern 2) — only provider/model/network errors advance the chain.
+
+### Anti-Pattern 4: Storing display metadata in the DB
+
+**What people do:** Persist `{ id, name, provider, contextWindow }` JSON per user so the Settings page doesn't need the catalog.
+**Why it's wrong:** Duplicates the catalog, drifts when the catalog refreshes, and bloats the row. The catalog is the join.
+**Do this instead:** Store plain model IDs only; the page joins against the static catalog for labels; unknown/removed ids render as "model no longer available" (and the agent's 404 loop skips them).
+
+### Anti-Pattern 5: Putting model resolution inside the route handler
+
+**What people do:** `auth()` → query → `anthropic(id)` all inside `route.ts`.
+**Why it's wrong:** Untestable (D-16: zero live calls in tests — the route handler is never unit-tested in this repo; only `lib/` modules are).
+**Do this instead:** Resolve in `analyzeCompany` (which is the tested orchestrator, `analyzeCompany.test.ts` mocks its seams) via the pure `resolveModelChain`.
 
 ## Integration Points
 
 ### External Services
 
 | Service | Integration Pattern | Notes |
-|---------|----------------------|-------|
-| Clerk (auth) | Unchanged — `src/middleware.ts` continues to populate `Astro.locals.auth()` on every request; each new protected page destructures `{ userId }` (or, better, a new shared `requireAuth(Astro)` helper) | No new Clerk config needed for M1 — PROJECT.md confirms no role/permission model is in scope, so the existing binary signed-in/not-signed-in check is sufficient |
-| Backing data store (Sanity, retained or replaced) | Accessed exclusively through `src/lib/data/*.ts`, never directly from pages/components | Decision on whether to keep Sanity is a STACK.md concern, not an architecture concern — the data-fetching-layer boundary works the same either way |
+|---------|---------------------|-------|
+| opencode (dev machine) | **Build/generation-time only**: `scripts/refresh-model-catalog.ts` shells `opencode models --verbose` (or parses `~/.cache/opencode/models.json`) | Confirmed live (opencode 1.18.10). NOT reachable at runtime from Vercel — do not wire a runtime fetch. `--refresh` re-pulls models.dev if the cache is stale |
+| Anthropic API | Unchanged — `@ai-sdk/anthropic` + `ANTHROPIC_API_KEY`; `generateText` per attempt | The only provider the app can run today; catalog is filtered to it (Anti-pattern 1). Verified `@ai-sdk/anthropic@4.0.26` installed |
+| Neon Postgres | Unchanged — `db` from `@neondatabase/serverless`; new table via `drizzle-kit` | ⚠️ MEDIUM: `drizzle/meta/_journal.json` has **zero migration entries** — the live schema appears to be pushed/applied without committing generated migrations. The v1.3 phase must confirm the repo's actual apply flow (`drizzle-kit push` vs generate+commit) before adding the table |
+| Langfuse | Unchanged — each `generateText` attempt emits its own span under the route's `startActiveObservation('analyze-company')` | Fallback attempts are automatically visible in the trace (span per call). Optionally record the resolved model chain on `agent_run` (new nullable column or reuse `verdict`-style jsonb) for post-run audit — DB-first, trace-best-effort per D-14 |
 
 ### Internal Boundaries
 
 | Boundary | Communication | Notes |
-|----------|----------------|-------|
-| Astro pages ↔ `lib/data/*` | Direct function calls (server-side, no HTTP) | Same pattern as existing `bridge.astro` → `lib/sanity.ts`, just with typed query functions instead of inline GROQ |
-| Astro pages ↔ ClientRouter/islands | Props passed at hydration (`client:load` etc.) + URL as shared state channel | Islands never call `lib/data/*` directly on the client for M1 (no client-side data fetching needed if server-side filtering isn't yet implemented); if/when server-side search is added post-M1, expose it via a thin JSON API route (`src/pages/api/companies.json.ts`), not by exposing `lib/data` to the client bundle |
-| Company detail ↔ linked Personas (and vice versa) | Resolved inside the data-fetching layer (`getCompanyById` returns `linkedPersonas`, `getPersonaById` returns `linkedCompany`) | Keeps relation-resolution logic in one place rather than duplicated per page |
+|----------|---------------|-------|
+| Analyze route ↔ `analyzeCompany` | Direct call, signature change `(companyId)` → `(companyId, userId)` | The route already owns `requireStaffAccess()`; capturing `userId` is a 1-line change at L25. No auth re-check inside `analyzeCompany` (D-08 domains) |
+| `analyzeCompany` ↔ query module | `getUserModelSettings(userId)` — server-read; a missing row → defaults (never a gate failure) | Must NOT surface as `gate_failed` or `not_configured` — a user without settings simply gets the `FAST_MODEL_ID` default |
+| `analyzeCompany` ↔ `runAgent` | `models?: ModelChain` replaces `model?: ReturnType<typeof anthropic>` | Existing tests updated at the same commit (f) |
+| Settings page ↔ Server Action | Standard form action; zod-validate at the boundary | Input arrives as `unknown` (Server Action contract) — validate id ∈ catalog + primary required + fallbacks ⊆ catalog, ≤ N (e.g. 3) |
+| `getActiveNavKey` ↔ sidebar | `NavKey` union grows `'settings'` | Pure function + 11-case test suite updated; `getNavTooltipLabel`/`getCollapseToggleLabel` need a tooltip label (current 7-case suite updated too). Manage group is the natural home (Reviews already sits there) |
+
+## Suggested Build Order (dependency-driven)
+
+1. **Schema + query module (a):** `user_model_settings` table, `drizzle-kit` migration/apply (confirm flow — MEDIUM flag), `userModelSettings.ts` queries. Nothing depends on it yet.
+2. **Catalog generator (d):** `scripts/refresh-model-catalog.ts` → `src/lib/models/catalog.json` + `catalog.ts` (typed, provider-filtered). Pure filter logic gets Vitest coverage; generated snapshot committed. *Prereq for the Settings UI and for validating user picks.*
+3. **Model-config pure functions (c/e):** `modelConfig.ts` — `resolveModelChain`, `isFailoverEligibleError`. Co-located Vitest suite (constructed `APICallError(404/429/500)`/`AIConnectionError`/non-eligible instances — zero live calls). *Prereq for agent wiring and failover; independently testable now.*
+4. **Settings UI (b):** `getActiveNavKey` `'settings'` + tests → sidebar item → `(dashboard)/settings/page.tsx` + `model-settings-form.tsx` + `actions/settings.ts`. Consumes catalog + query module from 1/2.
+5. **Agent wiring (c):** route threads `userId` → `analyzeCompany(companyId, userId)` → resolve + pass chain to `runAgent`. Update `analyzeCompany.test.ts` (mock `getUserModelSettings`; assert chain reaches `runAgent`; missing-row → defaults).
+6. **Failover (e):** `runAgent` loop + `runAgent.test.ts` cases (primary throws 404 → fallback called; all fail → last error rethrown; non-eligible error → no fallback). Optionally persist the used model on `agent_run` for the review queue's "which model produced this" context.
+7. **Polish/observability:** settings-page empty/error states (EXPL-06 error-card pattern), Langfuse attempt visibility, UAT.
+
+**Ordering rationale:** schema→queries→catalog→pure logic are all independently shippable foundations; Settings UI consumes 1+2+4's nav change; the agent path (5+6) is the riskiest consumer (touches the tested orchestrator) and lands after the pure failover predicate is locked by tests, so the wiring change is a thin, provable slice.
 
 ## Sources
 
-- [View transitions - Astro Docs](https://docs.astro.build/en/guides/view-transitions/) — confirms `transition:persist`, `<ClientRouter />` (renamed from `<ViewTransitions />`), and cross-navigation state persistence. HIGH confidence, official docs.
-- [Islands architecture - Astro Docs](https://docs.astro.build/en/concepts/islands/) — confirms islands are isolated by default and hydrate independently. HIGH confidence.
-- [Explorer Dashboard - Recall.ai Docs](https://docs.recall.ai/docs/explorer-dashboard) — confirms the reference product's own explorer supports path-param-based deep links (`/dashboard/explorer/bot/{BOT_ID}`), validating the URL-as-state-of-record pattern against the named reference product. MEDIUM-HIGH confidence (direct doc reference, single source).
-- [Master–detail interface - Wikipedia](https://en.wikipedia.org/wiki/Master%E2%80%93detail_interface) — general pattern definition, side-by-side vs. stacked layout variants. MEDIUM confidence, general reference.
-- [Building a multi-framework dashboard with Astro - LogRocket](https://blog.logrocket.com/building-multi-framework-dashboard-with-astro/) and [Boost Performance with Astro Islands Architecture - Strapi](https://strapi.io/blog/astro-islands-architecture-explained-complete-guide) — community guidance on treating islands as the interactive layer over server-rendered dashboard shells. MEDIUM confidence, community sources, cross-checked against official islands docs.
-- `.planning/codebase/ARCHITECTURE.md`, `.planning/codebase/STRUCTURE.md` (this repo, 2026-07-22) — existing Clerk middleware, page-per-route convention, `lib/` client pattern that this architecture extends rather than replaces.
+- **Codebase (HIGH):** `src/lib/db/schema.ts`, `src/lib/db/queries/recentlyViewed.ts`, `src/app/(dashboard)/layout.tsx` + `reviews/page.tsx` + `page.tsx`, `src/app/api/companies/[id]/analyze/route.ts`, `src/lib/agents/{runAgent,analyzeCompany,tools,types}.ts` + both `.test.ts`, `src/lib/auth/requireStaffAccess.ts`, `src/components/layout/{app-shell-layout,app-sidebar}.tsx`, `src/lib/nav.ts`, `src/lib/env.ts`, `src/app/actions/reviews.ts`, `drizzle.config.ts`, `drizzle/meta/_journal.json`
+- **opencode (HIGH, live-verified 2026-08-02):** `opencode --help`, `opencode models` (1,130 models, 8 provider buckets, `--verbose`/`--refresh` flags), `opencode serve --help`, `~/.cache/opencode/models.json` (3.3 MB models.dev database); docs — https://opencode.ai/docs/server/, https://opencode.ai/v2/docs/api (GET `/api/model`, `/api/model/default`, `/config/providers`)
+- **AI SDK (HIGH, from installed node_modules):** `@ai-sdk/provider/dist/index.d.ts` + `dist/index.js` (APICallError default `isRetryable` = 408/409/429/≥500 — verified at L52-66), `@ai-sdk/anthropic/dist/index.d.ts` (AnthropicModelId union incl. `claude-sonnet-4-6` + `(string & {})` escape hatch), `ai@7.0.45`
+- **MEDIUM:** migration apply flow (empty `_journal.json` — push vs generate unconfirmed; verify in phase 1)
 
 ---
-*Architecture research for: data-heavy explorer/admin dashboard (list-nav + master-detail) on Astro + Clerk*
-*Researched: 2026-07-22*
+*Architecture research for: ArcLumen 360 — v1.3 AI Model Settings (subsequent-milestone integration)*
+*Researched: 2026-08-02*

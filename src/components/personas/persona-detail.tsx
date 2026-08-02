@@ -3,31 +3,18 @@ import { notFound } from 'next/navigation';
 import { getPersonaById } from '@/lib/db/queries/personas';
 import { listCompanyRolesForPersona } from '@/lib/db/queries/companyPersonaRoles';
 import { fetchArcpediaArticles } from '@/lib/arcpedia';
+import { ExplorerCloseButton } from '@/components/explorer/explorer-table-behavior';
+import { EnrichMenu } from '@/components/enrichment/enrichment-review-dialog';
+import { RecordViewTracker } from '@/components/dashboard/record-view-tracker';
+import { humanizeEnum, dateFormatter, FirmographicField, FieldSourceBadge } from '@/components/explorer/explorer-format';
+import { env } from '@/lib/env';
 
-// seniority is a fixed-but-extensible pgEnum storing slug values
-// (e.g. "c_level") — humanize for display rather than showing the raw slug
-// to a mixed/leadership audience (mirrors company-detail.tsx's convention).
-function humanizeEnum(value: string | null): string {
-  if (!value) return '—';
-  return value
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-}
-
-const dateFormatter = new Intl.DateTimeFormat('en-US', {
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric',
-});
-
-function FirmographicField({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-[12px] font-normal leading-[1.4] text-slate-500">{label}</p>
-      <p className="text-[14px] font-normal leading-[1.5] text-slate-900">{value}</p>
-    </div>
-  );
+// WR-06: enrichment/programmatic writes into persona data are on the
+// near-term roadmap (CLAUDE.md Constraints) — once linkedinUrl is populated
+// by an automated pipeline rather than typed in by staff, a non-http(s)
+// scheme (e.g. `javascript:`) must never render as a clickable anchor href.
+function isSafeUrl(url: string): boolean {
+  return /^https?:\/\//i.test(url);
 }
 
 export async function PersonaDetail({ id }: { id: number }) {
@@ -62,6 +49,9 @@ export async function PersonaDetail({ id }: { id: number }) {
     notFound();
   }
 
+  // D-04/Pitfall 4: fired only after the confirmed-exists check above — a
+  // broken/deleted-record deep link must never write a recentlyViewed row
+  // for a nonexistent id.
   // D-04: Current Company is shown separate from Career History.
   const current = roles.find((r) => r.role.isCurrent);
   const history = roles.filter((r) => !r.role.isCurrent);
@@ -72,7 +62,17 @@ export async function PersonaDetail({ id }: { id: number }) {
   const articles = await fetchArcpediaArticles(persona.name);
 
   return (
-    <div className="space-y-12 rounded-lg border border-slate-200 bg-white p-8">
+    <div className="relative space-y-12 bg-white p-8">
+      <RecordViewTracker recordType="persona" recordId={persona.id} />
+      <div className="absolute top-3 right-3 flex items-center gap-1">
+        <EnrichMenu
+          entityType="persona"
+          recordId={persona.id}
+          canEnrich={Boolean(persona.email && env.PROSPEO_API_KEY && env.ENRICHMENT_REVIEW_SECRET)}
+          disabledReason={!persona.email ? 'Add an email first' : 'Persona enrichment is not configured'}
+        />
+        <ExplorerCloseButton />
+      </div>
       <div>
         <h1 className="text-[24px] font-semibold leading-[1.2] text-slate-900">{persona.name}</h1>
         <p className="text-[14px] font-normal leading-[1.5] text-slate-500">
@@ -85,8 +85,8 @@ export async function PersonaDetail({ id }: { id: number }) {
           Role & Seniority
         </h2>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <FirmographicField label="Title" value={persona.title ?? '—'} />
-          <FirmographicField label="Seniority" value={humanizeEnum(persona.seniority)} />
+          <FirmographicField label="Title" value={persona.title ?? '—'} source={persona.fieldSources?.title} />
+          <FirmographicField label="Seniority" value={humanizeEnum(persona.seniority)} source={persona.fieldSources?.seniority} />
         </div>
       </section>
 
@@ -97,7 +97,7 @@ export async function PersonaDetail({ id }: { id: number }) {
         {current ? (
           <div>
             <Link
-              href={`/companies/${current.company.id}`}
+              href={`/companies?selected=${current.company.id}`}
               className="text-[14px] font-normal leading-[1.5] text-indigo-600"
             >
               {current.company.name}
@@ -146,7 +146,7 @@ export async function PersonaDetail({ id }: { id: number }) {
         {persona.email || persona.linkedinUrl ? (
           <div className="space-y-2">
             {persona.email ? (
-              <p>
+              <p className="flex items-center gap-2">
                 <a
                   href={`mailto:${persona.email}`}
                   className="text-[14px] font-normal leading-[1.5] text-indigo-600"
@@ -155,16 +155,17 @@ export async function PersonaDetail({ id }: { id: number }) {
                 </a>
               </p>
             ) : null}
-            {persona.linkedinUrl ? (
-              <p>
+            {persona.linkedinUrl && isSafeUrl(persona.linkedinUrl) ? (
+              <p className="flex items-start gap-2 [&>span]:shrink-0">
                 <a
                   href={persona.linkedinUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[14px] font-normal leading-[1.5] text-indigo-600"
+                  className="min-w-0 break-all text-[14px] font-normal leading-[1.5] text-indigo-600"
                 >
                   {persona.linkedinUrl}
                 </a>
+                <FieldSourceBadge source={persona.fieldSources?.linkedinUrl} />
               </p>
             ) : null}
           </div>

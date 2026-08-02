@@ -1,27 +1,13 @@
-import Link from 'next/link';
+import { ChevronDownIcon } from 'lucide-react';
 import { listCompanies, type CompanyFilters } from '@/lib/db/queries/companies';
 import { listSignalsForCompany } from '@/lib/db/queries/signals';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { TableCell } from '@/components/ui/table';
 import { SignalBadge } from '@/components/companies/signal-badge';
+import { CompanyDetail } from '@/components/companies/company-detail';
+import { ExplorerAccordionTable } from '@/components/explorer/explorer-accordion-table';
+import { ExplorerTableBehavior } from '@/components/explorer/explorer-table-behavior';
 import { cn } from '@/lib/utils';
-
-// revenue_band/ownership_type are fixed-but-extensible pgEnums storing
-// slug values (e.g. "under_50m", "pe_backed") — humanize for display
-// rather than showing the raw slug to a mixed/leadership audience.
-function humanizeEnum(value: string | null): string {
-  if (!value) return '—';
-  return value
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-}
+import { humanizeEnum } from '@/components/explorer/explorer-format';
 
 export async function CompanyList({
   filters,
@@ -41,7 +27,7 @@ export async function CompanyList({
       <div
         className={cn(
           'flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-8 text-center',
-          selectedId ? 'hidden md:flex' : 'flex'
+          selectedId != null ? 'hidden md:flex' : 'flex'
         )}
       >
         <p className="text-[18px] font-semibold leading-[1.2] text-slate-900">
@@ -67,7 +53,7 @@ export async function CompanyList({
           'flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-8 text-center',
           // D-07 mobile pattern: hide the list pane once a company is
           // selected on narrow viewports so only the detail pane shows.
-          selectedId ? 'hidden md:flex' : 'flex'
+          selectedId != null ? 'hidden md:flex' : 'flex'
         )}
       >
         {hasActiveFilters ? (
@@ -103,43 +89,49 @@ export async function CompanyList({
     })
   );
 
+  // CR-02: `selectedId` (from `?selected=<id>`) may not match any row in the
+  // current filtered set — nonexistent id, deleted row, or filtered-out by
+  // the active filters. `renderDetail`/`notFound()` are only ever reached
+  // for a row already present in `rowsWithSignals`, so that case would
+  // otherwise silently render the plain list with nothing selected and no
+  // indication the D-03 legacy bookmark it came from pointed at something
+  // that's gone.
+  const selectedRowMissing =
+    selectedId != null && !rowsWithSignals.some((r) => r.company.id === selectedId);
+
   return (
-    <div
-      className={cn(
-        'rounded-lg border border-slate-200 bg-white',
-        // D-07 mobile pattern: a selected company hides the list on narrow
-        // viewports so only the detail pane shows (RESEARCH.md "Mobile/
-        // Narrow-Viewport Behavior").
-        selectedId ? 'hidden md:block' : 'block'
-      )}
-    >
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Industry</TableHead>
-            <TableHead>Employee Count</TableHead>
-            <TableHead>HQ Location</TableHead>
-            <TableHead>Revenue Band</TableHead>
-            <TableHead>Ownership Type</TableHead>
-            <TableHead>Signals</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rowsWithSignals.map(({ company, distinctSignalTypes }) => (
-            <TableRow
-              key={company.id}
-              className={cn(
-                'min-h-12',
-                // Accent (indigo-600) selected-row indicator per UI-SPEC's
-                // Color section — accent marks selection state only.
-                company.id === selectedId && 'border-l-2 border-l-indigo-600 bg-indigo-50/50'
-              )}
-            >
+    <div className="rounded-lg border border-slate-200 bg-white">
+      {selectedRowMissing ? (
+        <div className="border-b border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          {"The selected company couldn't be found — it may have been deleted or no longer matches your filters."}
+        </div>
+      ) : null}
+      <ExplorerTableBehavior selectedId={selectedId}>
+        <ExplorerAccordionTable
+          columnLabels={[
+            'Name',
+            'Industry',
+            'Employee Count',
+            'HQ Location',
+            'Revenue Band',
+            'Ownership Type',
+            'Signals',
+          ]}
+          rows={rowsWithSignals}
+          getRowId={(row) => row.company.id}
+          selectedId={selectedId}
+          renderRowCells={({ company, distinctSignalTypes }, isExpanded) => (
+            <>
               <TableCell className="font-medium text-slate-900">
-                <Link href={`/companies/${company.id}`} className="block">
+                <span className="flex items-center gap-1">
+                  <ChevronDownIcon
+                    className={cn(
+                      'size-4 shrink-0 text-slate-400 transition-transform',
+                      isExpanded && 'rotate-180'
+                    )}
+                  />
                   {company.name}
-                </Link>
+                </span>
               </TableCell>
               <TableCell>{company.industry ?? '—'}</TableCell>
               <TableCell>{company.employeeCountBand ?? '—'}</TableCell>
@@ -153,10 +145,11 @@ export async function CompanyList({
                   ))}
                 </div>
               </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+            </>
+          )}
+          renderDetail={(row) => <CompanyDetail id={row.company.id} />}
+        />
+      </ExplorerTableBehavior>
     </div>
   );
 }

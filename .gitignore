@@ -33,3 +33,14 @@ yarn-error.log*
 # Vercel
 .vercel
 .env*
+
+# Agent tooling / runtime state (not project code)
+.agents/
+.bg-shell/
+.gsd/
+.omo/
+.playwright-mcp/
+.planning/debug/
+.planning/quick/
+drizzle/
+skills-lock.json
