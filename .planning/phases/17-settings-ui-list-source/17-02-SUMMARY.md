@@ -143,3 +143,7 @@ None — the D-01 re-verify consumed the existing `ANTHROPIC_API_KEY` from `.env
 - [x] Commits `7bbc8d2c`, `3cee25ef`, `879eabb4` present in git history
 - [x] `npx vitest run` full suite: 288 passed / 6 skipped / 0 failed
 - [x] `npx tsc --noEmit` exit 0
+
+## Self-Check: PASSED (post-write verification)
+
+All 5 files exist on disk and all 4 plan commits (`7bbc8d2c`, `3cee25ef`, `879eabb4`, `a0f47d86`) are present in git history — confirmed via `git log --oneline --all`.
