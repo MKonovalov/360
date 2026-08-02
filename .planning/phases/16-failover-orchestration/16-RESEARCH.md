@@ -488,26 +488,31 @@ if (state.status === 'success') {
 | # | Claim | Section | Risk if Wrong |
 |---|-------|---------|---------------|
 | A1 | `models[i].modelId` is the property on the `LanguageModel` instance the loop can read to report `modelUsed` | Pattern 2 | LOW — the generated-text `LanguageModelV4` exposes `modelId`; if the property differs, the loop reports a wrong/empty `modelUsed`. Mitigate: the Phase 15 `AnthropicModelId` union + existing `{ provider, modelId }` mock in runAgent.test.ts:64 confirm `modelId` exists on the model object shape. Verify with `npx tsc --noEmit` at first draft (Pitfall 11 pre-flight). |
-| A2 | Timeout (`TimeoutError`/`AbortError`) should advance the chain (OQ-1 recommendation, implemented as `connection` class) | Pattern 1 / OQ-1 | MEDIUM — D-02's eligible set names connection errors, `NoSuchModelError`, 404, 5xx — not timeouts. If the user intended timeouts to fail loud, a primary that times out at 35s fails the run at 35s instead of using the budgeted 20s fallback. The budget (35+20=55<60) only makes sense if the fallback share is actually used after a primary timeout. Flag for discuss/verify confirmation. |
+| A2 | Timeout (`TimeoutError`/`AbortError`) should advance the chain (OQ-1 recommendation, implemented as `connection` class) | Pattern 1 / OQ-1 | MEDIUM — D-02's eligible set names connection errors, `NoSuchModelError`, 404, 5xx — not timeouts. If the user intended timeouts to fail loud, a primary that times out at 35s fails the run at 35s instead of using the budgeted 20s fallback. The budget (35+20=55<60) only makes sense if the fallback share is actually used after a primary timeout. **RESOLVED (OQ-1, 2026-08-02):** advance-on-timeout adopted in 16-01-T3 (classifier step 4, `connection` class) — risk retired. |
 | A3 | The 201 response should include a server-computed display name (`modelUsedName`) because catalog.json must stay server-only (D-07/Pitfall 7) | Pattern 2 / D-06 | LOW — if the client were expected to format raw IDs, the "Claude Sonnet 4.6" human name would never reach it; D-06 explicitly wants the catalog `name`, so server-side computation is the only path. |
 | A4 | `analyzeCompany` should map the classified `rate_limited` throw to `{ ok: false, reason: 'rate_limited' }` (extending the AnalyzeResult union) rather than the route classifying | Pattern 3 | LOW — the route is never unit-tested (D-16, Anti-pattern 5); analyzeCompany is the tested orchestrator, so the classifier call belongs there. The route's switch needs the new case either way. |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+All three questions were resolved by the phase plans (2026-08-02) — each recommendation below is adopted and locked into the task it cites.
 
 1. **Should a primary timeout advance to the fallback?**
    - What we know: `{ totalMs }` aborts surface raw as `TimeoutError`/`AbortError` (verified). The budget math (35s primary + 20s fallback = 55s < 60s) only delivers value if the fallback share is used after a primary timeout — otherwise a slow primary fails the run at 35s with 25s of budget wasted. D-02's eligible set ("connection errors + NoSuchModelError + 404 + 5xx") doesn't name timeouts, but a hung endpoint is connection-class in spirit.
    - What's unclear: whether the user's "failover-eligible" intent includes timeouts. The research recommendation (Pattern 1) classifies timeout as `connection` → eligible. Failing loud on timeout is the conservative reading of D-02.
    - Recommendation: **advance on timeout** (classify as `connection`). It matches the budget design, and a timeout after SDK retries means the primary endpoint is effectively unavailable — exactly the "endpoint-specific failure a fallback may survive" D-02 wants to tolerate. If the user prefers fail-loud, the change is one line in the classifier.
+   - **RESOLVED (2026-08-02):** adopted — 16-01-T3 classifies `TimeoutError`/`AbortError` → `connection` (classifier step 4); locked by test case 7 in 16-01-T2.
 
 2. **Exact `usedFallback` response shape and where the display name is computed**
    - What we know: D-05 requires `modelUsed` + `usedFallback` in the Analyze response; D-06 wants the catalog `name` displayed; catalog.json is server-only (D-07). `createRun` returns the inserted row (carries `modelUsed`/`modelChain`).
    - What's unclear: flat `{ modelUsed, usedFallback, modelUsedName }` vs nested; whether the name lookup lives in catalog.ts or modelConfig.ts.
    - Recommendation: flat fields; add a small pure `getModelDisplayName(id)` in catalog.ts (reuses the existing typed snapshot import; Phase 17's pickers can use it too), compute the name server-side in the route/analyzeCompany. Claude discretion — pick one shape and lock it in the plan.
+   - **RESOLVED (2026-08-02):** adopted — flat `{ modelUsed, modelUsedName, usedFallback }` response locked in 16-03-T2 (route's 201 body); `getModelDisplayName(id)` lands in catalog.ts via 16-01-T1 (consumed by 16-03-T2's `modelUsedName` field).
 
 3. **`maxRetries` — confirm SDK default 2 stays**
    - What we know: Pitfall 4 + CONTEXT discretion says keep the default; `{ totalMs }` caps the pile-up so the budget holds.
    - What's unclear: nothing material — a decision to raise/lower `maxRetries` would change the 60s margin.
    - Recommendation: keep default 2, document the budget math (55s worst case) in a why-comment at the loop (house convention).
+   - **RESOLVED (2026-08-02):** adopted — 16-02-T1 keeps SDK default `maxRetries: 2` and mandates the FAL-04 55s-budget why-comment on the loop's `{ totalMs }` step.
 
 ## Environment Availability
 
