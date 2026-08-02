@@ -22,7 +22,7 @@ Requirements for milestone v1.4. Each maps to a roadmap phase.
 - [x] **FAL-01**: Cross-provider fallback chains run end-to-end — a fallback may come from a different provider than the primary
 - [x] **FAL-02**: `classifyModelError` gains a `billing` class for 402 (never failover-eligible, distinct structured reason "provider credits exhausted"); 502/503 documented as OpenRouter model-availability signals (server_error, advance)
 - [x] **FAL-03**: Hop-aware 429 policy — `rate_limited` advances the chain ONLY when the next model is on a different provider/key; same-provider 429 keeps v1.3's never-advance behavior; locked by a 4-cell Vitest matrix
-- [ ] **FAL-04**: Chain-aware env gate at run entry — a resolved chain spanning providers requires both providers' keys; an unset key for a provider present in the chain returns `not_configured` (per FAL-01 snapshot-at-entry)
+- [x] **FAL-04**: Chain-aware env gate at run entry — a resolved chain spanning providers requires both providers' keys; an unset key for a provider present in the chain returns `not_configured` (per FAL-01 snapshot-at-entry)
 - [x] **FAL-05**: `agent_run.model_used`/`model_chain` audit records the actual provider id served (OpenRouter slugs recorded as-saved, `~latest` aliases included verbatim)
 
 ### Settings UI
@@ -78,7 +78,7 @@ Deferred to future releases. Tracked but not in the current roadmap.
 | FAL-01 | Phase 20 | Complete |
 | FAL-02 | Phase 20 | Complete |
 | FAL-03 | Phase 20 | Complete |
-| FAL-04 | Phase 20 | Pending |
+| FAL-04 | Phase 20 | Complete |
 | FAL-05 | Phase 20 | Complete |
 | SET-01 | Phase 21 | Pending |
 | SET-02 | Phase 21 | Pending |

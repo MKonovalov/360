@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Multi-Provider AI Model Configuration
 status: executing
-last_updated: "2026-08-02T21:12:10.264Z"
+last_updated: "2026-08-02T21:18:09.135Z"
 last_activity: 2026-08-02
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 9
-  completed_plans: 7
+  completed_plans: 8
   percent: 25
 ---
 
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 ## Current Position
 
 Phase: 20 (Cross-Provider Run Path) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
 Last activity: 2026-08-02
 
-Progress: [████████░░] 78%
+Progress: [█████████░] 89%
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Progress: [████████░░] 78%
 | Phase 19 P05 | 6min | 3 tasks | 4 files |
 | Phase 20-cross-provider-run-path P01 | 3min | 2 tasks | 2 files |
 | Phase 20-cross-provider-run-path P02 | 5 | 2 tasks | 2 files |
+| Phase 20-cross-provider-run-path P03 | 8min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -96,6 +97,9 @@ Recent decisions affecting current work:
 - [Phase ?]: from/to provider identity is catalog-derived via getProviderForModelId on model ids only (D-20-07) — never the error body; to === null (last model / catalog drift) fail-closes a 429 advance
 - [Phase ?]: isOpenRouterPlatformRateLimit is loop-side diagnostics-only (D-20-08): informs reason strings + telemetry, structurally unable to flip the advance decision
 - [Phase ?]: Audit identity untouched: modelUsed = modelIdOf(models[i]) records the served id verbatim incl. slashed OpenRouter slugs + ~latest aliases (FAL-05)
+- [Phase ?]: D-20-03 execution: the pre-DB fast gate is FIRECRAWL-only — ANTHROPIC is a provider key, so it moves into the chain-aware named-key path (an openrouter-only chain runs with only OPENROUTER set; an ANTHROPIC-missing anthropic chain names ANTHROPIC_API_KEY)
+- [Phase ?]: FAL-04/D-20-01/02: missingProviderKey checks the RESOLVED chain's provider set all-or-nothing at run entry; unknown ids (null provider) are skipped — the union servable gate upstream (resolveModelChain) already excludes non-servable ids
+- [Phase ?]: D-20-10: 402 maps to billing 'provider credits exhausted'; 429 maps to rate_limited with the diagnostics-split platform/upstream message — message values are fixed server-side constants (T-20-09), only key NAMES surface in missingKey (T-20-07)
 
 ### Pending Todos
 
@@ -126,8 +130,8 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-02T21:11:03.316Z
-Stopped at: Phase 20 context gathered
+Last session: 2026-08-02T21:18:09.126Z
+Stopped at: Completed 20-03-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
