@@ -16,6 +16,12 @@ import { dateFormatter } from '@/components/explorer/explorer-format';
 // client-safe pure module, and a type-only catalog import never reaches a
 // client bundle. ModelProviderId comes from its canonical source (catalog.ts
 // declares the union; model-picker-logic does not re-export it).
+import {
+  optionsForSlot,
+  primaryAfterProviderSwitch,
+  providerName,
+  staleIds as computeStaleIds,
+} from './model-picker-logic';
 import type { ServableModel } from './model-picker-logic';
 import type { ModelProviderId } from '@/lib/models/catalog';
 
@@ -53,15 +59,26 @@ export function ModelSettingsForm({
   // All edits stage in local draft state (D-07) — nothing persists until Save
   // (D-12). At mount the draft mirrors the saved row; the empty-state prefill
   // is the server-computed default chain head (REG-05).
-  // The provider dimension (selector + reset reducer + hint) lands in plan
-  // 21-05; until then the pickers stay on the REG-05 anthropic default so the
-  // re-pointed Select-based UI preserves the v1.3 behavior verbatim.
-  const provider: ModelProviderId = 'anthropic';
+  // Initial provider = the saved primary's provider (savedChain[0] is the
+  // saved primary's chain entry — server-resolved, plan 21-03), else the
+  // REG-05 Anthropic fast path.
+  const [provider, setProvider] = useState<ModelProviderId>(
+    savedChain?.[0]?.providerID ?? 'anthropic',
+  );
   const [primary, setPrimary] = useState<string>(saved?.primaryModel ?? defaults[provider].id);
   const [fallbacks, setFallbacks] = useState<string[]>(saved?.fallbackModels ?? []);
   const [isPending, startTransition] = useTransition();
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Non-blocking provider-switch reset hint (D-21-01, UI-SPEC §Copywriting) —
+  // informational slate-600 text under the selector, never red.
+  const [resetHint, setResetHint] = useState<string | null>(null);
+  // The saved-chain recap gate (D-21-10): records what the last successful
+  // Save persisted, so the recap renders only while the draft still equals
+  // it — any edit to a slot fails the equality check and hides the recap.
+  const [lastSaved, setLastSaved] = useState<{ primary: string; fallbacks: string[] } | null>(
+    null,
+  );
 
   // Union-wide servable set (D-21-14) — the staleness gate widened from the
   // anthropic-only list to the union servable set (21-UI-SPEC SET-08).
@@ -74,7 +91,7 @@ export function ModelSettingsForm({
   // clears staleIds and re-enables Save — "replacing the value re-enables
   // Save" (17-UI-SPEC line 192).
   const unionIds = new Set(unionServableModels.map((m) => m.id));
-  const staleIds = [primary, ...fallbacks].filter((id) => id && !unionIds.has(id));
+  const staleIds = computeStaleIds([primary, ...fallbacks], unionIds);
   const saveDisabled = isPending || staleIds.length > 0;
 
   function handleSave() {
@@ -89,6 +106,12 @@ export function ModelSettingsForm({
       if (result.ok) {
         setStatus('saved');
         setErrorMsg(null);
+        // Record the persisted chain for the saved-chain recap (D-21-10) and
+        // clear the reset hint — the reset is moot once the primary is saved
+        // (RESEARCH Open Question 2 — RESOLVED). Unfilled fallback rows are
+        // dropped from the record, matching the submitted payload below.
+        setLastSaved({ primary, fallbacks: fallbacks.filter((id) => id !== '') });
+        setResetHint(null);
       } else {
         // D-13: the draft is preserved verbatim on failure — never reset the
         // useState; retry = press Save again with the draft still staged.
@@ -114,6 +137,29 @@ export function ModelSettingsForm({
 
   function addFallback() {
     setFallbacks((prev) => (prev.length >= 2 ? prev : [...prev, '']));
+  }
+
+  // D-21-01/03: provider switch = keep-if-valid → reset-to-provider-default.
+  function handleProviderChange(next: ModelProviderId) {
+    // Fallbacks are NEVER touched on a provider switch (D-21-02): the chain
+    // may become cross-provider by design — the union pickers still render
+    // them verbatim.
+    const result = primaryAfterProviderSwitch(primary, next, servableByProvider, defaults);
+    setPrimary(result.primary);
+    // The reset is draft-only (D-07) — nothing persists until Save.
+    if (result.resetToDefault) {
+      setResetHint(
+        `Primary model reset to ${defaults[next].name} for ${
+          providers.find((p) => p.id === next)?.name ?? next
+        }.`,
+      );
+    } else {
+      setResetHint(null);
+    }
+    setProvider(next);
+    // Pitfall 6: if the reset lands on an id a preserved fallback already
+    // holds, the server duplicate_model backstop surfaces the existing
+    // ERROR_COPY — do NOT clear the fallback (research recommendation).
   }
 
   // D-03 picker row: name + cost caption on one row via the vendored
@@ -151,6 +197,30 @@ export function ModelSettingsForm({
             The Analytic Agent uses these models. The primary model runs first; if it fails, the
             agent retries with each fallback in order.
           </p>
+        </div>
+
+        {/* D-21-03: the always-valued provider selector sits directly above
+            the Primary model label (SET-01). Stays a shadcn Select (D-21-06) —
+            the Combobox swap is scoped to model slots only. */}
+        <div className="flex flex-col gap-2">
+          <p className="text-[12px] font-normal leading-[1.4] text-slate-500">AI provider</p>
+          <Select value={provider} onValueChange={handleProviderChange}>
+            <SelectTrigger aria-label="AI provider" size="default">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {providers.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {/* D-21-01: the non-blocking reset hint — informational slate-600,
+              never red (it describes a successful draft reset, not an error). */}
+          {resetHint !== null ? (
+            <p className="text-[14px] font-normal leading-[1.5] text-slate-600">{resetHint}</p>
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-2">
