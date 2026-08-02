@@ -127,7 +127,23 @@ Plans:
   4. A chain spanning providers requires both providers' keys at run entry; an unset key for any provider present in the resolved chain returns `not_configured` at entry (never a mid-chain crash or silent skip)
   5. `agent_run.model_used`/`model_chain` record the actual provider id served — OpenRouter slugs recorded as-saved, `~latest` aliases included verbatim
 
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+**Wave 1**
+
+- [ ] 20-01-PLAN.md — classifier extension: 402 → `billing` (never failover-eligible) + 502/503 model-availability comment + D-20-06 output-branch comment + hop-aware `shouldAdvance` + 4-cell Vitest matrix (FAL-02, FAL-03)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 20-02-PLAN.md — hop-aware failover loop (`shouldAdvance` composition + catalog-derived from/to identity) + loop-side `isOpenRouterPlatformRateLimit` diagnostics helper (D-20-07/08) + catalog mock seam + cross-provider/billing/verbatim loop tests (FAL-01, FAL-02, FAL-03, FAL-05)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 20-03-PLAN.md — chain-aware all-or-nothing env gate at `analyzeCompany` entry (`missingProviderKey` names the key) + `billing`/`rate_limited` structured reasons + AnalyzeResult union extensions + OPENROUTER env test seam (FAL-01, FAL-02, FAL-04)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 20-04-PLAN.md — route status map (not_configured→400 named key, billing→402, rate_limited→429; D-20-11 minimal blast radius) + FAL-05 audit-wiring verification + full-suite/tsc/build gate (FAL-02, FAL-04, FAL-05)
 
 **Research flag**: small targeted check only — confirm `APICallError.responseBody` is populated by the installed provider before writing `isOpenRouterPlatformRateLimit`; classifier taxonomy otherwise fully specified
 
