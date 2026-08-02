@@ -38,3 +38,14 @@ blocked: 0
 
 - 2 (audit trail): live run now succeeds via direct analysis path; re-test the full user flow (UI → route → createRun → agent_run row) to close.
 
+---
+
+## Close-out Note (2026-08-02T15:59:28Z) — absorbed into Phase 18 VER-03 UAT
+
+Both pending items above are absorbed and CLOSED by the Phase 18 live-browser UAT (`.planning/phases/18-verification-gate/18-UAT.md`, status: complete, 6/6 pass):
+
+- **Item 1 — status strip rendering:** VERIFIED live in 18-UAT.md test 4 — the human ran Analyze on Altana (company id 16) and the status strip rendered exactly 'Analysis complete' (no fallback suffix; single servable model).
+- **Item 2 — live-run audit trail:** VERIFIED live in 18-UAT.md test 5 — Postgres `agent_run` row id=3 (new row, baseline max id was 2) with `model_used = 'claude-sonnet-4-6'` and `model_chain = ['claude-sonnet-4-6']`, `company_id=16`, `created_at=2026-08-02T13:56:06Z`. (The Langfuse per-attempt span inspection remains a manual observation if required — noted in 18-UAT.md Gaps.)
+
+This file is NOT rewritten — history preserved above; this note is appended as the record of closure. Reference: `.planning/phases/18-verification-gate/18-UAT.md`, `.planning/phases/18-verification-gate/18-VERIFICATION.md`.
+
