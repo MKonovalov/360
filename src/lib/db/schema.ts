@@ -242,6 +242,10 @@ export const agentRun = pgTable('agent_run', {
   // D-02: derived server-side from real webSearch tool results, NOT model-recited.
   evidenceAppendix: jsonb('evidence_appendix'),
   hypotheses: jsonb('hypotheses'),
+  // D-05 (v1.3): durable "which model ran" truth (D-14) — populated by Phase 16.
+  // Nullable: pre-milestone rows are NULL (backfill impossible — PITFALLS recovery).
+  modelUsed: text('model_used'),
+  modelChain: jsonb('model_chain').$type<string[]>(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -275,4 +279,18 @@ export const correction = pgTable('correction', {
   note: text('note'), // optional free-text detail
   traceId: text('trace_id').notNull(), // Langfuse run trace id — no FK (external system)
   createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// D-04/D-06 (v1.3): per-user AI model preference. Clerk userId is an opaque
+// string, NO FK (Clerk is external) — same pattern as recentlyViewed.userId.
+// Model IDs are stored as the APP instantiates them ('claude-sonnet-4-6',
+// passed to anthropic()) — NEVER provider-prefixed or dated IDs (Pitfall 1).
+export const userModelSettings = pgTable('user_model_settings', {
+  userId: text('user_id').primaryKey(),
+  primaryModel: text('primary_model').notNull(),
+  // text[] for a homogeneous ordered string list — direct string[] typing,
+  // same precedent as company.techStack (schema.ts:61).
+  fallbackModels: text('fallback_models').array().notNull().default([]),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
