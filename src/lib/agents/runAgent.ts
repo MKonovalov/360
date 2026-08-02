@@ -1,10 +1,9 @@
-import { anthropic } from '@ai-sdk/anthropic';
 import { generateText, isStepCount, Output, type LanguageModel } from 'ai';
-import { FAST_MODEL_ID } from '@/lib/models/catalog';
 import { buildAnalyzePrompt } from './prompt';
 import { webSearchTool } from './tools';
 import { outputSchema, type CompanyInput, type LiveSignalInput } from './types';
 import { classifyModelError, isFailoverEligible } from './modelConfig';
+import { defaultChain } from './modelFactory';
 
 export interface RunAgentInput {
   company: CompanyInput;
@@ -44,7 +43,7 @@ function modelIdOf(model: LanguageModel): string {
 export async function runAgent({
   company,
   liveSignals,
-  models = [anthropic(FAST_MODEL_ID)],
+  models = defaultChain(),
   timeouts = { primaryMs: 54_000, fallbackMs: 50_000 },
 }: RunAgentInput) {
   const startedAt = Date.now();

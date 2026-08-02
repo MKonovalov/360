@@ -3,11 +3,12 @@ import { APICallError, InvalidResponseDataError, RetryError } from 'ai';
 
 // 09-01-01 anchor: runAgent is the mockable seam (D-16 — zero live calls in
 // tests). Mock 'ai' (generateText + Output.object spy; keep real
-// tool/isStepCount), '@ai-sdk/anthropic' (model constructor), 'firecrawl',
+// tool/isStepCount), './modelFactory' (defaultChain — the factory-default
+// seam, constraint 11: provider SDKs are never imported here), 'firecrawl',
 // and '@/lib/env'.
 const mocks = vi.hoisted(() => ({
   generateText: vi.fn(),
-  anthropic: vi.fn(),
+  defaultChain: vi.fn(),
   initLangfuse: vi.fn(),
   outputObject: vi.fn(),
 }));
@@ -23,8 +24,8 @@ vi.mock('ai', async (importOriginal) => {
     Output: { ...actual.Output, object: mocks.outputObject },
   };
 });
-vi.mock('@ai-sdk/anthropic', () => ({ anthropic: mocks.anthropic }));
 vi.mock('@/lib/telemetry/langfuse', () => ({ initLangfuse: mocks.initLangfuse }));
+vi.mock('./modelFactory', () => ({ defaultChain: mocks.defaultChain }));
 vi.mock('@/lib/env', () => ({ env: { FIRECRAWL_API_KEY: 'test-key' } }));
 vi.mock('firecrawl', () => ({ Firecrawl: vi.fn() }));
 
@@ -62,7 +63,7 @@ const outputSpec = { name: 'object', responseFormat: {} };
 describe('runAgent (09-01-01)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.anthropic.mockReturnValue({ provider: 'anthropic', modelId: 'claude-sonnet-4-6' });
+    mocks.defaultChain.mockReturnValue([{ provider: 'anthropic', modelId: 'claude-sonnet-4-6' }]);
     mocks.generateText.mockResolvedValue(resolvedRun);
     mocks.outputObject.mockReturnValue(outputSpec);
   });
@@ -110,9 +111,10 @@ describe('runAgent (09-01-01)', () => {
     expect(result.usedFallback).toBe(false);
   });
 
-  it('defaults to the fast Anthropic model (T-09-SC model-string re-verify)', async () => {
-    await runAgent({ company, liveSignals: [] });
-    expect(mocks.anthropic).toHaveBeenCalledWith('claude-sonnet-4-6');
+  it('defaults to the factory default chain (T-09-SC model-string re-verify)', async () => {
+    const result = await runAgent({ company, liveSignals: [] });
+    expect(mocks.defaultChain).toHaveBeenCalledTimes(1);
+    expect(result.modelUsed).toBe('claude-sonnet-4-6');
   });
 
   it('never calls initLangfuse (telemetry is the global registerTelemetry from Task 2)', async () => {
@@ -124,7 +126,7 @@ describe('runAgent (09-01-01)', () => {
 describe('runAgent failover loop (FAL-03/04)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.anthropic.mockReturnValue({ provider: 'anthropic', modelId: 'claude-sonnet-4-6' });
+    mocks.defaultChain.mockReturnValue([{ provider: 'anthropic', modelId: 'claude-sonnet-4-6' }]);
     mocks.generateText.mockResolvedValue(resolvedRun);
     mocks.outputObject.mockReturnValue(outputSpec);
   });
@@ -144,19 +146,19 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     const result = await runAgent({
       company,
       liveSignals: [],
-      models: [mocks.anthropic(), mocks.anthropic()],
+      models: [{ provider: 'anthropic', modelId: 'm1' }, { provider: 'anthropic', modelId: 'm1' }],
     });
 
     expect(mocks.generateText).toHaveBeenCalledTimes(2);
     expect(mocks.generateText.mock.calls[1][0].timeout).toEqual({ totalMs: 50000 });
-    expect(result).toEqual({ ...resolvedRun, modelUsed: 'claude-sonnet-4-6', usedFallback: true });
+    expect(result).toEqual({ ...resolvedRun, modelUsed: 'm1', usedFallback: true });
   });
 
   it('429 never advances — single attempt, throws (D-01)', async () => {
     mocks.generateText.mockRejectedValueOnce(apiErr(429));
 
     await expect(
-      runAgent({ company, liveSignals: [], models: [mocks.anthropic(), mocks.anthropic()] }),
+      runAgent({ company, liveSignals: [], models: [{ provider: 'anthropic', modelId: 'm1' }, { provider: 'anthropic', modelId: 'm1' }] }),
     ).rejects.toThrow();
     expect(mocks.generateText).toHaveBeenCalledTimes(1);
   });
@@ -165,7 +167,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     mocks.generateText.mockRejectedValueOnce(apiErr(400));
 
     await expect(
-      runAgent({ company, liveSignals: [], models: [mocks.anthropic(), mocks.anthropic()] }),
+      runAgent({ company, liveSignals: [], models: [{ provider: 'anthropic', modelId: 'm1' }, { provider: 'anthropic', modelId: 'm1' }] }),
     ).rejects.toThrow();
     expect(mocks.generateText).toHaveBeenCalledTimes(1);
   });
@@ -174,7 +176,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     mocks.generateText.mockRejectedValueOnce(apiErr(401));
 
     await expect(
-      runAgent({ company, liveSignals: [], models: [mocks.anthropic(), mocks.anthropic()] }),
+      runAgent({ company, liveSignals: [], models: [{ provider: 'anthropic', modelId: 'm1' }, { provider: 'anthropic', modelId: 'm1' }] }),
     ).rejects.toThrow();
     expect(mocks.generateText).toHaveBeenCalledTimes(1);
   });
@@ -183,7 +185,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     mocks.generateText.mockRejectedValueOnce(apiErr(403));
 
     await expect(
-      runAgent({ company, liveSignals: [], models: [mocks.anthropic(), mocks.anthropic()] }),
+      runAgent({ company, liveSignals: [], models: [{ provider: 'anthropic', modelId: 'm1' }, { provider: 'anthropic', modelId: 'm1' }] }),
     ).rejects.toThrow();
     expect(mocks.generateText).toHaveBeenCalledTimes(1);
   });
@@ -192,7 +194,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     mocks.generateText.mockRejectedValueOnce(new InvalidResponseDataError({ data: {} }));
 
     await expect(
-      runAgent({ company, liveSignals: [], models: [mocks.anthropic(), mocks.anthropic()] }),
+      runAgent({ company, liveSignals: [], models: [{ provider: 'anthropic', modelId: 'm1' }, { provider: 'anthropic', modelId: 'm1' }] }),
     ).rejects.toThrow();
     expect(mocks.generateText).toHaveBeenCalledTimes(1);
   });
@@ -202,7 +204,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     mocks.generateText.mockRejectedValueOnce(apiErr(500)).mockRejectedValueOnce(lastErr);
 
     await expect(
-      runAgent({ company, liveSignals: [], models: [mocks.anthropic(), mocks.anthropic()] }),
+      runAgent({ company, liveSignals: [], models: [{ provider: 'anthropic', modelId: 'm1' }, { provider: 'anthropic', modelId: 'm1' }] }),
     ).rejects.toThrow(lastErr);
     expect(mocks.generateText).toHaveBeenCalledTimes(2);
   });
@@ -213,7 +215,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     await runAgent({
       company,
       liveSignals: [],
-      models: [mocks.anthropic(), mocks.anthropic()],
+      models: [{ provider: 'anthropic', modelId: 'm1' }, { provider: 'anthropic', modelId: 'm1' }],
     });
 
     expect(mocks.generateText.mock.calls[0][0].timeout).toEqual({ totalMs: 54000 });
@@ -232,7 +234,11 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     await runAgent({
       company,
       liveSignals: [],
-      models: [mocks.anthropic(), mocks.anthropic(), mocks.anthropic()],
+      models: [
+        { provider: 'anthropic', modelId: 'm1' },
+        { provider: 'anthropic', modelId: 'm1' },
+        { provider: 'anthropic', modelId: 'm1' },
+      ],
     });
 
     const timeouts = mocks.generateText.mock.calls.map((c) => c[0].timeout.totalMs);
@@ -255,11 +261,11 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     const result = await runAgent({
       company,
       liveSignals: [],
-      models: [mocks.anthropic(), mocks.anthropic()],
+      models: [{ provider: 'anthropic', modelId: 'm1' }, { provider: 'anthropic', modelId: 'm1' }],
     });
 
     expect(mocks.generateText).toHaveBeenCalledTimes(2);
-    expect(result).toEqual({ ...resolvedRun, modelUsed: 'claude-sonnet-4-6', usedFallback: true });
+    expect(result).toEqual({ ...resolvedRun, modelUsed: 'm1', usedFallback: true });
   });
 
   it('RetryError-wrapped 404 unwraps to model_not_found and still advances (Pitfall 3)', async () => {
@@ -276,11 +282,11 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     const result = await runAgent({
       company,
       liveSignals: [],
-      models: [mocks.anthropic(), mocks.anthropic()],
+      models: [{ provider: 'anthropic', modelId: 'm1' }, { provider: 'anthropic', modelId: 'm1' }],
     });
 
     expect(mocks.generateText).toHaveBeenCalledTimes(2);
-    expect(result).toEqual({ ...resolvedRun, modelUsed: 'claude-sonnet-4-6', usedFallback: true });
+    expect(result).toEqual({ ...resolvedRun, modelUsed: 'm1', usedFallback: true });
   });
 });
 
