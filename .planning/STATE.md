@@ -2,16 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: AI Model Settings
-status: ready_to_plan
-last_updated: 2026-08-02T13:08:21.606Z
-last_activity: 2026-08-02 -- Phase 16 execution started
+status: planning
+last_updated: "2026-08-02T13:25:35.797Z"
+last_activity: 2026-08-02
 progress:
-  total_phases: 18
-  completed_phases: 16
+  total_phases: 4
+  completed_phases: 2
   total_plans: 6
   completed_plans: 6
-  percent: 89
-stopped_at: Phase 16 complete (4/4) — ready to discuss Phase 17
+  percent: 50
 ---
 
 # Project State
@@ -98,9 +97,9 @@ Items acknowledged and carried forward from v1.1/v1.2 milestone close, still ope
 
 ## Session Continuity
 
-Last session: 2026-08-02T09:53:04.304Z
-Stopped at: Phase 16 context gathered
-Resume file: .planning/phases/16-failover-orchestration/16-CONTEXT.md
+Last session: 2026-08-02T13:25:35.786Z
+Stopped at: Phase 17 context gathered
+Resume file: .planning/phases/17-settings-ui-list-source/17-CONTEXT.md
 
 ## Operator Next Steps
 
