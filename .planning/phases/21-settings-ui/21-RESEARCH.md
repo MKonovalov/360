@@ -504,22 +504,27 @@ Source: MonkeyCode (AGPL-3.0) — [VERIFIED via grep_app_searchGitHub] — note:
 | A5 | `select.tsx` stays untouched for the provider selector and 4 other consumers; only model slots convert to Comboboxes | D-21-06 | If the plan converts the provider selector too, it violates the UI-SPEC's explicit control choice (2 items, no search needed) |
 | A6 | `PROVIDER_DEFAULT_MODELS` import from `modelFactory.ts` into `settings/page.tsx` is acceptable (server component; module-scope `createOpenRouter` runs harmlessly at request time) | Architecture Pattern 3 | If this becomes a concern, re-export the defaults from `catalog.ts` (server-side re-home) — small refactor |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> All three questions were resolved at Phase 21 planning; the plan files implement the recommendations below (RESOLVED markers).
 
 1. **Primary-reset collision with a preserved fallback (Pitfall 6)**
    - What we know: D-21-01 resets the primary to `defaults[next].id` on switch; D-21-02 preserves fallbacks verbatim; a fallback could already hold that id → Save fails `duplicate_model`.
    - What's unclear: whether the client should detect and handle this at switch time (e.g., flag the colliding fallback as needing replacement) or accept the server backstop error copy.
    - Recommendation: accept the existing `ERROR_COPY.duplicate_model` server path (rare edge, existing copy already explains it); optionally add a client-side duplicate hint if UAT shows confusion. Do NOT clear the fallback (violates D-21-02).
+   - **— RESOLVED (plans 21-02 + 21-05):** the client prevents the common case — `optionsForSlot(primary, fallbacks, -1, …)` excludes fallback-chosen ids from the primary picker (unit-tested both directions in `model-picker-logic.test.ts`); the residual collision is accepted via the existing `ERROR_COPY.duplicate_model` server backstop. Fallbacks are never cleared (D-21-02) — the form's `handleProviderChange` contains no `setFallbacks` call (gated).
 
 2. **Reset-hint lifecycle**
    - What we know: D-21-01 requires a non-blocking inline hint under the provider selector on reset; no dismissal mechanism is specified.
    - What's unclear: when the hint clears (on next provider switch? on primary edit? on Save? persists?).
    - Recommendation: show the hint after a reset; clear it when the user changes the primary (the reset is then moot) and on Save. Matches "non-blocking, informational" intent (UI-SPEC §Copywriting: `text-slate-600`, never red).
+   - **— RESOLVED (plan 21-05 Task 1 D):** the hint renders under the selector when a reset occurred and clears on primary edit and on Save — `text-slate-600`, never red.
 
 3. **Primary picker dedupe against fallbacks**
    - What we know: UI-SPEC §Row Anatomy says dedupe applies "over the 353-id union list — a model chosen for one slot disappears from the other slots' options; the primary is never a fallback option."
    - What's unclear: whether the PRIMARY picker (provider-scoped) must also exclude fallback-chosen models to prevent creating `primary === fallback` on save.
    - Recommendation: yes — exclude fallback-chosen ids from the primary picker options too (prevents the server `duplicate_model` error); include a unit test in `optionsForSlot`-style logic for both directions.
+   - **— RESOLVED (plan 21-02 Task 1):** `optionsForSlot` with `slotIndex = -1` (the primary direction) excludes the primary id AND all fallback-chosen ids; the dedupe is unit-tested for both directions in `model-picker-logic.test.ts`.
 
 ## Environment Availability
 
