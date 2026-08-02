@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useUser, SignOutButton } from '@clerk/nextjs';
-import { Building2, Inbox, LayoutDashboard, Mail, PanelLeftClose, PanelLeftOpen, Users } from 'lucide-react';
+import { Building2, Inbox, LayoutDashboard, Mail, PanelLeftClose, PanelLeftOpen, Settings, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getActiveNavKey } from '@/lib/nav';
 import { getUserDisplayName, getUserInitials } from '@/lib/user';
@@ -196,6 +196,19 @@ export function AppSidebar({ pendingCount = 0 }: { pendingCount?: number }) {
                   />
                 </>
               )}
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={activeKey === 'settings'}
+                tooltip={getNavTooltipLabel('settings', pendingCount)}
+                className="h-[30px] p-0 px-2 gap-2.5 rounded-[4px] text-[15px] font-normal"
+              >
+                <Link href="/settings">
+                  <Settings />
+                  <span>Settings</span>
+                </Link>
+              </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>

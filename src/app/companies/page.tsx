@@ -25,7 +25,13 @@ export default async function CompaniesPage({
   return (
     <div className="flex flex-col gap-4 p-8">
       <div className="flex items-center justify-end">
-        <ExplorerMenu variant="labeled" items={[{ label: 'Import', href: '/companies/import' }]} />
+        <ExplorerMenu
+          variant="labeled"
+          items={[
+            { label: 'Import', href: '/companies/import' },
+            { label: 'Settings', href: '/settings' },
+          ]}
+        />
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <CompanySearchInput />
