@@ -11,6 +11,13 @@ const mocks = vi.hoisted(() => ({
   defaultChain: vi.fn(),
   initLangfuse: vi.fn(),
   outputObject: vi.fn(),
+  // Phase 20 (FAL-03): provider identity for the hop decision. Default:
+  // every stub id resolves 'anthropic' (preserves all existing same-provider
+  // tests); slashed ids (real OpenRouter slugs) and 'm2' resolve 'openrouter'
+  // for the cross-provider cases.
+  getProviderForModelId: vi.fn((_catalog: unknown, id: string) =>
+    id.includes('/') || id === 'm2' ? 'openrouter' : 'anthropic',
+  ),
 }));
 
 vi.mock('ai', async (importOriginal) => {
@@ -28,6 +35,12 @@ vi.mock('@/lib/telemetry/langfuse', () => ({ initLangfuse: mocks.initLangfuse })
 vi.mock('./modelFactory', () => ({ defaultChain: mocks.defaultChain }));
 vi.mock('@/lib/env', () => ({ env: { FIRECRAWL_API_KEY: 'test-key' } }));
 vi.mock('firecrawl', () => ({ Firecrawl: vi.fn() }));
+// Phase 20 (FAL-03): runAgent.ts derives hop provider identity from the
+// catalog — the string-form 'm1' stubs are NOT in the real snapshot, so the
+// catalog is mocked with the hoisted provider resolver. The separate
+// '@/lib/models/catalog.json' JSON import is a different specifier and loads
+// the real static file (harmless).
+vi.mock('@/lib/models/catalog', () => ({ getProviderForModelId: mocks.getProviderForModelId }));
 
 import { runAgent } from './runAgent';
 import { buildAnalyzePrompt } from './prompt';
@@ -283,6 +296,43 @@ describe('runAgent failover loop (FAL-03/04)', () => {
 
     expect(mocks.generateText).toHaveBeenCalledTimes(2);
     expect(result).toEqual({ ...resolvedRun, modelUsed: 'm1', usedFallback: true });
+  });
+
+  it('429 advances ONLY on a cross-provider hop — mixed chain serves the fallback (FAL-03)', async () => {
+    mocks.generateText.mockRejectedValueOnce(apiErr(429)).mockResolvedValueOnce(resolvedRun);
+
+    const result = await runAgent({ company, liveSignals: [], models: ['m1', 'm2'] });
+
+    expect(mocks.generateText).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({ ...resolvedRun, modelUsed: 'm2', usedFallback: true });
+  });
+
+  it('reverse hop — openrouter primary to anthropic fallback also advances on 429 (FAL-03)', async () => {
+    mocks.generateText.mockRejectedValueOnce(apiErr(429)).mockResolvedValueOnce(resolvedRun);
+
+    const result = await runAgent({ company, liveSignals: [], models: ['m2', 'm1'] });
+
+    expect(mocks.generateText).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({ ...resolvedRun, modelUsed: 'm1', usedFallback: true });
+  });
+
+  it('402 billing never advances even cross-provider — throws on the primary (FAL-02)', async () => {
+    mocks.generateText.mockRejectedValueOnce(apiErr(402));
+
+    await expect(
+      runAgent({ company, liveSignals: [], models: ['m1', 'm2'] }),
+    ).rejects.toThrow();
+    expect(mocks.generateText).toHaveBeenCalledTimes(1);
+  });
+
+  it('records the served OpenRouter slug verbatim incl. aliases (FAL-05)', async () => {
+    mocks.generateText.mockRejectedValueOnce(apiErr(429)).mockResolvedValueOnce(resolvedRun);
+
+    const models = ['m1', 'anthropic/claude-sonnet-latest'];
+    const result = await runAgent({ company, liveSignals: [], models });
+
+    expect(mocks.generateText).toHaveBeenCalledTimes(2);
+    expect(result.modelUsed).toBe(models[1]);
   });
 });
 
