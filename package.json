@@ -11,7 +11,9 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "tsx src/scripts/seed.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "models:fetch": "tsx scripts/refresh-model-catalog.ts",
+    "db:push": "drizzle-kit push"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.26",
