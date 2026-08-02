@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   opencodeSlugToModelId,
   getAllowlistedServableIds,
+  getModelDisplayName,
   ANTHROPIC_ALLOWLIST,
+  FAST_MODEL_ID,
 } from './catalog';
 import type { ModelCatalog } from './catalog';
 
@@ -83,5 +85,22 @@ describe('ANTHROPIC_ALLOWLIST', () => {
   it('contains only roster-verified undated raw IDs per the D-02 gate (sonnet-only default)', () => {
     expect(ANTHROPIC_ALLOWLIST).toEqual(['claude-sonnet-4-6']);
     expect(ANTHROPIC_ALLOWLIST.every((id) => !/-20\d{6}/.test(id))).toBe(true);
+  });
+});
+
+describe('FAST_MODEL_ID', () => {
+  it('is the roster-verified Sonnet 4 alias and never a dated ID (D-07)', () => {
+    expect(FAST_MODEL_ID).toBe('claude-sonnet-4-6');
+    expect(!/-20\d{6}/.test(FAST_MODEL_ID)).toBe(true);
+  });
+});
+
+describe('getModelDisplayName', () => {
+  it('returns the catalog name for a known id (D-06)', () => {
+    expect(getModelDisplayName('claude-sonnet-4-6')).toBe('Claude Sonnet 4.6');
+  });
+
+  it('falls back to the raw id when the model is absent from the snapshot (D-06 fallback rule)', () => {
+    expect(getModelDisplayName('claude-opus-4-9')).toBe('claude-opus-4-9');
   });
 });
