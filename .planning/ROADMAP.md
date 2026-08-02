@@ -124,11 +124,14 @@ Full details: [`.planning/milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
   5. The model pickers show only models the app can actually run — the allowlist ∩ committed snapshot, never the raw opencode catalog rows — so no pick can save a model that 404s on the next run
 
 **Plans**: 3 plans
-**UI hint**: yes
-Plans:
+**UI hint**: yesPlans:
+**Wave 1**
 
 - [ ] 17-01-PLAN.md — Nav wiring: 'settings' NavKey + tooltip map + sidebar Manage-group item + ExplorerMenu entries (SET-01)
 - [ ] 17-02-PLAN.md — D-01 roster re-verify + saveSettingsAction Server Action with security matrix tests (SET-06/SET-07)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 17-03-PLAN.md — /settings server page + model-settings-form client form (pickers, fallback reorder, save lifecycle) (SET-02..06)
 
 ### Phase 18: Verification Gate
