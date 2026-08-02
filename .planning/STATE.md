@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Multi-Provider AI Model Configuration
 status: executing
-last_updated: "2026-08-02T23:24:38.545Z"
+last_updated: "2026-08-02T23:34:09.330Z"
 last_activity: 2026-08-02
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 14
-  completed_plans: 12
+  completed_plans: 13
   percent: 50
 ---
 
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 ## Current Position
 
 Phase: 21 (settings-ui) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-08-02
 
-Progress: [█████████░] 86%
+Progress: [█████████░] 93%
 
 ## Performance Metrics
 
@@ -63,6 +63,7 @@ Progress: [█████████░] 86%
 | Phase 21-settings-ui P01 | 12min | 1 tasks | 6 files |
 | Phase 21-settings-ui P02 | 3min | 2 tasks | 2 files |
 | Phase 21-settings-ui P03 | 11 | 1 tasks | 2 files |
+| Phase 21-settings-ui P04 | 20min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -113,6 +114,11 @@ Recent decisions affecting current work:
 - [Phase 21-settings-ui]: Task 1/2 executed as one TDD cycle per the plan's tdd=true flag on Task 1: the full Vitest suite was authored in Task 1's RED phase (failing test commit) and the module implemented in GREEN — RED test commit 35617605 strictly precedes GREEN feat commit 0c69783f — the TDD gate is satisfied; Task 2's deliverable is the RED commit
 - [Phase 21-settings-ui]: P03: settings/page.tsx delivers the five provider-aware props (providers SET-01, servableByProvider SET-02, unionServableModels SET-04, defaults from PROVIDER_DEFAULT_MODELS SET-03 source, savedChain SET-05) — all server-computed through a single provider-scoped trimRow (mm.id === id && mm.providerID === provider, Anti-Pattern 1 lock); catalog.json stays server-only (T-17-09); defaultPrimary deleted (defaults subsumes it)
 - [Phase 21-settings-ui]: P03: Rule 3 auto-fix — model-settings-form re-pointed to the new props in this plan (type-only imports, union staleness gate, union option sources, sonnet-only branch removed) so the plan's tsc gate passes; 21-05 Task 1 lands the provider selector dimension on top. Flag for 21-05: import ModelProviderId from @/lib/models/catalog (canonical source) — model-picker-logic imports but does NOT re-export it (TS2459)
+- [Phase 21-settings-ui]: P04: model-picker.tsx wrapper — no manual Check icon (vendored CommandItem auto-renders its CheckIcon gated on group-data-[checked=true]; a Check import would be dead code)
+- [Phase 21-settings-ui]: P04: ModelProviderId deliberately NOT imported in the wrapper — the plan's import spec is self-contradictory (canonical-source import trips the lib/models/catalog->0 canary; model-picker-logic imports but does not re-export it -> TS2459). Resolved via ServableModel['providerID'] indexed access — same union, cannot drift, canary stays 0
+- [Phase 21-settings-ui]: P04: trigger label uses the truthy-value form ({value ? selected?.name ?? value : placeholder}) — the plan's literal ??-chain renders a BLANK trigger for value='' (in-progress fallback row); the placeholder must show instead
+- [Phase 21-settings-ui]: P04: row anatomy wrapped in a flex flex-col container so the family subtitle renders as line 2 — a block span as a direct flex child of the vendored CommandItem (flex items-center) would sit inline after the cost caption (UI-SPEC Row Anatomy is authoritative)
+- [Phase 21-settings-ui]: P04: cn() used for the cost-caption conditional (justifies the plan-mandated cn import; tailwind-merge output identical to the plan's template literal)
 
 ### Pending Todos
 
@@ -143,8 +149,8 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-02T23:23:41.298Z
-Stopped at: Completed 21-02 (model-picker-logic pure module + Vitest suite) — next 21-03
+Last session: 2026-08-02T23:34:09.323Z
+Stopped at: Completed 21-04 (model-picker.tsx Combobox wrapper) — next 21-05
 Resume file: None
 
 ## Operator Next Steps

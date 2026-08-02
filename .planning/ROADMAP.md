@@ -170,7 +170,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 21-03-PLAN.md — `settings/page.tsx` widened props: providers, servableByProvider, unionServableModels, defaults, savedChain (provider-scoped trimRow — Anti-Pattern 1; T-17-09) (SET-01/02/04/05)
-- [ ] 21-04-PLAN.md — `model-picker.tsx` Combobox wrapper: data-checked + composite round-trip + provider groups + badges + labels + cost warnings (SET-04/05/06/07)
+- [x] 21-04-PLAN.md — `model-picker.tsx` Combobox wrapper: data-checked + composite round-trip + provider groups + badges + labels + cost warnings (SET-04/05/06/07)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -220,7 +220,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 18. Verification Gate | v1.3 | 3/3 | Complete    | 2026-08-02 |
 | 19. Provider Registry + Servable Model Source | v1.4 | 5/5 | Complete    | 2026-08-02 |
 | 20. Cross-Provider Run Path | v1.4 | 4/4 | Complete    | 2026-08-02 |
-| 21. Settings UI | v1.4 | 3/5 | In Progress|  |
+| 21. Settings UI | v1.4 | 4/5 | In Progress|  |
 | 22. Verification Gate | v1.4 | 0/TBD | Not started | - |
 
 ---
