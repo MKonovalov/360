@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Multi-Provider AI Model Configuration
 status: executing
-last_updated: "2026-08-02T23:14:58.806Z"
+last_updated: "2026-08-02T23:24:38.545Z"
 last_activity: 2026-08-02
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 14
-  completed_plans: 11
+  completed_plans: 12
   percent: 50
 ---
 
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 ## Current Position
 
 Phase: 21 (settings-ui) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Ready to execute
 Last activity: 2026-08-02
 
-Progress: [████████░░] 79%
+Progress: [█████████░] 86%
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Progress: [████████░░] 79%
 | Phase 20-cross-provider-run-path P04 | 2min | 2 tasks | 1 files |
 | Phase 21-settings-ui P01 | 12min | 1 tasks | 6 files |
 | Phase 21-settings-ui P02 | 3min | 2 tasks | 2 files |
+| Phase 21-settings-ui P03 | 11 | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -110,6 +111,8 @@ Recent decisions affecting current work:
 - [Phase 21-settings-ui]: ServableModel six-field shape { id, name, family, providerID, costInput, costOutput } defined once in model-picker-logic.ts — the shared prop type page.tsx (21-03), model-picker.tsx (21-04), and the form (21-05) all import — Avoids three drifting local copies of the trimmed prop shape
 - [Phase 21-settings-ui]: model-picker-logic.ts's ONLY import is import type { ModelProviderId } from '@/lib/models/catalog' — erased at compile; a value import would drag the 1131-row snapshot into the client bundle (T-17-09) — Client-safety canary grep (catalog.json -> 0) stays clean; the union cannot drift from catalog.ts
 - [Phase 21-settings-ui]: Task 1/2 executed as one TDD cycle per the plan's tdd=true flag on Task 1: the full Vitest suite was authored in Task 1's RED phase (failing test commit) and the module implemented in GREEN — RED test commit 35617605 strictly precedes GREEN feat commit 0c69783f — the TDD gate is satisfied; Task 2's deliverable is the RED commit
+- [Phase 21-settings-ui]: P03: settings/page.tsx delivers the five provider-aware props (providers SET-01, servableByProvider SET-02, unionServableModels SET-04, defaults from PROVIDER_DEFAULT_MODELS SET-03 source, savedChain SET-05) — all server-computed through a single provider-scoped trimRow (mm.id === id && mm.providerID === provider, Anti-Pattern 1 lock); catalog.json stays server-only (T-17-09); defaultPrimary deleted (defaults subsumes it)
+- [Phase 21-settings-ui]: P03: Rule 3 auto-fix — model-settings-form re-pointed to the new props in this plan (type-only imports, union staleness gate, union option sources, sonnet-only branch removed) so the plan's tsc gate passes; 21-05 Task 1 lands the provider selector dimension on top. Flag for 21-05: import ModelProviderId from @/lib/models/catalog (canonical source) — model-picker-logic imports but does NOT re-export it (TS2459)
 
 ### Pending Todos
 
@@ -140,9 +143,9 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-02T23:14:58.652Z
+Last session: 2026-08-02T23:23:41.298Z
 Stopped at: Completed 21-02 (model-picker-logic pure module + Vitest suite) — next 21-03
-Resume file: .planning/phases/21-settings-ui/21-02-SUMMARY.md
+Resume file: None
 
 ## Operator Next Steps
 
