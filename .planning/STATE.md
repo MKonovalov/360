@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Multi-Provider AI Model Configuration
-status: executing
-last_updated: "2026-08-02T23:34:09.330Z"
+status: verifying
+last_updated: "2026-08-02T23:42:29.147Z"
 last_activity: 2026-08-02
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 14
-  completed_plans: 13
-  percent: 50
+  completed_plans: 14
+  percent: 75
 ---
 
 # Project State
@@ -26,10 +26,10 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 
 Phase: 21 (settings-ui) — EXECUTING
 Plan: 5 of 5
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-02
 
-Progress: [█████████░] 93%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -64,6 +64,7 @@ Progress: [█████████░] 93%
 | Phase 21-settings-ui P02 | 3min | 2 tasks | 2 files |
 | Phase 21-settings-ui P03 | 11 | 1 tasks | 2 files |
 | Phase 21-settings-ui P04 | 20min | 1 tasks | 1 files |
+| Phase 21-settings-ui P05 | 5min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -119,6 +120,9 @@ Recent decisions affecting current work:
 - [Phase 21-settings-ui]: P04: trigger label uses the truthy-value form ({value ? selected?.name ?? value : placeholder}) — the plan's literal ??-chain renders a BLANK trigger for value='' (in-progress fallback row); the placeholder must show instead
 - [Phase 21-settings-ui]: P04: row anatomy wrapped in a flex flex-col container so the family subtitle renders as line 2 — a block span as a direct flex child of the vendored CommandItem (flex items-center) would sit inline after the cost caption (UI-SPEC Row Anatomy is authoritative)
 - [Phase 21-settings-ui]: P04: cn() used for the cost-caption conditional (justifies the plan-mandated cn import; tailwind-merge output identical to the plan's template literal)
+- [Phase 21-settings-ui]: P05: initial provider = savedChain[0].providerID (saved primary's provider) else anthropic (REG-05 fast path); handleProviderChange is a function declaration calling primaryAfterProviderSwitch — hint set only on resetToDefault, fallbacks never touched (D-21-02), reset draft-only (D-07)
+- [Phase 21-settings-ui]: P05: primary ModelPicker options = optionsForSlot(primary, fallbacks, -1, servableByProvider[provider]) — slotIndex -1 excludes primary + all fallback ids (Open Question 3) so Save can't hit duplicate_model; primary onChange also clears resetHint (hint lifecycle RESOLVED)
+- [Phase 21-settings-ui]: P05: saved-chain recap entries resolve provider via unionServableModels lookup and name via savedChain with raw-id fallback (T-21-14/15); recap gated on a lastSaved snapshot equality check so it self-hides on any slot edit
 
 ### Pending Todos
 
@@ -149,8 +153,8 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-02T23:34:09.323Z
-Stopped at: Completed 21-04 (model-picker.tsx Combobox wrapper) — next 21-05
+Last session: 2026-08-02T23:42:29.140Z
+Stopped at: Completed 21-05-PLAN.md — Phase 21 complete, ready for verification
 Resume file: None
 
 ## Operator Next Steps

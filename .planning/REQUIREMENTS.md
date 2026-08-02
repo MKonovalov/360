@@ -27,14 +27,14 @@ Requirements for milestone v1.4. Each maps to a roadmap phase.
 
 ### Settings UI
 
-- [ ] **SET-01**: AI Provider selector renders above the Primary model picker — always-valued, Anthropic + OpenRouter options
-- [ ] **SET-02**: Selecting a provider refreshes the Primary model picker from that provider's servable source
-- [ ] **SET-03**: Provider switch follows keep-if-valid → reset-to-provider-default (OpenRouter default = pinned concrete slug chosen in planning); draft-only (D-07), fallbacks preserved, non-blocking hint shown
-- [ ] **SET-04**: Fallback pickers show the union of all providers' servable models, grouped by provider + family
-- [ ] **SET-05**: Provider badges on picker rows and saved chain entries (disambiguates same-name models like `claude-sonnet-5` vs `anthropic/claude-sonnet-5`)
-- [ ] **SET-06**: Command-pattern type-to-filter search + provider/family grouping in the OpenRouter picker (336 rows usable)
-- [ ] **SET-07**: `~latest` aliases labeled "always the latest" (drift caveat); `:free` variants labeled rate-limited free tier (shared 50 req/day quota, fail-loud on cap)
-- [ ] **SET-08**: Staleness gate covers the union-wide servable set; catalog freshness caption retained; cost captions incl. high-cost model warnings (e.g. $150/M)
+- [x] **SET-01**: AI Provider selector renders above the Primary model picker — always-valued, Anthropic + OpenRouter options
+- [x] **SET-02**: Selecting a provider refreshes the Primary model picker from that provider's servable source
+- [x] **SET-03**: Provider switch follows keep-if-valid → reset-to-provider-default (OpenRouter default = pinned concrete slug chosen in planning); draft-only (D-07), fallbacks preserved, non-blocking hint shown
+- [x] **SET-04**: Fallback pickers show the union of all providers' servable models, grouped by provider + family
+- [x] **SET-05**: Provider badges on picker rows and saved chain entries (disambiguates same-name models like `claude-sonnet-5` vs `anthropic/claude-sonnet-5`)
+- [x] **SET-06**: Command-pattern type-to-filter search + provider/family grouping in the OpenRouter picker (336 rows usable)
+- [x] **SET-07**: `~latest` aliases labeled "always the latest" (drift caveat); `:free` variants labeled rate-limited free tier (shared 50 req/day quota, fail-loud on cap)
+- [x] **SET-08**: Staleness gate covers the union-wide servable set; catalog freshness caption retained; cost captions incl. high-cost model warnings (e.g. $150/M)
 
 ### Verification Gate
 
@@ -80,14 +80,14 @@ Deferred to future releases. Tracked but not in the current roadmap.
 | FAL-03 | Phase 20 | Complete |
 | FAL-04 | Phase 20 | Complete |
 | FAL-05 | Phase 20 | Complete |
-| SET-01 | Phase 21 | Pending |
-| SET-02 | Phase 21 | Pending |
-| SET-03 | Phase 21 | Pending |
-| SET-04 | Phase 21 | Pending |
-| SET-05 | Phase 21 | Pending |
-| SET-06 | Phase 21 | Pending |
-| SET-07 | Phase 21 | Pending |
-| SET-08 | Phase 21 | Pending |
+| SET-01 | Phase 21 | Complete |
+| SET-02 | Phase 21 | Complete |
+| SET-03 | Phase 21 | Complete |
+| SET-04 | Phase 21 | Complete |
+| SET-05 | Phase 21 | Complete |
+| SET-06 | Phase 21 | Complete |
+| SET-07 | Phase 21 | Complete |
+| SET-08 | Phase 21 | Complete |
 | VER-01 | Phase 22 | Pending |
 | VER-02 | Phase 22 | Pending |
 | VER-03 | Phase 22 | Pending |
