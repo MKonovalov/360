@@ -146,7 +146,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     const result = await runAgent({
       company,
       liveSignals: [],
-      models: [{ provider: 'anthropic', modelId: 'm1' }, { provider: 'anthropic', modelId: 'm1' }],
+      models: ['m1', 'm1'],
     });
 
     expect(mocks.generateText).toHaveBeenCalledTimes(2);
@@ -158,7 +158,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     mocks.generateText.mockRejectedValueOnce(apiErr(429));
 
     await expect(
-      runAgent({ company, liveSignals: [], models: [{ provider: 'anthropic', modelId: 'm1' }, { provider: 'anthropic', modelId: 'm1' }] }),
+      runAgent({ company, liveSignals: [], models: ['m1', 'm1'] }),
     ).rejects.toThrow();
     expect(mocks.generateText).toHaveBeenCalledTimes(1);
   });
@@ -167,7 +167,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     mocks.generateText.mockRejectedValueOnce(apiErr(400));
 
     await expect(
-      runAgent({ company, liveSignals: [], models: [{ provider: 'anthropic', modelId: 'm1' }, { provider: 'anthropic', modelId: 'm1' }] }),
+      runAgent({ company, liveSignals: [], models: ['m1', 'm1'] }),
     ).rejects.toThrow();
     expect(mocks.generateText).toHaveBeenCalledTimes(1);
   });
@@ -176,7 +176,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     mocks.generateText.mockRejectedValueOnce(apiErr(401));
 
     await expect(
-      runAgent({ company, liveSignals: [], models: [{ provider: 'anthropic', modelId: 'm1' }, { provider: 'anthropic', modelId: 'm1' }] }),
+      runAgent({ company, liveSignals: [], models: ['m1', 'm1'] }),
     ).rejects.toThrow();
     expect(mocks.generateText).toHaveBeenCalledTimes(1);
   });
@@ -185,7 +185,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     mocks.generateText.mockRejectedValueOnce(apiErr(403));
 
     await expect(
-      runAgent({ company, liveSignals: [], models: [{ provider: 'anthropic', modelId: 'm1' }, { provider: 'anthropic', modelId: 'm1' }] }),
+      runAgent({ company, liveSignals: [], models: ['m1', 'm1'] }),
     ).rejects.toThrow();
     expect(mocks.generateText).toHaveBeenCalledTimes(1);
   });
@@ -194,7 +194,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     mocks.generateText.mockRejectedValueOnce(new InvalidResponseDataError({ data: {} }));
 
     await expect(
-      runAgent({ company, liveSignals: [], models: [{ provider: 'anthropic', modelId: 'm1' }, { provider: 'anthropic', modelId: 'm1' }] }),
+      runAgent({ company, liveSignals: [], models: ['m1', 'm1'] }),
     ).rejects.toThrow();
     expect(mocks.generateText).toHaveBeenCalledTimes(1);
   });
@@ -204,7 +204,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     mocks.generateText.mockRejectedValueOnce(apiErr(500)).mockRejectedValueOnce(lastErr);
 
     await expect(
-      runAgent({ company, liveSignals: [], models: [{ provider: 'anthropic', modelId: 'm1' }, { provider: 'anthropic', modelId: 'm1' }] }),
+      runAgent({ company, liveSignals: [], models: ['m1', 'm1'] }),
     ).rejects.toThrow(lastErr);
     expect(mocks.generateText).toHaveBeenCalledTimes(2);
   });
@@ -215,7 +215,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     await runAgent({
       company,
       liveSignals: [],
-      models: [{ provider: 'anthropic', modelId: 'm1' }, { provider: 'anthropic', modelId: 'm1' }],
+      models: ['m1', 'm1'],
     });
 
     expect(mocks.generateText.mock.calls[0][0].timeout).toEqual({ totalMs: 54000 });
@@ -234,11 +234,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     await runAgent({
       company,
       liveSignals: [],
-      models: [
-        { provider: 'anthropic', modelId: 'm1' },
-        { provider: 'anthropic', modelId: 'm1' },
-        { provider: 'anthropic', modelId: 'm1' },
-      ],
+      models: ['m1', 'm1', 'm1'],
     });
 
     const timeouts = mocks.generateText.mock.calls.map((c) => c[0].timeout.totalMs);
@@ -261,7 +257,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     const result = await runAgent({
       company,
       liveSignals: [],
-      models: [{ provider: 'anthropic', modelId: 'm1' }, { provider: 'anthropic', modelId: 'm1' }],
+      models: ['m1', 'm1'],
     });
 
     expect(mocks.generateText).toHaveBeenCalledTimes(2);
@@ -282,7 +278,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     const result = await runAgent({
       company,
       liveSignals: [],
-      models: [{ provider: 'anthropic', modelId: 'm1' }, { provider: 'anthropic', modelId: 'm1' }],
+      models: ['m1', 'm1'],
     });
 
     expect(mocks.generateText).toHaveBeenCalledTimes(2);
