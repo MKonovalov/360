@@ -82,7 +82,7 @@ describe('getAllowlistedServableIds', () => {
 });
 
 describe('ANTHROPIC_ALLOWLIST', () => {
-  it('contains only roster-verified undated raw IDs per the D-02 gate (sonnet-only default)', () => {
+  it('contains only roster-verified undated raw IDs per the D-02 gate (sonnet-only — 2026-08-02 re-verify: undated haiku-4-5 still absent)', () => {
     expect(ANTHROPIC_ALLOWLIST).toEqual(['claude-sonnet-4-6']);
     expect(ANTHROPIC_ALLOWLIST.every((id) => !/-20\d{6}/.test(id))).toBe(true);
   });

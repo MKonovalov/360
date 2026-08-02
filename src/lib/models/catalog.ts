@@ -4,12 +4,12 @@ export type CatalogModel = (typeof catalogJson)['models'][number];
 export type ModelCatalog = { generatedAt: string; models: CatalogModel[] };
 
 // D-02/D-03: THE GATE — hand-curated, roster-verified raw provider IDs.
-// Roster check (GET /v1/models) executed 2026-08-02: claude-sonnet-4-6
-// VERIFIED present; claude-haiku-4-5 NOT on roster (only the dated
-// claude-haiku-4-5-20251001 form exists) → per D-02's gate it ships only if
-// an execution-time re-verify passes; default is sonnet-only, no invented or
-// dated IDs (Pitfall 6). Adding a model = code change + deploy + roster
-// re-verify (standing maintenance).
+// Roster re-verify (GET /v1/models) executed 2026-08-02 (D-01): claude-sonnet-4-6
+// VERIFIED present; undated claude-haiku-4-5 STILL ABSENT — only the dated
+// claude-haiku-4-5-20251001 form exists and an exact-id match is required for
+// the undated form to count → the allowlist stays sonnet-only (D-02), no
+// invented or dated IDs (Pitfall 6). Adding a model = code change + deploy +
+// roster re-verify (standing maintenance).
 export const ANTHROPIC_ALLOWLIST: readonly string[] = ['claude-sonnet-4-6'];
 
 // D-07 fast-model default (REG-05 no-settings chain). VERIFIED against the
