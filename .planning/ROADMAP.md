@@ -135,7 +135,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 20-02-PLAN.md — hop-aware failover loop (`shouldAdvance` composition + catalog-derived from/to identity) + loop-side `isOpenRouterPlatformRateLimit` diagnostics helper (D-20-07/08) + catalog mock seam + cross-provider/billing/verbatim loop tests (FAL-01, FAL-02, FAL-03, FAL-05)
+- [x] 20-02-PLAN.md — hop-aware failover loop (`shouldAdvance` composition + catalog-derived from/to identity) + loop-side `isOpenRouterPlatformRateLimit` diagnostics helper (D-20-07/08) + catalog mock seam + cross-provider/billing/verbatim loop tests (FAL-01, FAL-02, FAL-03, FAL-05)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -204,7 +204,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 17. Settings UI + List Source | v1.3 | 3/3 | Complete    | 2026-08-02 |
 | 18. Verification Gate | v1.3 | 3/3 | Complete    | 2026-08-02 |
 | 19. Provider Registry + Servable Model Source | v1.4 | 5/5 | Complete    | 2026-08-02 |
-| 20. Cross-Provider Run Path | v1.4 | 1/4 | In Progress|  |
+| 20. Cross-Provider Run Path | v1.4 | 2/4 | In Progress|  |
 | 21. Settings UI | v1.4 | 0/TBD | Not started | - |
 | 22. Verification Gate | v1.4 | 0/TBD | Not started | - |
 

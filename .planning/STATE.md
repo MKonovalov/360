@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Multi-Provider AI Model Configuration
 status: executing
-last_updated: "2026-08-02T21:04:44.443Z"
+last_updated: "2026-08-02T21:12:10.264Z"
 last_activity: 2026-08-02
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 9
-  completed_plans: 6
+  completed_plans: 7
   percent: 25
 ---
 
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 ## Current Position
 
 Phase: 20 (Cross-Provider Run Path) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-08-02
 
-Progress: [███████░░░] 67%
+Progress: [████████░░] 78%
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Progress: [███████░░░] 67%
 | Phase 19 P04 | 3min | 2 tasks | 2 files |
 | Phase 19 P05 | 6min | 3 tasks | 4 files |
 | Phase 20-cross-provider-run-path P01 | 3min | 2 tasks | 2 files |
+| Phase 20-cross-provider-run-path P02 | 5 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -91,6 +92,10 @@ Recent decisions affecting current work:
 - [Phase 19]: analyzeCompany maps chain ids once at entry via instantiateChain(modelChain) — Pitfall 11 comment preserved; env gate untouched (D-11/FAL-04 is Phase 20)
 - [Phase 19]: Explicit-models tests use string-form LanguageModel stubs ('m1') — plan's {provider,modelId} literals fail tsc against the LanguageModel union (Rule 1 fix)
 - [Phase 20]: FAL-02/FAL-03 (plan 20-01): 402 → 'billing' (never failover-eligible, PITFALLS 3); 502/503 stay server_error/eligible as model-availability signals (comment-only); D-20-06 mid-stream-429 note on the output branch; shouldAdvance implements the locked 4-cell matrix — rate_limited advances ONLY cross-provider, all other eligible classes advance regardless, fail-closed on null provider identity; locked by the D-16 test matrix
+- [Phase ?]: FAL-03 loop composition: (isFailoverEligible(cls) || cls === 'rate_limited') && shouldAdvance(cls, from, to) — the OR is REQUIRED because isFailoverEligible('rate_limited') is false by D-03; a literal AND would silently never advance cross-provider 429s
+- [Phase ?]: from/to provider identity is catalog-derived via getProviderForModelId on model ids only (D-20-07) — never the error body; to === null (last model / catalog drift) fail-closes a 429 advance
+- [Phase ?]: isOpenRouterPlatformRateLimit is loop-side diagnostics-only (D-20-08): informs reason strings + telemetry, structurally unable to flip the advance decision
+- [Phase ?]: Audit identity untouched: modelUsed = modelIdOf(models[i]) records the served id verbatim incl. slashed OpenRouter slugs + ~latest aliases (FAL-05)
 
 ### Pending Todos
 
@@ -121,7 +126,7 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-02T21:04:44.420Z
+Last session: 2026-08-02T21:11:03.316Z
 Stopped at: Phase 20 context gathered
 Resume file: None
 
