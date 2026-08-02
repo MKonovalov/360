@@ -81,9 +81,30 @@ browser (staff Clerk session)
 | VER-03 | 18-02 | Live-browser UAT — settings → Analyze → `agent_run.model_used` equals saved primary | ✓ VERIFIED | 18-UAT.md tests 1-6 (6/6 pass); Postgres row id=3: model_used=claude-sonnet-4-6, model_chain=[claude-sonnet-4-6] |
 | VER-01 | 18-01 | Failover taxonomy matrix (requirement → test → assertion) | ✓ VERIFIED (plan 01) | 18-01-SUMMARY.md + 18-VER-01-MATRIX.md — 4 new loop-level tests (401/403/output-schema/RetryError-404) |
 | VER-02 | 18-01 | Catalog/chain logic matrix | ✓ VERIFIED (plan 01) | 18-01-SUMMARY.md — real-snapshot catalog test (`['claude-sonnet-4-6']` + zero `/` leakage) + partial-chain resolveModelChain test |
-| VER-04 | 18-03 | Vercel preview renders /settings model list | pending — plan 18-03 | plan 03 (preview URL render check) |
+| VER-04 | 18-03 | Vercel preview renders /settings model list | evidence appended (plan 18-03 Task 1) — final verdict set by Task 3 after the human preview check | plan 03 VER-04 section below: PR URL, preview URL, grep gate 0 hits, full suite + tsc green |
 
-**Orphaned requirements:** None — all four phase requirements are mapped (VER-01/02 done in plan 01, VER-03 done here, VER-04 owned by plan 18-03).
+**Orphaned requirements:** None — all four phase requirements are mapped (VER-01/02 done in plan 01, VER-03 done here, VER-04 evidence appended in plan 18-03 Task 1; final verdict in Task 3).
+
+## VER-04 — Deployed Preview Evidence (plan 18-03, Task 1)
+
+**Status:** evidence appended — the blocking human checkpoint (Task 2) verifies the live preview in a browser; Task 3 sets `status: passed`.
+
+| Item | Value |
+| ---- | ----- |
+| PR | https://github.com/MKonovalov/360/pull/1 (`chore/18-verification-gate` → `main`) |
+| Preview URL | https://360-arclumen-bcpwx9ek9-mkonovalovs-projects.vercel.app |
+| Preview source | Vercel GitHub integration (auto-preview — A1 assumption confirmed: the integration IS installed and auto-builds). First auto-build FAILED (see deviations — `CLERK_SECRET_KEY` undefined on the Preview env); after scoping the var to Preview, the same head SHA was redeployed → READY |
+| Build | Vercel preview deployment `npm run build` exit 0 → status Ready |
+| Grep gate (ASVS V7) | `grep -rE "node:child_process\|execFileSync(\|execSync(\|spawnSync(\|spawn(" src/` → **0 hits** (grep exit 1 = no matches; exact command from 15-VERIFICATION Truth 8 / 18-PATTERNS :317-323) |
+| Full suite | `npm test` → **294 passed / 6 skipped, exit 0** |
+| Type check | `npx tsc --noEmit` → **exit 0** |
+| V4 access control (anonymous, T-18-07) | `GET /` → **307 `/sign-in`**; `GET /settings` → **307 `/sign-in`** — no company data, no model settings, no staff-only content renders anonymously (verified via curl on the live preview) |
+| /sign-in render | HTTP 200 — Clerk JS loaded, `<title>ArcLumen 360</title>` |
+
+**Deviations (Rule 3 auto-fixes — Vercel project config only; zero production code changes):**
+
+1. **`CLERK_SECRET_KEY` missing on the Preview env → preview build failed.** `src/lib/env.ts:9` validates `CLERK_SECRET_KEY` at module evaluation; on Vercel it was scoped **Production only** (Astro-era, 17d ago). The first auto-build errored with `ZodError: CLERK_SECRET_KEY — Invalid input: expected string, received undefined`. Fix: scoped `CLERK_SECRET_KEY` to Preview via `vercel env add` (value sourced from `.env.local`, never printed), then `vercel redeploy` of the same head SHA → build exit 0, Ready.
+2. **Vercel SSO/Deployment Protection intercepted all preview requests.** `ssoProtection: { deploymentType: "all_except_custom_domains" }` redirected every preview request to `vercel.com/login`, making the plan's anonymous-visit verification (how-to-verify step 2, T-18-07) impossible. Fix: disabled SSO protection for the project (`ssoProtection: null`) — production (custom domain `360.arclumenpartners.com`) is unaffected and remains live; the app's own Clerk auth is the real access gate.
 
 ### Anti-Patterns Found
 
