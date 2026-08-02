@@ -79,10 +79,11 @@ Full details: [`.planning/milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
   4. A staff user with no saved settings row still gets the existing `claude-sonnet-4-6` default behavior — a missing row never blocks or changes a run
   5. The app ships a committed catalog snapshot (generated dev-time by `scripts/refresh-model-catalog.ts` → `opencode models`), pure functions filter it to servable Anthropic-allowlisted models and map opencode slugs to raw provider IDs, and the catalog reads server-side with no request-time opencode dependency
 
-**Plans**: TBD (refined during planning)
+**Plans**: 2 plans
 Plans:
 
-- [ ] 15-01-PLAN.md — TBD
+- [ ] 15-01-PLAN.md — DB foundation: user_model_settings table + agent_run audit columns + userModelSettings query module + schema push + integration tests
+- [ ] 15-02-PLAN.md — Catalog: refresh-model-catalog script + models:fetch + committed snapshot + pure allowlist/slug filter functions + tests
 
 ### Phase 16: Failover Orchestration
 
