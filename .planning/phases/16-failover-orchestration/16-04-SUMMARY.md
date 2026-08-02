@@ -91,6 +91,13 @@ None - no external service configuration required. Zero new packages (T-16-SC: n
 - **Phase 17 (model settings UI):** `getModelDisplayName` consumption pattern established (server-computed name, raw-id fallback) — the pickers can reuse the same display-name helper.
 - **Phase 18 (verification gate):** VER-03 live-browser UAT now has its target behavior defined: rate-limited run → "Rate limited — try again in a moment"; fallback run → "Analysis complete — ran on {name} (fallback)"; normal success → exactly "Analysis complete". Needs 16-03's route emitting the flat fields to be observable end-to-end.
 
+## Self-Check: PASSED
+
+- FOUND: `src/components/agents/analyze-run-status.tsx` (modified, in feat commit `4a11f3df`)
+- FOUND: `.planning/phases/16-failover-orchestration/16-04-SUMMARY.md` (in docs commit `dc54f627`)
+- FOUND: feat commit `4a11f3df` and docs commit `dc54f627` in git history
+- Diff vs pre-plan HEAD contains only the plan's target file + SUMMARY + deferred-items — no STATE.md/ROADMAP.md changes by this executor
+
 ---
 
 *Phase: 16-failover-orchestration*
