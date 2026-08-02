@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Multi-Provider AI Model Configuration
 status: executing
-last_updated: "2026-08-02T22:58:19.444Z"
-last_activity: 2026-08-02 -- Phase 21 planning complete
+last_updated: "2026-08-02T23:06:30.779Z"
+last_activity: 2026-08-02
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 14
-  completed_plans: 9
+  completed_plans: 10
   percent: 50
 ---
 
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-02)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** Phase 21 — settings ui
+**Current focus:** Phase 21 — settings-ui
 
 ## Current Position
 
-Phase: 21
-Plan: Not started
+Phase: 21 (settings-ui) — EXECUTING
+Plan: 2 of 5
 Status: Ready to execute
-Last activity: 2026-08-02 -- Phase 21 planning complete
+Last activity: 2026-08-02
 
-Progress: [██████████] 100%
+Progress: [███████░░░] 71%
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ Progress: [██████████] 100%
 | Phase 20-cross-provider-run-path P02 | 5 | 2 tasks | 2 files |
 | Phase 20-cross-provider-run-path P03 | 8min | 2 tasks | 2 files |
 | Phase 20-cross-provider-run-path P04 | 2min | 2 tasks | 1 files |
+| Phase 21-settings-ui P01 | 12min | 1 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -104,6 +105,7 @@ Recent decisions affecting current work:
 - [Phase ?]: D-20-09/10/11 execution: not_configured -> 400 with message naming the missing key (undefined on the bare FIRECRAWL fast-gate path - JSON drops it); billing -> 402 'provider credits exhausted'; rate_limited -> 429 with result.message; the 502 family untouched
 - [Phase ?]: FAL-05 is verification-only (RESEARCH caveat 6): Phase 19/20-02 already wired modelUsed/modelChain; proven by 3 greps + a tsx identity smoke rather than new code
 - [Phase ?]: The catalog stores ~latest aliases with a LEADING ~ ('~anthropic/claude-sonnet-latest'), not 'anthropic/claude-sonnet-latest' - the plan's smoke literal would fail; corrected smoke uses the real alias and still proves the FAL-05 intent (ids resolve to providers, flow verbatim)
+- [Phase 21-settings-ui]: SET-06 infra shipped (21-01): vendored shadcn Command/Popover via official CLI; cmdk@^1.1.1 is the phase's single new npm dep, recorded in package-lock.json via npm (no yarn.lock). The v4 CommandGroup heading contract is the compiled descendant form (**[[cmdk-group-heading]]:text-xs...), NOT the literal class string. Wrapper (21-04) MUST pass data-checked per CommandItem — vendored CheckIcon is gated on group-data-[checked=true] but cmdk only emits data-selected/aria-selected (PATTERNS Pitfall 1). SET-06 stays open until 21-05
 
 ### Pending Todos
 
@@ -134,9 +136,9 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-02T22:05:50.598Z
-Stopped at: Phase 21 UI-SPEC approved
-Resume file: .planning/phases/21-settings-ui/21-UI-SPEC.md
+Last session: 2026-08-02T23:06:30.773Z
+Stopped at: Plan 21-01 complete (Command/Popover vendored + cmdk) — next 21-02
+Resume file: .planning/phases/21-settings-ui/21-01-SUMMARY.md
 
 ## Operator Next Steps
 
