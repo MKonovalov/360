@@ -4,10 +4,15 @@ import { listSignalsForCompany } from '@/lib/db/queries/signals';
 import { getModelSettingsForUser } from '@/lib/db/queries/userModelSettings';
 import { validateRunArtifacts } from '@/lib/validation/validateReport';
 import type { Verdict } from '@/lib/validation/airsRules';
-import { runAgent } from './runAgent';
+import { runAgent, isOpenRouterPlatformRateLimit } from './runAgent';
 import { dedupProposals } from './dedup';
 import { instantiateChain } from './modelFactory';
 import { resolveModelChain, classifyModelError } from './modelConfig';
+// D-20-01/02: provider identity for the chain-aware gate is catalog-derived —
+// static, env-free imports (modelConfig.ts Pattern 2); constraint 11 untouched,
+// the catalog is NOT a provider SDK.
+import { getProviderForModelId } from '@/lib/models/catalog';
+import catalogJson from '@/lib/models/catalog.json';
 import type { CompanyInput, DerivedEvidenceAppendix, LiveSignalInput, ProposalSignal, RunOutput } from './types';
 
 // analyzeCompany — the Analyze orchestration (ANLZ-01/05, 09-01-03 anchor).
@@ -34,14 +39,36 @@ export type AnalyzeResult =
     }
   | {
       ok: false;
-      reason: 'gate_failed' | 'not_configured' | 'company_not_found' | 'db_error' | 'rate_limited';
+      reason: 'gate_failed' | 'not_configured' | 'company_not_found' | 'db_error' | 'rate_limited' | 'billing';
       errors?: string[];
+      missingKey?: string; // D-20-01: names the key for not_configured
+      message?: string; // D-20-10: structured reason for billing / rate_limited
     };
+
+// D-20-01/02: provider → env key for the chain-aware gate. Pure env.ts reads,
+// no provider SDK interaction (research FAL-04). Returns the MISSING key name
+// (e.g. 'OPENROUTER_API_KEY' or 'ANTHROPIC_API_KEY') or null when every
+// provider in the chain is set. Unknown ids (null provider) are skipped — the
+// union servable gate upstream (resolveModelChain) already excludes
+// non-servable ids.
+export function missingProviderKey(modelChain: string[]): string | null {
+  const providers = new Set(
+    modelChain
+      .map((id) => getProviderForModelId(catalogJson, id))
+      .filter((p): p is 'anthropic' | 'openrouter' => p !== null),
+  );
+  if (providers.has('anthropic') && !env.ANTHROPIC_API_KEY) return 'ANTHROPIC_API_KEY';
+  if (providers.has('openrouter') && !env.OPENROUTER_API_KEY) return 'OPENROUTER_API_KEY';
+  return null;
+}
 
 export async function analyzeCompany(companyId: number, userId: string): Promise<AnalyzeResult> {
   // D-15 env gate (mirror enrichment.ts's not_configured): unset keys disable
   // the Analyze action, never crash. Checked at call time, not import time.
-  if (!env.ANTHROPIC_API_KEY || !env.FIRECRAWL_API_KEY) {
+  // FIRECRAWL is required regardless of provider (the webSearch tool needs it,
+  // D-20-03); the per-provider keys move into the chain-aware check below
+  // (FAL-04) so they get the named-key treatment.
+  if (!env.FIRECRAWL_API_KEY) {
     return { ok: false, reason: 'not_configured' };
   }
 
@@ -54,6 +81,17 @@ export async function analyzeCompany(companyId: number, userId: string): Promise
   // route persists (D-05). Never re-read settings inside runAgent/loop.
   const settings = await getModelSettingsForUser(userId);
   const modelChain = resolveModelChain(settings);
+
+  // FAL-04 chain-aware gate (D-20-01/02): ALL-or-nothing at run entry — every
+  // provider present in the RESOLVED chain needs its key. Never a mid-chain
+  // crash, never a lazy per-hop key check (ARCHITECTURE Pattern 4). The named
+  // key lets the route tell staff which provider to configure (D-20-04: no
+  // Settings UI in Phase 20). An openrouter-only chain needs ONLY the
+  // OpenRouter key (Phase 22 UAT), so ANTHROPIC is NOT blanket-required.
+  const missingKey = missingProviderKey(modelChain);
+  if (missingKey) {
+    return { ok: false, reason: 'not_configured', missingKey };
+  }
 
   // AI-domain try/catch (D-08): only misconfiguration throws map to a
   // structured result; genuine agent/provider failures propagate fail-loud
@@ -69,10 +107,26 @@ export async function analyzeCompany(companyId: number, userId: string): Promise
     });
   } catch (err) {
     if (isMisconfigurationError(err)) return { ok: false, reason: 'not_configured' };
-    // D-04 carve-out: ONLY 429 gets a distinct structured reason; all other
-    // non-failover classes propagate fail-loud to the route's generic 502
-    // analysis_failed (classifyModelError handles RetryError unwrap-first).
-    if (classifyModelError(err) === 'rate_limited') return { ok: false, reason: 'rate_limited' };
+    const cls = classifyModelError(err);
+    // FAL-02 (D-20-10): 402 → billing — account-level credits exhausted; a
+    // distinct reason so nobody later "fixes" it into the advance set
+    // (PITFALLS 3). It never reaches this point as a burnable fallback —
+    // isFailoverEligible('billing') is false, so the loop throws immediately.
+    if (cls === 'billing') return { ok: false, reason: 'billing', message: 'provider credits exhausted' };
+    // D-04 carve-out extended (D-20-09/10): ONLY 429 gets a distinct reason;
+    // the diagnostics helper (runAgent module, D-20-08) distinguishes
+    // platform-level vs upstream pass-through for the reason string + telemetry
+    // only — the advance decision already happened in the loop via provider
+    // identity (D-20-07).
+    if (cls === 'rate_limited') {
+      return {
+        ok: false,
+        reason: 'rate_limited',
+        message: isOpenRouterPlatformRateLimit(err)
+          ? 'openrouter platform rate limit'
+          : 'upstream provider rate limit',
+      };
+    }
     throw err;
   }
 
