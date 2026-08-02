@@ -96,7 +96,14 @@ Full details: [`.planning/milestones/v1.3-ROADMAP.md`](milestones/v1.3-ROADMAP.m
   4. Provider identity is derived from the catalog by model id via a servable-scoped lookup with a collision canary (`claude-sonnet-5` → anthropic, `anthropic/claude-sonnet-5` → openrouter), and raw ids pass through verbatim (never `~`-stripped, never prefix-collapsed) — `user_model_settings` schema unchanged
   5. A single `modelFactory` seam instantiates any servable chain id to its provider's `LanguageModel` (`anthropic(id)` or `openrouter(id)` by catalog `providerID`), is the only module importing provider SDKs, and `saveSettingsAction` validates each submitted id against its own provider's servable set (union-wide) before the atomic upsert
 
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+- [ ] 19-01-PLAN.md — Provider registry (D-05 rename → `getServableIdsForProvider` + `PROVIDER_GATES` + union + provider-scoped lookup + collision canary) + REG-07 union save validation + page call-site swap
+- [ ] 19-02-PLAN.md — `OPENROUTER_API_KEY` optional server-only env declaration + D-08 `structuredOutputs` snapshot capability field + one-time snapshot regen (D-07 roster-verify)
+- [ ] 19-03-PLAN.md — `modelFactory` provider-aware instantiation seam (`instantiateModel`/`instantiateChain`/`defaultChain` + D-07 default constants + per-model strict flag)
+- [ ] 19-04-PLAN.md — `resolveModelChain` union-servable default (D-06) + cross-provider chain cases
+- [ ] 19-05-PLAN.md — run-path seam swaps (`runAgent` → `defaultChain()`, `analyzeCompany` → `instantiateChain`) + constraint-11 repo-wide grep + build gate
 
 **Research flag**: small targeted re-verification at phase start only (createOpenRouter strict-compat + structured-output + env-key behavior against the INSTALLED package) — skip deep research; open decisions (OpenRouter default primary slug, `strict:false` per-model pass) are product calls locked at planning
 
@@ -173,7 +180,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 16. Failover Orchestration | v1.3 | 4/4 | Complete    | 2026-08-02 |
 | 17. Settings UI + List Source | v1.3 | 3/3 | Complete    | 2026-08-02 |
 | 18. Verification Gate | v1.3 | 3/3 | Complete    | 2026-08-02 |
-| 19. Provider Registry + Servable Model Source | v1.4 | 0/TBD | Not started | - |
+| 19. Provider Registry + Servable Model Source | v1.4 | 0/5 | Not started | - |
 | 20. Cross-Provider Run Path | v1.4 | 0/TBD | Not started | - |
 | 21. Settings UI | v1.4 | 0/TBD | Not started | - |
 | 22. Verification Gate | v1.4 | 0/TBD | Not started | - |
