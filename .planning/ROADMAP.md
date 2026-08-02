@@ -63,7 +63,7 @@ Full details: [`.planning/milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
 
 - [x] **Phase 15: Model Registry Foundation + Persistence** - Per-user `user_model_settings` table + atomic upsert query module (Clerk-userId keyed), `agent_run` `model_used`/`model_chain` audit columns, committed opencode catalog snapshot (`opencode models` dev-time script) + pure slug→provider-ID filter functions, and the migration-apply-flow confirmation (completed 2026-08-02)
 - [x] **Phase 16: Failover Orchestration** - Pure `classifyModelError` (RetryError-unwrap-first; only retryable provider/model errors advance), `runAgent` chain loop (primary + 1 fallback, per-attempt timeouts, 60s budget), snapshot-at-entry chain resolution, `userId` threading through the analyze route, and `model_used`/`model_chain` population (completed 2026-08-02)
-- [ ] **Phase 17: Settings UI + List Source** - `settings` NavKey + Manage-group sidebar item, `/settings` page + client form + zod-validated Server Action, runnable-only (allowlist ∩ snapshot) model pickers with ordered reorderable fallbacks
+- [x] **Phase 17: Settings UI + List Source** - `settings` NavKey + Manage-group sidebar item, `/settings` page + client form + zod-validated Server Action, runnable-only (allowlist ∩ snapshot) model pickers with ordered reorderable fallbacks (completed 2026-08-02)
 - [ ] **Phase 18: Verification Gate** - Vitest failover/catalog/chain matrices, live-browser settings→Analyze→`model_used` UAT, Vercel-preview no-opencode check, and the "looks done but isn't" checklist
 
 ### Phase 15: Model Registry Foundation + Persistence
@@ -132,7 +132,7 @@ Full details: [`.planning/milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 17-03-PLAN.md — /settings server page + model-settings-form client form (pickers, fallback reorder, save lifecycle) (SET-02..06)
+- [x] 17-03-PLAN.md — /settings server page + model-settings-form client form (pickers, fallback reorder, save lifecycle) (SET-02..06)
 
 ### Phase 18: Verification Gate
 
@@ -174,7 +174,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 14. Contrast Audit & UAT Matrix | v1.2 | 2/2 | Complete   | 2026-08-01 |
 | 15. Model Registry Foundation + Persistence | v1.3 | 2/2 | Complete    | 2026-08-02 |
 | 16. Failover Orchestration | v1.3 | 4/4 | Complete    | 2026-08-02 |
-| 17. Settings UI + List Source | v1.3 | 2/3 | In Progress|  |
+| 17. Settings UI + List Source | v1.3 | 3/3 | Complete   | 2026-08-02 |
 | 18. Verification Gate | v1.3 | 0/TBD | Not started | - |
 
 ---

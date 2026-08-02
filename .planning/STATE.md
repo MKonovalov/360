@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: AI Model Settings
-status: executing
-last_updated: "2026-08-02T14:18:57.827Z"
+status: verifying
+last_updated: "2026-08-02T14:29:53.376Z"
 last_activity: 2026-08-02
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 9
-  completed_plans: 8
-  percent: 50
+  completed_plans: 9
+  percent: 75
 ---
 
 # Project State
@@ -26,10 +26,10 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 
 Phase: 17 (settings-ui-list-source) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-02
 
-Progress: [█████████░] 89%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -54,6 +54,7 @@ Progress: [█████████░] 89%
 *Updated after each plan completion*
 | Phase 17-settings-ui-list-source P01 | 2min | 2 tasks | 7 files |
 | Phase 17-settings-ui-list-source P02 | 6min | 3 tasks | 4 files |
+| Phase 17-settings-ui-list-source P03 | 7min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -76,6 +77,9 @@ Recent decisions affecting current work:
 - [Phase 17]: Settings sidebar item is badge-free — SidebarMenuBadge + dot block is Reviews-only; getNavTooltipLabel reviews special-case branch untouched
 - [Phase 17]: D-01 verdict 2026-08-02: undated claude-haiku-4-5 still absent on live GET /v1/models -> ANTHROPIC_ALLOWLIST stays sonnet-only (D-02), no dated/invented IDs; verdict recorded in 17-02-SUMMARY
 - [Phase 17]: saveSettingsAction never returns stale_primary/stale_fallback - a dropped-from-roster id fails the server-computed servable-set check (allowlist intersect snapshot) and surfaces as invalid_model (T-17-06); client-side staleness gate (plan 17-03 Task 2) is the primary D-10/D-11 mechanism
+- [Phase 17]: Empty fallback rows are dropped before sending to the action — an in-progress row is not a model selection; sending it verbatim would trip invalid_model (SET-04 'empty fallback list is saveable' honored)
+- [Phase 17]: Stale option labels fall back to the raw id in the client — no snapshot access by design (client-bundle rule), matching getModelDisplayName's D-06 fallback rule
+- [Phase 17]: Sonnet-only branch keeps stale saved fallbacks removable (Rule 2 fix) — otherwise a stale fallback blocks Save forever with no row to clear it (D-10/D-11 must-have truth)
 
 ### Pending Todos
 
@@ -103,7 +107,7 @@ Items acknowledged and carried forward from v1.1/v1.2 milestone close, still ope
 
 ## Session Continuity
 
-Last session: 2026-08-02T14:18:57.820Z
+Last session: 2026-08-02T14:29:53.369Z
 Stopped at: Phase 17 UI-SPEC approved
 Resume file: None
 

@@ -10,10 +10,10 @@ Requirements for v1.3 "AI Model Settings" — per-user AI model management (prim
 ### Settings surface
 
 - [x] **SET-01**: Staff can open a Settings page from a new "Settings" menu item in the shared ExplorerMenu and the sidebar nav
-- [ ] **SET-02**: The Settings page shows the staff member's current AI model configuration — primary model + ordered fallback list
-- [ ] **SET-03**: Staff can set their primary AI model from the list of runnable (Anthropic-allowlisted) models
-- [ ] **SET-04**: Staff can add at least one fallback model (ordered) to their chain — a configurable list, primary + up to 2 fallbacks selectable, empty fallback list allowed (primary-only runs)
-- [ ] **SET-05**: Staff can remove or reorder their fallback models (ordered chain semantics)
+- [x] **SET-02**: The Settings page shows the staff member's current AI model configuration — primary model + ordered fallback list
+- [x] **SET-03**: Staff can set their primary AI model from the list of runnable (Anthropic-allowlisted) models
+- [x] **SET-04**: Staff can add at least one fallback model (ordered) to their chain — a configurable list, primary + up to 2 fallbacks selectable, empty fallback list allowed (primary-only runs)
+- [x] **SET-05**: Staff can remove or reorder their fallback models (ordered chain semantics)
 - [x] **SET-06**: Saving the settings persists immediately (Server Action) and the form reflects the saved state after reload
 - [x] **SET-07**: The model pickers show only models the app can actually run (Anthropic allowlist ∩ snapshot) — the opencode catalog is a menu, not a guarantee
 
@@ -72,10 +72,10 @@ Which phases cover which requirements. Updated 2026-08-02 during v1.3 roadmap cr
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | SET-01 | Phase 17 | Complete |
-| SET-02 | Phase 17 | Pending |
-| SET-03 | Phase 17 | Pending |
-| SET-04 | Phase 17 | Pending |
-| SET-05 | Phase 17 | Pending |
+| SET-02 | Phase 17 | Complete |
+| SET-03 | Phase 17 | Complete |
+| SET-04 | Phase 17 | Complete |
+| SET-05 | Phase 17 | Complete |
 | SET-06 | Phase 17 | Complete |
 | SET-07 | Phase 17 | Complete |
 | REG-01 | Phase 15 | Complete |
