@@ -1,9 +1,14 @@
-import { generateText, isStepCount, Output, type LanguageModel } from 'ai';
+import { APICallError, generateText, isStepCount, Output, type LanguageModel } from 'ai';
 import { buildAnalyzePrompt } from './prompt';
 import { webSearchTool } from './tools';
 import { outputSchema, type CompanyInput, type LiveSignalInput } from './types';
-import { classifyModelError, isFailoverEligible } from './modelConfig';
+import { classifyModelError, isFailoverEligible, shouldAdvance } from './modelConfig';
 import { defaultChain } from './modelFactory';
+// D-20-07: provider identity for the hop decision is catalog-derived — static,
+// env-free imports (modelConfig.ts Pattern 2); constraint 11 untouched, the
+// catalog is NOT a provider SDK.
+import { getProviderForModelId } from '@/lib/models/catalog';
+import catalogJson from '@/lib/models/catalog.json';
 
 export interface RunAgentInput {
   company: CompanyInput;
@@ -40,6 +45,10 @@ function modelIdOf(model: LanguageModel): string {
 // The loop below is the app's ONLY safety net for model-availability drift
 // (no SDK fallback helper exists): advance on failover-eligible classes
 // only (Pitfall 2/3 — 429/4xx/output/config never burn a fallback, D-01).
+// D-20-06: OpenRouter mid-stream 429s (finish_reason: "error" after HTTP 200)
+// classify as 'output' via the flat generateText contract and are never
+// failover-eligible — accepted + documented here and at the classifier's
+// 'output' branch, no detection path in Phase 20.
 export async function runAgent({
   company,
   liveSignals,
@@ -85,8 +94,42 @@ export async function runAgent({
       });
     } catch (err) {
       lastError = err;
-      if (!isFailoverEligible(classifyModelError(err))) throw err; // Pitfall 2/3: never burn fallbacks
+      // FAL-03 (D-20-07): hop-aware advance — provider identity ONLY
+      // (getProviderForModelId on from/to model ids), never the response
+      // body. isFailoverEligible covers the D-03 set (404/5xx/connection)
+      // and short-circuits so billing/4xx/output/config never reach
+      // shouldAdvance; the rate_limited class is the FAL-03 carve-out that
+      // reaches shouldAdvance — same-provider 429 keeps v1.3 never-advance
+      // (D-01/D-03). to === null (last model / catalog drift) fail-closes a
+      // 429 advance. D-20-05: mid-stream 429s classify 'output' and never
+      // reach this branch (accepted + documented, no detection path).
+      const cls = classifyModelError(err);
+      const from = getProviderForModelId(catalogJson, modelIdOf(models[i]));
+      const to = i + 1 < models.length ? getProviderForModelId(catalogJson, modelIdOf(models[i + 1])) : null;
+      const eligible = isFailoverEligible(cls) || cls === 'rate_limited';
+      if (!(eligible && shouldAdvance(cls, from, to))) throw err; // Pitfall 2/3: never burn fallbacks
     }
   }
   throw lastError; // chain exhausted — fail loud (D-06), never a silent switch
+}
+
+// D-20-07/08: DIAGNOSTICS-ONLY — informs the structured reason string +
+// telemetry (platform-level vs upstream pass-through). NEVER changes the
+// advance decision (that's shouldAdvance's pure provider matrix). Reads
+// err.data (parsed envelope; OpenRouterErrorResponseSchema has .passthrough()
+// on both levels so error.metadata.error_type/provider_code survive) FIRST,
+// err.responseBody as raw-text fallback; both optional-chained (mid-stream
+// 200-with-error sets data only, no responseBody; empty-body 429s carry "").
+// Platform = X-RateLimit-* responseHeaders; upstream = metadata.provider_code
+// (PITFALLS 3; verified @openrouter/ai-sdk-provider@3.0.0 dist/index.js
+// :2385-2441 non-2xx handler, :685 extractResponseHeaders).
+export function isOpenRouterPlatformRateLimit(err: unknown): boolean {
+  if (!APICallError.isInstance(err)) return false;
+  const metadata = (err.data as
+    | { error?: { metadata?: { error_type?: string; provider_code?: string } } }
+    | undefined)?.error?.metadata;
+  if (metadata?.error_type === 'rate_limit_exceeded' && metadata.provider_code) return false; // upstream pass-through
+  if (metadata?.error_type === 'rate_limit_exceeded') return true; // platform-level
+  const headers = err.responseHeaders ?? {};
+  return Object.keys(headers).some((k) => k.toLowerCase().startsWith('x-ratelimit'));
 }
