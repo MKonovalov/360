@@ -1,12 +1,13 @@
 import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { getModelSettingsForUser } from '@/lib/db/queries/userModelSettings';
-import { getServableIdsForProvider, getUnionServableIds, getProviderForModelId, SERVABLE_PROVIDERS, getModelDisplayName, type ModelProviderId } from '@/lib/models/catalog';
+import { getServableIdsForProvider, getUnionServableIds, getProviderForModelId, dedupeProviderRows, SERVABLE_PROVIDERS, getModelDisplayName, type ModelProviderId } from '@/lib/models/catalog';
 import catalogJson from '@/lib/models/catalog.json';
 // D-07 defaults source (reset-to-provider-default). Safe in this server
 // component (RESEARCH A6): the module-scope createOpenRouter runs harmlessly
 // at request time and this import never reaches a client bundle (T-17-09).
 import { PROVIDER_DEFAULT_MODELS } from '@/lib/agents/modelFactory';
 import { ModelSettingsForm } from '@/components/settings/model-settings-form';
+import { providerName } from '@/components/settings/model-picker-logic';
 import type { ServableModel } from '@/components/settings/model-picker-logic';
 
 // Belt-and-suspenders alongside the (dashboard) layout's auth gate
@@ -45,13 +46,15 @@ export default async function SettingsPage() {
   // now provider-aware (21-UI-SPEC §Props & Data Contract): per-provider
   // servable lists (SET-02), the union fallback source (SET-04), D-07 reset
   // defaults (SET-03), and the saved chain's server-resolved provider identity
-  // (SET-05). Every row lookup is provider-scoped (Anti-Pattern 1): the
-  // snapshot dual-lists ids (claude-sonnet-5 exists as opencode AND anthropic;
-  // anthropic/claude-sonnet-5 as openrouter AND vercel) and a bare id find
-  // returns the opencode/vercel gateway row (sorts first) with cost 0 / wrong
-  // family / wrong provider.
+  // (SET-05). Every row lookup walks the deduped provider pool (D-23-08
+  // Zen-wins): the dedup helper IS the provider scope — it filters by
+  // SNAPSHOT_PROVIDER_IDS[provider] — so the 5 go-exclusive opencode-go ids
+  // (hy3, mimo-v2.5, mimo-v2.5-pro, qwen3.7-max, qwen3.7-plus) resolve their
+  // own name/cost instead of the raw-id/0 fallback (research Open Question 4);
+  // anthropic/openrouter single-providerID maps and opencode Zen rows are
+  // identical to the pre-dedup provider-scoped find (Anti-Pattern 1 intent kept).
   const trimRow = (id: string, provider: ModelProviderId): ServableModel => {
-    const m = catalogJson.models.find((mm) => mm.id === id && mm.providerID === provider);
+    const m = dedupeProviderRows(catalogJson, provider).find((mm) => mm.id === id);
     return {
       id,
       name: m?.name ?? getModelDisplayName(id),
@@ -70,10 +73,13 @@ export default async function SettingsPage() {
     ]),
   ) as Record<ModelProviderId, ServableModel[]>;
 
-  // SET-04: the union servable source for the fallback pickers (337 rows —
-  // 336 openrouter + 1 anthropic). Union ids are always servable-scoped so
-  // the provider lookup is non-null in practice; `?? 'anthropic'` is the
-  // documented defensive fallback (RESEARCH A3).
+  // SET-04: the union servable source for the fallback pickers (375 rows —
+  // 336 openrouter + 1 anthropic + 39 opencode servable − 1 overlap
+  // (claude-sonnet-4-6 is servable under both anthropic and opencode), at the
+  // 2026-08-02 snapshot; nousresearch contributes 0 rows until Phase 24 lands
+  // them). Union ids are always servable-scoped so the provider lookup is
+  // non-null in practice; `?? 'anthropic'` is the documented defensive
+  // fallback (RESEARCH A3).
   const unionServableModels = getUnionServableIds(catalogJson).map((id) =>
     trimRow(id, getProviderForModelId(catalogJson, id) ?? 'anthropic'),
   );
@@ -87,11 +93,13 @@ export default async function SettingsPage() {
     ]),
   ) as Record<ModelProviderId, { id: string; name: string }>;
 
-  // SET-01: the 2-choice provider selector options.
-  const providers = SERVABLE_PROVIDERS.map((id) => ({
-    id,
-    name: id === 'anthropic' ? 'Anthropic' : 'OpenRouter',
-  }));
+  // SET-01: 4-choice provider selector options from the shared registry map
+  // (REG-01) — Anthropic, OpenRouter, NousResearch, OpenCode, in
+  // SERVABLE_PROVIDERS order. The SAME PROVIDER_NAMES map the client-side
+  // providerName() uses — one source, so a fifth provider is one line in
+  // model-picker-logic.ts (research Pitfall 4: the old 2-way ternary here
+  // would have labeled NousResearch/OpenCode "OpenRouter").
+  const providers = SERVABLE_PROVIDERS.map((id) => ({ id, name: providerName(id) }));
 
   // SET-05: saved primary + fallbacks with server-resolved provider identity
   // (trigger badges + stale-row rendering in the form). providerID is null
