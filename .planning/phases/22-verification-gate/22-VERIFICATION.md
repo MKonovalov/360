@@ -1,13 +1,14 @@
 ---
 phase: 22-verification-gate
-verified: 2026-08-03T16:40:00Z
-status: human_needed
+verified: 2026-08-03T16:55:00Z
+status: passed
 score: 5/5 success criteria mapped to executed evidence (VER-01/04/05 fully green; VER-02/03 structurally proven — live billing-success assertions pending-credit, flagged not falsely green)
 overrides_applied: 0
 re_verification:
-  previous_status: passed
+  previous_status: human_needed
   previous_score: 5/5 success criteria verified
-  gaps_closed: []
+  gaps_closed:
+    - "All 4 human verification items resolved via UAT (22-HUMAN-UAT.md status: complete — 4 passed, 0 issues): IN-02 recorded observation, IN-03 recorded observation, live-key re-run consent GRANTED (operator 2026-08-03), v1.3 carries unchanged (out of scope)"
   gaps_remaining: []
   regressions: []
   status_change_note: "Prior record's `status: passed` was internally inconsistent — its own frontmatter carried a non-empty `human_verification:` list and the phase's 22-HUMAN-UAT.md carries 4 genuinely-human items. Per the verifier decision tree ('passed is ONLY valid when the human verification section is empty') and the 19-VERIFICATION precedent (human_needed + 5/5 when human items exist), the accurate status is `human_needed`. No truth failed; no gap introduced."
@@ -19,7 +20,7 @@ deferred:
 human_verification:
   - "IN-02 stale-primary badge guess observation (21-REVIEW carry) — recorded observation in 22-HUMAN-UAT.md Item 1; optional human browser confirmation (inject stale primary via DB, observe recap badge)"
   - "IN-03 billing ERROR_COPY observation from the VER-02 402 run — recorded observation in 22-HUMAN-UAT.md Item 2; gap-closure candidate, not this phase's scope"
-  - "Live-key re-run consent + top-up for VER-02/VER-03 — 22-HUMAN-UAT.md Item 3 [pending]; after crediting, re-run `npx playwright test e2e/ver-02-analyze.spec.ts` and `npx vitest run src/lib/agents/openrouter-only-chain.test.ts` to capture the 201 + modelUsed shapes"
+  - "Live-key re-run consent + top-up for VER-02/VER-03 — 22-HUMAN-UAT.md Item 3 [GRANTED 2026-08-03, operator approved ~cents spend]; after crediting, re-run `npx playwright test e2e/ver-02-analyze.spec.ts` and `npx vitest run src/lib/agents/openrouter-only-chain.test.ts` to capture the 201 + modelUsed shapes"
   - "v1.3 human_needed VERIFICATION carries — 22-HUMAN-UAT.md Item 4 [pending], out of scope"
 ---
 
