@@ -201,7 +201,28 @@ Plans:
   4. Security-matrix grep is clean — `OPENROUTER` absent from client components / Server Action returns / no `NEXT_PUBLIC_*` leakage
   5. Live-browser UAT proves provider-switch draft preservation, picker search/grouping, badge disambiguation, and that no `~`/`:free` id is ever savable-or-served outside its labels
 
-**Plans**: TBD
+**Plans**: 7 plans
+Plans:
+**Wave 1**
+
+- [ ] 22-01-PLAN.md — VER-01 matrix audit + gap-fill: isOpenRouterPlatformRateLimit direct tests + statusCode-200 → 'input' pin (WR-01), existing matrices audited untouched (D-22-06)
+- [ ] 22-02-PLAN.md — VER-04 security-grep Vitest gate (allowlist + canary, runs with every npm test — D-22-07)
+- [ ] 22-03-PLAN.md — Playwright harness: devDeps + chromium + config + e2e/auth.setup real Clerk login + test-account provisioning (D-22-04/05)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 22-04-PLAN.md — VER-03 child-env integration test + probe script (ANTHROPIC stripped in child, skipIf guard) (D-22-03)
+- [ ] 22-06-PLAN.md — VER-05 live-browser spec: draft preservation, picker search/grouping, badge disambiguation, labels (D-22-04)
+
+**Wave 3** *(blocked on Wave 2 completion — serializes the two live-key surfaces per Pitfall 5)*
+
+- [ ] 22-05-PLAN.md — VER-02 live-key e2e: save OR primary → Analyze → model_used matches (D-22-01/02; credited-key checkpoint gate)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 22-07-PLAN.md — Proof recording: 22-VERIFICATION.md (5/5 criteria) + 22-HUMAN-UAT.md (IN-02/IN-03 observations)
+
+**Operator prerequisites** (before Wave 2 live work): dedicated Clerk test staff account (provisioned in plan 22-03 via Backend API), credited OPENROUTER_API_KEY (verified in plan 22-05 Task 1)
 
 ## Progress
 
@@ -231,7 +252,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 19. Provider Registry + Servable Model Source | v1.4 | 5/5 | Complete    | 2026-08-02 |
 | 20. Cross-Provider Run Path | v1.4 | 4/4 | Complete    | 2026-08-02 |
 | 21. Settings UI | v1.4 | 7/7 | Complete    | 2026-08-03 |
-| 22. Verification Gate | v1.4 | 0/TBD | Not started | - |
+| 22. Verification Gate | v1.4 | 0/7 | Not started | - |
 
 ---
 
