@@ -120,3 +120,12 @@ None - zero new packages, zero new env keys in this plan (no npm installs; threa
 ---
 *Phase: 23-provider-registry-servable-sources*
 *Completed: 2026-08-03*
+
+## Self-Check: PASSED
+
+- `[ -f .planning/phases/23-provider-registry-servable-sources/23-04-SUMMARY.md ]` → FOUND
+- `[ -f src/components/settings/model-picker-logic.ts ]` → FOUND (PROVIDER_NAMES + registry-driven providerName)
+- `[ -f src/components/settings/model-picker-logic.test.ts ]` → FOUND (4-entry assertions + completeness test)
+- `[ -f src/app/(dashboard)/settings/page.tsx ]` → FOUND (providerName(id) selector + dedupeProviderRows trimRow)
+- Commits `81deccb3`, `a8c53a77`, `cb9f05aa`, `6f9d789d` all present in `git log`
+- Verification gates: ternary grep 0, vitest 79/79 + security-grep 5/5, `npx tsc --noEmit` exit 0, catalog.json canary 0
