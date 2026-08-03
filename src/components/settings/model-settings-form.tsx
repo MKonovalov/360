@@ -225,6 +225,12 @@ export function ModelSettingsForm({
             id="primary-model"
             ariaLabel="Primary model"
             value={primary}
+            // CR-01 name seam: the primary id is excluded from its own options
+            // by optionsForSlot(slotIndex = -1) dup-chain prevention, so the
+            // trigger name resolves from the union instead (the 21-06 valueName
+            // prop the wrapper's triggerLabel prefers; a stale id yields
+            // undefined → raw-id fallback + staleLabel path unchanged).
+            valueName={unionServableModels.find((m) => m.id === primary)?.name}
             options={optionsForSlot(primary, fallbacks, -1, servableByProvider[provider])}
             onChange={(v) => {
               setPrimary(v);
