@@ -40,32 +40,100 @@ export function opencodeSlugToModelId(slug: string): string | null {
 
 // D-01..D-06: provider registry. Provider identity is DERIVED from the catalog
 // by model id (never persisted, never client-sent, never string surgery).
-export type ModelProviderId = 'anthropic' | 'openrouter';
+// nousresearch = the direct inference API; opencode = ONE logical provider
+// spanning the `opencode` + `opencode-go` snapshot providerIDs (REG-03).
+export type ModelProviderId = 'anthropic' | 'openrouter' | 'nousresearch' | 'opencode';
+
+// Research Pattern 1: per-provider gate shape. A present `allowlist` gates by
+// id; a present `npm` gates by `api.npm` value; neither means the full active
+// set (openrouter, D-02).
+export type ProviderGate = { allowlist?: readonly string[]; npm?: readonly string[] };
+
+// D-23-05: NousResearch servable set = the curated Hermes-4 pair — concrete
+// pins, never `~latest` aliases (D-07 "never `~`/`:free`/auto in pins"
+// doctrine). The rows land in the snapshot in Phase 24 and must be
+// roster-verified there (D-02).
+export const NOUSRESEARCH_ALLOWLIST: readonly string[] = [
+  'nousresearch/hermes-4-70b',
+  'nousresearch/hermes-4-405b',
+];
+
+// D-23-01: OpenCode servable gate is data-driven by `api.npm` — the 49-row
+// count (30 chat + 19 Claude) falls out of the data; GPT-5 (`@ai-sdk/openai`)
+// and Gemini (`@ai-sdk/google`) rows self-exclude forever; new chat/Claude
+// models OpenCode adds become servable on refresh.
+export const OPENCODE_NPM_GATE: readonly string[] = [
+  '@ai-sdk/openai-compatible',
+  '@ai-sdk/anthropic',
+];
 
 // D-02/D-03: per-provider gates as DATA. anthropic = the hand-curated sonnet
 // allowlist (D-03, REG-04); openrouter = full catalog — the absence of an
 // allowlist means all active openrouter rows are servable (D-02/SET-07: the
-// `~latest`/`:free` rows are INCLUDED; labels land in Phase 21).
-export const PROVIDER_GATES: Record<ModelProviderId, { allowlist?: readonly string[] }> = {
+// `~latest`/`:free` rows are INCLUDED; labels land in Phase 21);
+// nousresearch = the curated Hermes-4 allowlist (REG-04: curated, NOT the
+// 292-row portal roster); opencode = the npm-value gate (D-23-01).
+export const PROVIDER_GATES: Record<ModelProviderId, ProviderGate> = {
   anthropic: { allowlist: ANTHROPIC_ALLOWLIST },
   openrouter: {},
+  nousresearch: { allowlist: NOUSRESEARCH_ALLOWLIST },
+  opencode: { npm: OPENCODE_NPM_GATE },
 };
 
-export const SERVABLE_PROVIDERS: readonly ModelProviderId[] = ['anthropic', 'openrouter'];
+// Selector/union iteration order (matches the REG-01 roadmap listing order:
+// Anthropic, OpenRouter, NousResearch, OpenCode). This order deliberately
+// DIFFERS from PROVIDER_PRECEDENCE below — SERVABLE_PROVIDERS is
+// display/union order, PROVIDER_PRECEDENCE is resolution order; do not merge
+// them.
+export const SERVABLE_PROVIDERS: readonly ModelProviderId[] = ['anthropic', 'openrouter', 'nousresearch', 'opencode'];
 
-// CAT-03: snapshot → servable (provider, active) → gate-intersected raw IDs.
-// The snapshot is the menu; the per-provider gate is the lock (D-03/D-05).
+// Research Pattern 2: snapshot providerID → logical provider mapping. The
+// `opencode` entry's array order IS the deterministic Zen-wins rule: the Zen
+// row wins by first-providerID-wins; the mapping is data, survives
+// regeneration by construction (D-23-08/CAT-04).
+export const SNAPSHOT_PROVIDER_IDS: Record<ModelProviderId, readonly string[]> = {
+  anthropic: ['anthropic'],
+  openrouter: ['openrouter'],
+  nousresearch: ['nousresearch'],
+  opencode: ['opencode', 'opencode-go'],
+};
+
+// Research Pattern 3: servable-membership resolution order. (a) The roadmap's
+// "nousresearch-over-openrouter" phrase is a RANKING modifier — nousresearch
+// must outrank openrouter because openrouter's full-catalog gate serves the
+// hermes mirror rows, so a literal ['anthropic','openrouter','nousresearch',
+// 'opencode'] array would fail the D-23-07 hermes canary. (b) anthropic first
+// = the claude-sonnet-4-6 regression lock (also servable under opencode's npm
+// gate, so order is load-bearing). (c) opencode last — only wins ids no
+// earlier provider serves servably (big-pickle, the dual-listed class).
+export const PROVIDER_PRECEDENCE: readonly ModelProviderId[] = ['anthropic', 'nousresearch', 'openrouter', 'opencode'];
+
+// D-23-08/D-23-09: the Zen-wins dual-listed-id dedup lives in the registry
+// layer, expressed once, survives regeneration by construction (CAT-04).
+// Returns ROWS (not ids) — Phase 26's trimRow reuses it for the Zen/Go
+// endpoint caption and the go-exclusive rows' api.url. First-wins: the first
+// snapshot providerID in SNAPSHOT_PROVIDER_IDS wins (Zen over Go).
+export function dedupeProviderRows(catalog: ModelCatalog, provider: ModelProviderId): CatalogModel[] {
+  const ids = SNAPSHOT_PROVIDER_IDS[provider];
+  const rows = catalog.models.filter((m) => ids.includes(m.providerID));
+  const seen = new Set<string>();
+  return rows.filter((m) => (seen.has(m.id) ? false : (seen.add(m.id), true)));
+}
+
+// CAT-03: snapshot → servable (provider, active) → dedup → gate-intersected
+// raw IDs. The snapshot is the menu; the per-provider gate is the lock
+// (D-03/D-05). D-23-10: dedup FIRST (Zen row wins, its api.npm wins), then the
+// gate — a present npm list filters the deduped pool's api.npm, a present
+// allowlist filters ids, neither means the full active set (openrouter, D-02).
 export function getServableIdsForProvider(
   catalog: ModelCatalog,
   provider: ModelProviderId,
 ): string[] {
-  const active = catalog.models
-    .filter((m) => m.providerID === provider && m.status !== 'deprecated')
-    .map((m) => m.id);
-  const allowlist = PROVIDER_GATES[provider].allowlist;
-  // A present allowlist is the gate (an empty allowlist serves nothing); a
-  // missing allowlist means the full active set is servable (openrouter, D-02).
-  return allowlist ? active.filter((id) => allowlist.includes(id)) : active;
+  const pool = dedupeProviderRows(catalog, provider).filter((m) => m.status !== 'deprecated');
+  const gate = PROVIDER_GATES[provider];
+  if (gate.npm) return pool.filter((m) => gate.npm!.includes(m.api.npm)).map((m) => m.id);
+  if (gate.allowlist) return pool.filter((m) => gate.allowlist!.includes(m.id)).map((m) => m.id);
+  return pool.map((m) => m.id); // openrouter: full active set (D-02)
 }
 
 // D-05/REG-07: the union servable set across all servable providers, deduped
@@ -75,15 +143,23 @@ export function getUnionServableIds(catalog: ModelCatalog): string[] {
   return [...new Set(SERVABLE_PROVIDERS.flatMap((p) => getServableIdsForProvider(catalog, p)))];
 }
 
-// Anti-Pattern 1: MUST scope the find to the two servable providers — the
-// snapshot holds dual opencode/anthropic rows for the same id (e.g.
-// claude-sonnet-5 exists as opencode AND anthropic; anthropic/claude-sonnet-5
-// exists as openrouter AND vercel) and a bare m.id === id find() returns the
-// opencode/vercel row (sorts first). Only the two servable providerIDs may
-// match (T-19-03).
+// Anti-Pattern 1: MUST scope resolution to servable membership — the snapshot
+// holds dual opencode/anthropic rows for the same id (e.g. claude-sonnet-5
+// exists as opencode AND anthropic; anthropic/claude-sonnet-5 exists as
+// openrouter AND vercel) and a bare m.id === id find() returns the
+// opencode/vercel row (sorts first). Resolution checks membership in the
+// SERVABLE set (getServableIdsForProvider), never raw row existence, so (a)
+// the resolver is order-independent of snapshot row order, (b) Phase-24's
+// ~265 non-allowlisted nousresearch snapshot rows resolve to openrouter (not
+// nousresearch) — the exact silent-swap class this phase exists to prevent,
+// (c) claude-sonnet-5 → opencode and big-pickle → opencode are DELIBERATE
+// consequences (both are npm-gated servable under opencode; neither is in the
+// anthropic allowlist), (d) the D-23-07 ranking (nousresearch BEFORE
+// openrouter) is load-bearing — openrouter's full-catalog gate serves the
+// hermes mirror rows.
 export function getProviderForModelId(catalog: ModelCatalog, id: string): ModelProviderId | null {
-  const row = catalog.models.find(
-    (m) => m.id === id && (m.providerID === 'anthropic' || m.providerID === 'openrouter'),
-  );
-  return row ? (row.providerID as ModelProviderId) : null;
+  for (const provider of PROVIDER_PRECEDENCE) {
+    if (getServableIdsForProvider(catalog, provider).includes(id)) return provider;
+  }
+  return null; // fail-closed: unknown ids resolve to no provider
 }
