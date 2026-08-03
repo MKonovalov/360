@@ -70,7 +70,7 @@ Each task was committed atomically:
 1. **Task 1: env.ts — NOUSRESEARCH_API_KEY + OPENCODE_API_KEY optional server-only declarations** - `9d8fdf81` (feat)
 2. **Task 2: .env.example — placeholder declarations for both new keys (no value)** - `68811a10` (chore)
 
-**Plan metadata:** `(pending — docs commit follows this summary)`
+**Plan metadata:** `3ddd940e` (docs: complete REG-02 declaration-half plan)
 
 ## Files Created/Modified
 
