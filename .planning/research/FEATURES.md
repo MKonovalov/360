@@ -1,58 +1,54 @@
 # Feature Research
 
-**Domain:** Multi-provider AI model configuration (AI Provider selector above the Primary model) — ArcLumen 360 v1.4
-**Researched:** 2026-08-02
-**Confidence:** HIGH (in-repo verified: catalog id-space geometry, form/save/run machinery, OpenRouter SDK contract); MEDIUM (ecosystem norms for provider-switch UX — inferred from OpenRouter/LiteLLM/Cursor patterns, not first-party UX research)
+**Domain:** Extending the Settings AI Model Configuration card from two AI providers (Anthropic + OpenRouter) to four — adding NOUSRESEARCH (direct inference API) and OPENCODE (Zen + Go endpoints under one provider). Focus: the 4-choice "AI Provider" selector, the provider-scoped model pickers, and how the Zen/Go split and the Hermes family present inside the pickers. Continues v1.4's picker work (v1.4 research archived to `.planning/milestones/v1.4-research/`); this file covers only what *adding two providers* changes.
+**Researched:** 2026-08-03
+**Confidence:** HIGH — every catalog claim verified by direct inspection of the committed `src/lib/models/catalog.json` (1131 rows, 8 snapshot providerIDs); the Nous anonymous roster verified by direct `curl` (HTTP 200, 292 models, parsed); every picker/form claim verified by direct reads of `model-picker-logic.ts`, `model-picker.tsx`, `model-settings-form.tsx`, `settings/page.tsx`, `saveSettingsAction`, `modelFactory.ts`, `refresh-model-catalog.ts`. MEDIUM — Nous Portal product semantics (Hermes-4 positioning, discounted pricing) from NousResearch's own hermes-agent docs (official GitHub) and the live API response; OpenCode Zen/Go tier semantics inferred from snapshot `api.url` + naming, not first-party OpenCode docs.
 
-## Design Decisions (the milestone's five questions, answered)
+## Design Decisions (the milestone's three questions, answered)
 
-### Q1 — When the user switches the AI Provider, what happens to the already-selected primary/fallback models?
+### Q1 — How should the Settings provider selector behave with FOUR providers?
 
-**Answer: reset the PRIMARY to the new provider's default; leave FALLBACKS untouched.**
+**Answer: the selector stays a single shadcn Select with 4 always-valued entries — Anthropic, OpenRouter, NousResearch, OpenCode — and the ONLY hardcoded 2-way code that must change is `providerName()`.**
 
-Reasoning, grounded in verified catalog facts:
+The v1.4 selector is already data-driven: `settings/page.tsx` builds `providers = SERVABLE_PROVIDERS.map(id => ({ id, name }))` (a hardcoded ternary today) and the form renders `providers.map(...)`. Growing `SERVABLE_PROVIDERS` to `['anthropic', 'openrouter', 'nousresearch', 'opencode']` yields the 4 entries with zero structural change. Verified: `SERVABLE_PROVIDERS` order drives the selector item order, the union fallback-picker CommandGroup order, AND (via `getProviderForModelId`'s first-match find) provider-derivation precedence — so this single array is the ordering knob. Keep `anthropic` first (it is the no-settings default provider and the `?? 'anthropic'` defensive fallback in `page.tsx:78`), then `openrouter`, then `nousresearch`, then `opencode`.
 
-- Anthropic servable ids are bare (`claude-sonnet-4-6`); every OpenRouter id is vendor-slug-prefixed (`anthropic/claude-fable-5`, `deepseek/deepseek-v4-flash-latest`, `~anthropic/claude-sonnet-latest`). The two id spaces are **disjoint** — verified against the committed snapshot: 0 OpenRouter ids collide with Anthropic ids (even after stripping `~`).
-- "Keep-if-valid-in-new-provider" therefore degenerates to "always reset" *today*: no selected Anthropic id is ever valid in the OpenRouter servable set, and vice versa.
-- **Still implement keep-if-valid as a one-line guard** (if the current primary IS in the new provider's servable set, keep it). It is free, and it future-proofs the form against a provider whose id space ever overlaps (e.g. a first-party OpenAI provider whose bare ids could collide). The reset-to-default branch is the *de facto* path.
-- **Fallbacks are NOT reset by a primary-provider switch.** Cross-provider fallback chains are an explicit v1.4 requirement ("a fallback may come from a different provider than the primary"), so a fallback from the *other* provider is a valid configuration, not an error. Destroying it on provider switch would make cross-provider chains impossible to construct in any sensible order.
-- Show a non-blocking hint when the primary was auto-reset: "Primary switched to {provider default name}." No modal, no confirm — draft-staged per D-07 (nothing persists until Save).
+The real 4-provider work is in the **derivation layer**, not the selector:
 
-This mirrors how the ecosystem treats model identity: model ids are provider-qualified namespaces (OpenRouter `anthropic/…`, LiteLLM `model_list` with `provider/` prefixes, Cursor's per-provider config blocks), and switching provider context means selecting into that provider's namespace. Nothing "survives" a provider change because a model belongs to exactly one provider.
+1. **`providerName()` in `model-picker-logic.ts:26` is a hardcoded 2-way union** (`'Anthropic' | 'OpenRouter'`) consumed by every badge, CommandGroup heading, and the reset hint. It must become a registry-driven map (a `PROVIDER_NAMES` record keyed by `ModelProviderId`, or the server-passed `providers` prop threading through). It must NOT be extended as another ternary — the whole point of the registry pattern is the next provider is one entry.
+2. **`getProviderForModelId` (catalog.ts:84) hardcodes the 2 servable providerIDs in its find scope** and must widen to the 4 logical providers. Critically, the opencode provider's servable rows carry TWO snapshot providerIDs (`opencode` + `opencode-go`) — the scope must include both.
+3. **The union-collision canary is the tripwire that forces the Q2/Q3 decisions below.** v1.4's canary ("no id in two servable providers") is TRUE today (verified: 0 openrouter↔anthropic collisions) but a naive nousresearch addition breaks it (see Q3). The failing canary is the designed signal — the derivation rule must be made explicit BEFORE the union widens, not patched after.
 
-### Q2 — Should the fallback pickers show all providers' models or only the selected provider's?
+Table-stakes behaviors already shipped in v1.4 and UNCHANGED: always-valued selector, provider-scoped primary picker with keep-if-valid → reset-to-provider-default, union-scoped fallback pickers, draft-only resets, union-wide staleness gate, union-wide save validation, per-provider default primaries. All four must simply *widen*; none needs a new mechanism. `PROVIDER_DEFAULT_MODELS` gains `nousresearch` + `opencode` entries (defaults chosen in planning: recommend `nousresearch/hermes-4-70b` — the cheapest native Nous model, verified $0.05/$0.20 per M — and the cheapest opencode row or a pinned flagship; see Q3/Q2).
 
-**Answer: ALL servable providers' models (grouped by provider). Only the PRIMARY picker is provider-scoped.**
+### Q2 — How should the single OpenCode provider present its Zen-vs-Go endpoint split inside the picker?
 
-- The milestone requires cross-provider fallback chains — a fallback picker restricted to the primary's provider makes that requirement unfulfillable. The fallback options are the **servable union**: `anthropic ∩ allowlist` (1 model today) ∪ `openrouter active` (336 models).
-- The existing D-08/D-09 client dedupe (primary excluded from fallbacks; no repeated ids) carries over unchanged — it filters by id, and ids are unique across the union.
-- **Grouping is required, not optional, at 337 options.** A flat 336-row Select is unusable. Group by provider (SelectGroup/SelectLabel) in the fallback pickers; within OpenRouter's 336 rows, the catalog's `family` field (`claude-fable`, `deepseek-v4-flash`, …) enables a second grouping level (see Differentiators).
+**Answer: neither family grouping nor id-suffix labeling. Dedupe the 12 dual-listed ids at the source, then render a row-level endpoint caption (`· Zen` / `· Go`) derived from the row, in the same caption slot as the existing `suffixLabel`.**
 
-### Q3 — Persistence: provider column on the settings row, or derived from the catalog by model id?
+Verified data that forces this:
 
-**Answer: DERIVE from the catalog by servable-set membership. No schema change, no provider column.**
+- **The endpoint is NOT in the id.** 12 ids exist as BOTH an `opencode` (Zen, `api.url https://opencode.ai/zen/v1`) row AND an `opencode-go` (Go, `.../zen/go/v1`) row — e.g. `deepseek-v4-flash`, `glm-5.1`, `kimi-k3`, `qwen3.6-plus`. The id string is byte-identical across the two endpoints. `suffixLabel()` derives from the id (`~`/`:free` patterns) — there is no id signal to label. Id-suffix labeling is therefore *impossible* by construction.
+- **`family` is model-family, not endpoint.** `family` values (`deepseek-flash`, `glm`, `grok`, `kimi-k2`, …) are shared across Zen and Go — 8 families appear in BOTH row sets. Grouping by family would interleave the two endpoints in the same group (deepseek-v4-flash's Zen row next to its Go row, same family, different endpoint) — actively misleading, not merely unhelpful. Family is a row subtitle (v1.4 D-21-11 decision: "family is a row subtitle, never a group") and stays that way.
+- **The endpoint IS in the row** (`providerID` `opencode` vs `opencode-go`; or `api.url`). A caption derived at trim time survives catalog refresh with zero maintenance — the same property that makes the `~latest`/`:free` id-derived labels and the family subtitle durable.
 
-- The catalog is already the single source of truth for provider identity: every row carries `providerID` plus `api.npm`/`api.url` (the OpenRouter rows point at `@openrouter/ai-sdk-provider`). A provider column would duplicate catalog truth and drift on catalog refresh (T-17-03: "the ONLY source of truth").
-- The save action must validate ids against the catalog anyway; provider truth already lives there. The row already stores ids "as the APP instantiates them" (schema comment) — OpenRouter ids are self-describing (`deepseek/…` ⇒ `createOpenRouter()` constructor).
-- **CRITICAL scoping rule:** the id→provider lookup must be **servable-set-scoped**, never raw-catalog-scoped. Verified: 342 catalog ids appear under multiple providerIDs (opencode mirrors anthropic/google/openai — `claude-sonnet-4-6` exists as both `opencode` and `anthropic` rows). A raw first-match lookup returns the wrong provider. The lookup must be: "which servable set contains this id" — exactly the membership the save action already computes. Implement `providerForModel(id)` in `catalog.ts` as a pure helper over the servable union, and add a **Vitest canary** asserting no id exists in two servable providers (locks the collision-free invariant; if a future provider breaks it, the test fails before runtime ambiguity does).
-- **The `~` prefix is a catalog-data concern, not a persistence concern.** `~anthropic/claude-sonnet-latest` is what the picker displays and what the DB stores (verbatim catalog id — keeps the staleness gate and picker↔DB one-to-one). The SDK expects `anthropic/claude-sonnet-latest` (verified: Context7 `@openrouter/ai-sdk-provider` examples use `openrouter('anthropic/claude-3.5-sonnet')`). **Normalize at the instantiation seam** (strip `~`) in the same place `opencodeSlugToModelId` lives, AND write the normalized id to `model_used`/`model_chain` so audit rows record what the SDK actually received. Flag for STACK research: pin the `~` semantics (snapshot marker vs. runtime alias) before implementation.
-- Schema comment must be updated: "NEVER provider-prefixed" is no longer true by construction for OpenRouter ids (vendor slug is intrinsic to the OR id). Constraint rewrite, not a migration.
-- **No migration, no zod change, no 7-case-matrix change** — the servable-set check just widens from `getAllowlistedServableIds(catalog)` (anthropic-only) to a union. This is the cheapest correct option and the reason it wins.
+**The dedup is mandatory, not a style choice.** If both rows for a dual-listed id render in the picker: React gets duplicate `key={m.id}` CommandItems, and the onSelect reverse-lookup (`options.find(o => searchValue(o) === v)`, model-picker.tsx:160) is ambiguous — 8 of the 12 dual-listed ids are IDENTICAL in (id, name, family), so even the search composite collides and the wrong row (wrong endpoint, wrong cost caption, wrong instantiation) can be selected. Persisted settings store raw ids; one id must resolve to exactly one endpoint at run time. Dedup rule (recommendation): **the Zen row (`providerID: 'opencode'`) wins for dual-listed ids; the 5 Go-exclusive rows** (`hy3`, `mimo-v2.5`, `mimo-v2.5-pro`, `qwen3.7-max`, `qwen3.7-plus` — verified Go-only, zero overlap with openrouter) **keep their Go rows**. Rationale: `providerID: 'opencode'` is the canonical OpenCode provider row in the snapshot (what `opencode models` emits as the primary listing); the opencode-go rows are the budget-tier mirror. Alternative (flag for planning): Go-wins is defensible on cost — Go is cheaper-or-equal for ALL 12 dual-listed ids and strictly cheaper for 2 (`deepseek-v4-pro` $1.74→$0.435, `gpt-5.6-luna` $0.2→$0.1). The decision is a planning call, but the *invariant* is not: the rule must be expressed ONCE, deterministically, in `getServableIdsForProvider` (or the refresh script), and locked with a Vitest canary asserting no id's endpoint flips between refreshes — a silent endpoint flip would re-instantiate saved ids on the other endpoint.
 
-### Q4 — Table-stakes behaviors the provider selector must have
+**Presentation:** the merged OpenCode servable set (60 Zen + 5 Go-exclusive = 65 unique ids) renders under ONE "OpenCode" provider heading with the existing provider badge, and each row gains a small `· Zen` / `· Go` caption (12px slate-500, same slot as `suffixLabel` — `"· Zen · $0.14 / $0.28 per MTok"` reads naturally). Implementation: extend `ServableModel` with `endpoint: 'zen' | 'go'` (or `'opencode' | 'opencode-go'`), set at trim time in `page.tsx:trimRow` from the matched row's providerID; add a tiny `endpointLabel(endpoint)` helper in `model-picker-logic.ts` beside `suffixLabel`; render it in `model-picker.tsx` next to the suffix label. The caption renders in BOTH the provider-scoped primary picker and the grouped union fallback pickers (so a cross-provider chain with an OpenCode Go fallback is distinguishable at a glance). The saved-chain recap and the `model_used`/`model_chain` audit stay endpoint-blind — the milestone's audit contract is **provider**-accurate ("OpenCode"), not endpoint-accurate; endpoint remains a catalog lookup away if ever needed.
 
-- **Loading state:** the form is client-side but receives server-computed props (page.tsx pattern); provider switch is instant client state — no async. The only async is the existing Save `useTransition`. Table stake: **picker options are server-computed props, never client-fetched** (keep T-17-09: catalog.json never enters a client bundle).
-- **Empty provider catalog:** a provider with zero servable models must be **disabled with a reason** in the selector ("No runnable models"), not selectable-into-an-empty-picker. Anthropic always has 1 (sonnet allowlist) and OpenRouter has 336 active — but the code must not assume; the per-provider empty state is required for the D-10/D-11 "no silent dead end" truth.
-- **No provider selected:** must never be a state. Default = provider of the saved primary (derived, Q3); when no settings exist, default = Anthropic (FAST_MODEL_ID chain). The selector always holds a value.
-- **Staleness gate stays union-wide:** `staleIds` logic unchanged, but `servableIds` becomes the union. An OpenRouter primary must not be flagged stale just because it isn't Anthropic's.
-- **Provider availability copy:** if `OPENROUTER_API_KEY` is unset, the run path returns `not_configured` (D-15 mirror). Table stake: the UI doesn't block (save is allowed — same as today's Anthropic handling), but the empty/save-state copy must not promise a runnable chain that isn't. No key entry in Settings (BYOK is a v1.3 anti-feature that stays).
+**Anti-recommendation:** do NOT split OpenCode into two selector entries ("OpenCode Zen" / "OpenCode Go"). The milestone locks one provider; both endpoints share ONE credential (`OPENCODE_API_KEY`, 2-key decision already locked in PROJECT.md); two entries would double the selector, complicate the union grouping, and break the "one provider" derivation model for zero user benefit — the endpoint caption already tells staff everything the split would.
 
-### Q5 — Differentiators worth having
+### Q3 — What should the NOUSRESEARCH picker show for its Hermes-family models?
 
-- **Provider grouping + family grouping in fallback pickers** (SelectGroup). Makes the 337-option union navigable; the catalog already ships `family` per row. MEDIUM.
-- **Provider badge on chain entries** — a small "Anthropic" / "OpenRouter" chip next to the primary and each fallback's current value (and in the audit/status strip via `model_used`). LOW, high trust value — staff sees *which vendor's bill* a fallback would hit.
-- **Per-provider default primary** — the reset-on-switch target. Anthropic default stays `claude-sonnet-4-6`; OpenRouter needs a designated default (recommend: cheapest active, or a pinned sensible one — pick during planning). Without this, "reset to default" is undefined. LOW.
-- **Search/filter inside the OpenRouter picker** — 336 rows needs more than grouping eventually; a Combobox-style search is the upgrade path. MEDIUM–HIGH. (Grouping first, search as P2.)
+**Answer: a curated `nousresearch/*` allowlist over the anonymous direct-inference roster — the Hermes-4 pair as the native differentiators — with honest capability copy, an explicit derivation-precedence rule for the 2 hermes ids that ALSO exist as OpenRouter rows, and per-Mtok cost captions converted from the API's per-token pricing.**
+
+Verified facts that frame the answer:
+
+- **The anonymous-roster question is RESOLVED: YES.** `curl https://inference-api.nousresearch.com/v1/models` returns **HTTP 200 with 292 models, no key** — OpenRouter-style ids (`qwen/qwen3.8-max`, `~deepseek/deepseek-v4-flash-latest`, 11 `~` aliases), `supported_parameters` (the structured-outputs join source, same pattern as `fetchOpenRouterStructuredOutputs`), `pricing.prompt/completion` in **per-token dollars** (must ×1e6 to match the picker's per-MTok captions), and `expiration_date`. The refresh script mirrors the existing OpenRouter fetch exactly.
+- **The portal's native models are the Hermes-4 pair.** The only `nousresearch/*` ids on the direct roster: `nousresearch/hermes-4-70b` ("Nous: Hermes 4 70B", $0.05/$0.20 per M — discounted from $0.13/$0.40) and `nousresearch/hermes-4-405b` ("Nous: Hermes 4 405B", $0.09/$0.37 per M — discounted from $1.00/$3.00), both 131072 context. Hermes-3 models are NOT on the direct portal (they exist only via OpenRouter/kilo rows). So "Hermes-family models" for the Nous picker = the Hermes-4 pair (family label `hermes`, derived from the id prefix).
+- **Hard collision with the existing union:** `nousresearch/hermes-4-70b` and `nousresearch/hermes-4-405b` are ALREADY servable rows under `providerID: 'openrouter'` (verified in the committed snapshot, family `hermes`, cost 0.13/0.4 and 1/3). The union is Set-deduped by id, so adding the same ids under `nousresearch` creates **two servable providers claiming one id** — the v1.4 collision canary FAILS, and a naive first-match `getProviderForModelId` silently attributes the id to whichever row sorts first (badge, save validation, and instantiation all follow the wrong provider — the exact silent-provider-swap class PITFALLS.md Pitfall 1 warns about).
+- **Resolve by precedence, not exclusion:** when the user picks "NousResearch" they expect the direct vendor (cheaper: $0.05 vs $0.13 for hermes-4-70b). Recommended rule: `getProviderForModelId` prefers the `nousresearch` row over the `openrouter` row for shared ids — a documented precedence order (`anthropic > openrouter > nousresearch > opencode` by SERVABLE_PROVIDERS order would do the OPPOSITE, so the precedence must be explicit, not array-order-derived). Alternative (flag for planning): exclude the 2 hermes ids from the OpenRouter servable set (334 rows), moving them to direct-vendor-only — defensible since the direct endpoint is strictly cheaper and the OpenRouter mirror adds nothing. Either way the choice is locked by the widened canary test asserting "no id in two servable providers, except the documented nousresearch-over-openrouter precedence pair."
+- **Capability honesty (fail-loud, matches the `:free` caption precedent):** NousResearch's own portal docs state Hermes 4 is "tuned for chat and reasoning, not the rapid-fire tool-calling loop" and explicitly recommends *against* it "for agent work." Our Analytic Agent IS a tool-calling agent (Firecrawl web-search loop, 12-step). Recommendation: include the Hermes pair (they are the vendor's native discounted models and the milestone's stated target) WITH a row caption mirroring the `:free` fail-loud pattern — e.g. "chat/reasoning-tuned — agent tool-calling not its strength" — so staff pick with eyes open. `structuredOutputs` is NOT the problem (Nous' docs credit Hermes 4 with strong schema adherence); the tool-loop fit is.
+- **Do NOT offer the full 292-row portal roster.** The portal is OpenRouter-under-the-hood ("250 models via the Nous API… powered by OpenRouter" — Nous' own portal docs); nearly every non-native id on it already exists as an openrouter row and would mass-collide with the union. A `nousresearch/*`-prefixed allowlist (the 2 Hermes-4 ids + any future native rows) keeps the Nous picker small, differentiated, and collision-bounded. The v1.4 `~latest`/`:free`-included-with-labels decision (SET-07) applies to the OpenRouter surface; the Nous surface is curated to concrete native ids, sidestepping the 11 `~` aliases on the Nous roster entirely.
+- **Refresh-script work:** add an anonymous `GET https://inference-api.nousresearch.com/v1/models` source (VERIFIED reachable), map rows → `trimRecord` with `providerID: 'nousresearch'`, convert `pricing.prompt/completion` per-token → per-MTok (×1e6), live-join `supported_parameters` → `structuredOutputs` (mirror `fetchOpenRouterStructuredOutputs`, which THROWS on failure so the committed snapshot is never replaced by a degraded one), derive `family` from the id prefix (`nousresearch/hermes-4-*` → `hermes`), set `api.url = https://inference-api.nousresearch.com/v1` and `api.npm = @ai-sdk/openai-compatible` (OpenAI-compatible endpoint — the opencode CLI's kilo/nousresearch rows use the same seam; STACK flag to confirm the exact npm package before planning).
 
 ---
 
@@ -62,108 +58,110 @@ This mirrors how the ecosystem treats model identity: model ids are provider-qua
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| AI Provider selector above Primary | The milestone's headline; without it there is no multi-provider story | LOW | shadcn Select with two items (Anthropic / OpenRouter), value derived from saved primary's provider (Q3); always has a value; disabled-with-reason when a provider's servable set is empty (Q4) |
-| Provider-scoped Primary picker | "Selecting a provider refreshes the Primary model list" is the milestone's core interaction | LOW–MEDIUM | Primary options = servable set of the selected provider only; on switch, keep-if-valid else reset to provider default (Q1); draft-only per D-07 |
-| Union-scoped fallback pickers | Cross-provider fallback chains are a hard requirement | MEDIUM | Fallback options = all servable providers' models (Q2); D-08/D-09 dedupe unchanged; grouping by provider required at 337 rows |
-| Per-provider default primary | Reset-on-switch needs a defined target (Q1) | LOW | Anthropic: `FAST_MODEL_ID`. OpenRouter: choose during planning (cheapest active or pinned model) |
-| Staleness gate operates on the servable union | A saved OpenRouter primary must stay saveable when Anthropic is selected | LOW | `servableIds` = anthropic∩allowlist ∪ openrouter-active; `staleIds`/`isStale`/`saveDisabled` logic untouched |
-| Save action validates against the union | The 7-case security matrix must accept valid OpenRouter ids | LOW | `getAllowlistedServableIds` → union helper; zod shape unchanged (provider derived, Q3); matrix case count unchanged |
-| Provider-aware instantiation in the run path | `modelChain.map(id => anthropic(id))` is hardcoded today and must dispatch per provider | MEDIUM | New pure `providerForModel(id)` (servable-scoped, Q3) + a `languageModelFor(id)` seam in analyzeCompany; `runAgent` loop/timeouts unchanged |
-| `~` normalization at the instantiation + audit seams | Snapshot ids (`~anthropic/...`) are not what the SDK accepts | LOW–MEDIUM | Strip at instantiation like `opencodeSlugToModelId`; write normalized id to `model_used`/`model_chain` (Q3); flag `~` semantics to STACK |
-| OpenRouter key gate | `OPENROUTER_API_KEY` env, D-15 mirror | LOW | Add optional key to `env.ts`; `analyzeCompany` `not_configured` gate extended per used provider; UI copy only — no key entry |
-| Server-computed picker props | Keep the committed-snapshot + props-only contract (CAT-04/T-17-09) | LOW | page.tsx passes grouped servable sets; catalog.json stays server-only |
+| 4-entry "AI Provider" selector | The milestone's headline: both new providers must be selectable, always-valued | LOW | Select is data-driven already; `providerName()` is the only hardcoded 2-way — becomes a registry map; `SERVABLE_PROVIDERS` order = selector + group + precedence order |
+| Provider-scoped Primary pickers for all 4 providers | "Selecting a provider refreshes the Primary list" is the core interaction; must work for the new providers | MEDIUM | opencode = 65 rows (60 Zen + 5 Go-exclusive after dedup), nousresearch = curated Hermes pair; anthropic 1 / openrouter 336 unchanged; keep-if-valid → reset-to-default unchanged |
+| OpenCode dual-row dedup | 12 ids exist in BOTH `opencode` + `opencode-go` rows (8 with identical id/name/family) — without dedup: duplicate React keys + ambiguous onSelect reverse-lookup | MEDIUM | Deterministic rule (recommend Zen-wins) in `getServableIdsForProvider`; canary test locks no endpoint-flip between refreshes; 5 Go-exclusive ids keep Go rows |
+| Zen/Go endpoint caption on OpenCode rows | Staff must distinguish the flagship Zen endpoint from the budget Go endpoint (different products, different semantics) | LOW | New derived `endpoint` field on `ServableModel` set at trim time from the row's providerID; `endpointLabel()` helper beside `suffixLabel`; renders in primary AND union pickers; survives catalog refresh by construction |
+| NousResearch curated servable set | The portal roster is an OpenRouter mirror (292 rows) — offering all of it collides with the union | LOW–MEDIUM | `PROVIDER_GATES.nousresearch` allowlist of `nousresearch/*` native ids (Hermes-4 pair today); mirrors the Anthropic allowlist pattern |
+| Hermes row labels + honest capability copy | Hermes-4 is chat/reasoning-tuned, not agent-tool-loop-tuned (Nous' own docs) — the `:free` fail-loud precedent applies | LOW | Family `hermes` derived from id prefix; caption "chat/reasoning-tuned — agent tool-calling not its strength"; per-MTok costs converted from the API's per-token pricing |
+| Union widens to 4 providers with correct badges | Fallback chains may span all four; every row's badge + derivation must be right | MEDIUM | `getProviderForModelId` scope widens to 4 logical providers (incl. both opencode row IDs); nousresearch-over-openrouter precedence for the 2 hermes ids; `groupByProvider` unchanged (trim normalizes opencode-go → `opencode`) |
+| Save action accepts all 4 providers | Cross-provider chains incl. the new providers must save | LOW | **Zero change needed**: `saveSettingsAction` validates by `getUnionServableIds` membership — the union widening is automatic from `SERVABLE_PROVIDERS` (verified `settings.ts:41`) |
+| Per-provider default primaries for the new providers | Reset-to-provider-default needs defined targets | LOW | `PROVIDER_DEFAULT_MODELS` gains `nousresearch` (recommend `nousresearch/hermes-4-70b` — cheapest native) + `opencode` (planning pick) |
+| New env keys declared, chain-aware gate names them | `NOUSRESEARCH_API_KEY` + `OPENCODE_API_KEY` (2-key decision locked) | LOW | Mirror `OPENROUTER_API_KEY`: `env.ts` `z.string().optional()`, `.env.example`, `missingProviderKey` names the exact key in the Phase-20 gate |
 
 ### Differentiators (Competitive Advantage)
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Provider grouping + family grouping in fallback pickers | 337 options are only navigable grouped; `family` field already in the snapshot | MEDIUM | SelectGroup per provider; optionally SelectGroup per family inside OpenRouter |
-| Provider badge on chain entries + audit strip | Staff sees which vendor serves each slot and which actually ran | LOW | Chip next to each picker value; reuse `getModelDisplayName`-style resolution + `modelUsed` on success-after-fallback |
-| Search inside the OpenRouter picker | 336 rows eventually needs type-ahead, not just grouping | MEDIUM–HIGH | Combobox/Command upgrade path; grouping first, search P2 |
-| Cross-provider chain transparency copy | "Primary runs Anthropic; if it fails, fallback runs DeepSeek via OpenRouter" | LOW | One-line helper under the chain; reinforces the new capability |
+| Zen/Go endpoint caption | The single-OpenCode-provider UX that other provider pickers don't have — staff sees which product tier a model runs on without a catalog lookup | LOW | Novel to this app; derived-from-row so it survives `models:refresh`; renders in the same caption slot as suffix labels |
+| Direct-vendor pricing honesty (Nous) | hermes-4-70b is $0.05/$0.20 per M direct vs $0.13/$0.40 via OpenRouter — the picker caption makes the direct-vendor value visible at a glance | LOW | Cost captions already ship; the Nous rows just get the correct converted numbers (×1e6 per-token→per-MTok) |
+| Capability captions (fail-loud) | Hermes-4's chat-tuned caveat surfaces before a wasted agent run, same discipline as the `:free` shared-quota caption | LOW | One caption string per Hermes row; matches v1.4's caption honesty pattern |
+| Collision-canary-tripwired provider precedence | The failing canary forces the nous/openrouter derivation decision instead of shipping a silent provider swap | LOW | Widened canary = the PITFALLS Pitfall-1 discipline extended to 4 providers |
 
 ### Anti-Features (Commonly Requested, Often Problematic)
 
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| Free-text model id input ("power" override) | "I know exactly which model I want" | Breaks the servable-set security model (T-17-03) — arbitrary ids reach `generateText` | Picker + committed snapshot only; new models enter via roster + allowlist, not the UI |
-| Provider column on `user_model_settings` | "Self-describing rows" | Duplicates catalog truth; drifts on snapshot refresh; requires migration; the save action must cross-check the catalog anyway | Derive from catalog by servable-set membership (Q3) + collision canary test |
-| Per-provider API-key entry in Settings (BYOK) | "Let me bring my own OpenRouter key" | v1.3 anti-feature, stays: multi-tenant credential storage is a security program | Shared app-level keys (`OPENROUTER_API_KEY` env); BYOK needs a dedicated security milestone |
-| Flat 336-row Select (no grouping/search) | "Just show me all the models" | Unusable; the picker becomes a scroll-test | Provider grouping (required) + family grouping + search (P2) |
-| Auto-switch provider based on selected fallback | "Keep my fallback's provider" | Primary and fallback providers are independent by design (Q1/Q2); magic coupling confuses the reset contract | Explicit provider selector + explicit cross-provider fallbacks |
-| Live-fetching the OpenRouter catalog at runtime | "Always current" | Same as v1.3: Vercel can't reach dev-machine sources; refresh is a dev-machine script act | Committed snapshot + refresh script + catalog sync date footer (already built) |
-| Per-provider sub-tabs / multi-step wizard | "More structure" | Over-engineered for two providers; adds navigation state for zero benefit | One selector + grouped pickers |
+| Split OpenCode into two selector entries ("OpenCode Zen" / "OpenCode Go") | "Zen and Go are different products" | Breaks the milestone's one-provider contract; both share ONE key (`OPENCODE_API_KEY`); doubles the selector; union grouping and derivation complicate for zero staff benefit | One "OpenCode" entry + per-row `· Zen` / `· Go` captions (Q2) |
+| Family grouping to show the Zen/Go split | "Grouping is how we organize" | `family` is model-family and is SHARED across endpoints (8 families in both) — grouping by family interleaves endpoints and misleads | Endpoint caption derived from the row (Q2); family stays a row subtitle (D-21-11) |
+| Offer the full 292-row Nous portal roster | "All models via one key" | The portal is an OpenRouter mirror — nearly every id already exists as an openrouter row → mass union collisions + canary failure + silent provider swaps | Curated `nousresearch/*` allowlist (Hermes-4 pair + future native rows) |
+| Per-endpoint OpenCode keys (`OPENCODE_ZEN_API_KEY` + `OPENCODE_GO_API_KEY`) | "Different endpoints, different billing" | PROJECT.md locked the 2-key decision; Zen + Go share one credential scope; a second key is pure ops overhead | One `OPENCODE_API_KEY` (locked) |
+| Endpoint columns in `model_used`/`model_chain` audit | "Which endpoint actually served?" | The audit contract is provider-accurate; endpoint is recoverable from the catalog by id when needed | Keep audit provider-level; endpoint = catalog lookup (documented, out of scope) |
+| Excluding Hermes-4 from the Nous picker ("it's not agentic") | "Nous recommends against it for agents" | The milestone explicitly targets Hermes-family models; the caveat is informational, not prohibitive | Include with the fail-loud capability caption (Q3) |
+| Live-fetching the Nous/OpenCode rosters at runtime | "Always current" | Same as v1.4: committed-snapshot discipline, zero runtime external deps, refresh is a dev-machine script act | Extend `scripts/refresh-model-catalog.ts` with the anonymous Nous fetch (VERIFIED 200) |
+| BYOK per provider in Settings | "Let me use my own keys" | v1.3/v1.4 anti-feature that stays: multi-tenant credential storage is a security program | Shared app-level env keys (`NOUSRESEARCH_API_KEY`, `OPENCODE_API_KEY`) |
 
 ---
 
 ## Feature Dependencies
 
 ```
-AI Provider selector
-    └──requires──> providerForModel(id) derived from the servable union (catalog.ts pure helper)
-    └──requires──> page.tsx passes grouped servable sets + per-provider defaults (props-only contract)
-    └──requires──> servable-union builder: anthropic∩allowlist ∪ openrouter-active (generalize getAllowlistedServableIds)
+4-entry AI Provider selector
+    └──requires──> providerName() registry (model-picker-logic.ts:26) — hardcoded 2-way today
+    └──requires──> SERVABLE_PROVIDERS grows to 4 (catalog.ts:54) — order = selector/group/precedence
+    └──requires──> PROVIDER_DEFAULT_MODELS entries for nousresearch + opencode (modelFactory.ts:28)
 
-Provider-scoped Primary picker + reset-on-switch
-    └──requires──> per-provider default primary (Anthropic FAST_MODEL_ID; OpenRouter TBD in planning)
-    └──requires──> keep-if-valid guard over the new provider's servable set (one-line, future-proof)
-    └──uses──> existing draft staging (D-07) + staleness gate (D-10/D-11) — no new machinery
+OpenCode single-provider merge (Zen + Go)
+    └──requires──> getServableIdsForProvider maps 'opencode' → ['opencode','opencode-go'] row IDs
+    └──requires──> dual-listed-id dedup (12 ids; 8 identical composites) — deterministic rule + no-flip canary
+    └──requires──> trimRow (page.tsx:53) matches BOTH row IDs + derives endpoint field
+    └──requires──> getProviderForModelId (catalog.ts:84) scopes to both row IDs
+    └──requires──> endpointLabel() helper + ServableModel.endpoint (model-picker-logic.ts + model-picker.tsx)
+    └──feeds──> modelFactory instantiateModel — per-row api.npm (4 SDK shapes) + api.url baseURL (run path, STACK flag)
 
-Union-scoped fallback pickers
-    └──requires──> servable-union builder (above)
-    └──uses──> existing D-08/D-09 client dedupe (id-based — unchanged)
-    └──enhances──> provider/family SelectGroup labels (differentiator)
+NousResearch curated picker
+    └──requires──> refresh-model-catalog.ts Nous source: anonymous GET /v1/models (VERIFIED 200, 292 rows)
+    └──requires──> pricing conversion per-token → per-MTok (×1e6) + supported_parameters → structuredOutputs
+    └──requires──> PROVIDER_GATES.nousresearch allowlist (nousresearch/* native ids)
+    └──requires──> nousresearch-over-openrouter precedence in getProviderForModelId for the 2 hermes ids
+    └──requires──> capability caption (Hermes chat-tuned caveat) — mirrors the :free fail-loud pattern
 
-Save action widening
-    └──requires──> servable-union builder in saveSettingsAction (replaces getAllowlistedServableIds call)
-    └──unchanged──> requireStaffAccess → zod → union check → dedupe backstop → atomic upsert → revalidatePath
-    └──unchanged──> zod schema { primaryModel, fallbacks } — provider derived, never sent by the client
+Union widening (save + staleness + fallback pickers)
+    └──requires──> getUnionServableIds dedup stays Set-based; row-winner must be deterministic post-precedence
+    └──unchanged──> saveSettingsAction (membership check only — verified settings.ts:41) 
+    └──unchanged──> staleIds / optionsForSlot / groupByProvider / suffixLabel — id-based, provider-agnostic
 
-Provider-aware run path
-    └──requires──> providerForModel(id) importable from catalog.ts into modelConfig/analyzeCompany
-    └──requires──> languageModelFor(id) seam replacing modelChain.map(id => anthropic(id))
-    └──requires──> @openrouter/ai-sdk-provider runtime dependency + OPENROUTER_API_KEY env (STACK)
-    └──requires──> ~ strip at instantiation + normalized model_used/model_chain audit ids
-    └──uses──> runAgent loop, timeouts, failover classification — unchanged
+Collision canary (catalog.test.ts)
+    └──requires──> widened to 4 logical providers; explicit precedence exception for nous/hermes overlap
+    └──tripwires──> any naive union widening (fails red until Q2/Q3 decisions land)
 
-[servable-union builder] ──feeds──> [provider selector] + [primary picker] + [fallback pickers] + [save action] + [run path]
-[OpenRouter SDK contract] ──informs──> [~ normalization seam] + [id shape persisted verbatim]
+[providerName registry] ──feeds──> selector + badges + group headings + reset hint
+[SERVABLE_PROVIDERS order] ──drives──> derivation precedence + group order (documented, not incidental)
 ```
 
 ### Dependency Notes
 
-- **`providerForModel` is the keystone** — one pure, tested function unblocks the selector's default, the primary reset, the save validation, and the run path. It must be servable-scoped (342 raw-catalog ids span multiple providers — raw lookup returns wrong answers) and locked with a collision canary.
-- **The save action changes the smallest of anything**: widen one membership check from `getAllowlistedServableIds` to the union. The 7-case matrix, zod schema, atomic-upsert contract, and revalidatePath are untouched — the existing security machinery is provider-agnostic because validation is membership-based.
-- **The run path is the biggest change**: `analyzeCompany` line 68 (`models: modelChain.map((id) => anthropic(id))`) is the single hardcoded provider seam. Everything downstream (`runAgent`, timeouts, failover, `model_used`) is provider-agnostic.
-- **`resolveModelChain` allowlist param must accept the union**, not `ANTHROPIC_ALLOWLIST` (modelConfig.ts:73 default). Cap-2 and dedupe stay.
-- **`~` semantics need pinning before implementation** (STACK flag): whether `~` is a snapshot-internal marker or a runtime alias changes where normalization lives. The safe default: store verbatim, normalize at instantiation + audit.
+- **The OpenCode merge is the biggest structural change**: `getServableIdsForProvider`, `getProviderForModelId`, `page.tsx:trimRow`, and `modelFactory.instantiateModel` all currently assume one snapshot providerID per logical provider. The opencode provider owns TWO (`opencode` + `opencode-go`), and the dedup + endpoint derivation must live where the row is matched so picker display, persisted id, and runtime endpoint can never diverge. The factory extension (per-row `api.npm` → `@ai-sdk/openai-compatible`/`@ai-sdk/anthropic`/`@ai-sdk/google`/`@ai-sdk/openai` × `api.url` baseURL) is the run-path half — flag for planning, constraint 11 (modelFactory is the only SDK-importing module) still holds.
+- **The Nous union collision is the tripwire**: `nousresearch/hermes-4-70b`/`-405b` are already openrouter servable rows. The widened canary fails until the precedence rule (or openrouter-side exclusion) is explicit. This is the single highest-leverage decision in the milestone — it decides badge, save, and instantiation for 2 ids that both providers claim.
+- **`saveSettingsAction` needs the smallest change of anything** (none — union membership widens automatically). The whole v1.4 security machinery (7-case matrix, atomic upsert, dup backstop) is provider-agnostic because validation is membership-based.
+- **`suffixLabel`, `groupByProvider`, `optionsForSlot`, `staleIds` are untouched** — all id- or providerID-driven, and trim normalizes opencode-go rows to logical `opencode` before they reach the client.
+- **The Zen/Go dedup rule must be refresh-stable**: a canary asserting "no id's endpoint flips between refreshes" is the guard against a future `opencode models` re-listing flipping saved ids to the other endpoint silently.
 
 ---
 
 ## MVP Definition
 
-### Launch With (v1.4)
+### Launch With (v1.5)
 
-- [ ] `providerForModel(id)` + servable-union builder in `catalog.ts`, with a Vitest collision canary (no id in two servable providers) — *the keystone; everything else hangs off it*.
-- [ ] AI Provider selector (Anthropic / OpenRouter) above the Primary model — derived default, always-valued, disabled-with-reason on empty provider (Q4).
-- [ ] Provider-scoped Primary picker with keep-if-valid → reset-to-provider-default on switch (Q1); draft-only per D-07.
-- [ ] Union-scoped fallback pickers grouped by provider (Q2); D-08/D-09 dedupe unchanged.
-- [ ] Save action widened to the union; zod + matrix + upsert untouched (Q3).
-- [ ] Provider-aware instantiation in `analyzeCompany` (`languageModelFor(id)` seam) + `OPENROUTER_API_KEY` env gate (D-15 mirror).
-- [ ] `~` normalization at instantiation + normalized `model_used`/`model_chain` audit ids.
-- [ ] Per-provider default primary (OpenRouter default chosen in planning).
+- [ ] `SERVABLE_PROVIDERS` → 4 + `providerName()` registry map (the only hardcoded 2-way code in the picker layer).
+- [ ] OpenCode merge: `getServableIdsForProvider('opencode')` spans both row IDs, dual-listed-id dedup (Zen-wins rule), no-flip canary.
+- [ ] `ServableModel.endpoint` + `endpointLabel()` + caption render in the picker (`· Zen` / `· Go`).
+- [ ] NousResearch refresh source (anonymous roster, VERIFIED 200) + pricing ×1e6 conversion + `supported_parameters` structured-outputs join + family derivation.
+- [ ] `PROVIDER_GATES.nousresearch` allowlist (Hermes-4 pair) + capability caption.
+- [ ] `getProviderForModelId` widened to 4 logical providers with the nousresearch-over-openrouter precedence rule; collision canary widened + passing.
+- [ ] `PROVIDER_DEFAULT_MODELS` entries for both new providers; `NOUSRESEARCH_API_KEY` + `OPENCODE_API_KEY` env declarations (2-key decision).
+- [ ] Chain-aware env gate names the new keys; union save/staleness/fallback pickers verified against all 4 providers end-to-end.
 
-### Add After Validation (v1.4.x)
+### Add After Validation (v1.5.x)
 
-- [ ] Family grouping inside the OpenRouter picker (uses the snapshot's `family` field).
-- [ ] Provider badge on chain entries + "ran on X (via OpenRouter)" status-strip note.
-- [ ] Search/type-ahead inside the OpenRouter picker (Combobox/Command upgrade).
+- [ ] Endpoint detail in the saved-chain recap (append `· Zen`/`· Go` to OpenCode recap entries — a caption-only change once `endpoint` exists on `ServableModel`).
+- [ ] OpenCode default primary pinned to a roster-verified concrete id (planning pick — e.g. cheapest stable row or the claude-sonnet-4-6 mirror).
 
 ### Future Consideration (v2+)
 
-- [ ] More providers (OpenAI first-party, Google) — same union-builder + providerForModel machinery, one allowlist entry + one constructor each.
-- [ ] Provider-scoped per-provider model limits / cost caps in the picker.
-- [ ] BYOK for OpenRouter — only with a dedicated security milestone.
+- [ ] More providers (OpenAI first-party, Google) — the registry + precedence machinery is now provider-count-agnostic; one allowlist/registry entry each.
+- [ ] Hermes-3 via NousResearch (currently OpenRouter/kilo-only) — needs the direct roster to add them; automatic once the refresh source is live.
+- [ ] Per-provider cost caps in the picker; BYOK — only with a dedicated security milestone.
 
 ---
 
@@ -171,17 +169,15 @@ Provider-aware run path
 
 | Feature | User Value | Implementation Cost | Priority |
 |---------|------------|---------------------|----------|
-| `providerForModel` + servable-union builder + canary | HIGH | MEDIUM | P1 |
-| AI Provider selector above Primary | HIGH | LOW | P1 |
-| Provider-scoped Primary picker + reset-on-switch | HIGH | LOW–MEDIUM | P1 |
-| Union-scoped fallback pickers (provider-grouped) | HIGH | MEDIUM | P1 |
-| Save action widened to union | HIGH | LOW | P1 |
-| Provider-aware instantiation + OpenRouter key gate | HIGH | MEDIUM | P1 |
-| `~` normalization + audit ids | MEDIUM | LOW–MEDIUM | P1 |
-| Per-provider default primary | HIGH | LOW | P1 |
-| Provider badge on chain entries + status strip | MEDIUM | LOW | P2 |
-| Family grouping inside OpenRouter picker | MEDIUM | MEDIUM | P2 |
-| Search/type-ahead in OpenRouter picker | MEDIUM | MEDIUM–HIGH | P2 |
+| 4-entry selector + `providerName()` registry | HIGH | LOW | P1 |
+| OpenCode dual-row merge + dedup + no-flip canary | HIGH | MEDIUM | P1 |
+| Zen/Go endpoint caption | HIGH | LOW | P1 |
+| Nous anonymous-roster refresh source + conversions | HIGH | MEDIUM | P1 |
+| Nous curated allowlist + Hermes captions | HIGH | LOW | P1 |
+| `getProviderForModelId` 4-way + precedence + widened canary | HIGH | MEDIUM | P1 |
+| Per-provider defaults + env keys + chain-aware gate | HIGH | LOW | P1 |
+| Endpoint in saved-chain recap | MEDIUM | LOW | P2 |
+| OpenCode default pinned | MEDIUM | LOW | P2 |
 
 **Priority key:**
 - P1: Must have for launch
@@ -192,25 +188,27 @@ Provider-aware run path
 
 ## Competitor Feature Analysis
 
-| Feature | OpenRouter (own UI) | LiteLLM (config) | Cursor (IDE) | ArcLumen 360 v1.4 (our plan) |
+| Feature | OpenRouter (own UI) | LiteLLM (config) | Cursor (IDE) | ArcLumen 360 v1.5 (our plan) |
 |---------|--------------------|------------------|--------------|------------------------------|
-| Provider selection | Per-model filter / provider column in the catalog | `model_list` entries carry `provider/` prefixes | Per-provider config blocks in settings.json | AI Provider selector above the Primary model |
-| Primary model | Explicit `model` field (or `openrouter/auto`) | `model_name` → `litellm_params.model` | `default_model` after options are available | Provider-scoped primary picker + per-provider default |
-| Cross-provider fallback | `models` array spans providers, walked on error | `fallbacks: {"gpt-5.5": ["claude-opus-4.8", ...]}` — explicitly cross-provider | Mid-task model switching, provider-qualified | Union-scoped fallback pickers; any provider per slot (Q2) |
-| What survives a provider change | Model ids are namespaced; "provider" isn't a separate UI state | N/A (config file) | N/A (per-conversation) | Primary resets to provider default; fallbacks survive (Q1) |
-| Provider identity source | Part of the model id (`anthropic/…`) | `provider/` prefix in model string | Config block key | Derived from catalog by servable-set membership (Q3) |
+| Provider count / selection | Per-model filter over the whole catalog | `model_list` per-provider blocks | Per-provider config blocks | 4-entry AI Provider selector (data-driven, registry names) |
+| Endpoint split within one provider (Zen/Go) | N/A — one API per provider | `api_base` per model entry (config-level, not surfaced) | N/A | Row-level `· Zen` / `· Go` caption, derived from the row — the novel bit |
+| Direct-vendor vs gateway pricing | Vendor-proxy pricing shown per model | Per-model pricing config | N/A | Direct Nous hermes-4-70b $0.05/M shown alongside the OpenRouter $0.13/M mirror — cost honesty as a differentiator |
+| Duplicate ids across providers | N/A — ids are namespaced | Precedence resolved in config | N/A | Explicit precedence rule + collision canary (nousresearch-over-openrouter for the 2 hermes ids) |
+| Capability caveats on models | Free-tier labels only | N/A | N/A | Fail-loud captions (`:free` quota, Hermes chat-tuned caveat) — trust-by-copy |
+| What survives a provider change | Model ids are namespaced; no separate provider state | N/A (config file) | N/A | Primary resets to provider default; fallbacks survive (v1.4 Q1 unchanged) |
 
-**Ecosystem takeaway:** every serious multi-provider tool treats model identity as provider-qualified namespaces and cross-provider fallback as a first-class list. None persist "provider" separately from the model id. Our derive-from-catalog approach matches the ecosystem's de-facto model; our explicit provider *selector* (vs. config files) is the staff-facing simplification.
+**Ecosystem takeaway:** no mainstream tool surfaces an endpoint split inside one provider at the picker level — OpenRouter/LiteLLM treat endpoint as config (`api_base`), never UI. Our endpoint-caption approach is the staff-facing simplification of the same idea, and the "two providers claim one id" precedence problem is unique to the Nous-as-OpenRouter-mirror situation — no ecosystem precedent exists, which is why the canary-tripwired decision (not a UI convention) is the milestone's real design work.
 
 ---
 
 ## Sources
 
-- **In-repo verified (HIGH):** `src/lib/models/catalog.json` (1131 rows; 8 providerIDs; OpenRouter 336 active rows all `@openrouter/ai-sdk-provider`; 11 `~`-prefixed "latest" aliases; 342 ids spanning multiple providers — `claude-sonnet-4-6` exists as opencode + anthropic; zero OpenRouter↔Anthropic id collisions even after `~` strip); `src/lib/models/catalog.ts` (`getAllowlistedServableIds`, `ANTHROPIC_ALLOWLIST`, `opencodeSlugToModelId`); `src/components/settings/model-settings-form.tsx` (draft staging, staleness gate, D-08/D-09 dedupe, cost captions); `src/app/actions/settings.ts` (7-case matrix); `src/app/(dashboard)/settings/page.tsx` (server-computed props); `src/lib/agents/modelConfig.ts` (`resolveModelChain`, allowlist param); `src/lib/agents/analyzeCompany.ts:68` (hardcoded `anthropic(id)` seam); `src/lib/agents/runAgent.ts` (provider-agnostic loop); `src/lib/db/schema.ts:288` (`userModelSettings`, "stored as instantiated, never provider-prefixed" comment); `src/lib/env.ts` (optional-key pattern).
-- **OpenRouter AI SDK provider (HIGH — Context7 `/openrouterteam/ai-sdk-provider`):** `createOpenRouter({ apiKey, baseURL, api_keys })`; model ids are `provider/model` strings (`openrouter('anthropic/claude-3.5-sonnet')`); config, types, and examples docs.
-- **Ecosystem norms (MEDIUM — vendor docs/blogs, not first-party UX research):** OpenRouter routing docs (`models` fallback array spans providers; model routing vs provider routing are separate decisions); LiteLLM multi-provider gateway guide (`fallbacks` map is explicitly cross-provider); Cursor model-switching guide (provider-qualified model ids, default model set after options exist). Caveat: none of these document a *separate provider selector UI* with reset semantics — Q1's keep-if-valid/reset choice is our design, informed by their id-namespacing model.
+- **In-repo verified (HIGH):** `src/lib/models/catalog.json` (1131 rows; 8 snapshot providerIDs; opencode 60 + opencode-go 17 with 12 dual-listed ids / 8 identical (id,name,family) composites; 5 Go-exclusive ids `hy3`/`mimo-v2.5`/`mimo-v2.5-pro`/`qwen3.7-max`/`qwen3.7-plus`; `nousresearch/hermes-4-70b` + `-405b` ALREADY openrouter servable rows; zero openrouter↔anthropic collisions); `src/lib/models/catalog.ts` (`SERVABLE_PROVIDERS`, `getServableIdsForProvider`, `getProviderForModelId` 2-way scope, `PROVIDER_GATES`); `src/components/settings/model-picker-logic.ts` (hardcoded 2-way `providerName`, `suffixLabel` id-derived, `groupByProvider`, `optionsForSlot`); `src/components/settings/model-picker.tsx` (duplicate-key + reverse-lookup hazard, caption anatomy); `src/components/settings/model-settings-form.tsx` (draft staging, recap badges); `src/app/(dashboard)/settings/page.tsx` (data-driven `providers` prop, `trimRow` provider-scoped find); `src/app/actions/settings.ts` (union-membership validation — provider-agnostic); `src/lib/agents/modelFactory.ts` (`PROVIDER_DEFAULT_MODELS`, 2-provider dispatch, constraint 11); `scripts/refresh-model-catalog.ts` (`fetchOpenRouterStructuredOutputs` anonymous pattern); `src/lib/models/catalog.test.ts` (collision canary); PROJECT.md (2-key OpenCode decision, milestone targets).
+- **Directly verified by curl 2026-08-03 (HIGH):** `GET https://inference-api.nousresearch.com/v1/models` → HTTP 200 anonymous, 292 models, OpenRouter-style ids incl. 11 `~` aliases, `supported_parameters` present, `pricing.prompt/completion` in per-token dollars, `expiration_date`, native `nousresearch/hermes-4-70b` ($0.05/$0.20 per M) + `nousresearch/hermes-4-405b` ($0.09/$0.37 per M), 131072 ctx. Resolves PROJECT.md's anonymous-roster open question: YES.
+- **NousResearch official docs (MEDIUM–HIGH — NousResearch/hermes-agent GitHub, official org):** `NOUS_API_BASE_URL = "https://inference-api.nousresearch.com/v1"`; portal is OpenRouter-powered ("250 models via the Nous API… powered by OpenRouter"); Hermes-4 family is "tuned for chat and reasoning, not the rapid-fire tool-calling loop" and "not recommended for use inside Hermes Agent" for agent work; Hermes-4 strong at "schema adherence"; pricing/context fetched live from `/v1/models` at picker time (the same source our refresh script uses).
+- **OpenCode Zen/Go semantics (MEDIUM — inferred from snapshot `api.url` `https://opencode.ai/zen/v1` vs `.../zen/go/v1` + `opencode models` CLI output + naming, NOT first-party OpenCode docs):** Zen = flagship opencode endpoint (60 rows, mixed `@ai-sdk/anthropic`/`@ai-sdk/openai`/`@ai-sdk/google`/`@ai-sdk/openai-compatible` SDK shapes); Go = budget tier (17 rows, cheaper-or-equal for all 12 dual-listed ids, strictly cheaper for 2). Flag for STACK: verify the OpenCode product docs for Zen/Go tier semantics and the exact SDK packages before planning the modelFactory extension.
 
 ---
 
-*Feature research for: ArcLumen 360 v1.4 Multi-Provider AI Model Configuration*
-*Researched: 2026-08-02*
+*Feature research for: ArcLumen 360 v1.5 Additional AI Providers (NOUSRESEARCH + OPENCODE)*
+*Researched: 2026-08-03*

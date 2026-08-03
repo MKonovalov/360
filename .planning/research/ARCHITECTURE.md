@@ -1,310 +1,446 @@
 # Architecture Research
 
-**Domain:** Multi-provider AI model configuration (Anthropic + OpenRouter) for a Next.js 16 App Router demand-gen app (ArcLumen 360, milestone v1.4)
-**Researched:** 2026-08-02
-**Confidence:** HIGH (all integration claims verified against on-disk source + committed catalog.json + live OpenRouter `/v1/models` roster + Context7 provider docs + npm peer-dep data; MEDIUM only where flagged — UX/form behavior choices)
+**Domain:** Multi-provider AI model configuration — extending a 2-provider (Anthropic + OpenRouter) catalog registry to 4 providers (NousResearch + OpenCode), Next.js 16 App Router
+**Researched:** 2026-08-03
+**Confidence:** HIGH (codebase reads + live API probes) / MEDIUM (SDK option details for one not-yet-installed package)
 
 ## Scope
 
-This is a **subsequent-milestone architecture file** — it does not re-describe the app's foundations (Clerk auth, Drizzle+Neon, AppShellLayout, the Analytic Agent, the v1.3 model-settings foundation) as greenfield; it answers exactly how the new **AI Provider selector + per-provider servable sources + cross-provider chains + provider-aware instantiation** feature integrates with the existing architecture, per the seven research questions (1)–(7) in the milestone context.
+Subsequent-milestone architecture file (v1.4 precedent). It does not re-describe app foundations (Clerk auth, Drizzle+Neon, the Analytic Agent, the run path) as greenfield; it answers exactly how the **NousResearch + OpenCode providers** integrate, per the five research questions (a)–(e).
 
 **Existing seams this must respect (do NOT re-research):**
-- `catalog.ts` = single source of model identity: committed `catalog.json` snapshot, `ANTHROPIC_ALLOWLIST` gate, `getAllowlistedServableIds(catalog)` (hard-filters `providerID === 'anthropic'`), `getModelDisplayName`, `FAST_MODEL_ID`, `opencodeSlugToModelId`.
-- `modelConfig.ts` = pure chain resolution + error classification; **constraint 11: imports only `'ai'` + `'@/lib/models/catalog'`** — never db/env/runAgent.
-- `runAgent.ts` = failover loop over `LanguageModel[]`, per-attempt budgets under the 54s loop wall, `classifyModelError`/`isFailoverEligible` advance gate, `modelUsed`/`usedFallback` audit identity.
-- `analyzeCompany.ts` = snapshot-at-entry (settings read once, chain resolved once), D-15 env gate (`not_configured` at call time), `modelChain.map((id) => anthropic(id))` instantiation at entry, fail-closed gate.
-- `saveSettingsAction` = immutable gate order: `requireStaffAccess()` FIRST → zod → servable-set validation → dedupe backstop → atomic full-value upsert → `revalidatePath` on success only.
-- `/settings` page = server-computed picker data, **props-only contract (T-17-09: client never imports catalog.json)**; `ModelSettingsForm` client component with draft staging + staleness gate.
-- `user_model_settings` table = `userId` PK, `primaryModel`, `fallbackModels text[]` — no provider column.
-- `env.ts` = zod-parsed; provider keys are OPTIONAL/degrade-gracefully (D-15 pattern).
+- `catalog.ts` = single source of model identity: committed `catalog.json`, `ANTHROPIC_ALLOWLIST` gate, `PROVIDER_GATES`, `SERVABLE_PROVIDERS`, `getServableIdsForProvider`, `getUnionServableIds`, `getProviderForModelId` with provider-scoped collision canaries (never a bare id find — Anti-Pattern 1).
+- `modelFactory.ts` = the ONLY module importing provider SDKs (**constraint 11**): `instantiateModel` dispatches raw catalog ids via `getProviderForModelId` → `anthropic(id)` / `openrouter(id)`; `PROVIDER_DEFAULT_MODELS` per-provider defaults; D-08 `structuredOutputs` opt-out scoped to the openrouter row.
+- `modelConfig.ts` = pure chain resolution + error classification + `shouldAdvance(cls, from, to)` — imports only `'ai'` + `'@/lib/models/catalog'` (constraint 11).
+- `analyzeCompany.ts` = snapshot-at-entry, chain-aware all-or-nothing env gate (`missingProviderKey` names the missing key), FIRECRAWL-only fast tier.
+- `runAgent.ts` = failover loop over `LanguageModel[]`, per-attempt budgets under the 54s loop wall, `(isFailoverEligible || rate_limited) && shouldAdvance` composition, `modelUsed`/`usedFallback` audit.
+- `scripts/refresh-model-catalog.ts` = dev-time snapshot generator (repo-root, node-builtins, zero runtime opencode dep): shells `opencode models --verbose`, trims rows, joins OpenRouter `/v1/models` for `structuredOutputs`, writes the committed `catalog.json`.
+- `env.ts` = zod-parsed; provider keys OPTIONAL/degrade-gracefully (D-15 pattern).
+- `/settings` page + form = server-computed picker props, props-only client contract (T-17-09: client never imports catalog.json).
 
-## System Overview (as-is + the v1.4 delta)
+## Executive Summary
 
-```
-Settings write path (existing + ★ = v1.4 delta):
-  /settings page (server)
-    → requireStaffAccess() → getModelSettingsForUser(userId)
-    → ★ server-computed: PROVIDERS[] (per-provider servable lists) + UNION servable set
-    → ModelSettingsForm (client, props-only)
-        → ★ AI Provider selector above Primary (anthropic | openrouter)
-        → ★ Primary picker refreshes from the selected provider's servable source
-        → Fallback pickers ★ draw from the UNION servable set (cross-provider chains)
-        → saveSettingsAction
-            → requireStaffAccess() FIRST
-            → zod (★ unchanged shape: { primaryModel, fallbacks } — ids only, NO provider field)
-            → ★ servable-set validation against UNION (was anthropic-only)
-            → dedupe backstop (unchanged)
-            → atomic full-value upsert (★ unchanged — no provider column, Q5)
-            → revalidatePath('/settings')
+All three load-bearing v1.4 decisions survive v1.5: **constraint 11** (SDK imports concentrated in `modelFactory.ts`), **REG-05** (provider identity derived from the catalog by model id, never persisted — raw ids only in `user_model_settings` + audit columns), **D-04** (raw ids pass verbatim). But two verified collision facts break a naive extension and force one deliberate invariant:
 
-Agent run path (existing + ★ = v1.4 delta):
-  POST /api/companies/[id]/analyze (route.ts)
-    → requireStaffAccess() → initLangfuse()
-    → analyzeCompany(companyId, userId)
-        → ★ env gate: per-chain-provider key check (Q6) — chain spans providers → both keys
-        → getModelSettingsForUser(userId)               (snapshot-at-entry, unchanged)
-        → ★ resolveModelChain(settings, UNION servable set)      (Q3)
-        → ★ instantiateChain(modelChain) → LanguageModel[]       (Q4, new modelFactory)
-        → runAgent({ models })                           (loop UNCHANGED)
-    → gate → persist run + proposals (unchanged; model_used/model_chain stay raw ids)
+1. **The opencode gateway mirrors the Anthropic family** — 10 of 60 `opencode` rows duplicate `anthropic` rows by bare id, including `claude-sonnet-4-6`, the *only* anthropic-allowlisted id. Naive servability would flip `getProviderForModelId('claude-sonnet-4-6')` to `opencode` (sorts first), hijacking the Anthropic fast path and breaking locked canary tests.
+2. **The Nous roster is 89% OpenRouter** — 260 of 292 `inference-api.nousresearch.com/v1/models` ids exactly match active OpenRouter ids (Nous' inference API is OpenRouter-powered, live-verified). A naive NousResearch picker would show 292 rows of which 260 silently bill OpenRouter at run time — a FAL-05 audit-accuracy violation.
 
-Model catalog (unchanged):
-  scripts/refresh-model-catalog.ts → catalog.json (committed, 1131 models, incl. 336 openrouter rows)
-```
+**Resolution — one invariant, applied in one place:** *a provider's servable set is its active rows ∩ gate, minus every id already servable under a higher-precedence provider; identity resolution scans `SERVABLE_PROVIDERS` in precedence order and takes the first match.* Precedence = `['anthropic', 'openrouter', 'nousresearch', 'opencode']`. The exclusion rule makes every union id servable under **exactly one** provider → derived identity stays a total, unambiguous function with zero schema change. `ModelProviderId` grows to 4; `opencode-go` is an internal row alias mapping onto the single `'opencode'` provider.
 
-## Component Responsibilities (delta)
+Other verified findings: both new rosters are **anonymous HTTP 200** (PROJECT.md's open question resolves — no key for the refresh fetch); the snapshot's per-row `api.npm` splits opencode across **three protocol families** (`@ai-sdk/anthropic`→`/messages`, `@ai-sdk/openai`→`/responses`, `@ai-sdk/openai-compatible`→`/chat/completions`) so instantiation dispatches per row, not per provider; `shouldAdvance` is already provider-agnostic so the 4→16 "matrix" is **test expansion, not implementation change** (with one documented semantic: a Zen→Go hop is same-provider); Nous rows expose `supported_parameters` (214/292 advertise structured_outputs) so the snapshot flag is derived from the live roster, exactly like the existing OpenRouter join.
 
-| Component | Responsibility (v1.4) | File | New/Modified |
-|-----------|------------------------|------|--------------|
-| Provider registry | `ModelProviderId` union; per-provider gate definitions (anthropic = allowlist, openrouter = full-catalog); per-provider servable accessors; union accessor; id→provider lookup | `src/lib/models/catalog.ts` | **Modified** (stays the single model-identity module — Q1) |
-| Servable gate | One parameterized gate function `getServableIdsForProvider(catalog, provider)` backed by a provider→gate data map (Q2) | `src/lib/models/catalog.ts` | **Modified** |
-| Chain resolution | `resolveModelChain(settings, servableIds = UNION)` — filter against the union servable set instead of `ANTHROPIC_ALLOWLIST` (Q3) | `src/lib/agents/modelConfig.ts` | **Modified** (small) |
-| Model instantiation | `instantiateModel(id)` → providerID from catalog lookup → `anthropic(id)` \| `openrouterProvider(id)`; `instantiateChain(ids)`; factory default chain (Q4) | `src/lib/agents/modelFactory.ts` | **New module** |
-| Run orchestration | failover loop over `LanguageModel[]` — **unchanged**; default becomes factory-backed | `src/lib/agents/runAgent.ts` | **Modified** (default only) |
-| Analyze orchestration | provider-aware env gate (Q6); factory-based chain instantiation | `src/lib/agents/analyzeCompany.ts` | **Modified** |
-| Save validation | servable check against UNION; schema unchanged (ids only — Q5) | `src/app/actions/settings.ts` | **Modified** (one line + comment) |
-| Settings page | server-computed per-provider picker data + union; props-only preserved | `src/app/(dashboard)/settings/page.tsx` | **Modified** |
-| Settings form | provider selector; provider-scoped primary picker; union-based fallback pickers | `src/components/settings/model-settings-form.tsx` | **Modified** |
-| Env schema | `OPENROUTER_API_KEY` added as optional (D-15 degrade pattern) | `src/lib/env.ts` | **Modified** (one line) |
-| DB schema | **UNCHANGED** — provider derived from catalog, never persisted (Q5) | `src/lib/db/schema.ts` | **Unchanged** |
+## Recommended Architecture
 
-## Recommended Project Structure (delta)
+### System Overview
 
 ```
-src/
-├── lib/
-│   ├── models/
-│   │   ├── catalog.ts         # MODIFIED — provider registry + gate map + union + id→provider
-│   │   ├── catalog.json       # unchanged (336 openrouter rows already committed)
-│   │   └── catalog.test.ts    # MODIFIED — registry/gate/union/lookup cases
-│   └── agents/
-│       ├── modelConfig.ts     # MODIFIED — servableIds param defaults to UNION
-│       ├── modelConfig.test.ts# MODIFIED — cross-provider chain cases
-│       ├── modelFactory.ts    # NEW — instantiateModel / instantiateChain / defaultChain
-│       ├── modelFactory.test.ts  # NEW — dispatch cases (mock-free, pure)
-│       ├── analyzeCompany.ts  # MODIFIED — env gate over chain providers + factory
-│       └── runAgent.ts        # MODIFIED — default via factory
-├── app/
-│   ├── actions/settings.ts    # MODIFIED — union validation
-│   └── (dashboard)/settings/page.tsx  # MODIFIED — per-provider props
-└── components/settings/model-settings-form.tsx  # MODIFIED — provider selector
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        Settings UI (provider selector)                  │
+│  SERVABLE_PROVIDERS[4] → per-provider servable lists → union pickers    │
+└──────────────┬──────────────────────────────────────────────────────────┘
+               │ raw ids (verbatim, D-04)
+┌──────────────▼──────────────────────────────────────────────────────────┐
+│                     src/lib/models/catalog.ts (registry)               │
+│  ModelProviderId = 'anthropic' | 'openrouter' | 'nousresearch'         │
+│                   | 'opencode'  (opencode-go → alias → 'opencode')     │
+│  PROVIDER_GATES[4] · SERVABLE_PROVIDERS (precedence order)             │
+│  getServableIdsForProvider (active ∩ gate − higher-precedence overlap) │
+│  getUnionServableIds (dedupe — unambiguous by construction)            │
+│  getProviderForModelId (first servable provider in precedence order)   │
+└──────────────┬──────────────────────────────────────────────────────────┘
+               │ identity (catalog-derived, never persisted — REG-05)
+┌──────────────▼──────────────────────────────────────────────────────────┐
+│            src/lib/agents/modelFactory.ts  (constraint 11 —            │
+│            THE ONLY provider-SDK-importing module)                     │
+│  anthropic(id)                    — direct Anthropic                   │
+│  createOpenRouter({strict})(id)   — OpenRouter                         │
+│  endpoint registry: baseURL → SDK instance; dispatch per row api.npm:  │
+│    @ai-sdk/anthropic         → createAnthropic({baseURL, apiKey})      │
+│    @ai-sdk/openai            → createOpenAI({baseURL, apiKey})         │
+│    @ai-sdk/openai-compatible → createOpenAICompatible({name,baseURL,   │
+│                                                       apiKey})         │
+│    (Nous: openai-compatible @ https://inference-api.nousresearch.com/v1)│
+└──────────────┬──────────────────────────────────────────────────────────┘
+               │ LanguageModel[] (instantiateChain — once at entry, FAL-01)
+┌──────────────▼──────────────────────────────────────────────────────────┐
+│   Run path: analyzeCompany → missingProviderKey (env gate, 4 keys)     │
+│   → runAgent failover loop (classify → isFailoverEligible || 429 →     │
+│   shouldAdvance(cls, from, to) — predicate unchanged, 16-cell tests)   │
+└──────────────┬──────────────────────────────────────────────────────────┘
+               │ snapshot (committed, no runtime opencode dependency)
+┌──────────────▼──────────────────────────────────────────────────────────┐
+│  src/lib/models/catalog.json  (1131 → ~1423 rows)                      │
+│  scripts/refresh-model-catalog.ts — opencode CLI + OpenRouter join     │
+│     + NEW anonymous Nous /v1/models fetch + merge                      │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Structure Rationale
+### Component Responsibilities
 
-- **Registry lives in `catalog.ts`, not a new file:** catalog.ts already owns model identity (snapshot, allowlist, display names, `FAST_MODEL_ID`). A separate `providers.ts` would split one identity domain across two modules and force `modelConfig.ts` (constraint 11) to change its import surface. Keep one module = one domain; the registry is additive accessors over the same snapshot.
-- **`modelFactory.ts` is a new module because it imports provider SDKs:** `catalog.ts`/`modelConfig.ts` are pure (no SDK imports — that purity is what makes them testable and keeps constraint 11 clean). `anthropic()`/`openrouterProvider()` imports are a different dependency class; isolating them in one factory means the SDK import lives in exactly one place (today `anthropic` is imported in BOTH `runAgent.ts` and `analyzeCompany.ts`).
-- **No schema change:** the derive-from-catalog decision (Q5) keeps the DB untouched — the biggest seam-preservation win of the whole design.
+| Component | Responsibility | v1.5 Change |
+|-----------|----------------|-------------|
+| `src/lib/models/catalog.ts` | Provider registry: union, gates, servable sets, identity resolution, collision canaries | **MODIFIED** — union → 4, precedence+exclusion rule, opencode-go alias map, PROVIDER_NAMES |
+| `src/lib/models/catalog.json` | Committed trimmed snapshot | **MODIFIED** — regenerated, +~292 nousresearch rows (~1423 total) |
+| `scripts/refresh-model-catalog.ts` | Dev-time snapshot generator (node-builtins, repo-root) | **MODIFIED** — anonymous Nous roster fetch + merge; structuredOutputs from Nous `supported_parameters` |
+| `src/lib/agents/modelFactory.ts` | Single SDK seam (constraint 11): `instantiateModel` dispatch + `PROVIDER_DEFAULT_MODELS` | **MODIFIED** — per-`api.npm` endpoint registry (Zen/Go/Nous), 2 new SDK imports |
+| `src/lib/agents/modelConfig.ts` | Classifier + `shouldAdvance` predicate + chain resolution | **MINOR** — predicate unchanged; union servable set widens automatically |
+| `src/lib/agents/analyzeCompany.ts` | Chain-aware all-or-nothing env gate (`missingProviderKey`) | **MODIFIED** — 2 new key branches (or provider→key map) |
+| `src/lib/agents/runAgent.ts` | Failover loop; hop-aware `shouldAdvance` composition | **UNCHANGED** (semantics preserved; tests grow) |
+| `src/lib/env.ts` | Optional server-only provider key declarations | **MODIFIED** — `NOUSRESEARCH_API_KEY`, `OPENCODE_API_KEY` |
+| `src/components/settings/model-picker-logic.ts` | Client-safe picker decision module (`providerName` etc.) | **MODIFIED** — `providerName` 2→4 entry map |
+| `src/app/(dashboard)/settings/page.tsx` | Server-computed picker props | **MODIFIED** — providers array (2-way ternary → data-driven), name map |
+| `src/components/settings/model-settings-form.tsx` | Visible form (provider Select + pickers) | **MINOR** — consumes 4-provider props unchanged |
+| `src/lib/verification/security-grep.test.ts` | Key-placement security gate | **MODIFIED** — ALLOWED set + canaries extend to new keys |
+| `e2e/ver-05-settings.spec.ts`, `e2e/ver-02-analyze.spec.ts` | Playwright settings/run e2e | **MODIFIED** — provider helper types grow; selector coverage extends |
+| `package.json` | deps | **MODIFIED** — +`@ai-sdk/openai`, +`@ai-sdk/openai-compatible` |
 
-## Architectural Patterns
+## Provider Identity: the Registry Grows to 4 (question a)
 
-### Pattern 1: Provider registry — one gate function over a provider→gate data map (Q1/Q2)
-
-**What:** `catalog.ts` gains a `PROVIDERS` record (data) and one parameterized gate function (behavior). The gate difference between providers is expressed as *data* (allowlist presence/absence), not as a branch in the function.
+### The union
 
 ```typescript
-// src/lib/models/catalog.ts
-export type ModelProviderId = 'anthropic' | 'openrouter';
+export type ModelProviderId = 'anthropic' | 'openrouter' | 'nousresearch' | 'opencode';
+```
 
-// Q2: provider → gate policy as DATA. Absence of allowlist = full active catalog.
-export const PROVIDER_GATES: Record<ModelProviderId, { allowlist?: readonly string[] }> = {
-  anthropic: { allowlist: ANTHROPIC_ALLOWLIST },  // sonnet-only, roster-verified (D-02)
-  openrouter: {},                                  // full catalog: all active openrouter rows
+`opencode-go` is **NOT** a fifth member — it is an internal snapshot `providerID` value that aliases onto `'opencode'` everywhere identity is derived from rows:
+
+```typescript
+// Row-providerID → canonical provider identity. opencode-go rows are the same
+// provider on a second endpoint (https://opencode.ai/zen/go/v1).
+export const PROVIDER_ROW_ALIASES: Readonly<Record<string, ModelProviderId>> = {
+  anthropic: 'anthropic',
+  openrouter: 'openrouter',
+  nousresearch: 'nousresearch',
+  opencode: 'opencode',
+  'opencode-go': 'opencode',
 };
+```
 
-export const SERVABLE_PROVIDERS: readonly ModelProviderId[] = ['anthropic', 'openrouter'];
+### Precedence + exclusion — the load-bearing invariant
 
-// One gate function with a provider parameter — no per-provider gate functions.
-export function getServableIdsForProvider(
-  catalog: ModelCatalog,
-  provider: ModelProviderId,
-): string[] {
-  const active = catalog.models
-    .filter((m) => m.providerID === provider && m.status !== 'deprecated')
-    .map((m) => m.id);
-  const allowlist = PROVIDER_GATES[provider].allowlist;
-  return allowlist ? active.filter((id) => allowlist.includes(id)) : active; // full when no allowlist
-}
+Verified collision surface (committed snapshot 2026-08-02 + live Nous roster 2026-08-03):
 
-// Q3/Q5: the UNION of per-provider servable sets — the runnable set for chains + validation.
-export function getUnionServableIds(catalog: ModelCatalog): string[] {
-  return [...new Set(SERVABLE_PROVIDERS.flatMap((p) => getServableIdsForProvider(catalog, p)))];
-}
+| Pair | Overlap | Consequence |
+|------|---------|-------------|
+| opencode ∩ anthropic-active rows | 10 ids | 1 (claude-sonnet-4-6) overlaps the **servable** anthropic set |
+| opencode-go ∩ opencode | 12 of 17 ids | same-provider dup — dedupe by id, Zen row wins (sorts first) |
+| opencode-go ∩ anthropic-active | 0 | none |
+| openrouter-active ∩ nousresearch roster | **260 of 292** | massive — the Nous API is OpenRouter-powered |
+| openrouter ids ∩ opencode/anthropic | 0 (all slashed vs bare) | none |
+| nousresearch ids | 292/292 vendor/model slashed | no bare-id collisions with opencode/anthropic |
 
-// Q4/Q5: id → provider lookup — MUST be provider-scoped (see Pitfall 1: dual opencode/anthropic rows).
+The exclusion rule:
+
+```
+servable(P) = (activeRows(P) ∩ gate(P)) − ⋃ servable(p)   for every p preceding P in SERVABLE_PROVIDERS
+```
+
+Precedence = `SERVABLE_PROVIDERS` array order: `['anthropic', 'openrouter', 'nousresearch', 'opencode']`. Resulting servable sets:
+
+| Provider | Active rows | Gate | Servable | Note |
+|----------|-------------|------|----------|------|
+| anthropic | 17 | allowlist (`claude-sonnet-4-6`) | 1 | unchanged |
+| openrouter | 336 | none (full) | 336 | unchanged |
+| nousresearch | ~292 | none | **~32** | 260 dropped — OpenRouter owns them |
+| opencode (Zen+Go) | 60+17 deduped 65 | none | **64** | `claude-sonnet-4-6` dropped — anthropic owns it |
+| **union** | | | **~433** | deduped, unambiguous |
+
+Why exclusion is mandatory, not optional: without it, the NousResearch provider-scoped picker shows 292 rows but 260 resolve to `openrouter` at run time (precedence) — the chain stores the raw id, so `model_used`/`model_chain` record an id picked under a "NousResearch" badge that executed against OpenRouter billing. That violates FAL-05 provider-accurate audit. With exclusion, the union id → provider mapping is a **total function by construction**.
+
+**Trade-off to surface at planning:** the NousResearch provider surfaces only its ~32 unique models (Hermes-family + non-OpenRouter entries); the other 260 are genuinely the same upstream models and remain reachable under the OpenRouter provider. Offering them as "Nous" requires persisting provider-per-hop (a `user_model_settings` schema change REG-05 explicitly avoided) — **do NOT do that in v1.5**.
+
+### `getProviderForModelId` — precedence scan, servable-scoped
+
+The current impl (`catalog.ts:84-89`) is a bare providerID-scoped `find` over two providers. The new impl iterates `SERVABLE_PROVIDERS` in order and returns the first provider whose aliased row set contains the id:
+
+```typescript
 export function getProviderForModelId(catalog: ModelCatalog, id: string): ModelProviderId | null {
-  const row = catalog.models.find(
-    (m) => m.id === id && (m.providerID === 'anthropic' || m.providerID === 'openrouter'),
-  );
-  return row ? (row.providerID as ModelProviderId) : null;
+  for (const provider of SERVABLE_PROVIDERS) {
+    const rowSet = new Set(ROW_PROVIDER_IDS.get(provider)); // providerID values aliased to `provider`
+    if (catalog.models.some((m) => m.id === id && rowSet.has(m.providerID))) return provider;
+  }
+  return null;
 }
 ```
 
-**When to use:** whenever the runnable set differs structurally by provider. The `provider→gate map` wins over a `provider→gate function map` here because the gates are *data* (allowlists are literal arrays, "full catalog" is an empty gate) — a function-per-provider map would be 2 closures over the same active-rows logic. Verified: `getServableIdsForProvider(catalog, 'openrouter')` → 336 ids, `'anthropic'` → 1 (`claude-sonnet-4-6`), union = 337, **zero overlap** between the two sets (id namespaces are disjoint: anthropic raw ids vs openrouter `vendor/model` or `~vendor/model` forms).
+Canary outcomes (must be locked in tests):
 
-**Trade-offs:** the existing `getAllowlistedServableIds` callers (settings page, settings action, tests) must migrate to `getServableIdsForProvider(catalog, 'anthropic')` or the union — a mechanical rename touching 3 call sites + tests, but the old name's "allowlist" phrasing stops describing the multi-provider reality. Keep `getAllowlistedServableIds` as a thin deprecated alias OR remove it outright; recommend remove-and-migrate (grep-confirmed only 3 callers + test file).
+| id | Today | v1.5 | Rationale |
+|----|-------|------|-----------|
+| `claude-sonnet-4-6` | anthropic | **anthropic** (unchanged) | anthropic precedes opencode; exclusion removed it from opencode's set |
+| `claude-sonnet-5` | anthropic (canary) | **opencode** (FLIPS) | not anthropic-allowlisted; opencode is now servable — the only honest resolution; update the locked test with rationale |
+| `anthropic/claude-sonnet-4.6` | openrouter | openrouter (unchanged) | slashed, no bare overlap |
+| `deepseek-v4-flash` | null | **opencode** | dual opencode + opencode-go rows → aliased to opencode |
+| `hy3` | null | **opencode** | opencode-go-only row |
+| `qwen/qwen3.8-max` | null | **nousresearch** | Nous-unique (not in openrouter-active) |
+| `deepseek/deepseek-v4-flash-0731` | null | **openrouter** (precedence) | openrouter precedes nousresearch |
 
-### Pattern 2: Union-filtered chain resolution (Q3)
-
-**What:** `resolveModelChain`'s `allowlist` parameter becomes the union servable set. The filter is still "drop ids not in the allowed set" — only the set grows to span providers.
+### `getServableIdsForProvider` — exclusion-aware
 
 ```typescript
-// src/lib/agents/modelConfig.ts
-export function resolveModelChain(
-  settings: ModelSettingsRow,
-  servableIds: readonly string[] = getUnionServableIds(catalogJson),
-): string[] {
-  const raw = settings ? [settings.primaryModel, ...settings.fallbackModels] : [];
-  const deduped = [...new Set(raw)].filter((id) => servableIds.includes(id));
-  const capped = deduped.slice(0, 2);
-  return capped.length > 0 ? capped : [FAST_MODEL_ID];
+export function getServableIdsForProvider(catalog: ModelCatalog, provider: ModelProviderId): string[] {
+  const own = activeRows(provider) ∩ gate(provider);            // incl. opencode-go rows aliased to opencode
+  const ownedElsewhere = new Set(SERVABLE_PROVIDERS            // ids servable under earlier providers
+    .slice(0, SERVABLE_PROVIDERS.indexOf(provider))
+    .flatMap((p) => getServableIdsForProvider(catalog, p)));
+  return own.filter((id) => !ownedElsewhere.has(id));
 }
 ```
 
-**When to use:** any chain (primary + fallbacks) whose entries may come from different providers. The default argument change is the *only* behavioral change — D-08 dedupe, D-10 cap, and REG-05 default all operate on the filtered set and are provider-agnostic. Tests pass explicit `servableIds` fixtures, so the existing 6 resolveModelChain cases survive; add 2 cross-provider cases (`['claude-sonnet-4-6', 'anthropic/claude-sonnet-latest']` passes, `['not-in-union']` drops).
+Pure, precedence-ordered, unit-testable without mocks. `getUnionServableIds` is unchanged — the Set-dedupe now has no cross-provider dups to resolve.
 
-**Trade-offs:** default argument now needs `catalogJson` in modelConfig.ts — but modelConfig already imports from `'@/lib/models/catalog'`; importing the JSON directly is consistent with catalog.ts itself and keeps constraint 11 intact (still no db/env/runAgent).
+### Labeling the Zen/Go split (PROJECT.md open question)
 
-### Pattern 3: Provider-aware model factory (Q4)
+**Family-based grouping, not suffix.** The rows already carry `family` and D-04 forbids id munging (`opencode-go/deepseek-v4-flash` slugs would break the raw-id audit trail). The Settings fallback pickers already group by provider + family (D-21-11: family is a row subtitle). Zen vs Go is an endpoint detail surfaced via name/cost; per-row `api.url` drives instantiation and is the only place the split matters.
 
-**What:** one `instantiateModel(id)` maps a raw catalog id → providerID (via `getProviderForModelId`) → provider constructor. The providerID source is always the catalog lookup — never the settings row, never client input.
+## Model Instantiation: OpenAI-Compatible Endpoints (question b)
+
+### Per-row `api.npm` dispatch — baseURL per row, instance per (SDK, baseURL)
+
+Verified snapshot fact — opencode rows split across **three protocol families** served from the *same* baseURL:
+
+| api.npm (per row) | Protocol | Rows (opencode) | Rows (opencode-go) |
+|-------------------|----------|-----------------|--------------------|
+| `@ai-sdk/openai-compatible` | `/v1/chat/completions` | 20 | 10 |
+| `@ai-sdk/openai` | `/v1/responses` | 21 | 2 |
+| `@ai-sdk/anthropic` | `/v1/messages` | 14 | 5 |
+
+So **baseURL is per row, instances are per (SDK, baseURL)** — exactly two opencode baseURLs exist (`https://opencode.ai/zen/v1`, `https://opencode.ai/zen/go/v1`), so at most 6 opencode instances + 1 Nous instance. The opencode providers docs confirm the mapping ("If your provider/model uses /v1/responses, use @ai-sdk/openai"; chat-completions → `@ai-sdk/openai-compatible`).
 
 ```typescript
-// src/lib/agents/modelFactory.ts — NEW. The ONLY module importing provider SDKs.
-import { anthropic } from '@ai-sdk/anthropic';
+import { anthropic, createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import type { LanguageModel } from 'ai';
-import { env } from '@/lib/env';
-import { FAST_MODEL_ID, getProviderForModelId } from '@/lib/models/catalog';
+import { createOpenAI } from '@ai-sdk/openai';                       // NEW dep
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';  // NEW dep
 
-// Module-singleton provider instance (same pattern as the sanity client in v1.0).
-const openrouter = createOpenRouter({ apiKey: env.OPENROUTER_API_KEY });
+// Module-singleton endpoint registry, keyed by baseURL. One key (OPENCODE_API_KEY)
+// is shared by Zen + Go (2-key decision locked in the milestone). apiKey is a lazy
+// thunk read at request time — mirrors the D-11 no-@/lib/env pattern.
+const OPENCODE_ZEN = 'https://opencode.ai/zen/v1';
+const OPENCODE_GO  = 'https://opencode.ai/zen/go/v1';
+const NOUS_URL     = 'https://inference-api.nousresearch.com/v1';
 
+const compatInstances = new Map<string, ReturnType<typeof createOpenAICompatible>>([
+  [OPENCODE_ZEN, createOpenAICompatible({ name: 'opencode-zen', baseURL: OPENCODE_ZEN,
+                                          apiKey: () => process.env.OPENCODE_API_KEY })],
+  [OPENCODE_GO,  createOpenAICompatible({ name: 'opencode-go',  baseURL: OPENCODE_GO,
+                                          apiKey: () => process.env.OPENCODE_API_KEY })],
+  [NOUS_URL,     createOpenAICompatible({ name: 'nousresearch', baseURL: NOUS_URL,
+                                          apiKey: () => process.env.NOUSRESEARCH_API_KEY })],
+]);
+// …same pattern for createOpenAI instances (Zen/Go) and createAnthropic instances (Zen/Go).
+```
+
+Dispatch in `instantiateModel` — read the resolved row's `api.npm` + `api.url` (the snapshot is the contract; opencode rows already carry both):
+
+```typescript
 export function instantiateModel(id: string): LanguageModel {
   const provider = getProviderForModelId(catalogJson, id);
   if (provider === 'anthropic') return anthropic(id);
-  if (provider === 'openrouter') return openrouter(id);
-  throw new Error(`unsupported provider for model ${id}`); // unreachable post-gate; fail loud
-}
-
-export function instantiateChain(ids: string[]): LanguageModel[] {
-  return ids.map(instantiateModel); // FAL-01: mapped ONCE at entry, never per attempt
-}
-
-export function defaultChain(): LanguageModel[] {
-  return [anthropic(FAST_MODEL_ID)]; // REG-05 default stays anthropic
+  if (provider === 'openrouter') { /* existing D-08 openrouter branch, unchanged */ }
+  if (provider === 'opencode' || provider === 'nousresearch') {
+    const row = catalogJson.models.find((m) => m.id === id && ROW_PROVIDER_IDS.has(m.providerID));
+    // Row lookup MUST be alias-scoped (Anti-Pattern 1): the opencode-go row is the
+    // authoritative endpoint for go-only ids; the Zen row wins for dual-listed ids
+    // (sorts first — deterministic, documented).
+    const base = row?.api.url ?? defaultBaseFor(provider);
+    switch (row?.api.npm) {
+      case '@ai-sdk/openai-compatible': return compatInstances.get(base)!(id, soOptions(row));
+      case '@ai-sdk/openai':            return openaiInstances.get(base)!(id);
+      case '@ai-sdk/anthropic':         return anthropicInstances.get(base)!(id);
+      default: throw new Error(`unsupported protocol for model ${id}`);
+    }
+  }
+  throw new Error(`unsupported provider for model ${id}`);
 }
 ```
 
-**When to use:** every place that currently calls `anthropic(id)` directly — `analyzeCompany.ts` (chain map) and `runAgent.ts` (default). `runAgent`'s loop signature `models?: LanguageModel[]` is untouched; only the default changes to `defaultChain()`.
+Notes:
+- **`structuredOutputs` (D-08):** opencode rows default `true` in the snapshot (the refresh script defaults non-openrouter rows to true — NOT verified). The existing D-08 opt-out (`{ structuredOutputs: { strict: false } }`) applies per row when the flag is false; verify at planning whether the Zen `/messages`-protocol models accept structured outputs and extend the flag path to the opencode/nous branches if needed.
+- **`@ai-sdk/openai-compatible` compatibility mode:** default `'compatible'` = chat completions — exactly what Zen-compat and Nous rows use. Do NOT pass `compatibility: 'strict'` here (that targets the Responses API). This differs from the createOpenRouter default-trap; the openai-compatible default is the desired one. Verify against the installed package at Phase-B start.
+- **Constraint 11 holds:** all four SDK packages are imported only in `modelFactory.ts`.
+- **Not installed yet:** `@ai-sdk/openai-compatible` and `@ai-sdk/openai` are absent from `node_modules` (verified). `@ai-sdk/anthropic` `createAnthropic({ baseURL, apiKey })` IS confirmed in the installed d.ts (`node_modules/@ai-sdk/anthropic/dist/index.d.ts:1245-1251`).
 
-**Verified provider facts:** `@openrouter/ai-sdk-provider@3.0.0` (latest stable) declares peer deps `ai ^7.0.0` + `zod ^3.25.76 || ^4.1.8` — repo has `ai@7.0.45` and `zod@4.4.3`, both compatible. `createOpenRouter({ apiKey })` returns a callable provider; `openrouter(modelId)` yields a `LanguageModel`. The OpenRouter provider reads the API key via the `apiKey` option (not an env-name convention), so it must be passed from `env.OPENROUTER_API_KEY` explicitly.
-
-**Trade-offs:** the factory throws on an id whose provider is unknown — but that's unreachable in practice because save validation (union gate) and chain resolution (union filter) already exclude non-servable ids; the throw is the fail-loud backstop for the "catalog drifted mid-run" case. Create the `openrouter` instance at module scope like the docs recommend; the D-15 env gate in analyzeCompany runs *before* any instantiation, so an unset key never reaches the constructor in the run path (and `createOpenRouter` with an undefined key doesn't throw — it fails at request time, which the env gate prevents).
-
-### Pattern 4: Env gate over the chain's provider set (Q6)
-
-**What:** extend the D-15 gate from "one key present" to "every provider present in the resolved chain has its key set." Because the chain is resolved snapshot-at-entry (FAL-01), the provider set is known before any attempt — gate once at entry, never per-attempt.
+### `PROVIDER_DEFAULT_MODELS` — 2 → 4
 
 ```typescript
-// src/lib/agents/analyzeCompany.ts
-const modelChain = resolveModelChain(settings);
-const chainProviders = new Set(modelChain.map(getProviderForModelId).filter((p): p is ModelProviderId => p !== null));
-const providerKeys: Record<ModelProviderId, () => string | undefined> = {
-  anthropic: () => env.ANTHROPIC_API_KEY,
-  openrouter: () => env.OPENROUTER_API_KEY,
+export const PROVIDER_DEFAULT_MODELS: Record<ModelProviderId, string> = {
+  anthropic: FAST_MODEL_ID,                              // claude-sonnet-4-6
+  openrouter: OPENROUTER_DEFAULT_MODEL_ID,               // anthropic/claude-sonnet-4.6
+  nousresearch: /* roster-verified concrete slug at planning (Hermes-family or qwen/* chat model) */,
+  opencode: 'deepseek-v4-flash',                         // exists on BOTH Zen+Go; chat-completions protocol
 };
-if (!env.FIRECRAWL_API_KEY || [...chainProviders].some((p) => !providerKeys[p]())) {
-  return { ok: false, reason: 'not_configured' };
+```
+
+D-07 pattern: pinned concrete id, roster-verified at planning (never `~latest`/`:` aliases). Prefer `@ai-sdk/openai-compatible`-protocol rows for both defaults so the whole default path uses one protocol family. `defaultChain()` stays the Anthropic fast path (REG-05 default, env-gated).
+
+## Chain-Aware Env Gate (question c)
+
+`missingProviderKey` (`analyzeCompany.ts:54-63`) extends to the two new keys — one OpenCode key shared by Zen + Go (locked 2-key decision):
+
+```typescript
+export function missingProviderKey(modelChain: string[]): string | null {
+  const providers = new Set(modelChain.map((id) => getProviderForModelId(catalogJson, id))
+    .filter((p): p is ModelProviderId => p !== null));
+  if (providers.has('anthropic') && !env.ANTHROPIC_API_KEY) return 'ANTHROPIC_API_KEY';
+  if (providers.has('openrouter') && !env.OPENROUTER_API_KEY) return 'OPENROUTER_API_KEY';
+  if (providers.has('nousresearch') && !env.NOUSRESEARCH_API_KEY) return 'NOUSRESEARCH_API_KEY';
+  if (providers.has('opencode') && !env.OPENCODE_API_KEY) return 'OPENCODE_API_KEY';
+  return null;
 }
 ```
 
-**When to use:** this is the *only* env-gate design consistent with the existing failover policy. Per-attempt key checks are wrong for two reasons: (1) a missing key for a *fallback* provider would only surface if the primary fails — the run can't know in advance, so it would either crash the run mid-chain (never acceptable) or require a mid-chain `not_configured` return that the loop has no seam for; (2) the loop's `isFailoverEligible` gate deliberately excludes auth/config errors (D-01/D-03) — a missing-key failure must NOT advance the chain, it must abort as misconfiguration, which is exactly what the entry gate does.
+- **env.ts:** add `NOUSRESEARCH_API_KEY: z.string().optional()` and `OPENCODE_API_KEY: z.string().optional()` — same degrade-gracefully pattern (D-11/D-15): an unset key never crashes at import; the gate names it. Never `NEXT_PUBLIC_`-prefixed.
+- **Semantics preserved:** all-or-nothing at run entry; an opencode-only chain needs only `OPENCODE_API_KEY`; a chain mixing Zen and Go models still needs the one key. The type guard narrows to the 4-provider union.
+- **Refactor option (recommended at planning):** a `PROVIDER_ENV_KEYS: Record<ModelProviderId, string>` map in a JSON-free module turns the if-chain into a loop while keeping the client bundle safe; the explicit ifs match current house style either way.
+- `isMisconfigurationError` regex (`/not configured|api key/i`) keeps mapping pre-flight misses to `not_configured`; SDK-level `LoadAPIKeyError` → `config` class stays the fail-loud backstop.
 
-**Trade-offs:** an OpenRouter primary with an Anthropic fallback requires both keys even though a healthy run only uses the OpenRouter key. This is the honest trade — the chain *declares* both providers runnable, so both must be configured; failing a mid-chain switch because the fallback key is missing would be a silent config gap. `not_configured` with the existing client copy ("The Analyze action needs API keys configured") covers the user story.
+## Failover Matrix: 4-Cell → 16-Cell (question d)
 
-### Pattern 5: Derive provider from catalog — no schema change (Q5)
-
-**What:** `user_model_settings` keeps `(userId, primaryModel, fallbackModels)`. Provider is derived by `getProviderForModelId(catalogJson, id)` at every consumption point (factory instantiation, save validation, picker grouping).
-
-**Why this is safer than a provider column, given the atomic upsert + staleness gate:**
-1. **Atomic full-value upsert writes ids, not providers.** The upsert's contract is "the complete chain in one statement." Adding a provider column makes the *client* the source of a second attribute that must agree with the id on every write — a new consistency invariant with zero enforcement benefit, since the catalog already determines provider uniquely.
-2. **The staleness gate validates ids against the servable set.** An id is either servable (its provider is knowable from the catalog) or not (rejected). A persisted provider column adds a *third* staleness axis (id stale, provider stale, or id-new-but-provider-old) that the gate would have to check independently — more states, more drift.
-3. **Cross-provider chains make a single provider column meaningless.** The chain is a heterogeneous list; a per-row `primaryProvider`/`fallbackProvider` parallel array duplicates the chain with a second structure that can desync. Derived lookup needs none of this.
-4. **Catalog refresh automatically re-homes models.** If a snapshot refresh changes a model's providerID (a model moving from anthropic-direct to openrouter-routed, or vice versa), derivation follows the new snapshot instantly; a persisted column would serve stale instantiation until the next save.
-
-**Verdict:** derive. The DB schema is untouched; the provider is pure derived state of the committed snapshot — the same philosophy as `getModelDisplayName` (first-match lookup, no stored display name).
-
-## Data Flow
-
-### Settings write (v1.4)
+**The implementation does not change.** `shouldAdvance(cls, from, to)` (`modelConfig.ts:100-107`) is already provider-agnostic: `cls !== 'rate_limited' || (from !== null && to !== null && from !== to)`. With 4 providers the conceptual matrix is 16 cells (4 same-provider diagonal + 12 cross-provider) — the predicate covers all of them. The work is **test expansion** in `modelConfig.test.ts`:
 
 ```
-[User] → /settings (server): per-provider servable lists + union computed server-side
-    → ModelSettingsForm (client)
-        → provider selector (draft state, D-07: nothing persists until Save)
-        → primary picker: providers[selected].models
-        → fallback pickers: union models
-        → Save → saveSettingsAction({ primaryModel, fallbacks })   // ids ONLY
-            → requireStaffAccess() → zod → union-servable check → dedupe → upsert → revalidate
+rate_limited advances:   all 12 cross cells (anthropic→nousresearch, anthropic→opencode,
+                         openrouter→nousresearch, openrouter→opencode, nousresearch→opencode, …)
+rate_limited never:      the 4 diagonal cells — anthropic, openrouter, nousresearch, opencode
+fail-closed:             any → null, null → any (unchanged)
+non-429 eligible (404/5xx/connection): advance regardless (unchanged)
 ```
 
-The wire format carries ids only. Provider never enters the action payload, the DB row, or the client bundle's contract — it is derived server-side whenever needed (T-17-09 preserved).
+**Critical semantic to document + test: `opencode → opencode` is same-provider even across endpoints.** Because opencode-go rows alias to `'opencode'`, a Zen→Go hop is `from === 'opencode'`, `to === 'opencode'` — a 429 never advances (v1.3 D-01 invariant preserved), while 404/5xx/connection DO advance via the non-429 short-circuit (an unavailable Zen model can still fall back to a Go model). This is the deliberate consequence of the single-provider/2-key decision; the test suite must lock it so nobody later "fixes" it into a 5-provider split.
 
-### Agent run (v1.4)
+`runAgent.ts` needs zero code changes — it already composes `(isFailoverEligible(cls) || cls === 'rate_limited') && shouldAdvance(cls, from, to)` with catalog-derived from/to (`getProviderForModelId` returns the aliased provider). The mid-stream-429 diagnostics helper stays OpenRouter-specific (documented accepted gap).
+
+## Snapshot Generator + Refresh Script (question e)
+
+Both rosters are **anonymous HTTP 200** (live-probed 2026-08-03): `https://inference-api.nousresearch.com/v1/models` (292 rows) and `https://opencode.ai/zen/v1/models` (60 rows). The PROJECT.md open question resolves: **no key needed for the refresh fetch.**
+
+### `scripts/refresh-model-catalog.ts` changes
+
+1. **New `fetchNousRoster()`** — mirrors `fetchOpenRouterStructuredOutputs()` exactly: anonymous GET, THROW on failure so the committed snapshot stays usable, never write a partial. Nous rows are rich — map to the trimmed shape:
+
+```typescript
+{
+  id: row.id,                                  // verbatim, vendor/model form
+  providerID: 'nousresearch',
+  name: row.name,
+  family: row.id.split('/')[0] ?? '',          // vendor segment (roster has no family field)
+  status: row.expiration_date ? 'deprecated' : 'active',
+  api: { npm: '@ai-sdk/openai-compatible', url: 'https://inference-api.nousresearch.com/v1' },
+  cost: {                                      // string dollars-per-token → $/M (OpenRouter cost shape)
+    input:  parseFloat(row.pricing?.prompt ?? '0') * 1_000_000,
+    output: parseFloat(row.pricing?.completion ?? '0') * 1_000_000,
+  },
+  limit: { context: row.context_length ?? 0, output: 0 },
+  structuredOutputs: (row.supported_parameters ?? []).includes('structured_outputs'),
+  // 214/292 advertise it — derived from the live roster, NOT the blanket-true default
+}
+```
+
+2. **Merge into `main()`:** append Nous rows to the CLI-derived `models` array. Dedupe against openrouter rows is NOT the script's job — the registry's exclusion rule handles identity; the script records all Nous rows with `providerID: 'nousresearch'`.
+3. **structuredOutputs logic** (`main()`, lines 177-184): extend the conditional — openrouter rows join OpenRouter's roster; nousresearch rows use `supported_parameters`; everything else keeps the blanket-`true` default (existing opencode behavior — accepted, flagged for the D-08 opt-out if the Zen messages endpoint rejects it).
+4. **No opencode generation change:** the opencode CLI already emits `opencode` + `opencode-go` rows (they're in the committed snapshot); the Zen roster curl stays a dev-time sanity check, not a data source.
+5. **Regenerate + commit** the snapshot (~1131 → ~1423 rows). `generatedAt` bumps; existing lower-bound union tests stay green; new canaries lock the nousresearch row shape.
+
+## Settings UI Integration
+
+- `settings/page.tsx:91-94` — the providers array is a **2-way ternary** (`id === 'anthropic' ? 'Anthropic' : 'OpenRouter'`) — breaks with 4 providers. Replace with a data-driven name lookup.
+- `model-picker-logic.ts:26-28` — `providerName` return type `'Anthropic' | 'OpenRouter'` grows to the 4-entry map. **Client-safety constraint (T-17-09):** this module may only type-import from `catalog.ts` (a value import drags the 1423-row snapshot into the client bundle). The name map must live in BOTH `catalog.ts` (server, single source) and `model-picker-logic.ts` (client, mirrored literal) — or in a new JSON-free server module. Two small locked maps is the pragmatic choice; flag as an integration point at planning.
+- The form consumes `servableByProvider`/`unionServableModels`/`defaults` props unchanged — the provider Select renders 4 entries once `SERVABLE_PROVIDERS` widens. `staleIds` union-wide staleness (D-21-14) already handles any provider.
+- UX consequence of exclusion: the OpenCode picker shows 64 rows, NousResearch ~32. No provider has zero selectable rows (each has a default + unique ids), so the WR-02 "only available model" pin path stays correct.
+
+## Security Gate + E2E Impact
+
+- `security-grep.test.ts`: the ALLOWED set (`env.ts`, `modelFactory.ts`, `analyzeCompany.ts`) and canary assertions are keyed to `OPENROUTER_API_KEY`. The new keys need: (a) no occurrence in `'use client'` files / Server Actions (they appear ONLY in the three ALLOWED server files); (b) presence in `.env.example`; (c) a non-vacuous canary for the new keys (generalize the canary to iterate the provider-key list). `modelFactory.ts`'s `apiKey: () => process.env.OPENCODE_API_KEY` thunks are server-only — fine.
+- `.env.example`: add `NOUSRESEARCH_API_KEY=` + `OPENCODE_API_KEY=` with the same degrade-gracefully comment block.
+- `e2e/ver-05-settings.spec.ts`: the `setProvider` helper types `'Anthropic' | 'OpenRouter'` and the "deterministic baseline" assertions need the 4-provider shape (provider count + badge assertions). `e2e/ver-02-analyze.spec.ts` gating (`!!process.env.OPENROUTER_API_KEY && …`) is untouched; a cross-provider opencode/nous run assertion would need those keys on Vercel (Preview+Production, Encrypted) — a VER-03-style human/ops item.
+
+## Data Flow Changes
+
+### Before (v1.4, 2 providers)
 
 ```
-analyzeCompany(companyId, userId)
-  → env gate: FIRECRAWL + every chain provider's key (Q6)
-  → settings = getModelSettingsForUser(userId)          // snapshot-at-entry (FAL-01)
-  → modelChain = resolveModelChain(settings)            // union-filtered
-  → models = instantiateChain(modelChain)               // LanguageModel[], ONCE
-  → runAgent({ models }) → failover loop (UNCHANGED)
-      → per attempt: generateText({ model: models[i], ... })
-      → error → classifyModelError → isFailoverEligible? advance : fail loud
-  → modelUsed/modelChain audit (raw ids, unchanged)
+Settings save → raw ids → user_model_settings
+Analyze → resolveModelChain(raw ids) → instantiateChain → anthropic(id) | openrouter(id)
+       → missingProviderKey(anthropic|openrouter) → runAgent → shouldAdvance(from,to)
+       → model_used/model_chain (raw ids, provider-accurate)
+Snapshot: 1131 rows, providerIDs {opencode,opencode-go,anthropic,google,kilo,openai,openrouter,vercel}
 ```
 
-## Scaling Considerations
+### After (v1.5, 4 providers)
 
-| Concern | At 100 users | At 1K users | At 10K users |
-|---------|--------------|-------------|--------------|
-| Servable-set computation | union = 337 ids, pure fn over 1131-row JSON, sub-ms | same (no per-user work; computed per request) | same — constant work per request |
-| Save validation | union lookup per id | same | same |
-| OpenRouter picker (336 models) | rendered server-side as props; client Select with 336 items — **needs the picker to stay usable** (see below) | same | same |
-| DB | unchanged row shape | same | same |
-| Env | 2 provider keys | same | same |
+```
+Settings save → raw ids (verbatim) → user_model_settings            [schema UNCHANGED]
+Analyze → resolveModelChain (union ~433) → instantiateChain →
+       anthropic(id) | openrouter(id) | endpoint-instance(id) per row api.npm   [modelFactory]
+       → missingProviderKey(4 keys, named) → runAgent →
+       shouldAdvance(from,to) with from/to ∈ 4-provider aliased identity   [predicate unchanged]
+       → model_used/model_chain (raw ids; id → provider total by exclusion)
+Snapshot: ~1423 rows; nousresearch rows added by refresh script; opencode rows already present
+```
 
-### Scaling Priorities
+## Recommended Project Structure (deltas only)
 
-1. **First bottleneck: the 336-item picker.** Not a perf problem (336 `<SelectItem>`s render fine) but a UX problem — a flat dropdown of 336 models is unusable without filtering. The v1.4 plan must include either a type-to-filter/command pattern or grouping (vendor prefix) in the provider-scoped picker. This is the one place "full catalog" (Q2 decision) needs a companion UI decision. **Flag for the phase plan.**
-2. **Second: none imminent.** Instantiation is a single catalog lookup + constructor per model, once per run. The registry is data-driven — a third provider is one map entry + one factory branch + one env line, no architectural change.
+```
+src/lib/models/
+├── catalog.ts              # MODIFIED — 4-provider union, alias map, exclusion-aware servable sets,
+│                           #   precedence identity resolution, PROVIDER_NAMES (server source)
+├── catalog.json            # REGENERATED (+~292 nousresearch rows)
+└── catalog.test.ts         # MODIFIED — new canaries (incl. the claude-sonnet-5 flip), 4-provider tests
+src/lib/agents/
+├── modelFactory.ts         # MODIFIED — endpoint registry, per-api.npm dispatch, PROVIDER_DEFAULT_MODELS[4]
+├── modelFactory.test.ts    # MODIFIED — mocks for @ai-sdk/openai + @ai-sdk/openai-compatible
+├── modelConfig.ts          # MINOR — union widens; shouldAdvance unchanged
+├── modelConfig.test.ts     # MODIFIED — 16-cell matrix tests, missingProviderKey 4-key tests
+├── analyzeCompany.ts       # MODIFIED — missingProviderKey 4-key branches
+└── runAgent.ts             # UNCHANGED
+scripts/
+└── refresh-model-catalog.ts  # MODIFIED — fetchNousRoster + merge + supported_parameters flag
+src/lib/env.ts              # MODIFIED — 2 optional keys
+src/components/settings/    # MODIFIED — model-picker-logic.ts providerName[4]; page providers array
+src/lib/verification/       # MODIFIED — security-grep gate + canaries for new keys
+e2e/                        # MODIFIED — ver-05 provider helper types
+package.json                # MODIFIED — +@ai-sdk/openai, +@ai-sdk/openai-compatible
+.env.example                # MODIFIED — +NOUSRESEARCH_API_KEY, +OPENCODE_API_KEY
+```
+
+## Suggested Build Order
+
+Dependency-shaped phases (mirrors v1.4's 19→22 sequencing):
+
+1. **Snapshot generator + regeneration (e)** — `refresh-model-catalog.ts` Nous fetch + merge; commit the new ~1423-row snapshot FIRST. Everything downstream (canaries, counts) reads it. Addresses: Nous roster fetch, structuredOutputs derivation.
+2. **Provider registry (a)** — `catalog.ts`: 4-provider union, alias map, exclusion rule, precedence identity, PROVIDER_NAMES, env.ts keys, `.env.example`, catalog.test.ts growth. Addresses: the opencode/opencode-go mapping, the 260-row Nous/OpenRouter ambiguity, canary flips. Avoids the silent-provider-mismatch pitfall before any UI ships.
+3. **modelFactory (b)** — install `@ai-sdk/openai` + `@ai-sdk/openai-compatible`; endpoint registry + per-api.npm dispatch; PROVIDER_DEFAULT_MODELS[4]; modelFactory.test.ts. Depends on 2 (identity resolution). Addresses: baseURL-per-row vs per-provider.
+4. **Run path (c, d)** — `missingProviderKey` 4 keys; 16-cell shouldAdvance tests (incl. the opencode↔opencode-go same-provider lock); security-grep gate + canaries; analyzeCompany/openrouter-only-chain test updates. Depends on 2 (identity) + 3 (instantiation). Addresses: env gate naming, matrix growth.
+5. **Settings UI** — providerName map, providers array, form wiring; ver-05 e2e updates. Depends on 2.
+6. **Verification gate** — e2e extension, Vercel env provisioning for the two new keys (ops item), live roster re-verify (D-02-style), security-grep canaries, full suite. Depends on 1-5.
+
+**Research flags for phases:**
+- Phase 1: verify `supported_parameters` semantics on the live Nous roster at regen time (214/292 today — drift possible); confirm Zen `/messages`-protocol models accept structured outputs (D-08 opt-out scope).
+- Phase 3: verify `createOpenAICompatible` apiKey-as-thunk + `compatibility` default against the installed package (not yet installed; the shared AI SDK `ProviderSettings` contract supports `apiKey: () => string | undefined` — HIGH confidence, verify at install).
+- Phase 6: the two new Vercel env keys are an operator dashboard action (D-11-style human item), not a code change.
 
 ## Anti-Patterns
 
-### Anti-Pattern 1: Naive `find(m => m.id === id)` for provider derivation
+### Anti-Pattern 1: Making a gateway provider servable without an overlap-exclusion rule
+**What people do:** add `opencode`/`nousresearch` to `SERVABLE_PROVIDERS` and let the union dedupe by id.
+**Why it's wrong:** the snapshot dual-lists ids (opencode mirrors the whole Anthropic family; Nous is 89% OpenRouter). `getProviderForModelId` then resolves by array order — the Anthropic fast path is hijacked, or the Nous picker silently bills OpenRouter. FAL-05 audit becomes a lie.
+**Do this instead:** the precedence + exclusion invariant — every union id is servable under exactly one provider; identity is a total function.
 
-**What people do:** look up the provider with `catalog.models.find(m => m.id === id)`.
-**Why it's wrong (verified):** the snapshot holds **dual opencode/anthropic rows for the same id** — `claude-sonnet-4-6` exists as BOTH `{ providerID: 'opencode', ... }` and `{ providerID: 'anthropic', ... }`, and `find` returns the FIRST match (opencode rows sort first). Every one of the 17 active anthropic ids is dual-listed; a naive lookup resolves nearly every anthropic model to `opencode` → factory throws or instantiates via the wrong provider. This is exactly why `getProviderForModelId` scopes the match to `providerID === 'anthropic' || providerID === 'openrouter'`.
-**Instead:** always use the provider-scoped lookup. **Detection:** a `modelFactory` unit test asserting `instantiateModel('claude-sonnet-4-6')` dispatches to the anthropic constructor.
+### Anti-Pattern 2: One provider instance for all opencode rows
+**What people do:** a single `createOpenAICompatible({ baseURL: ZEN })` for every opencode model.
+**Why it's wrong:** 23 rows speak the Responses API and 19 speak the Anthropic Messages API — a chat-completions-only provider 404s or mis-formats them. The snapshot's per-row `api.npm` exists precisely to prevent this.
+**Do this instead:** dispatch on the row's `api.npm`; instance per (SDK, baseURL) — 3 SDK families × 2 endpoints + 1 Nous.
 
-### Anti-Pattern 2: Persisting a provider column "for safety"
+### Anti-Pattern 3: Expanding shouldAdvance into an explicit 16-branch switch
+**What people do:** "the matrix grew" → hand-encode 16 provider-pair cases.
+**Why it's wrong:** the predicate is already correct and provider-agnostic; a switch reintroduces the same-provider asymmetry bugs and duplicates fail-closed logic.
+**Do this instead:** leave the predicate alone; express the matrix as data-driven tests over the 4-provider set.
 
-**What people do:** add `provider` to `user_model_settings` so the UI can group saved models without a catalog lookup.
-**Why it's wrong:** Q5's four reasons — new consistency invariant on every atomic upsert, a third staleness axis the gate must police, a parallel structure that desyncs for cross-provider chains, and stale instantiation after catalog refresh re-homes a model.
-**Instead:** derive via `getProviderForModelId` at each consumption point (Pattern 5).
-
-### Anti-Pattern 3: Per-attempt API-key checks in the run loop
-
-**What people do:** let the loop try the primary, then check the fallback provider's key only when the primary fails.
-**Why it's wrong:** a missing key must not be classified as failover-eligible (it's a config error, D-01/D-03) and the loop has no seam to return `not_configured` mid-chain. The run either crashes late (bad) or silently skips a configured fallback (worse — violates the audit truth of `model_chain`).
-**Instead:** entry-time provider-set gate (Pattern 4).
-
-### Anti-Pattern 4: Trusting the settings row to say which provider a model belongs to
-
-**What people do:** let `saveSettingsAction` store a provider alongside the id, then instantiate from the stored provider.
-**Why it's wrong:** same root as Anti-Pattern 2 — the client would be the authority on provider assignment, and the catalog (the actual authority, since it defines `api.npm` per row) could disagree. The `api.npm` field in each catalog row already says `@ai-sdk/anthropic` vs `@openrouter/ai-sdk-provider` — the snapshot is the truth; the factory should derive from it.
-**Instead:** catalog-derived provider in `instantiateModel` (Pattern 3).
+### Anti-Pattern 4: Persisting provider-per-hop to "fix" the overlap
+**What people do:** add a provider column to `user_model_settings` so the same raw id can mean openrouter OR nousresearch.
+**Why it's wrong:** REG-05 exists because a stored provider goes stale on re-save and splits the atomic upsert; it also duplicates the catalog as a second source of truth and would need a migration of every saved row.
+**Do this instead:** the exclusion rule (the 260 Nous/OpenRouter dups are the same upstream models; keep them under the OpenRouter identity).
 
 ## Integration Points
 
@@ -312,29 +448,29 @@ analyzeCompany(companyId, userId)
 
 | Service | Integration Pattern | Notes |
 |---------|---------------------|-------|
-| OpenRouter API | `createOpenRouter({ apiKey })` module singleton in `modelFactory.ts`; `openrouter(id)` per model | NEW runtime dep `@openrouter/ai-sdk-provider@^3.0.0` (peer-compatible with `ai@7.0.45`/`zod@4.4.3` — verified); `OPENROUTER_API_KEY` in `.env` + Vercel |
-| Anthropic API | `anthropic(id)` — existing, relocated into `modelFactory.ts` | unchanged behavior; `ANTHROPIC_API_KEY` already in env schema |
+| Nous Research inference API (`inference-api.nousresearch.com/v1`) | `createOpenAICompatible` (chat completions); roster via **anonymous** `GET /v1/models` | Bearer key (`sk-` or JWT) for inference; roster needs no key (live-verified). OpenRouter-powered → 260/292 id overlap with openrouter |
+| OpenCode Zen (`opencode.ai/zen/v1`) | 3 protocol families per row `api.npm`; roster anonymous `GET /v1/models` | One `OPENCODE_API_KEY` spans Zen + Go; model id format is the bare id (config form `opencode/<id>`) |
+| OpenCode Go (`opencode.ai/zen/go/v1`) | Same 3 families; rows have `providerID: 'opencode-go'` aliased to provider `opencode` | 12/17 go ids also exist on Zen — Zen row wins the union (sorts first); go-only ids (hy3, mimo-v2.5, mimo-v2.5-pro, qwen3.7-max, qwen3.7-plus) hit the Go endpoint |
 
 ### Internal Boundaries
 
 | Boundary | Communication | Notes |
 |----------|---------------|-------|
-| `modelConfig.ts` ↔ `catalog.ts` | direct import | constraint 11 preserved; modelConfig now imports `getUnionServableIds` + `catalogJson` (pure data only) |
-| `modelFactory.ts` ↔ `catalog.ts` | direct import | `getProviderForModelId` + `FAST_MODEL_ID`; factory is the ONLY provider-SDK importer |
-| `analyzeCompany.ts` ↔ `modelFactory.ts` | direct import | `instantiateChain` at entry; env gate consults chain providers first |
-| `runAgent.ts` ↔ `modelFactory.ts` | default only | loop signature unchanged (`LanguageModel[]`) |
-| `settings.ts` action ↔ `catalog.ts` | direct import | union servable check; action payload unchanged (ids only) |
-| `/settings` page ↔ `ModelSettingsForm` | props only | per-provider lists + union passed as props; T-17-09 intact |
-| `user_model_settings` ↔ consumers | derived read | provider never stored; derived at factory/validation/picker time |
+| `catalog.ts` ↔ `modelFactory.ts` | direct import of `catalogJson` + `getProviderForModelId` | constraint 11: SDK imports stay in modelFactory only; catalog is data, not an SDK |
+| `modelFactory.ts` ↔ `analyzeCompany.ts` | `instantiateChain` returns `LanguageModel[]` | FAL-01: instantiate once at entry, never inside the loop |
+| `analyzeCompany.ts` ↔ `env.ts` | `missingProviderKey` reads `env` | all-or-nothing gate names the exact missing key; modelFactory deliberately does NOT import `@/lib/env` (D-11) |
+| `settings/page.tsx` ↔ client form | server-computed props only | catalog.json never enters a client bundle (T-17-09); provider-name maps duplicated server/client, locked by tests |
 
 ## Sources
 
-- **Repo source (verified on disk):** `src/lib/models/catalog.ts`, `src/lib/agents/modelConfig.ts`, `src/lib/agents/runAgent.ts`, `src/lib/agents/analyzeCompany.ts`, `src/lib/db/schema.ts`, `src/app/actions/settings.ts`, `src/app/(dashboard)/settings/page.tsx`, `src/components/settings/model-settings-form.tsx`, `src/lib/env.ts`, `src/lib/models/catalog.json` — HIGH
-- **Live OpenRouter roster:** `GET https://openrouter.ai/api/v1/models` (fetched 2026-08-02; 337 models — all 336 committed openrouter ids present verbatim, including the 11 `~`-prefixed "latest" aliases; `~` is OpenRouter's own id form, not an opencode artifact) — HIGH
-- **Context7 docs** for `/openrouterteam/ai-sdk-provider` (createOpenRouter factory, callable provider, apiKey option) — HIGH
-- **npm registry peer deps:** `@openrouter/ai-sdk-provider@3.0.0` requires `ai ^7.0.0`, `zod ^3.25.76 || ^4.1.8` (repo: `ai@7.0.45`, `zod@4.4.3` — compatible) — HIGH
-- Dual opencode/anthropic id overlap analysis: computed from committed catalog.json — HIGH
+- Codebase reads (HIGH): `src/lib/models/catalog.ts`, `src/lib/agents/modelFactory.ts`, `modelConfig.ts`, `analyzeCompany.ts`, `runAgent.ts`, `scripts/refresh-model-catalog.ts`, `src/lib/env.ts`, settings page/form/picker-logic, `catalog.test.ts`, `modelFactory.test.ts`, `modelConfig.test.ts`, `security-grep.test.ts`, `e2e/ver-05-settings.spec.ts` — 2026-08-03
+- Live API probes (HIGH): `GET https://opencode.ai/zen/v1/models` → 200, 60 rows; `GET https://inference-api.nousresearch.com/v1/models` → 200 (no key), 292 rows with `supported_parameters`/`pricing`/`context_length`
+- Snapshot analysis (HIGH): 1131-row committed `catalog.json` — providerID counts, api.npm protocol split, id-overlap matrix computed 2026-08-03
+- node_modules verification (HIGH for anthropic): `@ai-sdk/anthropic/dist/index.d.ts:1245-1251` — `createAnthropic({ baseURL?, apiKey? })`; `@ai-sdk/openai` + `@ai-sdk/openai-compatible` NOT installed
+- AI SDK docs (MEDIUM): ai-sdk.dev OpenAI-compatible provider — `createOpenAICompatible({ name, baseURL, apiKey, queryParams })`; apiKey-as-thunk is the shared AI SDK `ProviderSettings` contract (verify at install)
+- OpenCode Zen docs (MEDIUM): opencode.ai/docs/zen — endpoints table (responses/messages/chat-completions → SDK package mapping), `opencode/<id>` config form, anonymous `/v1/models`
+- Nous Research (MEDIUM): hermes-agent nous_portal adapter (`_ALLOWED_PATHS` = chat/completions, completions, embeddings, models), GitHub issue #47950 (sk- key works as Bearer on inference-api), portal.nousresearch.com/api-docs — inference API is OpenRouter-powered
 
 ---
-*Architecture research for: ArcLumen 360 v1.4 — multi-provider AI model configuration*
-*Researched: 2026-08-02*
+*Architecture research for: v1.5 Additional AI Providers (NousResearch + OpenCode)*
+*Researched: 2026-08-03*

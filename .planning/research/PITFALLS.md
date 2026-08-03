@@ -1,288 +1,239 @@
 # Pitfalls Research
 
-**Domain:** Adding a second AI provider (OpenRouter) alongside the existing Anthropic-only chain in a production Next.js 16 app — provider selection, cross-provider fallback chains, OpenRouter full-catalog model config, provider-aware run/audit path. Continues the v1.3 AI Model Settings work (v1.3 research archived to `.planning/milestones/v1.3-research/PITFALLS.md` — its 11 resolved pitfalls are NOT re-listed here; this file covers only what *adding a provider* breaks).
-**Researched:** 2026-08-02
-**Confidence:** HIGH — every OpenRouter claim verified against openrouter.ai official docs (errors/limits/models references) and the `@openrouter/ai-sdk-provider` docs via Context7 (v0.7.5); every catalog claim verified by direct inspection of the committed `src/lib/models/catalog.json` (1131 rows, 336 `providerID: 'openrouter'`); app-side claims verified by direct reads of `catalog.ts`, `modelConfig.ts`, `runAgent.ts`, `analyzeCompany.ts`, `settings.ts`, and the v1.3 decision records in PROJECT.md.
+**Domain:** Adding two more AI providers to the shipped v1.4 multi-provider registry — NousResearch (direct `https://inference-api.nousresearch.com/v1`) and OpenCode (one provider spanning Zen `https://opencode.ai/zen/v1` + Go `https://opencode.ai/zen/go/v1`) — in the ArcLumen 360 Next.js 16 app. Continues the v1.4 work (archived to `.planning/milestones/v1.4-research/PITFALLS.md` — its 11 + 7 resolved pitfalls are NOT re-listed; this file covers only what *adding these two providers* breaks).
+**Researched:** 2026-08-03
+**Confidence:** HIGH — every endpoint claim verified live (anonymous `GET /v1/models` on all three hosts, keyed-completions auth probes), every SDK claim verified against installed dists + npm registry + Context7, every catalog claim verified by direct inspection of the committed `catalog.json` (1131 rows, duplicate-id audit, row ordering) and the live Zen/Go/Nous rosters.
 
 ## The one decision that prevents half of these pitfalls
 
-**OpenRouter's "full catalog" is the opposite of the v1.3 allowlist: 336 live rows, zero roster gate, ids that collide with Anthropic's, and a moving-target `~` alias class. Keep the catalog's `providerID` field as the ONLY authority for "which provider serves this id" — never derive provider from the id string — and decide explicitly what the 336 rows reduce to before any UI or run path is written.**
+**Model identity is (providerID, id) — not id. The v1.4 union keys everything by bare id and resolved provider by find-first over a provider filter; both break the moment two servable providers share an id string, and v1.5 guarantees that: 265 of the 292 direct-Nous ids already exist in the snapshot under openrouter/vercel/kilo, `claude-sonnet-4-6` exists as BOTH the Anthropic default AND an opencode Zen row, and 16 of 25 Go ids duplicate Zen ids.**
 
 Verified facts that force this:
 
-- **Id collisions are real, not theoretical.** The snapshot contains OpenRouter-proxied Anthropic models `anthropic/claude-sonnet-5`, `anthropic/claude-opus-5`, `anthropic/claude-opus-5-fast`, `anthropic/claude-fable-5` AND Anthropic-direct raw ids `claude-sonnet-5`, `claude-opus-5`, `claude-opus-5-fast`, `claude-fable-5` (verified by direct snapshot inspection). These are different products — different key, different quota, different cost, different latency — that differ only by the `anthropic/` prefix. The v1.3 mapping function `opencodeSlugToModelId` strips exactly that prefix; run it on the OpenRouter id and you silently instantiate the *other* product.
-- **`~` is not an OpenRouter marker.** Only 11 of 336 OpenRouter rows are `~`-prefixed (`~anthropic/claude-sonnet-latest`, `~openai/gpt-latest`, …). The other 325 are plain `vendor/model` ids (`openai/gpt-4o`, `qwen/qwen3-…`, …). Any provider-derivation rule based on `~` presence misclassifies 97% of rows.
-- **`~`-prefixed ids are valid OpenRouter router aliases** (docs: "`~author/family-latest` slugs always resolve to the newest concrete model"), passed verbatim to the API (confirmed by the pydantic/genai-prices mirror convention: "OpenRouter API model IDs … verbatim, tilde-prefixed"). But they resolve to a *moving target*: the response reports the concrete model, the saved `~` id does not. `agent_run.model_used = "~anthropic/claude-sonnet-latest"` cannot tell you which model actually answered — a direct hit to the app's "complete, trustworthy 360 view" value.
-- **The catalog's `status` field is useless as a gate here** — all 336 OpenRouter rows are `status: "active"`, and the snapshot carries no `expiration_date` (OpenRouter's API has one per model). The roster-verify maintenance that kept Anthropic honest has no OpenRouter equivalent; staleness can only be caught at runtime (404 → existing failover).
-- **`@openrouter/ai-sdk-provider` (v0.7.5) is a thin OpenAI-compatible client**: `createOpenRouter({ apiKey })` / the `openrouter` default instance auto-loads `OPENROUTER_API_KEY`; `openrouter(id)` returns a `LanguageModel`; errors surface as `APICallError` with `statusCode` (the existing classifier's inputs) and the body carries a typed `error_type` OpenRouter normalizes for every upstream error.
+- **Identical id strings, different products.** `nousresearch/hermes-4-405b` exists in the snapshot under `providerID: 'kilo'` (index 302, kilo-gateway URL) AND `providerID: 'openrouter'` (index 649). Adding a direct-nous row appends it at index >1130. `getProviderForModelId`'s find-first (filtered to servable providers) therefore returns **openrouter** for an id the user picked in the **NousResearch** picker — the run silently executes on OpenRouter, billed to the OpenRouter key. The direct-Nous roster's ids are vendor-prefixed (`qwen/qwen3.8-max`, `deepseek/deepseek-v4-flash-0731`, `anthropic/claude-opus-5-fast`, even `~deepseek/deepseek-v4-flash-latest`) — the same strings openrouter/vercel rows already use.
+- **The default model flips providers.** `claude-sonnet-4-6` (FAST_MODEL_ID, `PROVIDER_DEFAULT_MODELS.anthropic`) has an opencode row at index 11 (Zen URL) and the anthropic row at index 92. Today `getProviderForModelId(catalogJson, 'claude-sonnet-4-6') === 'anthropic'` **only because the opencode filter is absent**. Adding `'opencode'` to the filter makes the find return the opencode row — every `instantiateModel` path that resolves via the catalog would silently route the Anthropic default to opencode Zen (different key, different billing, `model_used` still says `claude-sonnet-4-6`). The v1.4 Anti-Pattern-1 warning ("a bare find returns the opencode/vercel row, sorts first") re-arms the moment the filter list grows.
+- **opencode Zen and Go are NOT uniformly OpenAI-compatible.** The official docs route each model family to a different endpoint shape: `/v1/chat/completions` (open-source family, `@ai-sdk/openai-compatible`), `/v1/messages` (Claude/MiniMax/Qwen families, `@ai-sdk/anthropic`), `/v1/responses` (GPT-5.x family, `@ai-sdk/openai`). The snapshot's per-row `api.npm` field is this routing instruction, not inert metadata — a single `createOpenAICompatible({ baseURL })` instance cannot serve the Claude or GPT rows.
+- **One API key really does cover Zen + Go** (verified: opencode docs + docker-agent docs — "The same API key works for both OpenCode Go and OpenCode Zen"), so the milestone's locked 2-key decision (`OPENCODE_API_KEY` shared) is correct. But the SDK auto-load convention derives the env var from the instance `name` (`name: 'opencode-go'` → `OPENCODE_GO_API_KEY`) — an unset derived var fails at request time with `LoadAPIKeyError`, invisible to the env gate.
+- **The committed snapshot is already stale.** `generatedAt: 2026-08-02`; the live Go roster (25 models, Go docs published 2026-08-03) has 9 models absent from the snapshot's 17-row `opencode-go` block (`qwen3.7-max`, `qwen3.8-max`, `hy3`, `mimo-*`…). All three rosters are fetchable **anonymously** (verified HTTP 200 with no key) — the milestone's open question on the Nous roster is answered: no key needed for the refresh fetch.
 
-Consequence of following it: the collision pitfall (1), the alias-audit pitfall (2), and the derivation pitfall (8) become non-issues by construction — provider resolution is a catalog lookup, never string surgery.
+Consequence of following it: pitfalls 1, 2, 3, 4, and 9 become non-issues by construction — the servable union and every resolver/instantiation work on (providerID, id) pairs, never on id alone, and the opencode rows dispatch to their documented API shape.
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: Reusing the v1.3 prefix-strip mapping — the `anthropic/` collision silently swaps providers
+### Pitfall 1: The id-keyed union + find-first resolution silently swaps products — the v1.4 collision class, now with IDENTICAL id strings
 
 **What goes wrong:**
-A user selects `anthropic/claude-sonnet-5` (OpenRouter-proxied — shown in the OpenRouter picker). The run path applies the v1.3 `opencodeSlugToModelId` logic (or any "strip everything before the first `/`" helper) → `claude-sonnet-5` → instantiated via `anthropic('claude-sonnet-5')` → the run *works* but runs on Anthropic-direct — a different product than the user picked, with a different key/quota/cost, and the audit row records `claude-sonnet-5` while the UI says the OpenRouter model was chosen. The reverse direction is worse: stripping to `claude-sonnet-5` and validating against `ANTHROPIC_ALLOWLIST` is the *only* way an OpenRouter id currently passes the v1.3 servable gate — so the "mapping" is what makes the wrong thing runnable. Also: a naive "strip the `~`" or "remove non-alphanumerics" normalization step mangles the 325 valid `vendor/model` ids (404 on every run) and the 11 alias ids.
+A user switches the provider selector to NousResearch, picks `hermes-4-405b` from the Nous picker, and saves. At run time `getProviderForModelId` find-first resolves the id to the **openrouter** row (index 649 beats the appended nous row at >1130) → `instantiateModel` builds an OpenRouter model → the run executes on OpenRouter, billed to the OpenRouter key, while the UI and `model_chain` audit say "NousResearch direct". 265/292 direct-Nous ids collide with existing snapshot rows, so this is the *default* outcome for almost every Nous pick, not an edge case. The reverse is the picker being provider-scoped but the **fallback-chain save validation** being union-by-id: a chain `[nousresearch/hermes-4-405b, anthropic/claude-sonnet-4.6]` passes `getUnionServableIds().includes(id)` — but the run's first hop goes to OpenRouter. `user_model_settings` stores bare ids with no provider column (the v1.4 REG-05 "derive, don't persist" decision), so the ambiguity is unrecoverable at run time.
 
 **Why it happens:**
-v1.3's mapping exists to convert opencode *slugs* (`anthropic/claude-sonnet-4-6`) to SDK strings. The OpenRouter snapshot ids are *already* SDK strings — no conversion is needed or permitted. One shared "normalize" function that handles both is a trap, because the correct operation for opencode slugs (strip prefix) is the *wrong* operation for OpenRouter ids (keep verbatim), and the `anthropic/` prefix is shared by both catalogs.
+v1.4's collisions had *different* id strings (`claude-sonnet-5` vs `anthropic/claude-sonnet-5`) — the union-by-id Set and find-first resolver happened to work because the id string encoded the provider. The direct-Nous provider's ids are *identical* to existing rows' ids. The v1.4 decision "provider identity derived from the catalog, no schema change" was safe only because of that accidental uniqueness; v1.5 destroys the assumption and nobody re-checks it because the v1.4 canary tests still pass (they only cover the old id shapes).
 
 **How to avoid:**
-- Provider identity comes ONLY from `catalogJson.models[].providerID` — a lookup by exact id, never from the id's shape. One pure function, tested: `resolveProviderForId(id): 'anthropic' | 'openrouter' | null` (null = not in snapshot).
-- Never generalize `opencodeSlugToModelId`; it stays an opencode-slug-specific, Anthropic-only function (v1.3 CAT-03 notes it still has no production consumer — good, keep it that way). OpenRouter ids go straight from the snapshot to the provider factory with zero transformation.
-- LanguageModel construction is a single provider-aware seam: `modelForId(id) = provider === 'anthropic' ? anthropic(id) : openrouter(id)` — the only place the two factories are called.
-- Vitest collision case as a regression lock: `resolveProviderForId('anthropic/claude-sonnet-5') === 'openrouter'` AND `resolveProviderForId('claude-sonnet-5') === 'anthropic'`.
+- Make the servable set **(providerID, id)-keyed** end-to-end. `getUnionServableIds` returns `{ providerID, id }[]` (or the picker/save/run path carries providerID explicitly). At minimum, the resolution function becomes a deterministic map keyed `(providerID, id)` with a **declared precedence** for duplicate ids, and instantiation looks up the row by `(providerID, id)` — never find-first over a provider filter list.
+- Decide the duplicate-id policy explicitly at planning (Phase 23): **(a) precedence + exclusion** — direct-Nous wins ids it shares with openrouter, and those ids are excluded from the openrouter servable set (the OpenRouter route for `hermes-4-405b` becomes unpickable; the Nous route is the cheaper/direct one); or **(b) provider-qualified identity** — accept the schema change (`primaryProvider`/`fallbackProviders` columns) so both routes can coexist in one chain. Option (a) is the zero-schema-change path and the recommendation for v1.5: the whole point of adding direct Nous is that it *replaces* the proxied route, and the v1.4 lesson was "never silently run a different product than the user picked" — an explicit precedence rule with a surfaced label satisfies that.
+- Collision audit as a standing test: every id servable by more than one provider is asserted to resolve to exactly the documented precedence winner; the picker labels the winner's provider so the single entry is honest.
 
 **Warning signs:**
-- Any code does `id.replace(/^.*\//, '')`, `split('/')[1]`, or `.replace(/^~/, '')` in the run/save path.
-- `agent_run.model_used` shows a value with no `/` for a run the UI attributes to OpenRouter.
-- `modelForId`/instantiation logic switches on the id string instead of the catalog.
+- Any remaining `models.find((m) => m.id === id)` with a provider filter list in `getProviderForModelId`/`instantiateModel` (the v1.4 Anti-Pattern-1 pattern, now order-dependent over 5 providerIDs).
+- `getUnionServableIds` still returns bare `string[]` after the Nous/opencode rows land.
+- A run whose trace (`ai.model.provider` in Langfuse) disagrees with the provider badge the user picked.
 
-**Phase to address:** Phase 19 (Provider registry — resolver + instantiation seam + collision tests).
+**Phase to address:** Phase 23 (registry — union identity + precedence + collision audit).
 
 ---
 
-### Pitfall 2: `~latest` aliases corrupt the audit and the "trustworthy" promise
+### Pitfall 2: Adding `'opencode'` to the servable filter silently flips existing resolutions — the Anthropic default starts running on opencode Zen
 
 **What goes wrong:**
-11 rows in the OpenRouter servable set are `~author/family-latest` aliases. If they're offered and saved: (a) `agent_run.model_used` records `~anthropic/claude-sonnet-latest`, but OpenRouter silently retargets the alias to the newest concrete model whenever one ships — the audit cannot say which model actually answered, so two runs recorded identically can have different quality/cost; (b) the picker's cost caption is a snapshot of the *current* target and silently goes stale on the next release; (c) the analysis is prompt-sensitive, so a retargeted alias changes proposal quality run-to-run with no code change — the exact opposite of the app's "complete, trustworthy" core value, and of the v1.3 reproducibility discipline (roster-verified, no dated/undated drift).
+The minimal "add a provider" change is extending the filter in `getProviderForModelId` to `m.providerID === 'anthropic' || 'openrouter' || 'opencode' || 'opencode-go' || 'nousresearch'`. Because opencode rows sort first (indices 0-59), `claude-sonnet-4-6` now resolves to `opencode` — so: `PROVIDER_DEFAULT_MODELS.anthropic` (the reset-to-provider-default in `primaryAfterProviderSwitch`) instantiates via opencode Zen; `defaultChain()` is safe only because it hardcodes `anthropic(FAST_MODEL_ID)` (a coincidence that will "look protected"); the existing canary test `getProviderForModelId(catalogJson, 'claude-sonnet-4-6') === 'anthropic'` fails; and any future code that resolves-then-instantiates the FAST path gets the wrong product with no error. The v1.4 collision canary (`claude-sonnet-5` → anthropic, `anthropic/claude-sonnet-5` → openrouter) survives only because those ids aren't in the opencode block — the *default* id is the one that flips.
 
 **Why it happens:**
-"Full catalog = all active rows" is the literal milestone wording; nobody decides what the 11 alias rows mean for the audit columns that v1.3 just shipped (`model_used`/`model_chain` are the durable truth contract, D-14).
+The resolver's correctness is order-dependent on which providerIDs the filter includes, and "add a provider" is exactly the change that grows the filter. Nobody re-verifies the *existing* resolutions after growing it; the canary tests only lock the ids that were canaried in v1.4.
 
 **How to avoid:**
-- **Exclude `~`-prefixed ids from the servable set by default** (11 rows, all aliases, zero concrete-pinning value here). The servable rule becomes: `providerID === 'openrouter' && status === 'active' && !id.startsWith('~') && !id.includes(':free')` (see Pitfall 4 for `:free`). Concrete ids give reproducible audits and honest cost captions.
-- If the product owner insists on offering aliases: resolve the alias to its concrete id *at save time* via OpenRouter's `GET /api/v1/model/{slug}` (network call in the save path, then persist the concrete id) — but document that the resolved id is itself subject to change and this reintroduces staleness; the recommendation stands: exclude.
-- The `model_used` audit column keeps its meaning: for OpenRouter rows it records the verbatim `vendor/model` id the user saved, and that id IS the model that served.
+- Rework `getProviderForModelId` to be **order-independent**: a `Map<id, providerID>` built once from a declared precedence order over `SERVABLE_PROVIDERS` (e.g., `['anthropic', 'openrouter', 'nousresearch', 'opencode']` — the DEFAULT provider wins its ids), or resolve from the (providerID, id) union of Pitfall 1. The precedence order is explicit, tested data — not array order.
+- Update the v1.4 canary tests **deliberately** (repo convention: rework, never delete): `claude-sonnet-4-6` → `'anthropic'` must still hold AND a new canary asserts `big-pickle` → `'opencode'` (today it's the null-case test "opencode-only id not servable" — that contract inverts).
+- Add a regression test that `instantiateModel(FAST_MODEL_ID)` resolves to the anthropic factory, not opencode — lock the default-chain invariant at the seam.
 
 **Warning signs:**
-- `agent_run.model_used` contains a `~`.
-- The OpenRouter picker lists `…-latest` rows with cost captions.
-- A run's trace (`ai.model.id`) disagrees with the saved alias's implied model.
+- `npm test` red on the v1.4 canary after the filter list grows (the canary did its job — treat as a resolver redesign, not a test update).
+- `PROVIDER_DEFAULT_MODELS` or `defaultChain()` shows opencode models when the user has never configured opencode.
 
-**Phase to address:** Phase 19 (servable-set definition) and Phase 21 (picker never renders aliases); Phase 22 asserts no `~` in any saved/served value.
+**Phase to address:** Phase 23 (registry — deterministic resolution) with the regression lock re-verified in Phase 26.
 
 ---
 
-### Pitfall 3: OpenRouter error semantics that don't map to the existing classifier — 402 credits, "model unservable" 502/503, dual-source 429
+### Pitfall 3: opencode Zen/Go are not uniformly OpenAI-compatible — one `createOpenAICompatible` instance cannot serve the provider
 
 **What goes wrong:**
-Three distinct failure classes arrive that `classifyModelError` (v1.3) handles wrong or by luck:
-1. **402 Payment Required** (OpenRouter account out of credits / per-key cap exhausted). Current classifier: 402 is "other 4xx" → `'input'` → not failover-eligible → fails loud. *Behaviorally safe* (never advances — correct, the whole account is out of credits) but *semantically wrong*: the user/route sees a generic failure instead of "OpenRouter credits exhausted", and it's indistinguishable in telemetry from a bad request. Worst case someone "fixes" it by adding 402 to the advance set — advancing to another OpenRouter model fails identically (account-level), a paid lesson in 429-costs.
-2. **502/503 from OpenRouter mean "this model is temporarily unservable"** (`provider_unavailable` = "chosen model is down or invalid response"; `provider_overloaded` = "no available model provider meets routing requirements") — this is the *purest* model-availability signal the failover loop exists for, and 5xx→`server_error`→advance already handles it correctly. The trap is a future "improvement": someone decides 503 (or "gateway") shouldn't advance and disables failover for the exact case OpenRouter uses it for. On Anthropic, 5xx is rare; on OpenRouter, 502/503 are the *routine* way a dead model presents.
-3. **429 has two sources that demand different policies** — OpenRouter-platform limits (free-model caps, account rate limit: X-RateLimit-* headers) vs upstream-provider 429 passed through (`error.metadata.provider_code`, `error_type: rate_limit_exceeded`). The classifier only sees `statusCode === 429`; the distinction lives in the response body (`APICallError.responseBody`). Cross-provider policy depends on it (Pitfall 5). Also: OpenRouter can emit a rate-limit *mid-stream* after HTTP 200 (`finish_reason: "error"` SSE) — with the flat `generateText` contract this surfaces as a stream/parse failure → `'output'` → not eligible (safe, but the run is lost and classified as a schema problem in telemetry).
+The natural implementation ("opencode is OpenAI-compatible, use `@ai-sdk/openai-compatible`") builds one instance with `baseURL: 'https://opencode.ai/zen/v1'` and passes every opencode row's id. The Claude-family rows (`claude-fable-5`, `claude-sonnet-4-6`…) are served by the gateway at `/v1/messages` in **Anthropic Messages format** — an OpenAI chat-completions request to that path fails (400/404). The GPT-5.x rows (`gpt-5.6-luna`, `gpt-5.5`…) are served at `/v1/responses` in **OpenAI Responses format** — also not chat completions. Only the open-source rows (`deepseek-*`, `glm-*`, `kimi-*`, `big-pickle`…) accept `/v1/chat/completions`. Verified against opencode's own docs endpoint tables and the docker-agent integration docs. Go has the same three shapes (`minimax-*`/`qwen3*` at `/v1/messages` with `@ai-sdk/anthropic`, `gpt-5.6-luna` at `/v1/responses`, the rest chat completions). A silent subset of every opencode pick 400s at run time, classified `input` → fail-loud, no fallback.
 
 **Why it happens:**
-The v1.3 classifier was built and tested against one provider's error grammar (Anthropic: 404/429/5xx/auth). OpenRouter is a *router*: it normalizes every upstream provider's error into its own envelope and adds platform-level errors (402, routing 503) that Anthropic never produces. Training data and single-provider tests don't cover them.
+"OpenAI-compatible" is the marketing summary; the gateway is actually a *multi-shape* router that maps each model family to its native protocol. The snapshot's per-row `api.npm` field (`@ai-sdk/anthropic` for claude rows, `@ai-sdk/openai` for gpt rows, `@ai-sdk/openai-compatible` for the rest) encodes this — it is a real routing field for opencode rows, not inert metadata (it is *inert* for openrouter/kilo/vercel rows, which have their own SDKs — the trap is both directions: ignoring it breaks opencode rows, trusting it globally routes kilo rows to a gateway we have no key for).
 
 **How to avoid:**
-- Keep the classifier's structure (pure, statusCode-first, RetryError-unwrap-first — all v1.3-proven) and add exactly two statuses: `402` → a new `'billing'` class that is **never failover-eligible** and gets its own structured reason ("OpenRouter credits exhausted — top up or check the key's credit cap"); `502`/`503` stay `'server_error'` (already eligible) — add a code comment recording that on OpenRouter these are *model-availability* signals, not gateway noise, so nobody "fixes" them later.
-- For the cross-provider 429 policy (Pitfall 5), expose the body-level signal: add a narrow helper `isOpenRouterPlatformRateLimit(err)` that reads `APICallError.responseBody.error.metadata.error_type` / `X-RateLimit-*` headers and returns true only for platform-level limits — used by the loop, not the pure classifier (keeps the classifier dependency-free for tests).
-- Verify against the installed `ai@7` dist that `APICallError.responseBody` is populated by `@openrouter/ai-sdk-provider` before writing that helper (AI-SDK syntax-drift discipline, v1.3 Pitfall 11).
+- `modelFactory` dispatches **per opencode row**: `api.npm === '@ai-sdk/anthropic'` → the existing `@ai-sdk/anthropic` provider with `baseURL: row.api.url` (verified: `AnthropicProviderSettings.baseURL` exists in the installed dist); `api.npm === '@ai-sdk/openai'` → `@ai-sdk/openai` with the Responses-compatible mode; `api.npm === '@ai-sdk/openai-compatible'` → `createOpenAICompatible({ baseURL: row.api.url })`. BaseURL comes from the row, never a provider-level constant.
+- New deps pinned deliberately (v1.4 Pitfall G discipline): `@ai-sdk/openai-compatible@^3.0.20` (npm `latest`, peer zod `^3.25.76 || ^4.1.8` — installed zod 4.4.3 OK) and `@ai-sdk/openai@^4.0.27`. Verify peer compatibility against installed `ai@7.0.45` before install.
+- **Curation fork to decide at planning:** shipping all 60+25 opencode rows means implementing three API shapes in the seam; shipping only the `@ai-sdk/openai-compatible` (chat) family shrinks the provider to the open-source rows and avoids `@ai-sdk/openai` entirely. The milestone wording ("snapshot rows already exist… wired servable under one provider") implies all rows — but flag the three-shape cost at Phase 23 planning and confirm with the live-key probes in Phase 24 (one claude-shape, one gpt-shape, one chat-shape row each on Zen and Go).
 
 **Warning signs:**
-- A run whose only failure was an OpenRouter 402 shows `reason: 'analysis_failed'` with no credit hint.
-- A dead OpenRouter model's 502/503 does NOT advance the chain (someone "protected" gateway errors).
-- Two consecutive failed attempts where the first was an OpenRouter 429 (same-provider advance — Pitfall 5's bug).
+- The factory constructs a single `createOpenAICompatible({ baseURL: 'https://opencode.ai/zen/v1' })` and no other opencode path.
+- `api.npm` is used to instantiate non-opencode rows (kilo/vercel) — those rows are not servable and must stay unreachable.
+- A Langfuse trace shows an opencode claude row failing with a parse/`input`-class error at `/chat/completions`.
 
-**Phase to address:** Phase 20 (classifier extension + billing reason + body-level 429 helper); Phase 22 runs the error matrix.
+**Phase to address:** Phase 23 (dependency + seam shape decision) and Phase 24 (per-row SDK dispatch); Phase 26 live-key probes per API shape.
 
 ---
 
-### Pitfall 4: Free models (`:free`) — the whole team shares one quota, and 429 retries eat the run budget
+### Pitfall 4: The opencode/opencode-go → single-provider mapping loses the Go endpoint for 16 shared ids, and a per-provider baseURL 404s the 9 Go-only ids
 
 **What goes wrong:**
-14 of the 336 rows are `:free` variants (`openai/gpt-oss-20b:free`, `nvidia/nemotron-3-ultra-550b-a55b:free`, …; 21 rows price at $0). OpenRouter free-model limits are **20 requests/min and 50 requests/day** (or 1000/day once the account has ≥$10 lifetime credit purchases) — and they are *account-wide, not per-key* ("additional keys do not increase capacity"). The app uses ONE `OPENROUTER_API_KEY` for the whole team. A user who picks a `:free` primary converts the shared quota into a team-wide bottleneck: after ~50 Analyze runs/day, every free-model attempt 429s; 429 is SDK-retryable, so each attempt burns 3 tries with backoff (honoring Retry-After) *inside the 54s loop budget*, then fails `rate_limited` — a run that used to complete in 43-50s now times out or fails for everyone, and free-model quality is additionally uneven (some free variants are tiny/unreliable for 12-step structured-output agents).
+The milestone correctly maps both snapshot providerIDs (`opencode`, `opencode-go`) into one `ModelProviderId: 'opencode'`. Two adjacent failures then occur:
+1. **Shared ids collapse to Zen.** 16 of 25 live Go ids also exist under `opencode` (e.g., `deepseek-v4-flash` at index 13 Zen vs index 60 Go). The union dedupes by id → one picker entry → find-first resolves the Zen row → the Go subscription route for those models is unreachable, and `model_used` records a bare id that can't say Zen or Go.
+2. **Go-only ids 404 if baseURL is per-provider.** 9 live Go ids are absent from Zen (`qwen3.7-max`, `qwen3.8-max`, `hy3`, `mimo-v2*`, `hy3-preview`). A provider-level baseURL (single `createOpenAICompatible` at the Zen URL) sends Go-only ids to the Zen endpoint → 404 `model_not_found` → failover burns a fallback on every run, or fails loud if the chain is Go-only.
 
 **Why it happens:**
-"Full catalog" includes whatever OpenRouter lists; nothing in the snapshot distinguishes `:free` quota semantics from paid rows (both are `status: 'active'`, cost is just 0). The v1.3 `isFailoverEligible` correctly never advances on 429 — which means a free-model primary that hits its daily cap simply fails the run rather than failing over (advancing to another OpenRouter model hits the same account cap).
+"One provider" is conflated with "one endpoint" and "one id space". The provider identity correctly unifies *gating/keys/failover semantics* (one key, one advance domain) but the *servable set and instantiation* still need per-row endpoint identity. The v1.4 code's provider-scoped find reads the flag from "the openrouter row" — for opencode there are two rows with different URLs and no flag difference to scope on.
 
 **How to avoid:**
-- **Exclude `:free` variants from the servable set by default.** The product's Analyze job is a heavyweight 12-step structured-output task, not a chat completion; free-tier quota and reliability are the wrong fit, and one user's choice silently throttles the whole team.
-- If `:free` must ship: render a prominent quota warning on the picker row ("20 req/min, 50 req/day shared by the whole team"), keep 429-never-advance within OpenRouter (Pitfall 5), and treat free-model selection as a support liability — document it in the UI copy.
-- Count the SDK's 429 retry pile-up in the budget: a free-model attempt is budgeted at `3 × backoff` worst case, not 1 attempt (v1.3 Pitfall 4's lesson, now with a real daily trigger).
+- Servable set for `'opencode'` = (opencode rows ∪ opencode-go rows) with **Zen precedence for shared ids** (or the (providerID, id) union of Pitfall 1 — if identity is (provider,id), both variants can coexist and the picker shows a Zen/Go badge; the audit records the endpoint too).
+- Instantiation derives the endpoint from the **resolved row's `api.url`** — the row lookup for opencode is scoped to `providerID === 'opencode' || providerID === 'opencode-go'` (the v1.4 Anti-Pattern-1 scoped-find pattern, extended), and the baseURL is read from that row. Never a module-level `const OPencodeBASE = 'https://opencode.ai/zen/v1'`.
+- The refresh script must not drop the `opencode-go` block — it is a distinct endpoint with distinct models (Pitfall 7).
 
 **Warning signs:**
-- The OpenRouter picker offers rows ending in `:free`.
-- A cluster of `rate_limited` failures with `ai.model.provider = openrouter` and zero cost in the usage.
-- Runs timing out specifically on days when many Analyze actions ran (daily-cap exhaustion).
+- A single `baseURL` constant (or a single openai-compatible instance) named for one opencode endpoint.
+- `model_not_found`/404 clusters on `qwen3*`/`hy3`/`mimo-*` ids (the Go-only set leaking to Zen).
+- The opencode picker shows exactly one entry for `deepseek-v4-flash` with no Zen/Go indicator while the Go docs list it on both endpoints.
 
-**Phase to address:** Phase 19 (servable-set excludes `:free`) — same decision block as Pitfall 2; Phase 22 verifies no `:free` id can be saved.
+**Phase to address:** Phase 23 (servable rule + row-scoped lookup) and Phase 24 (per-row baseURL); Phase 26 asserts a Go-only id reaches the Go URL.
 
 ---
 
-### Pitfall 5: The 429 policy — reintroducing v1.3's resolved bug via a blanket cross-provider "fix"
+### Pitfall 5: Key scope and env-gate gaps — the SDK's derived env var defeats the gate, and Nous "out of funds" arrives as a 401
 
 **What goes wrong:**
-v1.3's D-01/D-03 rule is *"429 never advances"* — correct within a provider because quota is account-level. Adding OpenRouter tempts two wrong "fixes":
-1. **Blanket advance**: "now we have two providers, so 429 should fail over." This reinstates v1.3 Pitfall 3 wholesale: an Anthropic account-level 429 advances to an Anthropic fallback (same key → same 429 → wasted attempt), and an OpenRouter platform 429 advances to another OpenRouter model (same account cap → same 429). Each advance re-runs the full 12-step agent (Firecrawl + tokens) inside the 60s ceiling.
-2. **Never advance**: the lazy version of "keep v1.3 behavior" — which is *also wrong now*, because a genuine Anthropic 429 (account quota) followed by an OpenRouter fallback on a *different key and account* is a legitimate, high-value failover that the old rule forbids.
+Three distinct failures:
+1. **Derived env-var trap.** `createOpenAICompatible({ name: 'opencode-go', ... })` auto-loads `OPENCODE_GO_API_KEY` (name-derived per the SDK's `loadApiKey` convention) — not `OPENCODE_API_KEY`. The chain-aware gate passes (`env.OPENCODE_API_KEY` is set, `missingProviderKey` returns null), the run starts, and the first Go attempt throws `LoadAPIKeyError` → `'config'` → fail-loud after burning the attempt budget. Exactly the v1.4 Pitfall-6 pattern, reintroduced by naming instances after their endpoint.
+2. **Gate predicate growth.** `missingProviderKey` filters with `(p): p is 'anthropic' | 'openrouter'` — when `ModelProviderId` grows, this type predicate must narrow to all four, and the map must add `nousresearch → NOUSRESEARCH_API_KEY`, `opencode → OPENCODE_API_KEY`. `opencode-go` rows must resolve to the `'opencode'` provider (via the Pitfall-4 mapping) or the gate never checks the key for Go rows. The FIRECRAWL-only fast tier stays; an opencode-only chain needs only the OpenCode key.
+3. **Nous out-of-funds = 401.** Verified live: an invalid/blocked/out-of-funds Nous key returns HTTP 401 with body "Your API key is invalid, blocked or out of funds" — the OpenRouter-402 lesson recurs under a different status: the classifier maps 401 → `'auth'` → never failover-eligible → fail-loud, and the user sees a generic failure with no "top up" hint. Worse, `'auth'` isn't in the route's structured reasons (only gate/not_configured/company/db/rate_limited/billing), so it propagates as an exception → 500.
 
 **Why it happens:**
-The failover-eligibility predicate `isFailoverEligible(cls)` is pure over the error class and knows nothing about the chain. Cross-provider failover *requires* chain context (the provider of `models[i]` vs `models[i+1]`), so a pure predicate can't express the correct policy — and the two available shortcuts (always/never) are both wrong.
+The v1.4 gate was built around two providers with *explicitly-named* env vars (`ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`) and SDKs that auto-load those exact names. `@ai-sdk/openai-compatible` derives the var from the instance name — a naming indirection the gate never sees. And "billing exhaustion" is a provider-specific status-code convention (402 at OpenRouter, 401 at Nous) — the statusCode-first classifier can't know that without a body check.
 
 **How to avoid:**
-- Make the loop's advance decision hop-aware, not class-only: advance on `rate_limited` **only when `provider(models[i+1]) !== provider(models[i])`** (different key + different account). Same-provider hops keep the v1.3 never-advance rule verbatim. This is a deliberate, tested extension — not a relaxation — of D-01.
-- Keep `classifyModelError` and `isFailoverEligible` pure (untouched for the other classes); add a chain-aware wrapper the loop consults: `shouldAdvance(cls, currentProvider, nextProvider)`.
-- For OpenRouter 429 specifically, use Pitfall 3's platform-vs-upstream helper to decide whether *even a cross-provider* hop helps: a platform-level 429 means OpenRouter itself is throttled, and the OpenRouter→Anthropic hop should still advance, but an OpenRouter→OpenRouter hop never should. The 4-cell matrix (Anthropic→Anthropic, Anthropic→OpenRouter, OpenRouter→OpenRouter, OpenRouter→Anthropic) is a Phase-22 Vitest table.
-- Update the v1.3 documentation of D-01 (ARCHITECTURE.md/README "429 never advances") to state the hop-aware carve-out — stale docs caused this class of bug before.
+- Pass `apiKey: env.OPENCODE_API_KEY` **explicitly** to every opencode instance (all three shapes, Zen and Go) and `apiKey: env.NOUSRESEARCH_API_KEY` to the Nous instance. Never rely on name-derived auto-load for the new providers; add a security-matrix grep asserting no `name:`-derived var is unset for a servable provider.
+- Extend `missingProviderKey` to the 4-provider map (TS type predicate forces the change — keep it strict, no `p !== null` looseness) and add env.ts entries mirroring the existing optional pattern: `NOUSRESEARCH_API_KEY`, `OPENCODE_API_KEY` (server-only, non-`NEXT_PUBLIC_`).
+- Optionally (Phase 24): teach the diagnostics layer to recognize the Nous "out of funds" body as `billing` (like `isOpenRouterPlatformRateLimit`) so the user gets a credit hint — same shape as the v1.4 OpenRouter work. Minimum bar: document in the classifier that a Nous 401 may mean billing, not misconfiguration.
+- The 2-key decision is **verified correct** (one OpenCode key covers Zen+Go) — keep `OPENCODE_API_KEY` single; do not let anyone "fix" it into 3 keys.
 
 **Warning signs:**
-- `isFailoverEligible` (or the loop) starts treating 429 as unconditionally eligible.
-- Two consecutive failed attempts in one trace where the first was a 429 on the same provider.
-- A comment or doc still says "429 never advances" while the code advances cross-provider.
+- Any `createOpenAICompatible`/`createOpenAI`/`createAnthropic` call for the new providers without an explicit `apiKey`.
+- `LoadAPIKeyError` in a trace for a run whose chain includes opencode (the derived-var leak).
+- A Nous run fails with a generic 500 and the Langfuse span shows 401 — missing the "out of funds" hint.
 
-**Phase to address:** Phase 20 (hop-aware advance + matrix); Phase 22 verifies the 4-cell table and that v1.3's same-provider invariants still hold.
+**Phase to address:** Phase 23 (env declarations) and Phase 24 (explicit apiKey + gate growth + classifier note); Phase 26 security matrix + live-key probes.
 
 ---
 
-### Pitfall 6: The D-15 env gate stays hardcoded to Anthropic — OpenRouter-only chains get wrongly disabled, missing OpenRouter keys fail per-attempt
+### Pitfall 6: The shouldAdvance matrix grows 4→16 cells and the same-provider invariant is silently renegotiated (including the Zen→Go question)
 
 **What goes wrong:**
-`analyzeCompany` gates: `if (!env.ANTHROPIC_API_KEY || !env.FIRECRAWL_API_KEY) return not_configured`. Two failures once OpenRouter exists:
-1. A user whose chain is OpenRouter-only (primary + fallbacks all OpenRouter — explicitly in scope per the milestone) is disabled whenever `ANTHROPIC_API_KEY` is unset — even though their chain never touches Anthropic. The gate validates a provider that isn't in the chain.
-2. Reverse: the gate passes (Anthropic set), but the chain contains OpenRouter entries while `OPENROUTER_API_KEY` is unset → the run starts, and each OpenRouter attempt throws `LoadAPIKeyError` → `'config'` → not failover-eligible → fails loud after burning the first attempt's budget. An Anthropic primary would succeed and the OpenRouter fallback would never even be reached correctly — or the run fails pointlessly when a *different* provider's key is missing.
+`shouldAdvance(cls, from, to)` currently locks a 4-cell matrix over `{anthropic, openrouter}`. With two more providers it becomes 16 cells plus the null fail-closed row. Three failure modes:
+1. **Forgotten cell.** Someone ports the matrix by adding the new providers to the type but only tests the old 4 cells — a `rate_limited` hop `nousresearch→opencode` or `opencode→nousresearch` is never exercised, and the invariant "cross-provider 429 advances" silently holds only for the tested subset. The null fail-closed branch (429 never advances on null identity) then covers more cases than anyone realizes — a forgotten `opencode-go` mapping in `getProviderForModelId` (Pitfall 4) makes every opencode 429 fail-closed, silently losing failover.
+2. **The Zen→Go "clever fix".** Zen (pay-per-use) and Go (subscription) are *different quota pools* sharing one key — a Zen 429 does not imply a Go 429. Someone "improves" the matrix by treating zen/go as separate advance domains → but that contradicts the milestone's one-provider model AND the same-key reality; a Go subscription 429 (account-level) would then wrongly advance back into Zen and burn pay-per-use credits (the 402 lesson). Both directions are plausible and both are wrong without live evidence.
+3. **The 429 same-provider invariant for the new providers is assumed, not tested** — `opencode→opencode` (incl. Zen→Go) and `nousresearch→nousresearch` must keep v1.3/v1.4 never-advance; nothing in the new code establishes it.
 
 **Why it happens:**
-The v1.3 gate was written when exactly one provider existed, so "is the app configured to run AI" ≡ "is ANTHROPIC_API_KEY set". Provider count changed; the gate didn't. The same hardcoding pattern will appear in `saveSettingsAction` (Pitfall 7) and the settings page props if not caught.
+The 4-cell matrix was small enough to hold in one's head; 16 cells is a table that must be *generated and asserted*, and the Zen/Go nuance (same key, different quota pools) is the kind of operational detail training data and even the docs bury.
 
 **How to avoid:**
-- Make the gate **chain-aware and provider-aware**: after `resolveModelChain` (which is now provider-aware — Pitfall 8), check `env` for *each provider present in the resolved chain*: `for each entry, providerKey = provider === 'anthropic' ? env.ANTHROPIC_API_KEY : env.OPENROUTER_API_KEY; missing → not_configured` with a message naming the missing key. Keeps the D-15 principle ("unset keys disable the action, never crash") while respecting mixed chains.
-- Check keys once at entry (alongside the chain snapshot, v1.3 Pitfall 9) — never per-attempt in the loop.
-- Add `OPENROUTER_API_KEY: z.string().optional()` to `src/lib/env.ts` mirroring the Anthropic entry exactly (server-only, no `NEXT_PUBLIC_` prefix — Pitfall 11).
+- Keep `shouldAdvance` **pure and tiny** (the existing `from !== null && to !== null && from !== to` rule is already provider-count-agnostic — it does NOT need rework for 4 providers; the risk is someone rewriting it). Assert the full 4×4 + null table in Vitest (generated cartesian, not hand-typed cells), with the same-provider diagonal all-`false` for `rate_limited` and the off-diagonal all-`true`.
+- **Treat opencode (Zen+Go) as ONE advance domain** for v1.5: same-provider 429 never advances, even across the Zen/Go boundary. Rationale: same key; advancing a 429 into the Go subscription risks burning a fixed-subscription resource on an account-level limit (fail-loud beats burned credits — the v1.4 402 lesson). Document the known limitation (Zen rate limits are gateway-local; a Zen→Go 429 advance could be legitimate) as a comment + an explicit Phase-26 decision point gated on live-key evidence, never an un-tested "improvement".
+- Ensure `opencode-go` rows resolve to `'opencode'` in `getProviderForModelId` (Pitfall 4) or the null-fail-closed branch silently eats every Go 429 failover.
 
 **Warning signs:**
-- `analyzeCompany` (or any run-path code) still references `env.ANTHROPIC_API_KEY` as a standalone gate.
-- A `LoadAPIKeyError` in a Langfuse trace for a run whose chain includes OpenRouter.
-- "not_configured" surfaced to a user whose chain is entirely OpenRouter.
+- The 4-cell Vitest table is edited by hand to add two providers instead of regenerated.
+- Any code distinguishes Zen from Go inside `shouldAdvance`/the loop (provider identity is catalog-level, endpoint identity is instantiation-level — keep them separate).
+- A Go subscription 429 observed advancing into Zen pay-per-use rows.
 
-**Phase to address:** Phase 19 (env + chain-aware gate); Phase 22 asserts OpenRouter-only chains run with only the OpenRouter key set.
+**Phase to address:** Phase 24 (matrix generation + invariant tests); Phase 26 live 429 probes + the documented Zen→Go decision.
 
 ---
 
-### Pitfall 7: The save-path validation still gates on the Anthropic allowlist — OpenRouter saves rejected, and the "no `/`" invariant is dead
+### Pitfall 7: Catalog drift and snapshot regeneration — the script's assumptions break the servable set (stale Go block, mixed Nous roster, `~latest` aliases)
 
 **What goes wrong:**
-`saveSettingsAction` validates every id with `getAllowlistedServableIds(catalogJson)` — an Anthropic-only, allowlist-intersected set. Unchanged, this makes every OpenRouter save return `invalid_model` (the picker would show OpenRouter models that can't be saved — a "looks done but isn't" classic). Two adjacent landmines:
-1. **The dedupe backstop and the duplicate-model check** compare ids as strings — fine — but `claude-sonnet-5` (Anthropic) and `anthropic/claude-sonnet-5` (OpenRouter) are *different strings* that *display identically* ("Claude Sonnet 5") and are *both legitimate* in one mixed chain. A naive "no duplicates" UX message would be wrong; a naive dedupe that strips prefixes would corrupt the chain.
-2. **The v1.3 "no `/` in any saved model value" invariant/tests are now false** — OpenRouter ids legitimately contain `/` and `~`. Any leftover assertion (and the v1.3 Pitfall-1 warning-sign "saved settings contain a `/`") will fail against correct data and may be "fixed" by mangling ids.
+`scripts/refresh-model-catalog.ts` was written for the opencode-CLI world with one live join (OpenRouter capabilities). Four new failures when the script is extended for the new providers:
+1. **Go staleness is already real.** The committed snapshot's `opencode-go` block (17 rows) is behind the live Go roster (25) — 9 models (`qwen3.7-max`, `qwen3.8-max`, `hy3`, `mimo-*`…) are absent. Regenerating via the local opencode CLI (the current `models --verbose` source) may fix this — or may not (the CLI's own registry lags). The script must fetch the Zen/Go/Nous rosters **directly and anonymously** (all three verified `GET /v1/models` HTTP 200 no-key) — answering the milestone's open question: no Nous key needed for the roster fetch.
+2. **The Nous roster is a MIXED catalog.** 292 rows include embedding/rerank models (`voyageai/*`, `perplexity/pplx-embed-*`, `google/gemini-embedding-*`) — the Analyze agent is chat + structured-output only. A naive import offers embedding models that fail at run time. The script must filter the Nous roster to chat-capable rows (the roster exposes `architecture.modality` per row).
+3. **`~latest` aliases recur.** The Nous roster contains `~deepseek/deepseek-v4-flash-latest` (and the snapshot already has `~`-prefixed rows under kilo/openrouter). The v1.4 alias-audit concern (a `~` id can't say which concrete model served; `model_used` is untrustworthy) applies to the direct-Nous servable set too — exclude `~`-prefixed ids from the nous and opencode servable rules by default, exactly like openrouter.
+4. **The script's row shape assumptions.** `trimRecord` defaults `status` to `''` (fine for the nous roster, which has no status field — the `status !== 'deprecated'` filter passes) but hardcodes `structuredOutputs: true` for every non-openrouter row (Pitfall 8) and must now preserve `api.npm`/`api.url` as the opencode routing fields (Pitfall 3). A regenerated snapshot that silently drops `api.url` or renames a providerID breaks the opencode seam without a compile error.
 
 **Why it happens:**
-The servable-set function and the id-shape invariants were written for a single-provider world and are reused without a provider dimension. Validation must be *per-provider*: each id is checked against *its provider's* servable rule (Anthropic: allowlist ∩ snapshot; OpenRouter: snapshot ∩ active ∩ no-`~` ∩ no-`:free`).
+The script's contract ("shell the local opencode CLI, trim, write") was designed around the CLI's own catalog; the new providers have live HTTP rosters with different shapes (OpenAI-style `data[]`, Nous's extra `architecture`/`pricing` fields, no status field), and "regenerate" is a standing-maintenance action nobody re-validates against the registry's assumptions.
 
 **How to avoid:**
-- Split validation: `resolveProviderForId(id)` first (catalog lookup), then `isServableForProvider(id, provider)` — Anthropic → `ANTHROPIC_ALLOWLIST.includes(id)`; OpenRouter → the Phase-19 servable rule. `saveSettingsAction` runs both, still before the atomic upsert, still with the immutable gate-first ordering (v1.3 SET-06/07).
-- Replace the "no `/`" invariant with "the saved id resolves to a provider via the catalog" — the new correctness statement. Update the v1.3-era tests deliberately (the repo's convention: changed contracts are updated, never deleted).
-- Dedupe stays string-based (`new Set`) — do NOT dedupe across the prefix boundary; the two Sonnet-5 surfaces are distinct chain entries.
+- Extend the script to fetch the three live rosters directly (anonymous), join/trim into the existing snapshot shape, and keep the OpenRouter capability join for openrouter rows. Add the Nous chat-capability filter and the `~`-exclusion rule at the *servable* layer (not the snapshot layer — the snapshot stays a full dump, matching the v1.4 "snapshot is the menu, gate is the lock" doctrine).
+- Keep the fail-closed regeneration contract the script already has: any live-roster fetch failure aborts WITHOUT writing (the committed snapshot stays usable). The existing `fetchOpenRouterStructuredOutputs` throw-on-failure pattern extends to the new fetches.
+- Surface `generatedAt` freshness in the picker (v1.4 shipped this) and treat the Go/zen/nous rosters as moving targets — the Phase-26 e2e should spot-check a few ids against the live rosters.
 
 **Warning signs:**
-- `saveSettingsAction` still calls `getAllowlistedServableIds` with no provider branch.
-- A test asserts `/` ∉ saved model values.
-- The settings form rejects OpenRouter picks at save with `invalid_model` while the picker shows them.
+- `generatedAt` ages and the opencode Go block count drifts from the live `/zen/go/v1/models` count.
+- The picker offers `voyageai/*` or `pplx-embed-*` ids (embedding models leaked into the chat picker).
+- A regenerated snapshot changes `api.url` for opencode rows and the seam's baseURL constants (if any survived Pitfall 4) silently disagree.
 
-**Phase to address:** Phase 19 (per-provider servable validation); Phase 22 UAT: save an OpenRouter primary end-to-end and see `model_used` reflect it.
+**Phase to address:** Phase 23 (script extension + servable rules + freshness), Phase 26 (roster spot-checks in verification).
 
 ---
 
-### Pitfall 8: Deriving provider from the id (or from `~`) instead of persisting it — breaks on collision and on snapshot churn
+### Pitfall 8: `structuredOutputs` hardcoded `true` for the new providers — strict-mode failures on models whose live flag says false
 
 **What goes wrong:**
-The milestone's open question ("persist a provider column vs derive from the catalog by model id") has three bad derivations and one good answer:
-1. **Derive from `~` presence** → 325/336 OpenRouter rows misclassified (no `~`).
-2. **Derive from the vendor portion** (`anthropic/...` → Anthropic) → `anthropic/claude-sonnet-5` misclassified as Anthropic-direct — the Pitfall-1 collision, now at the persistence layer: the wrong product is stored.
-3. **Derive by catalog lookup at run time** → works while the id is in the snapshot, but OpenRouter ids can disappear from the snapshot between save and run (models removed, `generatedAt` ages). A missing id then fails provider resolution mid-run → can't build the `LanguageModel` → a run fails with a confusing error for a setting the user saved and sees in the UI.
+The agent runs `Output.object({ schema })` (strict JSON-schema path). `trimRecord` sets `structuredOutputs: true` for every non-openrouter row — so every direct-Nous and opencode row ships with the flag `true`. But the snapshot's OWN openrouter rows for the same models say `false` for the open-source family: `nousresearch/hermes-4-405b` and `nousresearch/hermes-4-70b` (openrouter rows) have `structuredOutputs: false` from the live capability join — OpenRouter's data says these models don't advertise strict structured output. A direct-Nous `hermes-4-405b` row with hardcoded `true` sends strict JSON-schema mode to a model that can't honor it → `InvalidResponseDataError`/`NoObjectGeneratedError` → `'output'` → **fail-loud, no fallback** (the v1.4 Pitfall-D pattern, unchanged). Same risk for opencode's open-source rows (`deepseek-*`, `glm-*`, `kimi-*`, `minimax-*`) whose live capability is unverified.
 
 **Why it happens:**
-"Derivation" looks like less schema churn than a migration. But the run path needs provider identity *exactly when* the catalog is most likely to have drifted — the one time derivation is unreliable.
+The `true` default was written when non-openrouter rows meant "anthropic" (all strict-capable). The new providers' open-source families break the default, and the Nous roster (verified) exposes no `supported_parameters`-style capability field the script could join — so the honest flag can't be derived the way OpenRouter's was.
 
 **How to avoid:**
-- **Resolve once at save time, persist the result.** `saveSettingsAction` looks up `providerID` in the catalog for each id (after validation) and stores the provider alongside the id. This makes the run path derivation-free: `model_used`/`model_chain` and instantiation read the persisted provider, immune to snapshot drift and collisions.
-- Storage shape (pick one, minimal churn from v1.3's `primaryModel` + `fallbackModels` text columns): (a) a `provider` column per slot — `primaryProvider`/`fallbackProviders` text columns mirroring the existing pair; or (b) provider-qualified values (`openrouter:anthropic/claude-sonnet-5` — the `:` separator is safe since Anthropic ids are bare and OpenRouter ids contain only `/` and `~`). Option (a) is more explicit and matches the existing column pair; the milestone's open question is answered: **persist, don't derive**.
-- **Migration safety**: existing v1.3 rows hold bare Anthropic ids — by construction they are `anthropic` (no `~`/`/`). Backfill/interpret them as Anthropic; no data rewrite needed, but the migration must state this assumption and the run path must not re-derive.
-- Keep `getModelDisplayName` keyed by raw id (it already is) — for OpenRouter rows the snapshot's `name` for `anthropic/claude-sonnet-5` is the generic "Claude Sonnet 5"; the picker must disambiguate with a provider badge (Pitfall 10), not by renaming.
+- `instantiateModel` reads the flag per-row with the provider-scoped find (the v1.4 Anti-Pattern-1 pattern) and passes `structuredOutputs: { strict: false }` for flagged rows — never a global `strict: false` (weakens the anthropic/openai paths).
+- For the new providers, decide the flag's source: **(a)** join against the snapshot's *existing* openrouter row for the same id where present (hermes-4-405b → `false`), falling back to a conservative `false` for open-source families on the new providers; or **(b)** ship `true` only for the closed families (claude/gpt rows on opencode) and `false` for the open families. Both are data decisions the script must make explicitly — the current `: true` else-branch is the bug.
+- Phase-24 live-key probes: run one strict-mode attempt against a flagged `false` row and a `true` row on each new provider to verify the flag matches reality.
 
 **Warning signs:**
-- Any run-path code that resolves provider from `id.startsWith('~')` or `id.split('/')[0]`.
-- A saved setting that can't be instantiated because the id left the snapshot (and the code has no provider to fall back to).
-- The settings row has no provider column/field and the run path "looks the id up" each time.
+- `structuredOutputs: true` for `nousresearch/*` or open-family opencode rows in a regenerated snapshot.
+- `output`-class failures (`InvalidResponseDataError`/`NoObjectGeneratedError`) clustering on the new providers' open-source rows with strict mode in the trace.
 
-**Phase to address:** Phase 19 (schema/migration + save-time resolution); Phase 22 asserts provider is durable in the row and never re-derived.
+**Phase to address:** Phase 23 (script flag derivation) and Phase 24 (per-row strict pass); Phase 26 strict-mode probes.
 
 ---
 
-### Pitfall 9: Full-catalog staleness with no roster gate — the picker advertises models that can vanish, and nothing re-verifies
+### Pitfall 9: UI surfaces built for 2 providers — the 2-branch `providerName`, the opencode-go grouping leak, and the 4-entry defaults map
 
 **What goes wrong:**
-Anthropic's roster-verify loop (D-02: verify against `GET /v1/models` before adding to the allowlist) was the staleness backstop. OpenRouter's "full catalog" has no equivalent: all 336 rows are `status: active`, the snapshot carries no `expiration_date`, and OpenRouter removes models routinely (deprecated endpoints, hidden aliases, retired `:free`/preview models). Consequences: (a) a saved OpenRouter id that OpenRouter removes → runtime 404 → existing failover catches it (good) but the user's "trustworthy" pick silently died; (b) the committed snapshot itself ages (`generatedAt`) — new OpenRouter models are unpickable until `scripts/refresh-model-catalog.ts` is re-run, and removed models stay offered in the UI; (c) without a roster gate there is no standing maintenance that would have flagged a vanishing model before users hit it.
+The v1.4 picker logic has three 2-provider assumptions that silently misbehave at 4:
+1. **`providerName(provider)` returns `'OpenRouter'` for every non-anthropic provider** (`provider === 'anthropic' ? 'Anthropic' : 'OpenRouter'` in `model-picker-logic.ts`) — with 4 providers, NousResearch and OpenCode badges show "OpenRouter". Wrong badges on every row; the collision disambiguation (Pitfall 1) is invisible to users.
+2. **`groupByProvider` keys by raw `providerID`** — `opencode-go` rows would group under a key that isn't a `ModelProviderId` (the `as Record<ModelProviderId, ...>` cast hides the mismatch) unless the settings page maps them into the `'opencode'` group. The Go rows scatter into their own phantom group.
+3. **`PROVIDER_DEFAULT_MODELS` is a `Record<ModelProviderId, string>`** — TypeScript forces the two new entries, but a `Partial<Record<...>>` or a runtime omission makes `primaryAfterProviderSwitch` read `defaults[nextProvider].id` on `undefined` → crash on provider switch. And the opencode default needs a **Zen-vs-Go decision** (recommend a Zen default — pay-per-use, no subscription prerequisite).
+4. **Union size grows to ~450+ rows** (337 v1.4 + ~60 opencode + ~17-25 opencode-go + ~chat-filtered nous). The Command-based combobox and provider grouping (v1.4 Pitfall 10) absorb it, but the server-passed props and the per-provider pickers must stay trimmed (never the full `catalog.json` — the client-bundle contract).
+5. **Zen/Go labeling** (milestone open question): the single OpenCode provider needs an endpoint indicator on rows where both exist (`deepseek-v4-flash` Zen vs Go) — a "Zen"/"Go" suffix or badge, since the id alone can't distinguish (Pitfall 4).
 
 **Why it happens:**
-The v1.3 design correctly made the allowlist the gate and the snapshot the menu. With no allowlist, the snapshot *is* the only gate — and it's a committed file, refreshed on a human schedule, while OpenRouter's catalog moves continuously.
+The v1.4 UI deliberately modeled provider as a 2-value union and encoded it in two-branch functions and `Record<ModelProviderId, ...>` maps. "Add two providers" is the exact change that breaks 2-branch code, and TypeScript's exhaustiveness only catches the Record/union cases, not the ternary or the cast.
 
 **How to avoid:**
-- Keep the snapshot as the sole runtime model source (zero runtime opencode dependency — v1.3 unchanged) and keep the runtime 404→failover as the automatic backstop (already in place).
-- Add the practical curation substitutes for the roster gate (the Phase-19 servable rule): exclude `~` aliases (Pitfall 2) and `:free` variants (Pitfall 4) — this removes the two *most volatile* OpenRouter classes and shrinks the surface to ~300 concrete paid ids.
-- Surface snapshot freshness honestly: the picker shows a small "catalog snapshot {generatedAt}" caption (v1.3 shipped the honest-list pattern — extend it), so "this list is a snapshot" is explicit UI copy, not an assumption.
-- Treat snapshot refresh as standing maintenance with a periodic cadence, and let `agent_run` 404-failover telemetry be the canary: a rising `model_not_found` rate on OpenRouter ids is the signal to refresh.
+- Replace the 2-branch `providerName` with a 4-entry lookup map (client-safe, type-complete: `Record<ModelProviderId, string>` — TS enforces the two new entries).
+- Map `opencode-go` rows to the `'opencode'` group at the server prop-composition layer (the page's `servableByProvider`), never in the client (which only sees `ModelProviderId`).
+- Make `PROVIDER_DEFAULT_MODELS` complete (TS-enforced) with explicit Nous + opencode defaults; add a Vitest case that every `ModelProviderId` has a default whose id is servable for its provider (the v1.4 WR-01 class of brittleness).
+- Add the Zen/Go endpoint indicator to the opencode picker rows; add the provider badge on every union row (now disambiguating up to two providers sharing an id string — the Pitfall-1 honesty requirement).
 
 **Warning signs:**
-- The picker offers a model that OpenRouter's live catalog no longer lists (spot-check a few ids against `GET /api/v1/models`).
-- `model_not_found` fails cluster on the same OpenRouter id across users.
-- `generatedAt` in `catalog.json` is weeks old and nobody refreshed.
+- `providerName('nousresearch')` returns "OpenRouter" (grep the function's ternary).
+- A picker group labeled by a raw `providerID` value that isn't one of the four `ModelProviderId` strings.
+- Provider-switch to NousResearch/OpenCode crashes or resets to `undefined` (missing defaults-map entry).
 
-**Phase to address:** Phase 19 (servable rule + freshness caption); Phase 22 verifies a dropped model 404s and fails over, not crashes.
-
----
-
-### Pitfall 10: Provider switch resets selections badly, and the 336-row picker is unusable (plus the duplicate display name)
-
-**What goes wrong:**
-Three UX traps that ship together:
-1. **Provider switch wipes selections.** The form's draft staging (v1.3 SET-02/03) holds a primary + fallbacks. Switching the Primary's provider changes the model list; the current primary id won't exist in the new provider's list. A naive implementation clears the primary (and possibly the fallbacks) and loses the rest of the draft — or worse, keeps an invalid id in the draft and fails at save. Cross-provider chains (fallbacks from the other provider) mean each *fallback slot also needs its own provider choice* — the v1.3 "up to 2 fallbacks, reorderable" UI gains a per-slot provider dimension.
-2. **336 rows in a Radix Select is unusable.** The v1.3 picker was sized for ~1-2 rows. 336 options in a native/Radix select = impossible to scan, heavy DOM, no search. The app already has a search pattern (explorers' debounced search, Command-based comboboxes) — reuse it.
-3. **Duplicate display names across providers.** `claude-sonnet-5` (Anthropic) and `anthropic/claude-sonnet-5` (OpenRouter) both display "Claude Sonnet 5" via `getModelDisplayName`. Without a provider badge, users cannot tell the direct model from the OpenRouter-proxied one — and the collision means picking the wrong one changes billing/quota silently.
-
-**Why it happens:**
-The UI was built for one provider and ~2 rows; adding a provider dimension and a 100× larger list is a structural change to the form, not a prop. "Just add a selector above the picker" (the milestone's literal phrasing) hides these three.
-
-**How to avoid:**
-- **Per-slot provider state, not one global provider switch.** Each chain slot (primary + each fallback) carries its own provider; the model picker for that slot filters by its provider. "AI Provider selector above the Primary model" (milestone wording) becomes "each slot has a provider selector" — keep the primary's selector prominent as specified, but fallbacks need the same control. Switching a slot's provider resets *only that slot's* model to that provider's default (or clears it) and preserves the rest of the draft; save-time validation (Pitfall 7) remains the backstop.
-- **Searchable combobox with grouping**: Command-based picker (the app's existing shadcn/Command pattern), grouped by the snapshot's `family` field, each row with provider badge (Anthropic-direct vs "via OpenRouter") + cost caption + free/alias styling if those ship. Trim the server-passed props to `{id, name, cost, family}` per row (~300 rows ≈ tens of KB serialized — the client bundle still never contains `catalog.json`, preserving the v1.3 props-only contract).
-- Disambiguate names explicitly: provider badge on every row (Pitfall 1's collision is a UX bug until the badge exists).
-
-**Warning signs:**
-- Changing the provider selector clears unrelated draft edits.
-- A fallback slot has no way to choose a provider while the primary does.
-- The picker renders 336 flat rows with no search/grouping, or two "Claude Sonnet 5" rows with no distinguishing label.
-
-**Phase to address:** Phase 21 (per-slot provider state + combobox + badges); Phase 22 live-browser UAT for provider-switch draft preservation.
-
----
-
-### Pitfall 11: OPENROUTER_API_KEY exposure and data-egress to un-vetted upstream hosts
-
-**What goes wrong:**
-Two security surfaces specific to this change:
-1. **Key exposure.** `OPENROUTER_API_KEY` must live in `src/lib/env.ts` as server-only `z.string().optional()` — exactly like `ANTHROPIC_API_KEY` — never `NEXT_PUBLIC_`, never returned by the settings page/action, never in the client bundle. The OpenRouter provider instance is created server-side only (a module singleton, like `src/lib/sanity.ts`). The key is a live credential with spend — `sk-or-v1-…` on an account with a credit balance.
-2. **Data egress to un-vetted hosts.** Every Analyze run ships the company profile, live signals, and web-search evidence to *whatever upstream host serves the chosen OpenRouter model*. The full catalog includes 17 single-model vendors (`sao10k/*`, `thedrummer/*`, `kwaipilot/*`, `aion-labs/*`, `inclusionai/*`, …) and proxies of every major lab — a demand-gen pipeline's firmographic + personnel data leaving the app's controlled surface through third-party inference hosts. This is a governance consideration the Anthropic-only world never had (one known vendor, one contract). Additionally the catalog contains `openai/o1-pro` at $150/M input — the un-curated list makes an expensive accidental pick trivial.
-
-**Why it happens:**
-OpenRouter's entire value proposition is "one key, every model"; the app's server-side id validation (against the snapshot) prevents *injection* but does nothing about *which legitimate catalog rows should be offered*. Security here is a curation decision, not a validation decision.
-
-**How to avoid:**
-- Key handling: mirror the Anthropic env pattern byte-for-byte; grep-verify no `OPENROUTER` string appears in any client component or in `NEXT_PUBLIC_*` exports; the Phase-22 security matrix (v1.3 SET-07 precedent) adds the OpenRouter key to the "never leaks to client" checks.
-- **Curate the OpenRouter servable set by vendor**, not just by row: start from a trusted-vendor allowlist (the major labs already proxied: anthropic/openai/google/meta-llama/mistralai/deepseek/x-ai/amazon/cohere/perplexity — 300+ rows come from these) and explicitly exclude the long-tail single-model vendors until someone reviews their data-handling. If full catalog must ship, surface the vendor on every row (the badge in Pitfall 10) and document the egress implication in the picker copy ("your company data is sent to the model's provider").
-- Cost honesty: keep v1.3's cost captions (they now matter more — the price range spans $0 to $150/M input) and add a confirmation on unusually expensive picks if trivial to do.
-- Keep server-side validation against the snapshot as the injection backstop (unchanged) — arbitrary client ids are still rejected.
-
-**Warning signs:**
-- `OPENROUTER` appears in a client component, a `NEXT_PUBLIC_*` env name, or the settings action's return shape.
-- The picker offers `sao10k/*` or other single-model vendors with no vendor label.
-- `agent_run` usage rows show non-trivial OpenRouter spend with no cost captions ever seen by the user.
-
-**Phase to address:** Phase 19 (env + key discipline) and Phase 21 (vendor surfacing/curation + cost captions); Phase 22 security matrix.
+**Phase to address:** Phase 25 (UI — 4-entry maps, grouping, badges, defaults); Phase 26 live-browser UAT across all four provider pickers.
 
 ---
 
@@ -290,12 +241,12 @@ OpenRouter's entire value proposition is "one key, every model"; the app's serve
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Derive provider from the id instead of persisting it | No migration now | Run path breaks when the catalog drifts; collision bugs (Pitfall 8) | Never — persist at save time (Pitfall 8); the migration is one Drizzle change while the repo is pre-v1.4 |
-| Ship the full 336-row catalog unfiltered | Matches the milestone's literal wording | Dead models, alias audit corruption, free-model quota incidents, obscure-vendor data egress (Pitfalls 2, 4, 9, 11) | Acceptable only with explicit per-class handling; the 300-row curated rule is the recommended default |
-| One shared "normalize model id" helper for both providers | Fewer functions | The `anthropic/` collision silently swaps providers (Pitfall 1) | Never — provider identity is a catalog lookup; ids pass through verbatim |
-| Blanket "429 advances now" policy | "More resilience" | Reintroduces v1.3's same-provider 429 bug; wasted full-agent re-runs (Pitfall 5) | Never — the hop-aware rule is barely more code and fully tested |
-| Keep the hardcoded Anthropic env gate | One-line gate | OpenRouter-only chains wrongly disabled; per-attempt LoadAPIKeyError (Pitfall 6) | Never — chain-aware gate is the D-15 principle extended |
-| Skip the fallback-slot provider control (global switch only) | Simpler UI | Cross-provider chains (the milestone's explicit goal) can't be configured (Pitfall 10) | Not acceptable — per-slot provider state is the feature |
+| Keep the id-keyed union + find-first resolver, add providers to the filter list | Zero refactor of v1.4 code | Silent product swaps (nous→openrouter, zen→go), the default model flips to opencode (Pitfalls 1, 2) | Never — the (providerID, id) identity or explicit precedence is the v1.5 core |
+| One `createOpenAICompatible` instance per provider (baseURL constant) | Looks like the v1.4 shape | Claude/GPT opencode rows 400/404; Go-only ids 404 (Pitfalls 3, 4) | Never — per-row API-shape + baseURL dispatch is mandatory for opencode |
+| Rely on name-derived env vars for the new SDKs (`name: 'opencode-go'` → `OPENCODE_GO_API_KEY`) | Less code | Gate passes, request-time `LoadAPIKeyError` (Pitfall 5) | Never — pass `apiKey` explicitly; gate and SDK must read the same var |
+| Hardcode `structuredOutputs: true` for the new providers | The script's existing else-branch | Strict-mode failures fail-loud on open-source rows (Pitfall 8) | Never once the `false` live flags are known — derive or conservative-false |
+| Import the full Nous roster unfiltered | Fastest script change | Embedding/rerank models in the chat picker; 265 colliding ids swamp the union (Pitfalls 1, 7) | Only with the chat-capability filter + collision precedence in the same change |
+| Treat Zen→Go as separate advance domains "because different quota" | Recovers a legitimate failover | Contradicts the one-provider model; risks burning a subscription on account-level 429s (Pitfall 6) | Only after Phase-26 live-key evidence shows gateway-local 429s; document the decision |
 
 ---
 
@@ -303,15 +254,14 @@ OpenRouter's entire value proposition is "one key, every model"; the app's serve
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| `@openrouter/ai-sdk-provider` (v0.7.5) | Expecting a different init shape than `createOpenRouter({ apiKey })` / the `openrouter` default instance; forgetting it auto-loads `OPENROUTER_API_KEY` | `createOpenRouter({ apiKey: env.OPENROUTER_API_KEY })` or the default instance; `openrouter(id)` returns a `LanguageModel`; errors are `APICallError` with `statusCode` (verified via Context7 docs) |
-| OpenRouter model ids | Stripping `~`/`/` prefixes, or running `opencodeSlugToModelId` on them | Pass snapshot ids verbatim; provider resolved via catalog `providerID` (Pitfall 1) |
-| `~…-latest` aliases | Offering/saving them; audit says "the alias" while a moving target served | Exclude from the servable set; audits record only concrete ids (Pitfall 2) |
-| OpenRouter `:free` variants | Treating them as ordinary models | Exclude by default; shared-account 20 RPM / 50 RPD quota is a team-wide operational constraint (Pitfall 4) |
-| OpenRouter 402 credits | Mapping to generic failure, or adding to the advance set | Dedicated non-eligible `'billing'` class + "credits exhausted" reason (Pitfall 3) |
-| OpenRouter 502/503 | "Fixing" them into a non-failover class | They are model-availability signals — must stay failover-eligible (Pitfall 3) |
-| Cross-provider 429 | Blanket always/never advance | Hop-aware: advance only when the next entry is on a different provider+key, and on OpenRouter only for non-platform 429s (Pitfall 5) |
-| `APICallError.responseBody` | Assuming it's populated without verifying | Verify against installed `ai@7` dist + the provider before writing the platform-429 helper (Pitfall 3, AI-SDK drift discipline) |
-| Langfuse telemetry for OpenRouter | Believing `ai.model.provider`/`ai.model.id` alone is the audit | Same as v1.3: spans are the visual, `agent_run.model_used`/`model_chain` are durable truth; for OpenRouter the durable id is the verbatim `vendor/model` (Pitfall 2, D-14) |
+| Nous inference API (`https://inference-api.nousresearch.com/v1`) | Assuming the roster needs a key, or that all 292 rows are chat models | Roster is anonymous `GET /v1/models` (verified 200); completions need `NOUSRESEARCH_API_KEY`; filter the roster to chat-capable rows (Pitfall 7) |
+| Nous key state | Treating 401 as pure auth | Nous returns 401 for "invalid, blocked or out of funds" — billing exhaustion arrives as auth-class (fail-loud, no fallback) (Pitfall 5) |
+| opencode Zen/Go | Assuming uniformly OpenAI-compatible | Three API shapes per endpoint: `/v1/chat/completions` (`@ai-sdk/openai-compatible`), `/v1/messages` (`@ai-sdk/anthropic` + `baseURL`), `/v1/responses` (`@ai-sdk/openai`); dispatch per row's `api.npm` (Pitfall 3) |
+| opencode baseURL | One provider-level baseURL | Per-row `api.url` drives the instance; Zen-only ids must never hit the Go URL and vice-versa (Pitfall 4) |
+| opencode key | Expecting Zen/Go to need separate keys, or naming instances `opencode-zen`/`opencode-go` | One `OPENCODE_API_KEY` covers both (verified); pass it explicitly — derived `OPENCODE_GO_API_KEY` never exists (Pitfall 5) |
+| `@ai-sdk/openai-compatible` install | Grabbing a stale dist-tag (v1.4 Pitfall G) | Pin `^3.0.20` (npm `latest`, peer zod OK with installed 4.4.3); verify peer compat against `ai@7.0.45` at install (Pitfall 3) |
+| Roster fetch (Nous/Zen/Go) | Embedding the fetch in `src/` (Phase-18 security-grep greps `fetch`/`child_process` out of src) | Extend the existing repo-root `scripts/refresh-model-catalog.ts`; throw-on-failure so the committed snapshot stays usable (Pitfall 7) |
+| `api.npm` field | Trusting it for openrouter/kilo/vercel rows, or ignoring it for opencode rows | It is authoritative ONLY for opencode/opencode-go rows (the gateway's documented shape); other providers use their own SDKs (Pitfall 3) |
 
 ---
 
@@ -319,10 +269,11 @@ OpenRouter's entire value proposition is "one key, every model"; the app's serve
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| Fallback re-runs the full 12-step agent | 2-3× Firecrawl + token cost on runs whose primary is broken; cost spikes with expensive OR models | Hop-aware advance keeps same-provider 429s from burning fallbacks (Pitfall 5); the 404/5xx-only rule from v1.3 unchanged | Every run on a dead primary; a 429 storm on a shared free-model quota compounds it (Pitfall 4) |
-| OpenRouter proxy latency eating the fallback's budget share | Runs that fit in 43-50s now 504 near the ceiling | Keep the LOOP_BUDGET_MS clamp (v1.3 FAL-04 — already chain-agnostic); count an OpenRouter attempt's SDK retry pile-up in its budget (Pitfall 4); live-measure a slow-OR-primary + fallback at verification | When the primary is an OpenRouter model behind a crowded route or a `~` alias target (if aliases ship — Pitfall 2) |
-| 336-row picker payload | Large serialized props, slow Settings TTFB, janky DOM | Server-filter to ~300 rows and trim props to `{id, name, cost, family}`; searchable combobox (Pitfall 10) | The moment someone passes the full catalog.json to a client component (v1.3 Pitfall 7 recurs at provider scale) |
-| Per-run chain resolution with catalog lookups | Trivial at this scale | Resolve chain + provider once at entry (v1.3 Pitfall 9 snapshot pattern); provider persisted (Pitfall 8) | Never at <1k runs/day |
+| Fallback re-runs the full 12-step agent on opencode-shape errors | `input`/`output`-class failures from a wrong API shape burn the whole attempt before failover | Correct per-row SDK dispatch (Pitfall 3); a mis-routed row 400s as `input` → fail-loud, no wasted fallback — the trap is the *silent* correctness cost, not the budget | Every claude/gpt opencode row if shipped with a single chat-completions instance |
+| Go-only ids 404ing on the Zen endpoint | `model_not_found` clusters on `qwen3*`/`hy3`/`mimo-*`; each 404 burns a full fallback re-run | Per-row baseURL (Pitfall 4) | The moment Go rows exist (they already do — 9 live ids absent from the snapshot) |
+| Nous strict-mode failures | `output`-class fail-loud on hermes/open-family rows; zero fallback | Honest `structuredOutputs` flags + per-model `strict: false` (Pitfall 8) | The first user picks a `false`-flagged model |
+| ~450-row union props payload | Settings TTFB / serialized props growth | Keep the trimmed `{id, name, family, cost}` props and per-provider pickers; never pass `catalog.json` to a client component (v1.4 Pitfall 10 at 4-provider scale) | The moment someone passes the full snapshot for the new providers |
+| Per-run provider resolution over 5 providerIDs | Negligible at this scale | Resolve (providerID, id) once at entry (the v1.4 snapshot-at-entry pattern) | Never at <1k runs/day |
 
 ---
 
@@ -330,11 +281,11 @@ OpenRouter's entire value proposition is "one key, every model"; the app's serve
 
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| `OPENROUTER_API_KEY` in a client bundle / `NEXT_PUBLIC_*` / settings action return | Live spend credential exposed; anyone can burn the OpenRouter credit balance | Server-only `env.ts` entry mirroring `ANTHROPIC_API_KEY`; provider instance server-side only; Phase-22 security matrix asserts zero leakage (Pitfall 11) |
-| Offering un-vetted upstream hosts for company data | Company firmographics + personnel + web-search evidence sent to 17+ unknown third-party inference hosts | Vendor-curated servable set (major labs first) or vendor badges + explicit egress copy (Pitfall 11) |
-| Accepting arbitrary client ids | Id injection into the provider factory | Unchanged v1.3 server-side validation — each id must resolve in the snapshot for its provider (Pitfall 7) — now per-provider, not allowlist-only |
-| Passing direct provider keys into OpenRouter's `api_keys` option | Leaks `ANTHROPIC_API_KEY` to OpenRouter's infrastructure; billing/route confusion | Don't use `api_keys`; one `OPENROUTER_API_KEY` for the OpenRouter surface (integration gotcha) |
-| "Full catalog" accidental expensive picks | One click on `openai/o1-pro` ($150/M input) or a proxied opus = material cost | Keep cost captions everywhere; the curated servable rule (Pitfall 11) bounds the surface |
+| `NOUSRESEARCH_API_KEY` / `OPENCODE_API_KEY` in a client bundle or `NEXT_PUBLIC_*` | Live spend/subscription credentials exposed | Server-only `env.ts` entries mirroring the existing optional pattern; instances server-side only; Phase-26 security-matrix grep over the new keys (Pitfall 5) |
+| Name-derived env-var surprise (`OPENCODE_GO_API_KEY`) | A key the gate believes is set is never set at request time | Explicit `apiKey` on every new-provider instance; grep asserting no derived-var dependency (Pitfall 5) |
+| Direct-Nous rows sending company data to a new inference host | Firmographics + personnel + web-search evidence to a newly-vetted host | Treat direct Nous like any first-party provider (curated roster — chat-filtered, `~`-excluded) and keep the vendor label visible; the collision-precedence rule (Pitfall 1) must not route a "Nous pick" to openrouter silently (that's also a data-governance statement, not just billing) |
+| Id injection via the union | Arbitrary client ids reaching the provider factories | Unchanged server-side validation, now (providerID, id)-aware — an id must resolve to a servable (provider, id) pair before save (Pitfalls 1, 7) |
+| `~latest` nous/opencode aliases in the audit | `model_used` records an alias that retargeted; untrustworthy audit | Exclude `~`-prefixed ids from the new providers' servable sets (consistent with the v1.4 openrouter rule) (Pitfall 7) |
 
 ---
 
@@ -342,32 +293,30 @@ OpenRouter's entire value proposition is "one key, every model"; the app's serve
 
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| Provider switch clears the whole draft | User loses fallback config they just set | Per-slot provider state; switching one slot's provider resets only that slot and preserves the rest (Pitfall 10) |
-| 336 flat rows with no search | Users can't find a model; give up or pick blindly | Searchable Command combobox grouped by `family`, provider badge, cost caption (Pitfall 10) |
-| Two "Claude Sonnet 5" rows (direct vs OpenRouter-proxied) | User picks the wrong product — different billing/quota/quality, silently | Provider badge on every row ("Anthropic direct" / "via OpenRouter") (Pitfalls 1, 10) |
-| Fallback slots have no provider control | Cross-provider chains (the milestone's goal) are impossible to configure | Each fallback slot gets its own provider selector (Pitfall 10) |
-| OpenRouter-only user sees "not configured" when Anthropic key is unset | Action disabled for no reason the user can diagnose | Chain-aware gate naming the missing key (Pitfall 6) |
-| OpenRouter credits exhausted shown as generic "analysis failed" | User tops up the wrong thing or files a support ticket | `'billing'` reason: "OpenRouter credits exhausted — top up" (Pitfall 3) |
-| Stale snapshot presented as "all current models" | Users pick models that vanished; trust erosion | `generatedAt` freshness caption + honest "snapshot" copy (Pitfall 9) |
+| Wrong provider badge (2-branch `providerName`) | Every NousResearch/OpenCode row labeled "OpenRouter" | 4-entry provider-name map (Pitfall 9) |
+| "NousResearch pick → OpenRouter run" (collision) | User's run billed to the wrong account; audit lies | (providerID, id) identity or explicit precedence + badge on every union row (Pitfall 1) |
+| Zen vs Go indistinct | User can't tell `deepseek-v4-flash` on Zen (pay-per-use) from Go (subscription) — a subscription they may not have | Zen/Go endpoint indicator on opencode rows (Pitfalls 4, 9) |
+| Go-only models in the union that 404 | Pick `hy3` → every run fails over or fails loud | Per-row baseURL + correct Go rows (Pitfall 4); stale-snapshot honesty caption |
+| Embedding models in the Nous picker | Pick `voyageai/voyage-4` → run fails (not a chat model) | Chat-capability filter at the servable layer (Pitfall 7) |
+| Provider-switch crash on missing default | Switching to NousResearch/OpenCode throws or resets to `undefined` | Complete 4-entry `PROVIDER_DEFAULT_MODELS` + Vitest (Pitfall 9) |
+| Generic failure on exhausted Nous credits | User tops up the wrong thing or files a ticket | Nous "out of funds" recognized as a credit hint (billing-adjacent), not a bare 500 (Pitfall 5) |
 
 ---
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Provider identity is a catalog lookup, not string surgery:** `resolveProviderForId('anthropic/claude-sonnet-5') === 'openrouter'` and `resolveProviderForId('claude-sonnet-5') === 'anthropic'` both hold in Vitest (Pitfall 1).
-- [ ] **OpenRouter ids pass through verbatim:** no `~`-strip, no prefix-strip, no `opencodeSlugToModelId` in the OpenRouter path (Pitfall 1).
-- [ ] **No `~` or `:free` id can be saved or served:** the servable rule excludes both classes; grep the picker props and the DB for `~`/`:free` after a full save cycle (Pitfalls 2, 4).
-- [ ] **Cross-provider 429 is hop-aware:** the 4-cell Vitest matrix (An→An, An→OR, OR→OR, OR→An) passes, and v1.3's same-provider never-advance still holds (Pitfall 5).
-- [ ] **402 fails loud with a credit reason and never advances** (Pitfall 3).
-- [ ] **OpenRouter-only chain runs with only `OPENROUTER_API_KEY` set:** no Anthropic gate blocks it; missing OpenRouter key yields `not_configured` at entry, not a per-attempt `LoadAPIKeyError` (Pitfall 6).
-- [ ] **Provider is persisted at save time, never derived at run time:** the settings row carries the provider; the run path builds `LanguageModel`s from the persisted provider (Pitfall 8).
-- [ ] **Save validates per-provider:** an OpenRouter id is checked against the OpenRouter servable rule, an Anthropic id against the allowlist — both end-to-end via the form, not just the action (Pitfall 7).
-- [ ] **Provider switch preserves the draft:** switching the primary's provider leaves fallbacks and unrelated edits intact; each fallback slot has its own provider control (Pitfall 10).
-- [ ] **Audit records concrete models:** `agent_run.model_used` for an OpenRouter run is the verbatim `vendor/model` id; no `~` appears (Pitfall 2).
-- [ ] **`OPENROUTER_API_KEY` never leaves the server:** security-matrix grep over client components, `NEXT_PUBLIC_*`, and the settings action return is clean (Pitfall 11).
-- [ ] **Dropped model fails over, not crashes:** simulate a saved id that left the snapshot → 404 → fallback runs → audit shows the fallback (Pitfall 9).
-- [ ] **Existing v1.3 tests updated deliberately:** the no-`/` invariant and `resolveModelChain`'s anthropic-only allowlist filter are reworked to provider-aware contracts, not deleted (Pitfalls 1, 7).
-- [ ] **Settings page still passes a filtered list, never `catalog.json`:** the client bundle and serialized props contain no full catalog and no `OPENROUTER` key (Pitfall 10, v1.3 Pitfall 7 at provider scale).
+- [ ] **The union is (providerID, id)-aware:** every id servable by two providers (265 nous overlaps, 16 zen/go overlaps, `claude-sonnet-4-6`) resolves to exactly the declared precedence winner, and a test enumerates the collisions (Pitfalls 1, 2).
+- [ ] **`getProviderForModelId('claude-sonnet-4-6') === 'anthropic'` still holds** with opencode servable, and `big-pickle` now resolves to `'opencode'` — both locked in Vitest (Pitfall 2).
+- [ ] **No provider-level opencode baseURL exists:** the factory reads `api.url` per row, and claude-shape rows go through the Anthropic-SDK path, gpt-shape rows through the OpenAI path, chat rows through `openai-compatible` (Pitfall 3).
+- [ ] **Go-only ids reach the Go URL** (probe `hy3`/`qwen3.8-max` end-to-end or assert the row lookup picks the `opencode-go` row) (Pitfall 4).
+- [ ] **Both new keys are passed explicitly** to every new-provider instance; grep finds no derived-env-var dependency (`OPENCODE_ZEN_API_KEY`/`OPENCODE_GO_API_KEY` don't appear anywhere) (Pitfall 5).
+- [ ] **`missingProviderKey` is a 4-provider map** and `env.ts` declares `NOUSRESEARCH_API_KEY` + `OPENCODE_API_KEY` optional server-only (Pitfall 5).
+- [ ] **The 16-cell + null 429 matrix is generated (cartesian), not hand-typed**, and the same-provider diagonal (incl. Zen→Go) is all-`false` (Pitfall 6).
+- [ ] **The refresh script fetches the three rosters anonymously**, chat-filters the Nous roster, excludes `~` ids from the new providers' servable rules, and aborts-without-write on any fetch failure (Pitfall 7).
+- [ ] **No `structuredOutputs: true` on a model whose live flag says `false`** (hermes-4-405b/70b) — the script derives or conservatively defaults the new providers' flags (Pitfall 8).
+- [ ] **`providerName` is a 4-entry map**; `opencode-go` rows group under `'opencode'`; `PROVIDER_DEFAULT_MODELS` has 4 entries each servable for its provider (Pitfall 9).
+- [ ] **A saved chain `[nousresearch/hermes-4-405b, …]` actually runs on the direct Nous API**, and the Langfuse span's provider matches the picker badge (Pitfalls 1, 5).
+- [ ] **Both new keys are absent from client components, `NEXT_PUBLIC_*`, and the settings action return** (security-matrix grep extended) (Pitfall 5).
 
 ---
 
@@ -375,134 +324,53 @@ OpenRouter's entire value proposition is "one key, every model"; the app's serve
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Saved OpenRouter model 404s (removed from OpenRouter) | LOW | Existing failover serves the fallback; user re-picks from the refreshed snapshot; 404-telemetry flags the snapshot refresh (Pitfall 9) |
-| Provider persisted wrong for an old row | LOW | Migration already backfills old rows as Anthropic (bare ids — unambiguous); no rewrite needed if the migration states the assumption (Pitfall 8) |
-| Collision bug shipped (OpenRouter run actually Anthropic) | MEDIUM | Fix `resolveProviderForId` + instantiation seam (pure functions — tested change); audit rows for affected runs are wrong retroactively — accept or re-run |
-| 429 blanket-advance shipped | MEDIUM | Revert to hop-aware rule (Pitfall 5); wasted-run cost already spent — the Phase-22 matrix prevents recurrence |
-| OpenRouter credits exhausted | LOW | Top up / raise the key cap; no code change — the `'billing'` reason makes it self-diagnosable (Pitfall 3) |
-| Free-model daily cap hit | LOW | User switches off the `:free` primary; picker curation (Pitfall 4) prevents recurrence |
-| Key accidentally exposed | HIGH | Rotate the OpenRouter key immediately (dashboard revoke + regenerate); fix the leak vector; security-matrix check in Phase 22 |
+| Product-swap shipped (nous pick ran openrouter) | MEDIUM-HIGH | Fix the union identity + precedence (pure/testable change); audit rows for affected runs are wrong retroactively — re-run or accept; the Phase-23 collision audit prevents recurrence (Pitfall 1) |
+| Default model flipped to opencode | MEDIUM | Deterministic `getProviderForModelId` + canary re-lock; `model_used` for affected runs mislabeled — accept or re-run (Pitfall 2) |
+| Wrong API shape for opencode rows | MEDIUM | Per-row SDK dispatch; a mis-routed id 400s as `input` (never wrongly advances) — no credit damage, just failed runs to re-run (Pitfall 3) |
+| Go-only 404s on Zen | LOW | Per-row baseURL fix; 404→failover already serves (Pitfall 4) |
+| Derived env var / missing key at request time | LOW | Pass `apiKey` explicitly; `not_configured` at gate next run (Pitfall 5) |
+| Nous credits exhausted mid-campaign | LOW | Top up at portal.nousresearch.com; the 401-fail-loud behavior is safe (never advances) — the only loss is the missing credit hint (Pitfall 5) |
+| Regenerated snapshot broke the servable set | MEDIUM | Snapshot is committed — `git checkout` the last good `catalog.json`; fix the script's filter/join; the throw-on-failure contract prevents silent bad writes (Pitfall 7) |
+| Key accidentally exposed | HIGH | Rotate the key immediately (portal.nousresearch.com / opencode.ai auth); fix the leak vector; Phase-26 security-matrix check (Pitfall 5) |
 
 ---
 
 ## Pitfall-to-Phase Mapping
 
-Suggested phase structure for the v1.4 roadmap (continues from Phase 18; exact numbering at `/gsd-new-milestone`):
+Suggested phase structure for the v1.5 roadmap (continues from Phase 22; exact numbering at `/gsd-new-milestone` — the v1.4 phase pattern recurs):
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| 1. Prefix-strip collision swaps providers | Phase 19 — Provider registry (catalog-lookup resolver + instantiation seam) | Vitest collision cases; audit shows the verbatim saved id |
-| 8. Provider derived, not persisted | Phase 19 — schema/migration (provider column(s)) + save-time resolution | Row carries provider; run path never re-derives; old rows = Anthropic by construction |
-| 2. `~latest` aliases corrupt audit/cost | Phase 19 — servable rule excludes `~` ids | No `~` in any saved/served value; `model_used` concrete only |
-| 4. `:free` shared-quota bottleneck | Phase 19 — servable rule excludes `:free` | No `:free` id savable; no shared-quota incidents at UAT |
-| 7. Save-path validation still Anthropic-only | Phase 19 — per-provider servable validation in `saveSettingsAction` | End-to-end save of an OpenRouter primary |
-| 9. Full-catalog staleness, no roster gate | Phase 19 (servable rule + freshness caption) | Dropped model 404s → failover at Phase 22; spot-check vs live catalog |
-| 6. Env gate hardcoded to Anthropic | Phase 19 — `OPENROUTER_API_KEY` env + chain-aware gate | OpenRouter-only chain runs with only the OR key; missing OR key → `not_configured` at entry |
-| 3. OpenRouter error semantics (402/502/503/429-body) | Phase 20 — classifier extension + `'billing'` class + platform-429 helper | Error matrix: 402 never advances w/ credit reason; 502/503 advance; 429 hop-aware |
-| 5. 429 policy — blanket fix reintroduces v1.3 bug | Phase 20 — hop-aware `shouldAdvance(cls, from, to)` | 4-cell Vitest matrix; v1.3 same-provider invariants still pass |
-| 10. Provider-switch resets + 336-row picker + dup names | Phase 21 — per-slot provider state, searchable combobox, provider badges | Live-browser UAT: switch provider preserves draft; search finds a model; badges disambiguate |
-| 11. Key exposure + un-vetted host egress | Phase 19 (env/key discipline) + Phase 21 (vendor curation/badges + egress copy) | Security-matrix grep clean; picker shows vendor per row |
+| 1. Id-keyed union / silent product swap | Phase 23 — Registry: (providerID, id) union + precedence + collision audit | Collision test enumerating the 265 nous + 16 zen/go overlaps; a saved nous pick runs on the direct API (Phase 26 e2e) |
+| 2. Filter-growth flips existing resolutions | Phase 23 — Registry: deterministic `getProviderForModelId` | `claude-sonnet-4-6`→anthropic + `big-pickle`→opencode canaries; `instantiateModel(FAST_MODEL_ID)` uses the anthropic factory (Phase 26) |
+| 3. opencode three API shapes | Phase 23 (deps + shape decision) + Phase 24 — Run path: per-row SDK dispatch | Live-key probes: one claude-shape, gpt-shape, chat-shape row each on Zen and Go (Phase 26) |
+| 4. Zen/Go shared ids + per-row baseURL | Phase 23 — Registry: servable rule + row-scoped lookup; Phase 24 — per-row baseURL | A Go-only id reaches the Go URL; audit distinguishes Zen/Go via the row (Phase 26) |
+| 5. Key scope + env-gate gaps | Phase 23 (env declarations) + Phase 24 (explicit apiKey, 4-provider gate, classifier note) | Security-matrix grep clean for both new keys; opencode-only chain runs with only `OPENCODE_API_KEY`; nous-out-of-funds documented (Phase 26) |
+| 6. shouldAdvance matrix growth | Phase 24 — Run path: generated 16-cell matrix + one advance domain | Cartesian matrix in Vitest; same-provider diagonal (incl. Zen→Go) all-`false` (Phase 26) |
+| 7. Catalog drift / snapshot regeneration | Phase 23 — Script extension + servable rules (chat filter, `~` exclusion, anonymous rosters) | Roster spot-checks vs live `/v1/models`; embedding ids absent from the picker (Phase 26) |
+| 8. structuredOutputs hardcoded true | Phase 23 (flag derivation) + Phase 24 (per-row strict pass) | Strict-mode probes against flagged `false` rows fail-soft (Phase 26) |
+| 9. UI 2-provider assumptions | Phase 25 — Settings UI: 4-entry maps, grouping, defaults, Zen/Go badges | Live-browser UAT across all four provider pickers + provider-switch draft preservation (Phase 26) |
 
-**Phase ordering rationale:** Phase 19 (provider registry + schema + gate) lands first — every other fix composes on the catalog-lookup resolver, the persisted provider, the per-provider servable rule, and the chain-aware key gate; all of it is pure/testable before any UI or loop change (matching the repo's Vitest convention). Phase 20 (cross-provider run path) depends on 19's resolver + persisted provider and carries the classifier/429 hop work. Phase 21 (Settings UI) depends on 19 and can proceed in parallel with 20. Phase 22 is the verification gate: the collision matrix, the 4-cell 429 table, the error matrix, the live-browser provider-switch UAT, the security grep, and the end-to-end "save OpenRouter primary → Analyze → `model_used` matches" acceptance test (v1.3's core acceptance pattern, now per-provider).
+**Phase ordering rationale:** Phase 23 (registry + snapshot) lands first — the (providerID, id) identity, the precedence rules, the collision audit, and the script extension are the foundation every other fix composes on, and they are pure/testable before any SDK or UI work (the repo's Vitest convention). Phase 24 (run path) depends on 23's identity + the opencode shape decision and carries the SDK dispatch, the explicit-key/gate growth, and the generated matrix. Phase 25 (Settings UI) depends on 23 and can proceed in parallel with 24. Phase 26 (verification gate) runs the collision matrix, the 16-cell 429 table, the live-key API-shape probes, the security grep over the two new keys, and the end-to-end "save a Nous primary + an opencode chain → Analyze → `model_used` matches the picker" acceptance test.
 
 ---
 
 ## Sources
 
-- `src/lib/models/catalog.json` (committed snapshot, direct inspection): 1131 rows; 336 `providerID: 'openrouter'` (325 non-`~` `vendor/model` + 11 `~`-prefixed aliases); **collision pairs `anthropic/claude-sonnet-5` (OR) vs `claude-sonnet-5` (Anthropic-direct), and the same for opus-5 / opus-5-fast / fable-5**; 14 `:free` variants, 21 zero-cost rows; all 336 `status: 'active'`; no `expiration_date` field; `cost.input` range $0–$150 (`openai/o1-pro`); vendor spread incl. 17 single-model vendors (sao10k, thedrummer, kwaipilot, aion-labs, …); rows carry `family` + `api.npm: '@openrouter/ai-sdk-provider'` — HIGH
-- `src/lib/models/catalog.ts` (`ANTHROPIC_ALLOWLIST` sonnet-only; `opencodeSlugToModelId` strips `anthropic/` after provider filter — the function whose reuse is Pitfall 1; `getAllowlistedServableIds` anthropic-only) — HIGH
-- `src/lib/agents/modelConfig.ts` (`classifyModelError` statusCode-first, `RetryError` unwrap-first, 429→`rate_limited` never-eligible D-01/D-03; `isFailoverEligible` = 404/5xx/connection only; `resolveModelChain` filters by `ANTHROPIC_ALLOWLIST.includes(id)` — the filter that silently drops every OpenRouter id unless reworked) — HIGH
-- `src/lib/agents/runAgent.ts` (`LOOP_BUDGET_MS = 54_000`; per-attempt clamp to remaining; `modelIdOf` for audit; `anthropic(FAST_MODEL_ID)` default — the default seam that must become provider-aware) — HIGH
-- `src/lib/agents/analyzeCompany.ts` (`if (!env.ANTHROPIC_API_KEY || !env.FIRECRAWL_API_KEY) return not_configured` — the Pitfall-6 gate; `models: modelChain.map((id) => anthropic(id))` — the single-provider instantiation seam) — HIGH
-- `src/app/actions/settings.ts` (`getAllowlistedServableIds`-only validation — the Pitfall-7 gate; immutable gate-first ordering; duplicate backstop; atomic upsert) — HIGH
-- `src/lib/env.ts` (`ANTHROPIC_API_KEY`/`FIRECRAWL_API_KEY` both `z.string().optional()`, server-only pattern to mirror) — HIGH
-- OpenRouter official docs — errors/limits/models references (fetched 2026-08-02): `~author/family-latest` router aliases resolve to the newest concrete model, response reports the concrete model; error envelope `{ error: { code, message, metadata: { error_type, provider_code } } }` with HTTP status = `code`; **402 insufficient credits**; dual-source 429 (platform: X-RateLimit-* headers; upstream: `provider_code`); **502/503 = model down / no provider meets routing requirements** (model-availability signals); 200+SSE `finish_reason: "error"` for mid-stream failures; free-model limits 20 RPM / 50 RPD (<$10 lifetime credits) or 1000 RPD (≥$10), account-wide, "additional keys do not increase capacity"; `GET /api/v1/model/{slug}` resolves aliases, 404 for unknown, models carry `expiration_date` — HIGH
-- `@openrouter/ai-sdk-provider` v0.7.5 via Context7: `createOpenRouter({ apiKey, baseURL, appName, headers, extraBody, api_keys, compatibility })`; default instance `openrouter`; **auto-loads `OPENROUTER_API_KEY` when no apiKey passed**; errors are `APICallError` (docs show `error instanceof APICallError` + message checks for "Model not found"/"does not exist"); `OpenRouterProviderMetadata` includes `provider` + usage.cost — HIGH
-- pydantic/genai-prices PR #403 (OpenRouter mirror convention): OpenRouter API model IDs must be used **verbatim**, "namespaced/tilde-prefixed" ids preserved — corroborates passing `~`/`vendor/model` ids through without transformation — MEDIUM (third-party but direct statement of the mirror convention)
-- v1.3 `.planning/milestones/v1.3-research/PITFALLS.md` (archived this cycle — its 11 resolved pitfalls: slug-vs-SDK drift, non-failover retries, 429 misclassification, SDK retry compounding, audit columns, 60s ceiling, list leakage, opencode runtime dependency, config races, registry wiring, AI-SDK syntax drift — deliberately NOT re-added; each is referenced where the multi-provider change would silently regress it) — HIGH
-- `.planning/PROJECT.md` v1.3 decision records (D-01/D-03 429-never-advance, D-14 durable-truth audit, D-15 degrade-gracefully, D-16 zero-live-call tests, FAL-04 budget clamp, CAT-03 mapping note, SET-06/07 security matrix, milestone open questions on provider persistence + per-chain key gating) — HIGH
+- `src/lib/models/catalog.json` (committed snapshot, direct inspection, 2026-08-02): 1131 rows; **342 ids appear under ≥2 providerIDs**; opencode block indices 0-59, opencode-go 60-76, anthropic 77-93 (claude-sonnet-4-6 at opencode:11 vs anthropic:92), kilo 131-475, openrouter 489-824, vercel 825-1130; `nousresearch/hermes-4-405b` + `hermes-4-70b` openrouter rows carry `structuredOutputs: false`; all opencode/opencode-go rows `structuredOutputs: true` (trimRecord hardcode); opencode-go block = 17 rows; `~`-prefixed rows under kilo/openrouter — HIGH
+- Live `GET https://inference-api.nousresearch.com/v1/models` (2026-08-03): **anonymous HTTP 200**, 292 rows, OpenAI-style `data[]`; ids vendor-prefixed (`qwen/qwen3.8-max`, `deepseek/deepseek-v4-flash-0731`, `anthropic/claude-opus-5-fast`, `~deepseek/deepseek-v4-flash-latest`); 265/292 ids already in the snapshot (openrouter/vercel/kilo rows); roster includes embedding/rerank models (`voyageai/*`, `pplx-embed-*`, `gemini-embedding-*`) and per-row `architecture.modality` — HIGH
+- Live `POST https://inference-api.nousresearch.com/v1/chat/completions` no-key (2026-08-03): HTTP 401, body "Your API key is invalid, blocked or out of funds. Please go visit the portal…" — billing exhaustion surfaces as 401 — HIGH
+- Live `GET https://opencode.ai/zen/v1/models` + `https://opencode.ai/zen/go/v1/models` (2026-08-03): **anonymous HTTP 200**, 60 + 25 rows, `{"object":"list","data":[...]}`; 16 ids in both; 9 Go-only ids (`qwen3.7-max`, `qwen3.8-max`, `qwen3.7-plus`, `hy3`, `hy3-preview`, `mimo-v2*`); Go snapshot block (17) already stale vs live (25) — HIGH
+- Live `POST https://opencode.ai/zen/v1/chat/completions` no-key (2026-08-03): HTTP 401 `AuthError` "Invalid API key." — key required for completions — HIGH
+- opencode.ai/docs/zen + opencode.ai/docs/go (fetched 2026-08-03): per-model endpoint tables — `/v1/chat/completions` (`@ai-sdk/openai-compatible`) for open-source rows, `/v1/messages` (`@ai-sdk/anthropic`) for Claude/MiniMax/Qwen rows, `/v1/responses` (`@ai-sdk/openai`) for GPT-5.x rows; config-id convention `opencode/<id>` / `opencode-go/<id>`; Zen = pay-per-use, Go = $10/mo subscription; 7 free Zen models; Go exposes fewer models than Zen, Zen-only ids on Go return model-not-found — HIGH
+- Docker docs `docs.docker.com/ai/docker-agent/providers/opencode-zen` (fetched 2026-08-03): **"The same API key works for both OpenCode Go and OpenCode Zen"**; `OPENCODE_API_KEY` env-var convention; Anthropic-compatible models use the Anthropic client at `https://opencode.ai/zen` with the same token; base URLs `https://opencode.ai/zen/v1` vs `/zen/go/v1` — MEDIUM (third-party, detailed, corroborates opencode docs)
+- Context7 `/websites/ai-sdk_dev`: `createOpenAICompatible({ name, apiKey, baseURL, queryParams })` — name + baseURL required, baseURL includes `/v1` (e.g. `https://api.provider.com/v1`); structured-output support via provider settings — HIGH
+- `node_modules/@ai-sdk/anthropic/dist/index.d.ts` (installed ^4.0.26): `AnthropicProviderSettings { baseURL?: string; apiKey?: string; … }` — baseURL override verified — HIGH
+- `node_modules/@ai-sdk/provider-utils/dist/index.d.ts`: `loadApiKey({ apiKey, environmentVariableName, apiKeyParameterName, description })` — the name-derived env-var convention the new instances must not rely on — HIGH
+- npm registry (2026-08-03): `@ai-sdk/openai-compatible` `latest` 3.0.20 (peer zod `^3.25.76 || ^4.1.8`, deps `@ai-sdk/provider@4.0.4`/`provider-utils@5.0.18`); `@ai-sdk/openai` `latest` 4.0.27; `@ai-sdk/openai-compatible` NOT currently installed in the repo (only `@ai-sdk/anthropic` + `@openrouter/ai-sdk-provider`) — HIGH
+- Codebase (direct reads, 2026-08-03): `catalog.ts` (`getProviderForModelId` find-first over a 2-provider filter — Pitfall 2's exact seam; `getUnionServableIds` bare-id `Set` — Pitfall 1's seam; `PROVIDER_GATES`/`SERVABLE_PROVIDERS` 2-provider), `catalog.test.ts` (the canaries that flip: `claude-sonnet-4-6`→anthropic, `big-pickle`→null, `SERVABLE_PROVIDERS` equality), `modelConfig.ts` (`shouldAdvance` 4-cell + null fail-closed; `missingProviderKey` 2-provider type predicate), `runAgent.ts` (loop composes `(isFailoverEligible || rate_limited) && shouldAdvance`), `analyzeCompany.ts` (chain-aware gate), `modelFactory.ts` (`instantiateModel` provider-scoped flag find; `PROVIDER_DEFAULT_MODELS` Record), `app/actions/settings.ts` (union-includes save validation), `components/settings/model-picker-logic.ts` (2-branch `providerName`, `groupByProvider` cast, `ServableModel.providerID` typed) — HIGH
+- v1.4 research (archived to `.planning/milestones/v1.4-research/PITFALLS.md`): resolved pitfalls 1-11 + A-G (prefix-strip collision, `~latest` audit, 402 billing, free-tier quota, hop-aware 429, env-gate hardcode, per-provider save validation, persist-vs-derive, full-catalog staleness, provider-switch UX, key exposure, version drift) — referenced, not re-listed — HIGH
 
 ---
-*Pitfalls research for: ArcLumen 360 v1.4 Multi-Provider AI Model Configuration (OpenRouter alongside Anthropic)*
-*Researched: 2026-08-02*
-
----
-
-# v1.4 Addendum — OpenRouter Multi-Provider Pitfalls
-
-**Researched:** 2026-08-02
-**Confidence:** HIGH (live OpenRouter API + packed package d.ts + npm registry; the one Context7 discrepancy cross-checked against npm dist-tags)
-
-## The one decision that prevents most v1.4 pitfalls
-
-**OpenRouter model ids are OpenRouter API ids, stored verbatim in the catalog — never transform them.** The `~` prefix, the `author/model` slug form, and the `:free` suffix are all part of the real API id and must be passed through to `openrouter(id)` unchanged. Transform any of them (strip `~`, prefix a provider, map to an Anthropic id) and the request 404s or silently runs a different model.
-
-### Pitfall A: Treating `~` as an opencode artifact (RESOLVED — it is NOT)
-
-**What goes wrong:** The `~` prefix on 11 catalog rows (`~anthropic/claude-sonnet-latest`) looks like an opencode display convention; a well-meaning normalization strips it and calls `openrouter('anthropic/claude-sonnet-latest')` — which does NOT exist in the OpenRouter catalog (verified: `GET /api/v1/models` has no unprefixed `anthropic/claude-sonnet-latest`; the `~` prefix is required).
-
-**Why it happens:** Training data predates OpenRouter's "latest model resolution" feature; the prefix is unusual and invites normalization.
-
-**Prevention:** Verified live — `~author/family-latest` is OpenRouter's official alias convention (docs: latest-resolution), present in `/api/v1/models` and resolvable via `/api/v1/model/~anthropic/claude-sonnet-latest`. Pass ids verbatim. Never strip the `~`.
-
-**Detection:** Unit test asserting `modelFor('~anthropic/claude-sonnet-latest')` calls `openrouter('~anthropic/claude-sonnet-latest')` unchanged.
-
-### Pitfall B: Slug collisions across snapshot providers (kilo vs openrouter)
-
-**What goes wrong:** 8 `~` slugs appear TWICE in `catalog.json` — once under `providerID: 'openrouter'` (OpenRouter npm/url) and once under `providerID: 'kilo'` (a kilo-gateway URL, `@ai-sdk/openai-compatible`). Selecting a model by slug alone can pick the kilo row, which the app cannot call (no kilo key, different provider package).
-
-**Prevention:** The servable set and `modelFor()` must match on `providerID === 'openrouter'` (and `status === 'active'`), never on id alone. The existing `getAllowlistedServableIds` pattern (filter by providerID first) is the correct shape — extend it with an openrouter branch.
-
-### Pitfall C: Free-model rate limits fail loud instead of falling back
-
-**What goes wrong:** A `:free` model (`google/gemma-4-31b-it:free`) as primary hits OpenRouter's free-tier cap (20 rpm, **50 req/day** without ≥$10 credits; failed attempts count toward quota). The 429 classifies as `rate_limited` — and per D-01, **429 never advances the chain**. The run fails loud even though a paid fallback was configured.
-
-**Why it happens:** The D-01 rule (429 = account-level, don't burn fallbacks) is correct for paid models sharing one key, but free-tier 429s are *model-level* quota, not account-level — the fallback could serve. The rule can't distinguish them from the status code alone.
-
-**Prevention options (decide at planning):** (a) exclude `:free` variants from the servable set (21 rows in snapshot — simplest, honest); (b) keep them but label "free-tier 50 req/day" in the picker; (c) special-case `:free` 429s as failover-eligible (requires distinguishing model-level from account-level 429 — not reliable from the status code; not recommended).
-
-### Pitfall D: Strict structured outputs fail on open-source models
-
-**What goes wrong:** The agent's `Output.object({ schema })` contract uses the provider's structured-output path. The OpenRouter provider defaults to `structuredOutputs: { strict: true }`; non-OpenAI-compatible/open-source models may not honor strict JSON-schema mode → `InvalidResponseDataError`/`NoObjectGeneratedError` → classified `output` → **fail-loud, no fallback** (D-01 output never advances).
-
-**Prevention:** During servable-set curation, identify OpenRouter models needing `openrouter(id, { structuredOutputs: { strict: false } })` and instantiate them per-model. Do NOT set strict:false globally (weakens Anthropic/OpenAI-compatible paths that support strict). Response-healing plugin is non-streaming only — not a substitute.
-
-### Pitfall E: `~latest` alias drift
-
-**What goes wrong:** `~anthropic/claude-sonnet-latest` retargets to newer models over time (OpenRouter's documented behavior). A chain pinned to the alias silently runs a different model after a vendor release — cost/capability/behavior drift invisible to the user, and the catalog snapshot's cost fields go stale.
-
-**Prevention:** Accept the alias behavior (it's the point of the alias) but note it in the picker ("always the latest"); the snapshot regeneration + roster-verify doctrine (D-02) stays the maintenance loop. For reproducibility-critical runs, prefer concrete slugs (`anthropic/claude-sonnet-4.6`). No code change — a UX/documentation decision.
-
-### Pitfall F: Env-gate hole in cross-provider chains
-
-**What goes wrong:** `analyzeCompany` checks only `env.ANTHROPIC_API_KEY && env.FIRECRAWL_API_KEY`. A user chain `[anthropic primary, openrouter fallback]` with no `OPENROUTER_API_KEY` set passes the gate, runs the primary, then the fallback 401s (`auth` class — never advances) → fail-loud mid-run instead of a clean `not_configured` before the run starts.
-
-**Prevention:** Gate per chain — after `resolveModelChain`, map each id's `providerID` and require the matching env key for every provider present in the chain (Anthropic → `ANTHROPIC_API_KEY`, OpenRouter → `OPENROUTER_API_KEY`). Unset → `not_configured` before any `generateText` call. This is a ~5-line pure function (testable).
-
-### Pitfall G: Version drift — installing the wrong provider line
-
-**What goes wrong:** Context7 indexes `@openrouter/ai-sdk-provider` at `v0.7.5` (the `ai-sdk-v4` dist-tag — AI SDK v4 era). Installing `0.7.5` against `ai@7.0.45` breaks peer compatibility; installing `6.0.0-alpha.1` ships a prerelease.
-
-**Prevention:** Pin `^3.0.0` (npm `latest`, peer `ai ^7.0.0` + `zod ^3.25.76 || ^4.1.8`, engines `node >=22` — all verified against installed versions). Verify dist-tags via `npm view @openrouter/ai-sdk-provider dist-tags` at install time.
-
-## Phase-Specific Warnings (v1.4)
-
-| Phase Topic | Likely Pitfall | Mitigation |
-|-------------|---------------|------------|
-| Provider factory | B (slug collisions), A (`~` stripping) | Match on providerID; pass ids verbatim; unit-test both |
-| Env gate | F (cross-provider gate hole) | Per-chain key check before any generateText |
-| Servable set curation | C (free-tier), D (strict outputs) | Decide `:free` policy; per-model strict:false pass |
-| Settings UI | E (alias drift labeling) | Label `~latest` and `:free` in the picker copy |
-| Install | G (wrong version line) | Pin ^3.0.0; verify peer deps against installed ai/zod |
-
-## Sources (v1.4 addendum)
-
-- Live OpenRouter API 2026-08-02: `GET /api/v1/models` (11 `~` ids, 17 free models, unprefixed `anthropic/claude-sonnet-latest` absent), `GET /api/v1/model/~anthropic/claude-sonnet-latest` (resolves) — HIGH
-- OpenRouter docs: latest-resolution (alias retargeting), limits (free tier 20rpm/50rpd, ≥$10 credits → 1000rpd, failed attempts count) — HIGH
-- Packed `@openrouter/ai-sdk-provider@3.0.0` dist/index.d.ts (structuredOutputs.strict, compatibility modes, deprecated class) — HIGH
-- npm registry dist-tags (`latest: 3.0.0`, `ai-sdk-v4: 0.7.5`, `alpha: 6.0.0-alpha.1`) — HIGH
-- Codebase: `catalog.json` (8 `~` slugs under kilo + openrouter), `catalog.ts`, `env.ts`, `analyzeCompany.ts`, `schema.ts` — HIGH
-
----
-*Pitfalls research for: ArcLumen 360 v1.4 Multi-Provider AI Configuration (addendum)*
-*Researched: 2026-08-02*
+*Pitfalls research for: ArcLumen 360 v1.5 Additional AI Providers (NousResearch direct + OpenCode Zen/Go)*
+*Researched: 2026-08-03*
