@@ -123,7 +123,17 @@ export function ModelSettingsForm({
     });
   }
 
+  // WR-01 — after a failed save the red errorMsg must not persist while the
+  // user edits, and 'Saved.' must not survive a dirty draft; the 'saving'
+  // status is exempt so a just-started save is never relabeled by a concurrent
+  // edit (review WR-01's exact fix).
+  function markDirty() {
+    setStatus((s) => (s === 'saving' ? s : 'idle'));
+    setErrorMsg(null);
+  }
+
   function moveFallback(index: number, dir: -1 | 1) {
+    markDirty();
     setFallbacks((prev) => {
       const target = index + dir;
       if (target < 0 || target >= prev.length) return prev;
@@ -134,15 +144,20 @@ export function ModelSettingsForm({
   }
 
   function removeFallback(index: number) {
+    markDirty();
     setFallbacks((prev) => prev.filter((_, j) => j !== index));
   }
 
   function addFallback() {
+    markDirty();
     setFallbacks((prev) => (prev.length >= 2 ? prev : [...prev, '']));
   }
 
   // D-21-01/03: provider switch = keep-if-valid → reset-to-provider-default.
   function handleProviderChange(next: ModelProviderId) {
+    // A provider switch stages a new primary (draft edit) — clear stale save
+    // feedback even when keep-if-valid preserves the value (WR-01).
+    markDirty();
     // Fallbacks are NEVER touched on a provider switch (D-21-02): the chain
     // may become cross-provider by design — the union pickers still render
     // them verbatim.
@@ -233,6 +248,7 @@ export function ModelSettingsForm({
             valueName={unionServableModels.find((m) => m.id === primary)?.name}
             options={optionsForSlot(primary, fallbacks, -1, servableByProvider[provider])}
             onChange={(v) => {
+              markDirty();
               setPrimary(v);
               // Hint lifecycle (Open Question 2 — RESOLVED): a manual primary
               // edit supersedes the provider-switch reset — clear the hint.
@@ -280,6 +296,7 @@ export function ModelSettingsForm({
                   value={fb}
                   options={optionsForSlot(primary, fallbacks, i, unionServableModels)}
                   onChange={(v) => {
+                    markDirty();
                     setFallbacks((prev) => {
                       const next = [...prev];
                       next[i] = v;
