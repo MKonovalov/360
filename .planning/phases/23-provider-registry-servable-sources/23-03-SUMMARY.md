@@ -65,7 +65,7 @@ Each task was committed atomically:
 1. **Task 1: settings.ts — verify-only (no code change)** — *no commit* (zero edits; evidence recorded in SUMMARY)
 2. **Task 2: settings.test.ts — REG-07 cross-provider save case** — `b49d9f64` (test)
 
-**Plan metadata:** `9cfa935d` (docs: complete plan)
+**Plan metadata:** `ff40ff6c` (docs: complete plan)
 
 ## Files Created/Modified
 
@@ -101,6 +101,13 @@ None - no external service configuration required.
 
 - REG-07 (save-side union validation) is now proven across all 4 providers with an explicit cross-provider test case; Phase 23's plan 4 of 4 remains. The save seam is ready for Phase 24's data landing (nousresearch rows) and Phase 25's run-path consumers without further validation changes.
 - No blockers. The pre-existing `openrouter-only-chain` live-key e2e failure (documented in RESEARCH.md) is unrelated and out of scope.
+
+## Self-Check: PASSED
+
+- `src/app/actions/settings.test.ts` exists and contains the REG-07 4-provider case (9/9 vitest green)
+- Commits verified on branch: task commit `b49d9f64` + docs metadata commit (see `git log --oneline -5` — the two docs commits are amend-stable, their hashes are not referenced here)
+- `src/app/actions/settings.ts` byte-identical (git diff empty) — verify-only honored
+- STATE.md updated (plan 4 of 4, completed_plans 3, percent 75, 3 new decisions, session recorded); ROADMAP.md 3/4 summaries "In Progress"; REQUIREMENTS.md REG-07 Complete
 
 ---
 *Phase: 23-provider-registry-servable-sources*
