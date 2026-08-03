@@ -23,8 +23,20 @@ export type ServableModel = {
 
 // D-21-09: single source of the display-name map used by badges, section
 // headers, and the provider-switch reset hint — the form needs it in 3+ places.
-export function providerName(provider: ModelProviderId): 'Anthropic' | 'OpenRouter' {
-  return provider === 'anthropic' ? 'Anthropic' : 'OpenRouter';
+// REG-01 (23-04): the 4-entry registry map — record completeness is TS-enforced
+// at 4 entries, so every future provider is a one-line addition. The map is a
+// 4-string constant carrying NO snapshot weight (type-only catalog import), so
+// it stays client-bundle-safe (T-17-09). The settings page's server-computed
+// selector options consume the SAME map (research Pattern 4) — one source.
+export const PROVIDER_NAMES: Record<ModelProviderId, string> = {
+  anthropic: 'Anthropic',
+  openrouter: 'OpenRouter',
+  nousresearch: 'NousResearch',
+  opencode: 'OpenCode',
+};
+
+export function providerName(provider: ModelProviderId): string {
+  return PROVIDER_NAMES[provider];
 }
 
 // D-21-07: search index = id + display name + family, lowercased. filter(Boolean)
