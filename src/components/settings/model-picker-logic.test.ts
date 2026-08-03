@@ -3,11 +3,13 @@ import {
   groupByProvider,
   isHighCost,
   optionsForSlot,
+  pinnedSelection,
   primaryAfterProviderSwitch,
   providerName,
   searchValue,
   staleIds,
   suffixLabel,
+  triggerLabel,
 } from './model-picker-logic';
 import type { ServableModel } from './model-picker-logic';
 
@@ -246,5 +248,80 @@ describe('providerName (D-21-09)', () => {
     // Given / When / Then
     expect(providerName('anthropic')).toBe('Anthropic');
     expect(providerName('openrouter')).toBe('OpenRouter');
+  });
+});
+
+describe('triggerLabel (CR-01 name-resolution seam, IN-03)', () => {
+  it('prefers valueName when the value is excluded from its own options (the exact CR-01 primary case)', () => {
+    // Given the primary slot: optionsForSlot(-1) excludes the primary id
+    // (dup-chain prevention), so the options lookup can never resolve it
+    // When the form supplies the resolved display name via valueName
+    const label = triggerLabel('claude-sonnet-4-6', fixture.slice(1), 'Claude Sonnet 4.6');
+    // Then the valueName wins — the closed trigger shows the display name
+    expect(label).toBe('Claude Sonnet 4.6');
+  });
+
+  it('resolves a known row via the options lookup when no valueName is supplied (fallback-slot behavior)', () => {
+    // Given a fallback slot whose own id is retained in its options
+    // When / Then
+    expect(triggerLabel('anthropic/claude-sonnet-4.6', fixture)).toBe('Claude Sonnet 4.6');
+  });
+
+  it('returns the raw value for an unknown/stale id (UI-SPEC raw-id fallback)', () => {
+    // Given an id that is neither in options nor resolved by the caller
+    // When / Then
+    expect(triggerLabel('dropped-id', fixture)).toBe('dropped-id');
+  });
+
+  it('returns null for the empty sentinel so the caller renders its placeholder', () => {
+    // Given the in-progress fallback-row sentinel ('' = in-progress row)
+    // When / Then
+    expect(triggerLabel('', fixture)).toBeNull();
+  });
+
+  it('degrades an excluded id to the raw value WITHOUT valueName — pins why the form must pass it (the pre-fix seam)', () => {
+    // Given the primary id excluded from its own options but no valueName —
+    // the exact pre-fix CR-01 behavior that 21-07's valueName wiring resolves
+    // When / Then
+    expect(triggerLabel('claude-sonnet-4-6', fixture.slice(1))).toBe('claude-sonnet-4-6');
+  });
+});
+
+describe('pinnedSelection (WR-02 current-selection row)', () => {
+  it('pins an excluded value with onlyModel=false (OpenRouter primary: pinned row + selectable rows)', () => {
+    // Given a known value excluded from its own options and a resolvable name
+    // When / Then
+    expect(pinnedSelection('claude-sonnet-4-6', fixture.slice(1), 'Claude Sonnet 4.6')).toEqual({
+      name: 'Claude Sonnet 4.6',
+      onlyModel: false,
+    });
+  });
+
+  it('pins with onlyModel=true when options is empty (anthropic single-model, WR-02)', () => {
+    // Given the anthropic servable set is exactly 1 model = the primary
+    // itself, so optionsForSlot(-1) yields an empty list
+    // When / Then
+    expect(pinnedSelection('claude-sonnet-4-6', [], 'Claude Sonnet 4.6')).toEqual({
+      name: 'Claude Sonnet 4.6',
+      onlyModel: true,
+    });
+  });
+
+  it('returns null when the value is selectable in the list (normal checked row, fallback slots)', () => {
+    // Given a fallback slot whose own id is retained in its options
+    // When / Then
+    expect(pinnedSelection('openai/o1-pro', fixture, 'OpenAI o1 Pro')).toBeNull();
+  });
+
+  it('returns null for an empty value', () => {
+    // Given the in-progress fallback-row sentinel
+    // When / Then
+    expect(pinnedSelection('', [], 'Claude Sonnet 4.6')).toBeNull();
+  });
+
+  it('returns null without a valueName (stale value → the existing staleLabel path)', () => {
+    // Given a stale id the caller could not resolve to a display name
+    // When / Then
+    expect(pinnedSelection('dropped-id', fixture)).toBeNull();
   });
 });

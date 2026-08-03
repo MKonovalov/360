@@ -98,3 +98,48 @@ export function optionsForSlot(
     (m) => m.id !== primary && !fallbacks.some((f, j) => j !== slotIndex && f === m.id),
   );
 }
+
+// CR-01/IN-03 name-resolution seam: the closed-trigger display name must NOT
+// come from the deduped options list. The primary slot's own id is excluded
+// from its options by design (optionsForSlot slotIndex = -1, dup-chain
+// prevention), so an options lookup can never resolve it — the caller (form)
+// supplies the resolved display name via valueName instead. This is the seam
+// the phase review found missing (review CR-01 / IN-03).
+export function triggerLabel(
+  value: string,
+  options: ServableModel[],
+  valueName?: string | null,
+): string | null {
+  // '' is the in-progress fallback-row sentinel — the caller renders its
+  // placeholder (the truthy-value trigger form).
+  if (value === '') return null;
+  // valueName wins: the server/form-resolved display name for a value the
+  // deduped options cannot resolve (the CR-01 primary case).
+  if (valueName) return valueName;
+  // Known row in the selectable options (fallback slots keep their own id).
+  const found = options.find((m) => m.id === value);
+  if (found) return found.name;
+  // Unknown/stale id — UI-SPEC §Row Anatomy raw-id fallback keeps it visible.
+  return value;
+}
+
+// WR-02/check-state pin decision: when a known value is excluded from its own
+// options (the primary slot's deduped list), the picker must still show the
+// current selection — pinned, non-selectable, and checked (GAP-2's checkmark;
+// the name-resolvable source review CR-01 names for check state). onlyModel
+// flags the single-model case (anthropic: 1 servable model = the primary
+// itself → options is empty → the "only available {provider} model"
+// explanation is due). Stale/unknown values are handled by the existing
+// staleLabel path, never this pin.
+export function pinnedSelection(
+  value: string,
+  options: ServableModel[],
+  valueName?: string | null,
+): { name: string; onlyModel: boolean } | null {
+  // Empty sentinel, or no resolvable name — not a pin case.
+  if (!value || !valueName) return null;
+  // The value IS selectable in the list — the normal row renders with
+  // data-checked; no pin needed.
+  if (options.some((m) => m.id === value)) return null;
+  return { name: valueName, onlyModel: options.length === 0 };
+}
