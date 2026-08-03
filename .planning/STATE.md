@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Additional AI Providers
 status: executing
-last_updated: "2026-08-03T22:43:26.250Z"
+last_updated: "2026-08-03T22:48:42.093Z"
 last_activity: 2026-08-03
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 4
-  completed_plans: 1
-  percent: 25
+  completed_plans: 2
+  percent: 50
 ---
 
 # Project State
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 ## Current Position
 
 Phase: 23 (provider-registry-servable-sources) — EXECUTING
-Plan: 2 of 4 (plan 1 complete)
-Status: Executing Phase 23 — 4-provider registry keystone delivered (23-01)
-Last activity: 2026-08-03 -- 23-01-SUMMARY.md written
+Plan: 3 of 4 (plan 1 complete)
+Status: Ready to execute
+Last activity: 2026-08-03
 
 ## Performance Metrics
 
@@ -73,6 +73,7 @@ Last activity: 2026-08-03 -- 23-01-SUMMARY.md written
 | Phase 22-verification-gate P05 | 75 | 3 tasks | 1 files |
 | Phase 22-verification-gate P07 | 3min | 2 tasks | 2 files |
 | Phase 23 P01 | 5min | 3 tasks | 5 files |
+| Phase 23 P02 | 3min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -160,6 +161,8 @@ VER-02/VER-05 requirement status: harness + test account (the operator prerequis
 - [Phase 23]: 23-01: Zen-wins dedup as one data-driven dedupeProviderRows (returns ROWS, first-providerID-wins via SNAPSHOT_PROVIDER_IDS.opencode = ['opencode','opencode-go'] — D-23-08/09/10); getServableIdsForProvider = dedup-then-gate pipeline
 - [Phase 23]: 23-01: getProviderForModelId = servable-membership precedence iteration (fail-closed null); claude-sonnet-5 anthropic->opencode + big-pickle null->opencode are DELIBERATE reworks (never deletes, why-comments); opencode servable set locked at post-dedup 39 (23+16, 0 GPT/Gemini), not pre-dedup 49
 - [Phase 23]: 23-01: PROVIDER_DEFAULT_MODELS = 4-entry Record<ModelProviderId,string> — nousresearch/hermes-4-70b (D-23-06), opencode claude-sonnet-4-6 (D-23-03, same id as anthropic default = keep-if-valid re-badge); instantiateModel dispatch stays 2-provider (Phase 25, research A4)
+- [Phase 23]: 23-02: NOUSRESEARCH_API_KEY + OPENCODE_API_KEY declared optional server-only in env.ts (z.string().optional(), D-15), byte-for-byte mirror of OPENROUTER_API_KEY; declared in .env.example with no value; import-time parse proven with keys absent AND present (T-23-07) — REG-02 declaration half — declaration-only phase boundary (23-CONTEXT line 11); Phase 25 chain-aware gate + Vercel env add deferred (research Open Question 2)
+- [Phase 23]: 23-02: The plan's Task-1 acceptance check `'KEY' in env` is unsatisfiable with any correct .optional() implementation — zod v4 omits absent optional keys from the parsed output object; verified the intended truths instead (parse-no-crash + undefined read path absent, value round-trip present) — Verification-command artifact, not an implementation defect — the code is byte-for-byte the mandated OPENROUTER mirror; future plans should assert parsed.KEY === undefined rather than 'KEY' in parsed for optional keys
 
 ### Pending Todos
 
@@ -191,8 +194,8 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-03T22:42:00.767Z
-Stopped at: Phase 23 context gathered
+Last session: 2026-08-03T22:48:42.085Z
+Stopped at: Completed 23-02-PLAN.md
 Resume file: None
 
 ## Operator Next Steps

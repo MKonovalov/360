@@ -133,7 +133,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 20. Cross-Provider Run Path | v1.4 | 4/4 | Complete    | 2026-08-02 |
 | 21. Settings UI | v1.4 | 7/7 | Complete    | 2026-08-03 |
 | 22. Verification Gate | v1.4 | 7/7 | Complete    | 2026-08-03 |
-| 23. Provider Registry + Servable Sources | v1.5 | 1/4 | In Progress|  |
+| 23. Provider Registry + Servable Sources | v1.5 | 2/4 | In Progress|  |
 | 24. Refresh Script + Catalog Data | v1.5 | 0/0 | Not started | - |
 | 25. Run Path / modelFactory Seam | v1.5 | 0/0 | Not started | - |
 | 26. Settings UI | v1.5 | 0/0 | Not started | - |
@@ -164,7 +164,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 **Wave 1**
 
 - [x] 23-01-PLAN.md — Registry core: 4-provider union, ProviderGate/npm gate, Zen-wins dedup, servable-membership precedence resolver, count-stability/no-flip/hermes canaries, 4-entry PROVIDER_DEFAULT_MODELS
-- [ ] 23-02-PLAN.md — Env declarations: NOUSRESEARCH_API_KEY + OPENCODE_API_KEY optional server-only (env.ts + .env.example, declaration-only)
+- [x] 23-02-PLAN.md — Env declarations: NOUSRESEARCH_API_KEY + OPENCODE_API_KEY optional server-only (env.ts + .env.example, declaration-only)
 - [ ] 23-03-PLAN.md — Save validation: REG-07 cross-provider chain case over the widened union (settings.ts verify-only)
 
 **Wave 2** *(blocked on Wave 1 completion)*
