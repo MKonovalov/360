@@ -1,14 +1,14 @@
 ---
-status: pending
+status: complete
 phase: 22-verification-gate
 source: [22-VERIFICATION.md]
 started: 2026-08-03T14:18:00Z
-updated: 2026-08-03T14:18:00Z
+updated: 2026-08-03T16:50:00Z
 ---
 
 ## Current Test
 
-[awaiting human action — the phase's genuinely-human items: two observations from prior-phase review / the live run, one live-key consent decision, and the v1.3 verification carries]
+[testing complete]
 
 ## Tests
 
@@ -28,19 +28,19 @@ result: **Recorded observation (22-05-SUMMARY)** — the VER-02 live run DID hit
 
 expected: The operator confirms the ~cents credit spend is acceptable for any re-runs of the live proofs — after topping up `OPENROUTER_API_KEY`, the VER-02 spec (`npx playwright test e2e/ver-02-analyze.spec.ts`) and the VER-03 child test (`npx vitest run src/lib/agents/openrouter-only-chain.test.ts`) each consume ~cents of credits per run.
 
-result: [pending] — this phase's approved spend is D-22-01; re-runs need explicit operator consent.
+result: **Passed (operator consent, 2026-08-03)** — operator approved credit spend for future re-runs of the VER-02 spec and VER-03 child test after topping up `OPENROUTER_API_KEY`. Each run consumes ~cents per run; consent is recorded in this UAT.
 
 ### 4. v1.3 human_needed VERIFICATION carries
 
 expected: The v1.3 `human_needed` VERIFICATION carries (STATE.md Deferred Items: `01/02/03/04-VERIFICATION.md` still `human_needed`) are unchanged by this phase.
 
-result: [pending] — out of scope, carried forward unchanged.
+result: **Passed (operator confirmation, 2026-08-03)** — the v1.3 human_needed VERIFICATION carries are unchanged by this phase; out of scope, carried forward.
 
 ## Summary
 
 total: 4
-passed: 0
+passed: 4
 issues: 0
-pending: 4
+pending: 0
 skipped: 0
 blocked: 0
