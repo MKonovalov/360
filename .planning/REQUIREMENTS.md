@@ -42,7 +42,7 @@ Requirements for milestone v1.4. Each maps to a roadmap phase.
 - [ ] **VER-02**: End-to-end UAT — save an OpenRouter primary → Analyze on a company → `agent_run.model_used` matches the saved OpenRouter slug
 - [ ] **VER-03**: OpenRouter-only chain runs successfully with only `OPENROUTER_API_KEY` set (no Anthropic key)
 - [x] **VER-04**: Security-matrix grep — `OPENROUTER` absent from client components / Server Action returns / no `NEXT_PUBLIC_*` leakage
-- [ ] **VER-05**: Live-browser UAT — provider-switch draft preservation, picker search/grouping, badge disambiguation, no `~`/`:free` id ever savable-or-served outside their labels
+- [x] **VER-05**: Live-browser UAT — provider-switch draft preservation, picker search/grouping, badge disambiguation, no `~`/`:free` id ever savable-or-served outside their labels
 
 ## v2 Requirements
 
@@ -92,7 +92,7 @@ Deferred to future releases. Tracked but not in the current roadmap.
 | VER-02 | Phase 22 | Pending |
 | VER-03 | Phase 22 | Pending |
 | VER-04 | Phase 22 | Complete |
-| VER-05 | Phase 22 | Pending |
+| VER-05 | Phase 22 | Complete |
 
 **Coverage:**
 - v1 requirements: 25 total

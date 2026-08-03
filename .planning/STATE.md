@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Multi-Provider AI Model Configuration
 status: executing
-last_updated: "2026-08-03T12:06:04.415Z"
+last_updated: "2026-08-03T12:54:17.258Z"
 last_activity: 2026-08-03
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 23
-  completed_plans: 20
+  completed_plans: 21
   percent: 75
 ---
 
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 ## Current Position
 
 Phase: 22 (verification-gate) — EXECUTING
-Plan: 5 of 7
+Plan: 6 of 7
 Status: Ready to execute
 Last activity: 2026-08-03
 
-Progress: [█████████░] 87%
+Progress: [█████████░] 91%
 
 ## Performance Metrics
 
@@ -71,6 +71,7 @@ Progress: [█████████░] 87%
 | Phase 22-verification-gate P22-02 | 4min | 1 task | 1 file |
 | Phase 22-verification-gate P3 | 12min | 3 tasks | 6 files |
 | Phase 22-verification-gate P04 | 45min | 2 tasks | 3 files |
+| Phase 22-verification-gate P06 | 25min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -142,6 +143,10 @@ D-22-05 account mechanics: dedicated test staff account e2e-staff@arclumenpartne
 Post-login navigation target (22-03 Rule 3 fix): RESEARCH Pattern 1's waitForURL('**/companies/**') is wrong for this app — the post-login dashboard is '/' (the (dashboard) route group behind requireStaffAccess), not a recall.ai-style /companies/**; clerk.signIn sets the __session cookie but does not auto-redirect, so the setup navigates to '/' explicitly and asserts the ArcLumen 360 dashboard renders — same real-auth proof intent, correct target.
 VER-02/VER-05 requirement status: harness + test account (the operator prerequisite) are resolved by 22-03, but VER-02/VER-05 remain Pending in REQUIREMENTS.md — their evidence (live-key analyze e2e, browser UAT) lands in plans 22-05/22-06.
 
+- [Phase 22]: Live collision pair for badge disambiguation is claude-sonnet-4-6 (anthropic) vs anthropic/claude-sonnet-4.6 (openrouter) — the plan's claude-sonnet-5 pair does not materialize (claude-sonnet-5 is opencode-only, not servable)
+- [Phase 22]: Persisted-DB UI specs must tear down saved fallback rows per test (clearFallbacks) — the saved chain survives across runs and addFallback caps at 2 rows
+- [Phase 22]: Badge locators scope to [data-slot=badge] DOM contract, not generic span+text filters that over-match row subtitles
+
 ### Pending Todos
 
 None yet.
@@ -171,9 +176,9 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-03T11:02:57.259Z
+Last session: 2026-08-03T12:53:25.184Z
 Stopped at: Phase 22 plan 4 pending (22-03 Playwright e2e harness committed)
-Resume file: Completed 22-03-PLAN.md (Playwright e2e harness + real Clerk login, D-22-04/05)
+Resume file: None
 
 ## Operator Next Steps
 
