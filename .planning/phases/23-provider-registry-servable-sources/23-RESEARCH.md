@@ -369,7 +369,7 @@ OPENCODE_API_KEY: z.string().optional(),          // new — ONE key shared Zen+
 | A4 | Phase 23 leaves `instantiateModel` dispatch 2-provider (opencode/nousresearch ids throw "unsupported provider" until Phase 25). | Summary / Anti-Patterns | If a consumer calls `instantiateModel` on a new-provider id mid-Phase-23, it throws — acceptable (not reachable via UI/save yet); do NOT add dispatch branches here |
 | A5 | `settings/page.tsx:93` is in scope for Phase 23 (the v1.4 form already renders the selector; growing SERVABLE_PROVIDERS surfaces 4 entries immediately). | Pitfall 4 | If deferred to Phase 26, the app briefly ships NousResearch/OpenCode labeled "OpenRouter" |
 
-## Open Questions
+## Open Questions (RESOLVED — decisions implemented in the Phase 23 plans; recorded 2026-08-04 at planning)
 
 1. **Precedence-array vs exclusion for "nousresearch-over-openrouter" (A1).**
    - What we know: both make `getProviderForModelId(hermes) === 'nousresearch'`. Array keeps hermes servable under BOTH providers (union shows two entries — matches SET-05's "disambiguate via badges" letter); exclusion removes the openrouter mirror from the servable set (union shows one entry — matches PITFALLS Pitfall-1's "label the winner so the single entry is honest").
