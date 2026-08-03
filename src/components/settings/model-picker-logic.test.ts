@@ -12,6 +12,7 @@ import {
   triggerLabel,
 } from './model-picker-logic';
 import type { ServableModel } from './model-picker-logic';
+import type { ModelProviderId } from '@/lib/models/catalog';
 
 // The fixture is inline and deliberately decoupled from the committed
 // catalog.json — these tests pin the picker semantics, not a snapshot that
@@ -62,14 +63,20 @@ const fixture: ServableModel[] = [
   },
 ];
 
-const servableByProvider: Record<'anthropic' | 'openrouter', ServableModel[]> = {
+// Record<ModelProviderId, ...> — the 4-provider union (Phase 23) forces all
+// four keys; the picker functions index this record by any provider id.
+const servableByProvider: Record<ModelProviderId, ServableModel[]> = {
   anthropic: [fixture[0]],
   openrouter: [fixture[1], fixture[2], fixture[3], fixture[4]],
+  nousresearch: [],
+  opencode: [],
 };
 
-const defaults: Record<'anthropic' | 'openrouter', { id: string; name: string }> = {
+const defaults: Record<ModelProviderId, { id: string; name: string }> = {
   anthropic: { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6' },
   openrouter: { id: 'anthropic/claude-sonnet-4.6', name: 'Claude Sonnet 4.6' },
+  nousresearch: { id: 'nousresearch/hermes-4-70b', name: 'Hermes 4 70B' },
+  opencode: { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6' },
 };
 
 describe('searchValue (SET-06)', () => {
