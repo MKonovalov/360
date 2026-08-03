@@ -18,7 +18,9 @@ findings:
   warning: 2
   info: 3
   total: 6
-status: issues_found
+status: resolved
+resolved_at: 2026-08-03T02:58:00Z
+resolution_note: "All findings addressed by gap-closure plans 21-06/21-07: CR-01 (trigger-name resolution via valueName prop + triggerLabel/pinnedSelection seams) and WR-01 (markDirty status/errorMsg reset) implemented and confirmed by re-verification (22/22 must-haves passed, 2026-08-03)."
 ---
 
 # Phase 21: Code Review Report
@@ -26,7 +28,7 @@ status: issues_found
 **Reviewed:** 2026-08-02T23:48:06Z
 **Depth:** standard
 **Files Reviewed:** 9
-**Status:** issues_found
+**Status:** resolved (all findings fixed via 21-06/21-07 gap closure)
 
 ## Summary
 
