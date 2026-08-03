@@ -46,13 +46,42 @@ test('VER-02: OpenRouter primary → Analyze → model_used matches', async ({ p
   // 1. Save an OpenRouter primary through the REAL Settings UI (Open Question 3
   //    recommendation — the user-facing save path, doubles as the badge pass).
   await page.goto('/settings');
+
+  // Deterministic baseline: tear down any fallback rows a PRIOR run's save left
+  // behind (VER-05 clearFallbacks convention — the saved chain persists in
+  // Postgres across runs; this spec's target chain is primary-only, D-07).
+  const removeFallback = page.getByLabel('Remove fallback');
+  while ((await removeFallback.count()) > 0) {
+    await removeFallback.first().click();
+  }
+
+  // Force the provider Select to OpenRouter (provider-scoped primary list).
   await page.getByLabel('AI provider').click();
   await page.getByRole('option', { name: 'OpenRouter', exact: true }).click();
-  await page.getByLabel('Primary model').click();
-  // Search the provider-scoped (OpenRouter) option list for the pinned concrete
-  // default slug (D-07); the id matches on the composite search index.
-  await page.getByPlaceholder('Search models…').fill('claude-sonnet-4.6');
-  await page.getByRole('option', { name: /Claude Sonnet 4\.6/ }).first().click();
+  await expect(page.getByLabel('AI provider')).toContainText('OpenRouter');
+
+  // The draft may ALREADY hold the target primary (the 22-04 probe upserted
+  // OR-only settings for this same test user). The picker then renders the
+  // current value as a DISABLED pinned row (model-picker.tsx WR-02 pin,
+  // data-checked + aria-disabled) — clicking it would time out. Only open the
+  // picker when the trigger does not already show the target (OpenRouter badge
+  // + display name); the draft then already equals the target chain.
+  const primaryTrigger = page.getByLabel('Primary model');
+  const triggerText = (await primaryTrigger.textContent()) ?? '';
+  if (!(triggerText.includes('OpenRouter') && triggerText.includes('Claude Sonnet 4.6'))) {
+    await primaryTrigger.click();
+    // Search the provider-scoped (OpenRouter) option list for the pinned
+    // concrete default slug (D-07); the id matches on the composite search
+    // index. Click ONLY the enabled OpenRouter row (disabled: false skips the
+    // WR-02 pinned row; the badge filter disambiguates the same-name
+    // claude-sonnet-4-6 vs anthropic/claude-sonnet-4.6 collision, SET-05).
+    await page.getByPlaceholder('Search models…').fill('claude-sonnet-4.6');
+    await page
+      .getByRole('option', { name: /Claude Sonnet 4\.6/, disabled: false })
+      .filter({ has: page.locator('[data-slot="badge"]').filter({ hasText: 'OpenRouter' }) })
+      .first()
+      .click();
+  }
   await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.getByText('Saved.')).toBeVisible();
 
