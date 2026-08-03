@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Multi-Provider AI Model Configuration
 status: executing
-last_updated: "2026-08-03T00:42:40.872Z"
-last_activity: 2026-08-03 -- Phase 21 planning complete
+last_updated: "2026-08-03T00:50:01.204Z"
+last_activity: 2026-08-03
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 16
-  completed_plans: 14
+  completed_plans: 15
   percent: 50
 ---
 
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 ## Current Position
 
 Phase: 21 (settings-ui) — EXECUTING
-Plan: 5 of 5
+Plan: 2 of 7
 Status: Ready to execute
-Last activity: 2026-08-03 -- Phase 21 planning complete
+Last activity: 2026-08-03
 
-Progress: [██████████] 100%
+Progress: [█████████░] 94%
 
 ## Performance Metrics
 
@@ -65,6 +65,7 @@ Progress: [██████████] 100%
 | Phase 21-settings-ui P03 | 11 | 1 tasks | 2 files |
 | Phase 21-settings-ui P04 | 20min | 1 tasks | 1 files |
 | Phase 21-settings-ui P05 | 5min | 2 tasks | 1 files |
+| Phase 21-settings-ui P06 | 3min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -123,6 +124,9 @@ Recent decisions affecting current work:
 - [Phase 21-settings-ui]: P05: initial provider = savedChain[0].providerID (saved primary's provider) else anthropic (REG-05 fast path); handleProviderChange is a function declaration calling primaryAfterProviderSwitch — hint set only on resetToDefault, fallbacks never touched (D-21-02), reset draft-only (D-07)
 - [Phase 21-settings-ui]: P05: primary ModelPicker options = optionsForSlot(primary, fallbacks, -1, servableByProvider[provider]) — slotIndex -1 excludes primary + all fallback ids (Open Question 3) so Save can't hit duplicate_model; primary onChange also clears resetHint (hint lifecycle RESOLVED)
 - [Phase 21-settings-ui]: P05: saved-chain recap entries resolve provider via unionServableModels lookup and name via savedChain with raw-id fallback (T-21-14/15); recap gated on a lastSaved snapshot equality check so it self-hides on any slot edit
+- [Phase 21-settings-ui]: P06: triggerLabel precedence locked — '' → null (placeholder), non-empty valueName → valueName (CR-01 fix: the deduped options are NOT the trigger-name source for the primary slot), else options.find()?.name, else the raw value verbatim (UI-SPEC raw-id fallback)
+- [Phase 21-settings-ui]: P06: pinnedSelection contract locked — null when !value or !valueName (stale/unknown stays on the staleLabel path), null when the value IS selectable (normal data-checked row), else { name: valueName, onlyModel: options.length === 0 }; onlyModel true = anthropic single-model empty-list case (WR-02)
+- [Phase 21-settings-ui]: P06: pinned row carries data-checked (boolean true) — the vendored CommandItem auto-renders its CheckIcon on group-data-[checked=true], closing GAP-2's primary checkmark with the name-resolvable source review CR-01 names
 
 ### Pending Todos
 
@@ -153,8 +157,8 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-02T23:42:29.140Z
-Stopped at: Completed 21-05-PLAN.md — Phase 21 complete, ready for verification
+Last session: 2026-08-03T00:50:01.196Z
+Stopped at: Completed 21-06-PLAN.md — CR-01/WR-02 gap closure
 Resume file: None
 
 ## Operator Next Steps

@@ -180,7 +180,7 @@ Plans:
 
 **Wave 1**
 
-- [ ] 21-06-PLAN.md — Pure name-resolution seam: `triggerLabel` + `pinnedSelection` helpers + tests; wrapper consumes them (valueName prop, pinned checked current-selection row, WR-02 only-model explanation) (SET-05/06)
+- [x] 21-06-PLAN.md — Pure name-resolution seam: `triggerLabel` + `pinnedSelection` helpers + tests; wrapper consumes them (valueName prop, pinned checked current-selection row, WR-02 only-model explanation) (SET-05/06)
 
 **Wave 2** *(blocked on 21-06)*
 
@@ -230,7 +230,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 18. Verification Gate | v1.3 | 3/3 | Complete    | 2026-08-02 |
 | 19. Provider Registry + Servable Model Source | v1.4 | 5/5 | Complete    | 2026-08-02 |
 | 20. Cross-Provider Run Path | v1.4 | 4/4 | Complete    | 2026-08-02 |
-| 21. Settings UI | v1.4 | 5/5 | Complete   | 2026-08-02 |
+| 21. Settings UI | v1.4 | 6/7 | In Progress|  |
 | 22. Verification Gate | v1.4 | 0/TBD | Not started | - |
 
 ---
