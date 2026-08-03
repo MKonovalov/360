@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Multi-Provider AI Model Configuration
 status: executing
-last_updated: "2026-08-03T12:42:00.000Z"
+last_updated: "2026-08-03T11:02:57.267Z"
 last_activity: 2026-08-03
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 23
-  completed_plans: 17
-  percent: 74
+  completed_plans: 19
+  percent: 83
 ---
 
 # Project State
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 ## Current Position
 
 Phase: 22 (verification-gate) — EXECUTING
-Plan: 3 of 7
+Plan: 4 of 7
 Status: Ready to execute
 Last activity: 2026-08-03
 
-Progress: [███████░░░] 74%
+Progress: [████████░░] 83%
 
 ## Performance Metrics
 
@@ -69,6 +69,7 @@ Progress: [███████░░░] 74%
 | Phase 21-settings-ui P07 | 2min | 2 tasks | 1 files |
 | Phase 22-verification-gate P22-01 | 2min | 2 tasks | 2 files |
 | Phase 22-verification-gate P22-02 | 4min | 1 task | 1 file |
+| Phase 22-verification-gate P3 | 12min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -134,6 +135,11 @@ Recent decisions affecting current work:
 - [Phase 21-settings-ui]: 21-07: markDirty uses the updater form setStatus((s) => (s === 'saving' ? s : 'idle')) — review WR-01 exact fix; a just-started save is never relabeled by a concurrent edit; markDirty fires from all six draft mutators and is NOT called from handleSave (it manages its own 'saving' → 'saved'|'error' transitions); setResetHint lifecycle untouched
 - [Phase 22-verification-gate]: VER-01 (22-01): the two RESEARCH-documented test gaps (direct isOpenRouterPlatformRateLimit tests, statusCode-200 -> 'input' pin) are closed at their home files per D-16; the three locked matrices (collision canaries catalog.test.ts:182-192, 4-cell 429 hop modelConfig.test.ts:151-177, error classes :56-77) audited green and left byte-identical (D-22-06)
 - [Phase 22-verification-gate]: VER-04 (22-02): the security-matrix grep is a permanent Vitest gate (D-22-07) — src/lib/verification/security-grep.test.ts fails on any OPENROUTER in client-reachable code ('use client'/components/Server Actions) or any NEXT_PUBLIC_OPENROUTER in src/ or .env.example; ALLOWED = lib/env.ts + modelFactory.ts + analyzeCompany.ts (verified 3-file baseline); Test 4 canary keeps it non-vacuous (Pitfall 6); Test-1 self-skip added (Rule 1 — the gate's own isClient predicate holds the 'use client' literal, so without the skip it fail-open on its own source); runs with every npm test (377 passed | 6 skipped)
+- [Phase 22-verification-gate]: VER-02/VER-05 (22-03): Playwright e2e harness built — @playwright/test@^1.62.1 + @clerk/testing@^2.2.16 devDeps (D-22-04), webServer auto-start config, project-based Clerk auth setup (never globalSetup, Pitfall 3), real Clerk login via clerkSetup + clerk.signIn (D-22-05 — no cookie-injection stubs), storageState e2e/.clerk/user.json gitignored; auth-setup smoke green proves real auth end-to-end.
+
+D-22-05 account mechanics: dedicated test staff account e2e-staff@arclumenpartners.com provisioned via Clerk Backend API createClerkClient().users.createUser (RESEARCH Open Questions 1 first path); E2E_CLERK_USER_EMAIL/E2E_CLERK_USER_PASSWORD written to .env.local only (gitignored); no dashboard fallback or human checkpoint needed.
+Post-login navigation target (22-03 Rule 3 fix): RESEARCH Pattern 1's waitForURL('**/companies/**') is wrong for this app — the post-login dashboard is '/' (the (dashboard) route group behind requireStaffAccess), not a recall.ai-style /companies/**; clerk.signIn sets the __session cookie but does not auto-redirect, so the setup navigates to '/' explicitly and asserts the ArcLumen 360 dashboard renders — same real-auth proof intent, correct target.
+VER-02/VER-05 requirement status: harness + test account (the operator prerequisite) are resolved by 22-03, but VER-02/VER-05 remain Pending in REQUIREMENTS.md — their evidence (live-key analyze e2e, browser UAT) lands in plans 22-05/22-06.
 
 ### Pending Todos
 
@@ -164,9 +170,9 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-03T12:42:00.000Z
-Stopped at: Phase 22 plan 3 pending (22-02 VER-04 gate committed)
-Resume file: Completed 22-02-PLAN.md (VER-04 security-matrix gate — permanent Vitest gate, D-22-07)
+Last session: 2026-08-03T11:02:57.259Z
+Stopped at: Phase 22 plan 4 pending (22-03 Playwright e2e harness committed)
+Resume file: Completed 22-03-PLAN.md (Playwright e2e harness + real Clerk login, D-22-04/05)
 
 ## Operator Next Steps
 

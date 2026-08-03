@@ -207,7 +207,7 @@ Plans:
 
 - [x] 22-01-PLAN.md — VER-01 matrix audit + gap-fill: isOpenRouterPlatformRateLimit direct tests + statusCode-200 → 'input' pin (WR-01), existing matrices audited untouched (D-22-06)
 - [x] 22-02-PLAN.md — VER-04 security-grep Vitest gate (allowlist + canary, runs with every npm test — D-22-07)
-- [ ] 22-03-PLAN.md — Playwright harness: devDeps + chromium + config + e2e/auth.setup real Clerk login + test-account provisioning (D-22-04/05)
+- [x] 22-03-PLAN.md — Playwright harness: devDeps + chromium + config + e2e/auth.setup real Clerk login + test-account provisioning (D-22-04/05)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -252,7 +252,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 19. Provider Registry + Servable Model Source | v1.4 | 5/5 | Complete    | 2026-08-02 |
 | 20. Cross-Provider Run Path | v1.4 | 4/4 | Complete    | 2026-08-02 |
 | 21. Settings UI | v1.4 | 7/7 | Complete    | 2026-08-03 |
-| 22. Verification Gate | v1.4 | 2/7 | In Progress|  |
+| 22. Verification Gate | v1.4 | 3/7 | In Progress|  |
 
 ---
 
