@@ -75,7 +75,7 @@ The milestone's correctness claims are proven. This is the final phase of v1.4 �
 - `src/lib/agents/runAgent.ts` — the failover loop composing `(isFailoverEligible || rate_limited) && shouldAdvance`; `modelUsed`/`modelChain` audit population.
 - `src/lib/agents/analyzeCompany.ts` — the run entry, chain-aware env gate, `missingProviderKey`.
 - `src/app/actions/settings.ts` — `saveSettingsAction`: requireStaffAccess FIRST → zod → union servable check → dedupe → atomic upsert keyed by session userId.
-- `src/app/actions/analyze/route.ts` — the analyze route + status map (not_configured→400, billing→402, rate_limited→429).
+- `src/app/api/companies/[id]/analyze/route.ts` — the analyze route + status map (not_configured→400, billing→402, rate_limited→429).
 - `src/components/settings/model-settings-form.tsx` + `model-picker.tsx` + `model-picker-logic.ts` — the Settings UI the browser UAT exercises.
 - Existing test files that already lock matrix cells: `src/lib/models/catalog.test.ts` (collision canaries), `src/lib/agents/modelConfig.test.ts` (4-cell table, error classes), `src/lib/agents/runAgent.test.ts` (429 hop behavior, D-16 conventions), `src/components/settings/model-picker-logic.test.ts` (31 tests).
 
@@ -99,7 +99,7 @@ The milestone's correctness claims are proven. This is the final phase of v1.4 �
 - **Why-comments** — non-obvious decisions get concise inline comments (house style).
 
 ### Integration Points
-- `src/app/actions/analyze/route.ts` → the live E2E (VER-02) drives this route with a real OpenRouter primary.
+- `src/app/api/companies/[id]/analyze/route.ts` → the live E2E (VER-02) drives this route with a real OpenRouter primary.
 - `src/app/actions/settings.ts` → the save path VER-02 stages the OpenRouter primary through.
 - `src/lib/db/queries/userModelSettings.ts` + `src/lib/db/queries/runs.ts` → the audit-column read-back (`model_used`) the E2E asserts.
 - `src/app/(dashboard)/settings/page.tsx` + `model-settings-form.tsx` → the VER-05 browser target.

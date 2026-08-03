@@ -222,7 +222,7 @@ Plans:
 
 - [ ] 22-07-PLAN.md — Proof recording: 22-VERIFICATION.md (5/5 criteria) + 22-HUMAN-UAT.md (IN-02/IN-03 observations)
 
-**Operator prerequisites** (before Wave 2 live work): dedicated Clerk test staff account (provisioned in plan 22-03 via Backend API), credited OPENROUTER_API_KEY (verified in plan 22-05 Task 1)
+**Operator prerequisites** (before Wave 2 live work): dedicated Clerk test staff account (provisioned in plan 22-03 via Backend API), credited OPENROUTER_API_KEY (verified by the self-served `curl .../auth/key` credit check in plan 22-04 Task 2 before the VER-03 child run, and re-verified with a blocking operator checkpoint in plan 22-05 Task 1/2 before the VER-02 ~cents spend)
 
 ## Progress
 
