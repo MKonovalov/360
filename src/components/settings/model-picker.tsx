@@ -24,9 +24,11 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import {
   groupByProvider,
   isHighCost,
+  pinnedSelection,
   providerName,
   searchValue,
   suffixLabel,
+  triggerLabel,
 } from './model-picker-logic';
 import type { ServableModel } from './model-picker-logic';
 
@@ -34,6 +36,7 @@ export function ModelPicker({
   id,
   ariaLabel,
   value,
+  valueName,
   options,
   onChange,
   placeholder,
@@ -44,6 +47,12 @@ export function ModelPicker({
   id: string;
   ariaLabel: string;
   value: string;
+  // Display name for the closed trigger, resolved by the caller (form) from a
+  // name-resolvable source OTHER than the deduped options list (CR-01) — the
+  // primary slot's own id is excluded from its options by design, so an
+  // options lookup can never resolve it. Omit for unknown/stale values so the
+  // raw-id fallback and the staleLabel path keep working.
+  valueName?: string | null;
   options: ServableModel[];
   onChange: (id: string) => void;
   placeholder: string;
@@ -52,7 +61,6 @@ export function ModelPicker({
   staleLabel?: string | null; // non-null → append a disabled CommandItem with this label (D-10/D-11 stale-row rendering)
 }) {
   const [open, setOpen] = useState(false);
-  const selected = options.find((m) => m.id === value);
   // Provider sections (D-21-08): grouped mode buckets the union options by
   // provider for the fallback pickers; the primary picker is provider-scoped
   // (SET-02), so it renders one section header for its single provider.
@@ -63,6 +71,12 @@ export function ModelPicker({
         models: byProvider[provider],
       }))
     : [{ provider: options[0]?.providerID ?? 'anthropic', models: options }];
+  // WR-02/current-selection pin: a known value excluded from its own options
+  // (the primary slot's deduped list) renders as a disabled, checked row
+  // before the groups — the value is never lost from the open list, and a
+  // legitimately empty list (anthropic single-model) gets its explanation
+  // instead of "No models found." (see pinnedSelection in model-picker-logic).
+  const pin = pinnedSelection(value, options, valueName);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -81,11 +95,13 @@ export function ModelPicker({
                 {providerName(badge)}
               </Badge>
             ) : null}
-            {/* The raw-value fallback keeps a stale saved id visible in the
-                trigger — the name lookup only resolves known rows (UI-SPEC
-                §Row Anatomy); '' (an in-progress fallback row) shows the
-                placeholder instead. */}
-            {value ? selected?.name ?? value : placeholder}
+            {/* triggerLabel (model-picker-logic) resolves the closed-trigger
+                name: valueName when supplied (the CR-01 primary case — the
+                deduped options can never resolve the primary id), then the
+                options lookup, then the raw-value fallback that keeps a stale
+                saved id visible (UI-SPEC §Row Anatomy); '' (an in-progress
+                fallback row) shows the placeholder instead. */}
+            {triggerLabel(value, options, valueName) ?? placeholder}
           </span>
           <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
@@ -95,6 +111,30 @@ export function ModelPicker({
           <CommandInput placeholder="Search models…" autoFocus />
           <CommandList>
             <CommandEmpty>No models found.</CommandEmpty>
+            {/* Pinned current-selection row (WR-02/GAP-2): renders when a known
+                value is excluded from its own options (primary slot dedupe) —
+                it keeps the current model visible + checked (data-checked
+                drives the vendored CheckIcon) and explains a legitimately
+                empty list (single-model anthropic case) instead of leaving
+                "No models found." unexplained. Disabled so it can never be
+                re-selected into the draft. */}
+            {pin ? (
+              <CommandItem
+                key={value}
+                value={searchValue({ id: value, name: pin.name, family: '' })}
+                disabled
+                data-checked
+              >
+                <span className="truncate">
+                  {pin.name}
+                  {pin.onlyModel ? (
+                    <span className="text-[12px] font-normal leading-[1.4] text-slate-500">
+                      {' '}— only available {providerName(badge ?? 'anthropic')} model
+                    </span>
+                  ) : null}
+                </span>
+              </CommandItem>
+            ) : null}
             {groups.map((g) => (
               <CommandGroup key={g.provider} heading={providerName(g.provider)}>
                 {g.models.map((m) => {
