@@ -216,7 +216,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion — serializes the two live-key surfaces per Pitfall 5)*
 
-- [ ] 22-05-PLAN.md — VER-02 live-key e2e: save OR primary → Analyze → model_used matches (D-22-01/02; credited-key checkpoint gate)
+- [x] 22-05-PLAN.md — VER-02 live-key e2e: save OR primary → Analyze → model_used matches (D-22-01/02; credited-key checkpoint gate)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -252,7 +252,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 19. Provider Registry + Servable Model Source | v1.4 | 5/5 | Complete    | 2026-08-02 |
 | 20. Cross-Provider Run Path | v1.4 | 4/4 | Complete    | 2026-08-02 |
 | 21. Settings UI | v1.4 | 7/7 | Complete    | 2026-08-03 |
-| 22. Verification Gate | v1.4 | 5/7 | In Progress|  |
+| 22. Verification Gate | v1.4 | 6/7 | In Progress|  |
 
 ---
 

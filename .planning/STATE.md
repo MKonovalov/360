@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Multi-Provider AI Model Configuration
 status: executing
-last_updated: "2026-08-03T12:54:17.258Z"
+last_updated: "2026-08-03T14:14:04.101Z"
 last_activity: 2026-08-03
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 23
-  completed_plans: 21
+  completed_plans: 22
   percent: 75
 ---
 
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 ## Current Position
 
 Phase: 22 (verification-gate) — EXECUTING
-Plan: 6 of 7
+Plan: 7 of 7
 Status: Ready to execute
 Last activity: 2026-08-03
 
-Progress: [█████████░] 91%
+Progress: [██████████] 96%
 
 ## Performance Metrics
 
@@ -72,6 +72,7 @@ Progress: [█████████░] 91%
 | Phase 22-verification-gate P3 | 12min | 3 tasks | 6 files |
 | Phase 22-verification-gate P04 | 45min | 2 tasks | 3 files |
 | Phase 22-verification-gate P06 | 25min | 1 tasks | 1 files |
+| Phase 22-verification-gate P05 | 75 | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -146,6 +147,8 @@ VER-02/VER-05 requirement status: harness + test account (the operator prerequis
 - [Phase 22]: Live collision pair for badge disambiguation is claude-sonnet-4-6 (anthropic) vs anthropic/claude-sonnet-4.6 (openrouter) — the plan's claude-sonnet-5 pair does not materialize (claude-sonnet-5 is opencode-only, not servable)
 - [Phase 22]: Persisted-DB UI specs must tear down saved fallback rows per test (clearFallbacks) — the saved chain survives across runs and addFallback caps at 2 rows
 - [Phase 22]: Badge locators scope to [data-slot=badge] DOM contract, not generic span+text filters that over-match row subtitles
+- [Phase 22-verification-gate]: P05: VER-02 model-picker save step is state-tolerant (Rule 1/3 spec-determinism fix): the draft may already hold the target primary from the 22-04 probe (disabled WR-02 pinned row, data-checked+aria-disabled) — only open the picker when the trigger lacks the OpenRouter badge+name; click only enabled rows filtered by provider badge; tear down leftover fallbacks first (VER-05 clearFallbacks); assertions never weakened
+- [Phase 22-verification-gate]: P05: VER-02 live run returned 402 from OpenRouter (key uncredited: limit null, is_free_tier true) — recorded as the documented pending-credit limitation (IN-03 billing observation for plan 22-07), no retry per plan, no assertion weakening; full stack through the provider contract proven (real Clerk login, Settings UI save, analyze route)
 
 ### Pending Todos
 
@@ -159,6 +162,7 @@ None yet.
 - **Same-provider 429 invariants (D-01/D-03) must survive the hop-aware extension** — Phase 20's 4-cell matrix is the lock; v1.3's never-advance behavior within a provider is preserved verbatim.
 - **60s ceiling is still a hard wall** — OpenRouter proxy latency + SDK retry pile-up must stay under the existing 54s loop clamp (FAL-04 budget); `maxDuration` stays at Hobby's 60.
 - Carried from v1.1/v1.2: persona-side Arcpedia content gap (seed data); 3 VERIFICATION.md files still `human_needed`; "any authenticated Clerk user = staff" model has no role system (acceptable per PROJECT.md scope).
+- OPENROUTER_API_KEY is UNCREDITED (limit: null, is_free_tier: true) — the VER-02 live analyze e2e (22-05) returns 402 and cannot produce its billing-success evidence (201 + modelUsed read-back) until credits are topped up; gates VER-02 requirement + plan 22-07 proof recording; re-run npx playwright test e2e/ver-02-analyze.spec.ts after top-up
 
 ## Deferred Items
 
@@ -176,8 +180,8 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-03T12:53:25.184Z
-Stopped at: Phase 22 plan 4 pending (22-03 Playwright e2e harness committed)
+Last session: 2026-08-03T14:13:17.866Z
+Stopped at: Completed 22-05-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
