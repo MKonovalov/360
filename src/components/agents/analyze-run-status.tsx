@@ -39,6 +39,7 @@ const ERROR_COPY: Record<string, string> = {
   gate_failed: "The company data doesn't meet the requirements for analysis",
   analysis_failed: 'The analysis failed',
   rate_limited: 'Rate limited — try again in a moment',
+  billing: 'Provider credits exhausted — contact admin',
   persist_failed: 'The analysis could not be saved',
   network: 'The analysis service could not be reached',
   action_failed: 'The analysis could not be started',

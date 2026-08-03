@@ -11,7 +11,7 @@ requires:
 provides:
   - Hop-aware failover loop in runAgent.ts: catch composes isFailoverEligible(cls) || cls === 'rate_limited' with shouldAdvance(cls, from, to), from/to provider identity via getProviderForModelId on model ids (D-20-07 — never the error body)
   - Loop-side diagnostics helper isOpenRouterPlatformRateLimit (D-20-08): reads err.data.error.metadata (error_type/provider_code) first, X-RateLimit-* responseHeaders fallback, diagnostics-only (D-20-07)
-  - D-20-06 safety-net loop comment documenting the accepted mid-stream 429 (classifies 'output', never failover-eligible)
+  - D-20-06 safety-net loop comment documenting the accepted mid-stream 429 (classifies 'input', never failover-eligible)
   - runAgent.test.ts hoisted catalog mock seam (getProviderForModelId: 'anthropic' default / 'openrouter' for slashed ids + 'm2') + 4 loop-level FAL cases (cross-provider 429 advance ×2 directions, 402 never-advance, verbatim slug)
 affects: [Plan 20-03 analyzeCompany billing/rate_limited structured reasons (consumes the helper), Plan 20-04 route status mapping (billing 402, rate_limited 429), Phase 22 error matrix]
 
@@ -58,9 +58,9 @@ completed: 2026-08-02
 
 ## Accomplishments
 - Loop catch replaced the single-line throw guard with the hop-aware composition: `const cls = classifyModelError(err)`, `from`/`to` provider identity via `getProviderForModelId(catalogJson, modelIdOf(models[i]))` / `[i+1]`, `const eligible = isFailoverEligible(cls) || cls === 'rate_limited'`, `if (!(eligible && shouldAdvance(cls, from, to))) throw err` — the FAL-03 carve-out OR is required since `isFailoverEligible('rate_limited')` is false by D-03 (a literal AND silently never advances cross-provider 429s)
-- D-20-07 why-comment above the block: decision uses provider identity ONLY, never the response body; `to === null` (last model / catalog drift) fail-closes a 429 advance; D-20-05 mid-stream 429s classify 'output' and never reach this branch
+- D-20-07 why-comment above the block: decision uses provider identity ONLY, never the response body; `to === null` (last model / catalog drift) fail-closes a 429 advance; D-20-05 mid-stream 429s classify 'input' and never reach this branch
 - New module-scope `isOpenRouterPlatformRateLimit(err)` (D-20-08, loop-side, NOT inside pure classifyModelError): guards `APICallError.isInstance`, reads `err.data.error.metadata.error_type`/`provider_code` first (passthrough-preserved), returns false for upstream pass-through (`provider_code` present), true for platform-level, falls back to `responseHeaders` X-RateLimit-* prefix scan — diagnostics-only (D-20-07), never read by the decision path
-- D-20-06 note appended to the safety-net loop comment: mid-stream OpenRouter 429s (finish_reason "error" after HTTP 200) classify 'output' via the flat generateText contract and are never failover-eligible — accepted + documented, no detection path in Phase 20
+- D-20-06 note appended to the safety-net loop comment: mid-stream OpenRouter 429s (finish_reason "error" after HTTP 200) classify 'input' (statusCode-200 APICallError fall-through) via the flat generateText contract and are never failover-eligible — accepted + documented, no detection path in Phase 20
 - Audit identity untouched (FAL-05): `modelUsed: modelIdOf(models[i])` records the served id verbatim — slashed OpenRouter slugs incl. `~latest` aliases pass through unchanged
 
 ## Task Commits
@@ -92,7 +92,7 @@ None - no external service configuration required (no installs, no env changes; 
 ## Next Phase Readiness
 - Plan 20-03 (analyzeCompany) can now consume `isOpenRouterPlatformRateLimit` from './runAgent' for the platform-vs-upstream 429 reason split, map `cls === 'billing'` → the distinct `billing` reason "provider credits exhausted" (D-20-10), and land the chain-aware env gate (FAL-04). Note the PATTERNS-mandated mock-factory fix: analyzeCompany.test.ts's `vi.mock('./runAgent', ...)` factory MUST spread `vi.importActual('./runAgent')` so the real helper resolves.
 - Plan 20-04 (route) maps `billing` → 402 (D-20-09) and `rate_limited` → 429 with the helper-derived reason message.
-- Phase 22's error matrix records the D-20-05/06 mid-stream-429 behavior (classifies 'output', never failover-eligible).
+- Phase 22's error matrix records the D-20-05/06 mid-stream-429 behavior (classifies 'input', never failover-eligible).
 
 ---
 

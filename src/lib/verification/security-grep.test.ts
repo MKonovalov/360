@@ -10,6 +10,9 @@ import { join } from 'node:path';
 const SRC = join(process.cwd(), 'src');
 // The ONLY non-test server files allowed to mention OPENROUTER (verified 2026-08-03)
 const ALLOWED = new Set(['lib/env.ts', 'lib/agents/modelFactory.ts', 'lib/agents/analyzeCompany.ts']);
+// Server Components are NOT client-reachable (no 'use client', server-only env) — same safety
+// class as ALLOWED. company-detail.tsx reads env.OPENROUTER_API_KEY in the FAL-04 canAnalyze gate.
+const SERVER_COMPONENT = new Set(['components/companies/company-detail.tsx']);
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((e) => {
@@ -28,7 +31,7 @@ describe('VER-04 security-matrix grep (D-22-07)', () => {
       // the isClient scan below would misclassify it as a client and fail. Excluding it here costs
       // nothing: every REAL client file (a genuine "'use client'" component or a src/components file)
       // is still scanned for OPENROUTER.
-      if (rel === 'lib/verification/security-grep.test.ts') continue;
+      if (rel === 'lib/verification/security-grep.test.ts' || SERVER_COMPONENT.has(rel)) continue;
       const src = readFileSync(join(SRC, rel), 'utf8');
       const isClient = src.includes("'use client'") || rel.startsWith('components/');
       if (isClient) expect(src, rel).not.toContain('OPENROUTER');
@@ -62,6 +65,17 @@ describe('VER-04 security-matrix grep (D-22-07)', () => {
     // scan actually matches the token — the gate fails loudly on a rename instead of passing vacuously.
     for (const rel of ALLOWED) {
       expect(readFileSync(join(SRC, rel), 'utf8'), rel).toContain('OPENROUTER_API_KEY');
+    }
+  });
+
+  it('canary: SERVER_COMPONENT entries are genuine server components carrying the token (exemption not vacuous)', () => {
+    // Same Pitfall 6 reasoning: the SERVER_COMPONENT exemption must only ever cover real server
+    // components (no 'use client') that do mention OPENROUTER_API_KEY — if a refactor turns
+    // company-detail.tsx into a client component, this fails loudly instead of silently exempting it.
+    for (const rel of SERVER_COMPONENT) {
+      const src = readFileSync(join(SRC, rel), 'utf8');
+      expect(src, rel).not.toContain("'use client'");
+      expect(src, rel).toContain('OPENROUTER_API_KEY');
     }
   });
 });

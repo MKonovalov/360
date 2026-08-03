@@ -11,7 +11,7 @@ requires:
 provides:
   - Extended ModelErrorClass union with 'billing' (FAL-02): 402 → 'billing', never failover-eligible, reason "provider credits exhausted"
   - 502/503 model-availability documentation on the >=500 branch (stay server_error / failover-eligible, comment-only)
-  - D-20-05/06 comment-only note on the 'output' branch documenting the accepted mid-stream 429
+  - D-20-05/06 comment-only note on the classifier's fall-through (classifies 'input') documenting the accepted mid-stream 429
   - shouldAdvance(cls, from, to) hop-aware predicate implementing the locked FAL-03 4-cell provider matrix (fail-closed on null identity)
   - Test-locked FAL-02 billing/502-503 matrix + FAL-03 4-cell shouldAdvance matrix (D-16, real constructed SDK errors, zero mocks)
 affects: [Plan 20-02 runAgent loop wiring, Plan 20-03 analyzeCompany billing reason, Plan 20-04 route status mapping, Phase 22 error matrix]
@@ -30,7 +30,7 @@ key-files:
 key-decisions:
   - "FAL-02: 402 → 'billing' — OpenRouter account-level credits exhausted, NEVER failover-eligible (advancing to any model would fail identically); the distinct class + false isFailoverEligible lock prevents anyone later 'fixing' it into the advance set (PITFALLS 3)"
   - "FAL-02: 502/503 stay 'server_error' and failover-eligible — OpenRouter model-availability signals, the purest failover case; comment-only documentation, never reclassified"
-  - "D-20-05/06: mid-stream 429s (finish_reason 'error' after HTTP 200) stay 'output' — comment-only note on the output branch; no detection path added in Phase 20"
+  - "D-20-05/06: mid-stream 429s (finish_reason 'error' after HTTP 200) classify 'input' (statusCode-200 APICallError fall-through) — never failover-eligible; no detection path added in Phase 20"
   - "FAL-03/D-20-07: shouldAdvance uses ONLY provider identity (from/to), never the response body; rate_limited advances ONLY cross-provider; all other eligible classes advance regardless — v1.3 same-provider never-advance (D-01/D-03) preserved verbatim, hop-aware advance is a tested extension not a relaxation"
   - "Fail-closed null identity: from/to nullable (getProviderForModelId returns null on catalog drift / last-model sentinel) — a null provider identity never advances a 429"
 
@@ -60,7 +60,7 @@ completed: 2026-08-02
 ## Accomplishments
 - `ModelErrorClass` union extended with `'billing'` (FAL-02); `classifyModelError` maps 402 → `'billing'` with the PITFALLS-3 why-comment — advancing to any model would fail identically, so billing is structurally excluded from the advance set (`isFailoverEligible('billing')` false, locked by tests)
 - `>= 500` branch comment extended with the FAL-02 model-availability note: 502/503 on OpenRouter are model-availability signals, the purest failover case — stay `server_error`/eligible, comment-only, never reclassified
-- D-20-05/06 comment-only note placed on the `'output'` branch documenting the accepted mid-stream 429 (`finish_reason: "error"` after HTTP 200) — no detection path added
+- D-20-05/06 comment-only note on the classifier's fall-through documenting the accepted mid-stream 429 (classifies 'input') (`finish_reason: "error"` after HTTP 200) — no detection path added
 - New `shouldAdvance(cls, from, to)` export beside `isFailoverEligible` implementing the locked 4-cell matrix: `rate_limited` advances ONLY on a cross-provider hop; all other eligible classes advance regardless; fail-closed on null provider identity (catalog drift / last-model sentinel)
 - Pure module contract intact (D-16): imports still only `'ai'` + `'@/lib/models/catalog'` (+ `type ModelProviderId` added to the existing catalog import); no provider SDKs, no body parsing
 
