@@ -6,8 +6,13 @@ import {
   getUnionServableIds,
   getProviderForModelId,
   getModelDisplayName,
+  dedupeProviderRows,
+  PROVIDER_PRECEDENCE,
+  SNAPSHOT_PROVIDER_IDS,
   PROVIDER_GATES,
   ANTHROPIC_ALLOWLIST,
+  NOUSRESEARCH_ALLOWLIST,
+  OPENCODE_NPM_GATE,
   FAST_MODEL_ID,
   SERVABLE_PROVIDERS,
 } from './catalog';
@@ -19,6 +24,11 @@ import type { ModelCatalog } from './catalog';
 // The opencode dual row for claude-sonnet-4-6 sits FIRST in the array (opencode
 // sorts first in the real snapshot) — this proves the provider-scoped find in
 // getProviderForModelId beats a naive first-match find (Anti-Pattern 1).
+// Phase 23 additions (D-23-07/D-23-09): the hermes pair exists as BOTH
+// nousresearch (allowlisted) and openrouter (mirror) rows so the precedence
+// canary is non-vacuous; deepseek-v4-flash exists as BOTH opencode (Zen) and
+// opencode-go (Go) rows so the Zen-wins dedup canary is non-vacuous; hy3 is
+// opencode-go-only (survives dedup, keeps the Go url).
 const fixture: ModelCatalog = {
   generatedAt: '2026-08-02T00:00:00.000Z',
   models: [
@@ -99,6 +109,96 @@ const fixture: ModelCatalog = {
       limit: { context: 128000, output: 32000 },
       structuredOutputs: true,
     },
+    // D-23-07: the nousresearch allowlisted pin + its openrouter MIRROR row —
+    // mirrors present so the precedence canary is non-vacuous (nousresearch
+    // must outrank openrouter for the hermes pair). structuredOutputs mirrors
+    // the committed snapshot's real openrouter rows (false, verified 2026-08-04).
+    {
+      id: 'nousresearch/hermes-4-70b',
+      providerID: 'nousresearch',
+      name: 'Hermes 4 70B',
+      family: 'hermes',
+      status: 'active',
+      api: {
+        npm: '@ai-sdk/openai-compatible',
+        url: 'https://inference-api.nousresearch.com/v1',
+      },
+      cost: { input: 0.0000016, output: 0.000008 },
+      limit: { context: 200000, output: 32000 },
+      structuredOutputs: true,
+    },
+    {
+      id: 'nousresearch/hermes-4-70b',
+      providerID: 'openrouter',
+      name: 'Hermes 4 70B',
+      family: 'hermes',
+      status: 'active',
+      api: { npm: '@openrouter/ai-sdk-provider', url: '' },
+      cost: { input: 0.2, output: 0.6 },
+      limit: { context: 200000, output: 32000 },
+      structuredOutputs: false,
+    },
+    {
+      id: 'nousresearch/hermes-4-405b',
+      providerID: 'nousresearch',
+      name: 'Hermes 4 405B',
+      family: 'hermes',
+      status: 'active',
+      api: {
+        npm: '@ai-sdk/openai-compatible',
+        url: 'https://inference-api.nousresearch.com/v1',
+      },
+      cost: { input: 0.000004, output: 0.00002 },
+      limit: { context: 400000, output: 64000 },
+      structuredOutputs: true,
+    },
+    {
+      id: 'nousresearch/hermes-4-405b',
+      providerID: 'openrouter',
+      name: 'Hermes 4 405B',
+      family: 'hermes',
+      status: 'active',
+      api: { npm: '@openrouter/ai-sdk-provider', url: '' },
+      cost: { input: 0.8, output: 1.2 },
+      limit: { context: 400000, output: 64000 },
+      structuredOutputs: false,
+    },
+    // D-23-08/D-23-09: the dual-listed pair — Zen row must win dedup.
+    // structuredOutputs mirrors the committed snapshot's real rows (verified
+    // 2026-08-04: Zen true, Go true).
+    {
+      id: 'deepseek-v4-flash',
+      providerID: 'opencode',
+      name: 'DeepSeek V4 Flash',
+      family: 'deepseek',
+      status: 'active',
+      api: { npm: '@ai-sdk/openai-compatible', url: 'https://opencode.ai/zen/v1' },
+      cost: { input: 0, output: 0 },
+      limit: { context: 200000, output: 32000 },
+      structuredOutputs: true,
+    },
+    {
+      id: 'deepseek-v4-flash',
+      providerID: 'opencode-go',
+      name: 'DeepSeek V4 Flash',
+      family: 'deepseek',
+      status: 'active',
+      api: { npm: '@ai-sdk/openai-compatible', url: 'https://opencode.ai/zen/go/v1' },
+      cost: { input: 0, output: 0 },
+      limit: { context: 200000, output: 32000 },
+      structuredOutputs: true,
+    },
+    {
+      id: 'hy3',
+      providerID: 'opencode-go',
+      name: 'Hy3',
+      family: 'hy3',
+      status: 'active',
+      api: { npm: '@ai-sdk/openai-compatible', url: 'https://opencode.ai/zen/go/v1' },
+      cost: { input: 0, output: 0 },
+      limit: { context: 200000, output: 32000 },
+      structuredOutputs: true,
+    },
   ],
 };
 
@@ -125,9 +225,11 @@ describe('getServableIdsForProvider', () => {
     expect(getServableIdsForProvider(fixture, 'anthropic')).toEqual(['claude-sonnet-4-6']);
   });
 
-  it('returns the full active openrouter catalog when no allowlist is set (D-02) — the deprecated :free row is excluded', () => {
+  it('returns the full active openrouter catalog when no allowlist is set (D-02) — the deprecated :free row and the hermes mirrors are included as active openrouter rows', () => {
     expect(getServableIdsForProvider(fixture, 'openrouter')).toEqual([
       'anthropic/claude-sonnet-4.6',
+      'nousresearch/hermes-4-70b',
+      'nousresearch/hermes-4-405b',
     ]);
   });
 
@@ -144,6 +246,22 @@ describe('getServableIdsForProvider', () => {
     expect(ids.length).toBeGreaterThanOrEqual(300);
     expect(ids.every((id) => id.includes('/'))).toBe(true);
   });
+
+  it('REG-04: nousresearch servable set is the allowlist ∩ fixture — the hermes pins, never the openrouter mirrors', () => {
+    expect(getServableIdsForProvider(fixture, 'nousresearch')).toEqual([
+      'nousresearch/hermes-4-70b',
+      'nousresearch/hermes-4-405b',
+    ]);
+  });
+
+  it('D-23-01 npm gate: opencode servable ids come from the deduped pool (deepseek-v4-flash appears ONCE via the Zen row) and hy3 survives via its Go row', () => {
+    expect(getServableIdsForProvider(fixture, 'opencode')).toEqual([
+      'claude-sonnet-4-6',
+      'big-pickle',
+      'deepseek-v4-flash',
+      'hy3',
+    ]);
+  });
 });
 
 describe('getUnionServableIds', () => {
@@ -151,13 +269,30 @@ describe('getUnionServableIds', () => {
     expect(getUnionServableIds(fixture)).toEqual([
       'claude-sonnet-4-6',
       'anthropic/claude-sonnet-4.6',
+      'nousresearch/hermes-4-70b',
+      'nousresearch/hermes-4-405b',
+      'big-pickle',
+      'deepseek-v4-flash',
+      'hy3',
     ]);
   });
 
-  it('committed snapshot: union is deduped and only claude-sonnet-4-6 is slash-free (provider-aware slash contract)', () => {
+  it('committed snapshot: union is deduped and the slash-free count is the Set-union of the anthropic + opencode servable sets (provider-aware slash contract)', () => {
     const union = getUnionServableIds(catalogJson);
     expect(new Set(union).size).toBe(union.length);
-    expect(union.filter((id) => !id.includes('/')).length).toBe(1);
+    // The Set-union (never the sum) is required because claude-sonnet-4-6 is
+    // servable under BOTH anthropic and opencode (the phase's own
+    // regression-lock overlap) — the sum double-counts it (1+39=40) while the
+    // deduped union holds 39 slash-free ids. The formula is drift-proof: a new
+    // bare-id provider or a new servable id updates the count structurally; a
+    // hardcoded 1 would fail now and silently rot later. Provider-aware slash
+    // contract: anthropic + opencode bare, openrouter vendor/model,
+    // nousresearch empty until Phase 24.
+    const expectedSlashFree = new Set([
+      ...getServableIdsForProvider(catalogJson, 'anthropic'),
+      ...getServableIdsForProvider(catalogJson, 'opencode'),
+    ]).size;
+    expect(union.filter((id) => !id.includes('/')).length).toBe(expectedSlashFree);
   });
 });
 
@@ -170,9 +305,40 @@ describe('getProviderForModelId', () => {
     expect(getProviderForModelId(fixture, 'anthropic/claude-sonnet-4.6')).toBe('openrouter');
   });
 
-  it('returns null for an opencode-only id (not servable) and for unknown ids', () => {
-    expect(getProviderForModelId(fixture, 'big-pickle')).toBeNull();
+  // REWORKED (never deleted — servable-membership semantic change, research
+  // Pitfall 2): big-pickle's opencode row is npm-gated servable, so under
+  // servable-membership resolution it now resolves to opencode. The old
+  // null assertion locked raw-row existence, which was only correct while
+  // opencode wasn't servable.
+  it('resolves big-pickle to opencode (its opencode row is npm-gated servable) and unknown ids stay null (fail-closed)', () => {
+    expect(getProviderForModelId(fixture, 'big-pickle')).toBe('opencode');
     expect(getProviderForModelId(fixture, 'unknown-id')).toBeNull();
+  });
+
+  it('D-23-07 hermes precedence over the openrouter mirror: hermes-4-70b → nousresearch (nousresearch outranks openrouter)', () => {
+    expect(getProviderForModelId(fixture, 'nousresearch/hermes-4-70b')).toBe('nousresearch');
+  });
+
+  it('D-23-07 hermes precedence over the openrouter mirror: hermes-4-405b → nousresearch (nousresearch outranks openrouter)', () => {
+    expect(getProviderForModelId(fixture, 'nousresearch/hermes-4-405b')).toBe('nousresearch');
+  });
+
+  it('resolves the dual-listed deepseek-v4-flash pair to opencode (Zen row wins dedup, npm-gated servable)', () => {
+    expect(getProviderForModelId(fixture, 'deepseek-v4-flash')).toBe('opencode');
+  });
+
+  it('resolves the Go-exclusive hy3 id to the logical opencode provider', () => {
+    expect(getProviderForModelId(fixture, 'hy3')).toBe('opencode');
+  });
+
+  it('D-23-08/D-23-09 no-flip fixture shape: the deduped deepseek-v4-flash row keeps the Zen row (providerID + url) and hy3 keeps its Go row', () => {
+    const rows = dedupeProviderRows(fixture, 'opencode');
+    const deepseek = rows.find((m) => m.id === 'deepseek-v4-flash');
+    const hy3 = rows.find((m) => m.id === 'hy3');
+    expect(deepseek?.providerID).toBe('opencode');
+    expect(deepseek?.api.url).toBe('https://opencode.ai/zen/v1');
+    expect(hy3?.providerID).toBe('opencode-go');
+    expect(hy3?.api.url).toBe('https://opencode.ai/zen/go/v1');
   });
 
   it('SNAPSHOT CANARY: claude-sonnet-4-6 → anthropic despite the dual opencode/anthropic rows (opencode sorts first)', () => {
@@ -183,23 +349,124 @@ describe('getProviderForModelId', () => {
     expect(getProviderForModelId(catalogJson, 'anthropic/claude-sonnet-4.6')).toBe('openrouter');
   });
 
-  it('SNAPSHOT CANARY: claude-sonnet-5 → anthropic (the documented 5-collision pair — dual opencode/anthropic, opencode sorts first)', () => {
-    expect(getProviderForModelId(catalogJson, 'claude-sonnet-5')).toBe('anthropic');
+  // REWORKED (never deleted): claude-sonnet-5 is NOT in the anthropic
+  // sonnet-only allowlist, but its opencode Claude row is npm-gated
+  // (@ai-sdk/anthropic) servable — the old 'anthropic' assertion locked raw
+  // row existence, which was only correct while opencode wasn't servable
+  // (servable-membership semantic change, research Pitfall 2).
+  it('SNAPSHOT CANARY: claude-sonnet-5 → opencode (reworked — raw-row anthropic was only correct pre-opencode; now servable-membership wins)', () => {
+    expect(getProviderForModelId(catalogJson, 'claude-sonnet-5')).toBe('opencode');
   });
 
   it('SNAPSHOT CANARY: anthropic/claude-sonnet-5 → openrouter (the openrouter + vercel dual pair — the vercel row must NOT win)', () => {
     expect(getProviderForModelId(catalogJson, 'anthropic/claude-sonnet-5')).toBe('openrouter');
   });
+
+  it('SNAPSHOT CANARY: big-pickle → opencode (its opencode row is npm-gated servable under servable-membership resolution)', () => {
+    expect(getProviderForModelId(catalogJson, 'big-pickle')).toBe('opencode');
+  });
+
+  it('Pitfall 5 boundary: the committed snapshot has 0 nousresearch rows, so nousresearch servable is [] — the live hermes canary lands in Phase 24 (D-23-07)', () => {
+    expect(getServableIdsForProvider(catalogJson, 'nousresearch')).toEqual([]);
+  });
 });
 
-describe('PROVIDER_GATES / SERVABLE_PROVIDERS', () => {
+describe('PROVIDER_GATES / SERVABLE_PROVIDERS / PROVIDER_PRECEDENCE', () => {
   it('anthropic gate is the ANTHROPIC_ALLOWLIST and openrouter has no allowlist (full catalog, D-02)', () => {
     expect(PROVIDER_GATES.anthropic.allowlist).toBe(ANTHROPIC_ALLOWLIST);
     expect(PROVIDER_GATES.openrouter.allowlist).toBeUndefined();
   });
 
-  it('SERVABLE_PROVIDERS lists exactly the two servable providers', () => {
-    expect(SERVABLE_PROVIDERS).toEqual(['anthropic', 'openrouter']);
+  it('D-23-05: nousresearch gate is the hermes pins — never ~latest aliases (D-07 "never ~/:free/auto in pins" doctrine)', () => {
+    expect(PROVIDER_GATES.nousresearch.allowlist).toEqual(NOUSRESEARCH_ALLOWLIST);
+    expect(NOUSRESEARCH_ALLOWLIST).toEqual([
+      'nousresearch/hermes-4-70b',
+      'nousresearch/hermes-4-405b',
+    ]);
+    expect(NOUSRESEARCH_ALLOWLIST.every((id) => !id.includes('~'))).toBe(true);
+  });
+
+  it('D-23-01: opencode gate is the npm-value allowlist (@ai-sdk/openai-compatible + @ai-sdk/anthropic)', () => {
+    expect(PROVIDER_GATES.opencode.npm).toEqual(OPENCODE_NPM_GATE);
+    expect(OPENCODE_NPM_GATE).toEqual(['@ai-sdk/openai-compatible', '@ai-sdk/anthropic']);
+  });
+
+  it('SERVABLE_PROVIDERS lists exactly the four servable providers', () => {
+    expect(SERVABLE_PROVIDERS).toEqual(['anthropic', 'openrouter', 'nousresearch', 'opencode']);
+  });
+
+  it('PROVIDER_PRECEDENCE ranks nousresearch above openrouter — index 1 is nousresearch, the D-23-07 ranking, NOT the roadmap prose order', () => {
+    expect(PROVIDER_PRECEDENCE).toEqual(['anthropic', 'nousresearch', 'openrouter', 'opencode']);
+  });
+
+  it('SNAPSHOT_PROVIDER_IDS.opencode = [opencode, opencode-go] — the array order IS the deterministic Zen-wins rule (D-23-08)', () => {
+    expect(SNAPSHOT_PROVIDER_IDS.opencode).toEqual(['opencode', 'opencode-go']);
+  });
+});
+
+describe('COUNT-STABILITY (D-23-02): committed snapshot opencode servable shape', () => {
+  it('locks the post-dedup registry output at 39 servable ids with the npm split {openai-compatible: 23, anthropic: 16} and zero GPT/Gemini', () => {
+    // 49 = 30+19 is the PRE-DEDUP npm-gated raw count (D-23-02); Zen-wins
+    // dedup collapses 10 dual servable pairs → the registry returns 39 —
+    // locking 49 would assert a shape the registry never returns.
+    const ids = getServableIdsForProvider(catalogJson, 'opencode');
+    expect(ids).toHaveLength(39);
+
+    const pool = dedupeProviderRows(catalogJson, 'opencode');
+    const gatedPool = pool.filter(
+      (m) => m.status !== 'deprecated' && OPENCODE_NPM_GATE.includes(m.api.npm),
+    );
+    expect(gatedPool.filter((m) => m.api.npm === '@ai-sdk/openai-compatible')).toHaveLength(23);
+    expect(gatedPool.filter((m) => m.api.npm === '@ai-sdk/anthropic')).toHaveLength(16);
+
+    // GPT-5 (@ai-sdk/openai) and Gemini (@ai-sdk/google) rows self-exclude
+    // forever (D-23-01) — prove no such id is servable.
+    const servable = new Set(ids);
+    const leaked = pool.filter(
+      (m) =>
+        servable.has(m.id) &&
+        (m.api.npm === '@ai-sdk/openai' || m.api.npm === '@ai-sdk/google'),
+    );
+    expect(leaked).toHaveLength(0);
+
+    // Every opencode servable id is slash-free (bare ids, no vendor prefix).
+    expect(ids.every((id) => !id.includes('/'))).toBe(true);
+  });
+});
+
+describe('NO-FLIP (D-23-09): Zen/Go dedup determinism + snapshot shape', () => {
+  it('dedupes to the 65-row pool; the 12 dual-listed ids keep the Zen row (URL) and the 5 go-exclusive ids keep their Go rows — no id endpoint flipped', () => {
+    // D-23-09: determinism + snapshot shape — a roster re-shuffle that changes
+    // these counts fails loudly and is re-verified intentionally (D-02).
+    const pool = dedupeProviderRows(catalogJson, 'opencode');
+    expect(pool).toHaveLength(65);
+
+    const dualIds = [
+      'deepseek-v4-flash',
+      'deepseek-v4-pro',
+      'glm-5.1',
+      'glm-5.2',
+      'gpt-5.6-luna',
+      'grok-4.5',
+      'kimi-k2.6',
+      'kimi-k2.7-code',
+      'kimi-k3',
+      'minimax-m2.7',
+      'minimax-m3',
+      'qwen3.6-plus',
+    ];
+    for (const id of dualIds) {
+      const row = pool.find((m) => m.id === id);
+      expect(row?.providerID, `${id} keeps the Zen row`).toBe('opencode');
+      expect(row?.api.url, `${id} keeps the Zen url`).toBe('https://opencode.ai/zen/v1');
+    }
+
+    const goExclusiveIds = ['hy3', 'mimo-v2.5', 'mimo-v2.5-pro', 'qwen3.7-max', 'qwen3.7-plus'];
+    for (const id of goExclusiveIds) {
+      const row = pool.find((m) => m.id === id);
+      expect(row?.providerID, `${id} keeps the Go row`).toBe('opencode-go');
+      expect(row?.api.url, `${id} keeps the Go url`).toBe('https://opencode.ai/zen/go/v1');
+    }
   });
 });
 
