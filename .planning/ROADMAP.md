@@ -96,7 +96,7 @@ Full details: [`.planning/milestones/v1.4-ROADMAP.md`](milestones/v1.4-ROADMAP.m
 
 **Phase Numbering:** Continues from v1.4 (which ended at Phase 22) — v1.5 starts at Phase 23.
 
-- [ ] **Phase 23: Provider Registry + Servable Sources** - 4-provider registry foundation: `SERVABLE_PROVIDERS` grows to 4 with a registry-driven `providerName()` map, priority-ordered `getProviderForModelId` (explicit precedence anthropic → openrouter → nousresearch → opencode; regression lock: `claude-sonnet-4-6` → anthropic), OpenCode as ONE provider spanning `opencode` + `opencode-go` rows with Zen-wins dual-listed-id dedup + no-flip canary, curated `nousresearch/*` allowlist (Hermes-4 pair), `PROVIDER_DEFAULT_MODELS` for the new providers, `NOUSRESEARCH_API_KEY` + `OPENCODE_API_KEY` declared optional server-only, and union-wide save validation covering all 4 providers
+- [x] **Phase 23: Provider Registry + Servable Sources** - 4-provider registry foundation: `SERVABLE_PROVIDERS` grows to 4 with a registry-driven `providerName()` map, priority-ordered `getProviderForModelId` (explicit precedence anthropic → openrouter → nousresearch → opencode; regression lock: `claude-sonnet-4-6` → anthropic), OpenCode as ONE provider spanning `opencode` + `opencode-go` rows with Zen-wins dual-listed-id dedup + no-flip canary, curated `nousresearch/*` allowlist (Hermes-4 pair), `PROVIDER_DEFAULT_MODELS` for the new providers, `NOUSRESEARCH_API_KEY` + `OPENCODE_API_KEY` declared optional server-only, and union-wide save validation covering all 4 providers (completed 2026-08-03)
 - [ ] **Phase 24: Refresh Script + Catalog Data** - Data phase: anonymous `GET https://inference-api.nousresearch.com/v1/models` fetch source (HTTP 200, 292 rows), per-token → per-MTok pricing conversion (×1e6), `supported_parameters` → `structuredOutputs` live join (throws-not-degrades), family derived from id prefix, snapshot regenerated and committed with `nousresearch` rows + refreshed Go roster (17 → 25 live rows); Zen/Go roster-verify per D-02 doctrine with the Zen-wins dedup expressed once
 - [ ] **Phase 25: Run Path / modelFactory Seam** - Instantiation seam: three module-scope `createOpenAICompatible` instances (nousresearch / opencode-zen / opencode-go) with EXPLICIT `apiKey`, zen-vs-go dispatch by the matched row's `api.url`, 19 Claude rows via `createAnthropic({ baseURL, apiKey })` override, chain-aware env gate naming the new keys, `shouldAdvance` 4-provider semantics (Zen↔Go same-provider), provider-accurate `model_used`/`model_chain` audit, and `supportsStructuredOutputs` false-start on the new instances
 - [ ] **Phase 26: Settings UI** - 4-provider selector: always-valued AI Provider entries in `SERVABLE_PROVIDERS` order, provider-scoped Primary refresh, `· Zen` / `· Go` endpoint captions on OpenCode rows (primary + union pickers), honest Hermes capability captions with converted per-MTok costs, provider badges disambiguating same-name models across 4 providers, and 4-provider union grouping + save/staleness verification
@@ -133,7 +133,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 20. Cross-Provider Run Path | v1.4 | 4/4 | Complete    | 2026-08-02 |
 | 21. Settings UI | v1.4 | 7/7 | Complete    | 2026-08-03 |
 | 22. Verification Gate | v1.4 | 7/7 | Complete    | 2026-08-03 |
-| 23. Provider Registry + Servable Sources | v1.5 | 3/4 | In Progress|  |
+| 23. Provider Registry + Servable Sources | v1.5 | 4/4 | Complete   | 2026-08-03 |
 | 24. Refresh Script + Catalog Data | v1.5 | 0/0 | Not started | - |
 | 25. Run Path / modelFactory Seam | v1.5 | 0/0 | Not started | - |
 | 26. Settings UI | v1.5 | 0/0 | Not started | - |
@@ -169,7 +169,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 23-04-PLAN.md — Registry-driven provider names: PROVIDER_NAMES map kills both hardcoded branches; trimRow via dedupeProviderRows
+- [x] 23-04-PLAN.md — Registry-driven provider names: PROVIDER_NAMES map kills both hardcoded branches; trimRow via dedupeProviderRows
 
 ### Phase 24: Refresh Script + Catalog Data
 

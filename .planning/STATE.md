@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Additional AI Providers
-status: executing
-last_updated: "2026-08-03T22:53:25.906Z"
+status: verifying
+last_updated: "2026-08-03T23:03:14.246Z"
 last_activity: 2026-08-03
 progress:
   total_phases: 5
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 4
-  completed_plans: 3
-  percent: 75
+  completed_plans: 4
+  percent: 20
 ---
 
 # Project State
@@ -24,9 +24,8 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 
 ## Current Position
 
-Phase: 23 (provider-registry-servable-sources) — EXECUTING
-Plan: 4 of 4 (plan 1 complete)
-Status: Ready to execute
+Phase: 23 (provider-registry-servable-sources) — COMPLETE (all 4 plans)
+Status: Phase complete — ready for verification
 Last activity: 2026-08-03
 
 ## Performance Metrics
@@ -75,6 +74,7 @@ Last activity: 2026-08-03
 | Phase 23 P01 | 5min | 3 tasks | 5 files |
 | Phase 23 P02 | 3min | 2 tasks | 2 files |
 | Phase 23 P03 | 1 min | 2 tasks | 1 files |
+| Phase 23 P04 | 3min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -167,6 +167,8 @@ VER-02/VER-05 requirement status: harness + test account (the operator prerequis
 - [Phase 23]: 23-03: settings.ts verified byte-identical (zero edits) — REG-07 union-membership check over getUnionServableIds(catalogJson) is structurally provider-count-agnostic; the widened 4-provider union from 23-01 covers opencode + nousresearch chains with no code change (verify-only honored; git diff empty, tsc 0 errors, 0 opencode/nousresearch mentions)
 - [Phase 23]: 23-03: settings.test.ts new REG-07 4-provider case overrides the beforeEach union mock INLINE (mockReturnValue with 5 ids — anthropic claude-sonnet-4-6 + openrouter anthropic/claude-sonnet-4.6 + nousresearch pin + opencode Zen deepseek-v4-flash + opencode Go-exclusive hy3) rather than widening beforeEach — keeps the existing 8-case security matrix byte-identical (31 insertions/0 deletions) and proves the logical opencode provider spans both snapshot providerIDs at the save seam; chain deepseek-v4-flash + nousresearch/hermes-4-70b saves { ok: true } with raw ids verbatim (D-04)
 - [Phase 23]: 23-03: reject half of REG-07 NOT duplicated — the existing non-servable case (claude-opus-4-9 → invalid_model, no write) already proves rejection against a mocked union; the new case proves only the save-through half
+- [Phase 23]: 23-04: PROVIDER_NAMES (4-entry Record<ModelProviderId, string>) is the single display-name source, shared by the client-side providerName() and the settings page's server-computed selector options — both hardcoded 2-way provider-name ternaries die (REG-01, research Pitfall 4); providerName return type widens to string (all consumers render it as React text, tsc-verified)
+- [Phase 23]: 23-04: trimRow rewired to dedupeProviderRows(catalogJson, provider) — the Zen-wins dedup helper IS the provider scope (filters by SNAPSHOT_PROVIDER_IDS[provider]), so the 5 go-exclusive opencode-go ids (hy3, mimo-v2.5, mimo-v2.5-pro, qwen3.7-max, qwen3.7-plus) resolve name/cost instead of the raw-id/0 fallback (research Open Question 4)
 
 ### Pending Todos
 
@@ -198,7 +200,7 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-03T22:52:52.402Z
+Last session: 2026-08-03T23:03:05.728Z
 Stopped at: Completed 23-03-PLAN.md
 Resume file: None
 
