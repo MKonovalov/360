@@ -45,7 +45,7 @@ The genuinely new tooling is the phase's real work: **Playwright e2e (VER-02/VER
 | VER-01 | Vitest collision matrix, 4-cell 429 hop table, error matrix (402 never advances w/ billing reason; 502/503 advance; platform vs upstream 429) | **Audit result:** collision matrix FULLY locked (`catalog.test.ts:186-192`), 4-cell hop table FULLY locked (`modelConfig.test.ts:135-161`), error classes locked (`modelConfig.test.ts:56-77`). **Gap 1:** `isOpenRouterPlatformRateLimit` has no direct unit test (only indirect via `analyzeCompany.test.ts:374-406`). **Gap 2 (WR-01):** statusCode-200 → `'input'` classification not pinned. Billing reason string covered (`analyzeCompany.test.ts`). |
 | VER-02 | E2E UAT — save OpenRouter primary → Analyze → `agent_run.model_used` matches saved slug | Live-key Playwright e2e: real Clerk login (D-22-05 harness), UI/action save, authenticated `page.request` POST `/api/companies/[id]/analyze`, assert 201 `modelUsed` + DB read-back via `getRunById`. Seeded company **by name** (ids not stable across seed runs). 120s timeouts required (real run 43-50s). |
 | VER-03 | OpenRouter-only chain runs with only `OPENROUTER_API_KEY` set | Child-env Vitest test: spawn `tsx scripts/probe-openrouter-only.ts` with `ANTHROPIC_API_KEY` stripped from child env. `describe.skipIf` guard. ModelFactory verified safe (createOpenRouter no import-time throw; openrouter-only chain never calls `anthropic()`). Existing unit coverage (`analyzeCompany.test.ts:331-344`) proves the gate logic with mocked env; the child test proves real key isolation. |
-| VER-04 | Security-matrix grep — `OPENROUTER` absent from client components / Server Action returns / no `NEXT_PUBLIC_*` leakage | **Currently green** (verified by grep): `OPENROUTER` in exactly 3 non-test server files (`env.ts`, `modelFactory.ts`, `analyzeCompany.ts`) + 2 test files; zero in `src/app/`, `src/components/`, `src/app/actions/`; zero `NEXT_PUBLIC_OPENROUTER` in `src/` + `.env.example`. Codify as allowlist-based Vitest test with a canary-that-the-canary-works assertion. |
+| VER-04 | Security-matrix grep — `OPENROUTER` absent from client components / Server Action returns / no `NEXT_PUBLIC_*` leakage | **Currently green** (verified by grep): `OPENROUTER` in exactly 3 non-test server files (`env.ts`, `modelFactory.ts`, `analyzeCompany.ts`) + 2 test files; zero in `src/app/`, `src/components/`, `src/app/actions/`; zero `NEXT_PUBLIC_OPENROUTER` in `src/` + `.env.example`. Codify as allowlist-based Vitest test with a canary-that-the-canary-works assertion. Test 3's NEXT_PUBLIC walk excludes the gate's own file (it holds the literal) — every other src file + `.env.example` is scanned, so the leak detection is not weakened. |
 | VER-05 | Live-browser UAT — provider-switch draft preservation, picker search/grouping, badge disambiguation, no `~`/`:free` id savable-or-served outside labels | Playwright e2e spec with real Clerk login (`@clerk/testing` `clerk.signIn`). Targets `/settings` (`model-settings-form.tsx`, `model-picker.tsx`). 4 assertions + IN-02 observation (stale-primary badge guess). `~`/`:free` label side already unit-locked (`model-picker-logic.test.ts` suffixLabel); audit-side verbatim locked (`runAgent.test.ts:328-336`). |
 </phase_requirements>
 
@@ -275,6 +275,8 @@ describe.skipIf(!hasLiveKeys)('VER-03 openrouter-only chain (child-env, real key
 
 **When to use:** Any "key-name must never reach the client" invariant. Runs with every `npm test` (D-22-07) — no manual step.
 
+**Self-file exclusion (required, prevents a self-defeating gate):** Test 3's loop over `src/` MUST skip `lib/verification/security-grep.test.ts` itself — that file legitimately holds the literal `NEXT_PUBLIC_OPENROUTER` (its own assertion strings and test title are the leak token under test), so walking it would make the gate fail on its own source forever. Every OTHER `src/` file + `.env.example` stays scanned — the leak detection is not weakened — and the canary (Test 4) is untouched, so the gate remains non-vacuous.
+
 ```typescript
 // src/lib/verification/security-grep.test.ts (sketch — full matrix in task)
 import { describe, expect, it } from 'vitest';
@@ -311,6 +313,7 @@ describe('VER-04 security-matrix grep (D-22-07)', () => {
 
   it('no NEXT_PUBLIC_OPENROUTER anywhere in src/ or .env.example; OPENROUTER_API_KEY present in .env.example', () => {
     for (const rel of files) {
+      if (rel === 'lib/verification/security-grep.test.ts') continue; // self-file: holds the literal as the leak token under test — skip so the gate passes its own source; every other src file still scanned
       expect(readFileSync(join(SRC, rel), 'utf8'), rel).not.toContain('NEXT_PUBLIC_OPENROUTER');
     }
     const example = readFileSync('.env.example', 'utf8');
@@ -414,7 +417,7 @@ test('VER-02: OpenRouter primary → Analyze → model_used matches', async ({ p
 ### Pitfall 6: The security grep falsely passing (vacuous gate)
 **What goes wrong:** The grep test asserts "no OPENROUTER in client files" — but a refactor renames `OPENROUTER_API_KEY` to a casing variant and the test stops matching anything while still passing.
 **Why it happens:** Pattern-only assertions with no positive control.
-**How to avoid:** Add the canary assertion (Pattern 3, test 4): the allowlisted server files MUST contain `OPENROUTER_API_KEY` — proving the scan actually matches the token.
+**How to avoid:** Add the canary assertion (Pattern 3, test 4): the allowlisted server files MUST contain `OPENROUTER_API_KEY` — proving the scan actually matches the token. (Corollary: the gate's own file is skipped in Test 3's NEXT_PUBLIC walk — it holds the literal; the canary keeps the gate non-vacuous.)
 **Warning signs:** The gate passes after `OPENROUTER` disappears from `env.ts` (it shouldn't).
 
 ### Pitfall 7: `.env.local` not loaded in Playwright/Vitest processes
@@ -487,7 +490,7 @@ config({ path: '.env.local' }); // load BEFORE anything that transitively import
 
 **Deprecated/outdated:**
 - **`scripts/refresh-model-catalog.ts` as the probe vehicle:** still valid for catalog refresh, but VER-02/03 use a dedicated probe script + Playwright instead of ad-hoc tsx one-liners (CONTEXT: "not the chosen path for VER-02/03").
-- **The Phase-20 WR-01 comment text** (`modelConfig.ts:65-69`, `runAgent.ts:48-51,104-105`): says mid-stream 429s classify as `'output'`; empirically they classify as `'input'`. VER-01's error matrix must record `'input'`, and the four comment sites should be corrected to match reality (comment-only fix, no behavior change).
+- **The Phase-20 WR-01 comment text** (`modelConfig.ts:65-69`, `runAgent.ts:48-51,104-105`): *verified 2026-08-03 — already corrected to say mid-stream 429s classify as `'input'`* (modelConfig.ts:68-69, :72 explicitly notes "Phase 22's error matrix records 'input'"). No comment fix is required; VER-01's plan 22-01 only needs to **pin** the statusCode-200 → `'input'` classification with a test (the current tree has no such assertion — the WR-01 carry is unpinned).
 
 ## Assumptions Log
 
@@ -500,32 +503,39 @@ config({ path: '.env.local' }); // load BEFORE anything that transitively import
 | A5 | Playwright/Vitest must explicitly load `.env.local` | Common Pitfalls | Verified: neither tool auto-loads it; seed.ts precedent confirms the pattern |
 | A6 | `@clerk/testing@2.2.16` is compatible with `@clerk/nextjs@7.5.22` | Standard Stack | PeerDep is only `@playwright/test ^1`; version-alignment issues would surface as runtime errors — mitigate by pinning `^2.2.16` and smoke-testing the setup project first |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> All five questions below carried a Recommendation; each is now implemented by a concrete plan task. The recommendations are the resolutions — plans do not reopen them.
 
 1. **Clerk test-account provisioning mechanics (D-22-05)**
    - What we know: A dedicated test staff account must exist before the e2e runs; `clerk.signIn` needs `E2E_CLERK_USER_EMAIL`; provisioning can be Clerk dashboard (Users → Create user) or Backend API (`createClerkClient().users.createUser`).
    - What's unclear: Whether the account should be email+password (deterministic login) or passwordless (testing token bypasses OTP either way); who creates it and where credentials live (env vars, not committed).
    - Recommendation: Executor task prerequisite — create the account in the Clerk dashboard, set `E2E_CLERK_USER_EMAIL` (+ password if email+password) in `.env.local`, verify the account can reach `/settings` once manually before running the suite.
+   - **RESOLVED:** Plan 22-03 Task 3 — Backend API `createClerkClient().users.createUser` first (deterministic email `e2e-staff@arclumenpartners.com` + generated policy-compliant password), Clerk Dashboard fallback via blocking checkpoint:human-verify only if API creation fails; `E2E_CLERK_USER_EMAIL`/`E2E_CLERK_USER_PASSWORD` written to `.env.local` (gitignored); auth-setup smoke (`npx playwright test --project=auth-setup`) proves the real login.
 
 2. **The seeded company's test-domain identity (Claude's discretion)**
    - What we know: `companies.csv` has no `domain` column → seeded `domain` is NULL; `CompanyInput.domain` is optional; seed ids are unstable across runs.
    - What's unclear: Whether to (a) accept the NULL-domain seeded row + name-lookup, or (b) have the probe set a `*.test` domain via the query layer for the "test-domain" requirement.
    - Recommendation: (b) — probe/spec sets `domain = 'acmetest.arclumen.test'` (synthetic, never collides with real ICP) on the name-looked-up row before analyzing; satisfies both determinism and the test-domain constraint with one small DB update.
+   - **RESOLVED:** Option (b) implemented — plan 22-04 Task 1 (probe sets `acmetest.arclumen.test` via `db.update(company)...eq(company.id, row.id)`) and plan 22-05 Task 1 (optional query-layer set in the e2e). Company always resolved BY NAME ('Acme Test Co'), never by id.
 
 3. **VER-02's save path: full UI interaction vs authenticated Server Action call**
    - What we know: The literal claim is "save an OpenRouter primary"; the real save path is `saveSettingsAction` (requireStaffAccess FIRST → zod → union check → dedupe → upsert).
    - What's unclear: Whether the e2e should drive the real form UI (slower, also exercises SET-05 recap rendering) or POST the action directly via `page.request`.
    - Recommendation: Drive the real UI for the save (it's the milestone's user-facing claim and doubles as a VER-05 badge observation), then use the authenticated `page.request` for the analyze POST. If flaky, fall back to direct action invocation.
+   - **RESOLVED:** Plan 22-05 Task 1 — real UI save via the Settings form (provider Select + ModelPicker + "Save changes" + 'Saved.' assertion), authenticated `page.request` POST for the analyze; documented fallback to direct `saveSettingsAction` invocation if the UI save proves flaky (which path was used is recorded in the SUMMARY).
 
 4. **IN-03 billing ERROR_COPY row (Phase 20 carry)**
    - What we know: `analyze-run-status.tsx` ERROR_COPY has no `billing` row — a 402 renders generic "The analysis failed" (Phase 20 flagged for Phase 21; still absent in 2026-08-03 code).
    - What's unclear: Whether VER-02's happy path is enough or the phase should observe/close this (it's a gap-closure candidate, not VER scope — the billing path won't fire on a healthy live run).
    - Recommendation: Record as a HUMAN-UAT observation; close as gap closure only if the live run accidentally hits 402. Do not add scope.
+   - **RESOLVED:** Plan 22-07 Task 2 — recorded as HUMAN-UAT Item 2 with `expected`/`result` fields; no feature scope added. If the VER-02/03 live runs accidentally hit 402, the billing evidence lands in the HUMAN-UAT observation as a gap-closure candidate.
 
 5. **Vitest include glob and the new `src/lib/verification/` folder**
    - What we know: `vitest.config.ts` includes `src/**/*.test.ts` — any new test under `src/` is auto-discovered.
    - What's unclear: Whether the verification-matrix consolidation (D-22-06 "named section") should be a new file or a named `describe` in the existing home files.
    - Recommendation: Add the two missing test groups to their **home files** (runAgent.test.ts for the helper, modelConfig.test.ts for the 200-case) — D-16 convention, zero new-folder churn; if the planner wants an explicit VER-01 named block, add `src/lib/verification/verification-matrix.test.ts` containing ONLY the named cross-file summaries that reference the home-file locks (no duplicated assertions).
+   - **RESOLVED:** Plan 22-01 Task 2 — both gap groups land in their home files (`runAgent.test.ts` `isOpenRouterPlatformRateLimit (D-20-08, VER-01 gap)` describe; `modelConfig.test.ts` WR-01 pin inside the existing `classifyModelError` describe). No `verification-matrix.test.ts` file — the named consolidation lives in the VER-01 row of 22-VERIFICATION.md (plan 22-07 Task 1) as the cell → test → line audit map.
 
 ## Environment Availability
 
@@ -589,7 +599,7 @@ config({ path: '.env.local' }); // load BEFORE anything that transitively import
 ### Wave 0 Gaps
 - [ ] `src/lib/agents/runAgent.test.ts` — add `isOpenRouterPlatformRateLimit` direct unit tests (4-6 cases: X-RateLimit headers → platform; `metadata.provider_code` → upstream; `error_type` w/o provider_code → platform; non-APICallError → false; empty-body 429 → header-dependent; statusCode-200-with-data)
 - [ ] `src/lib/agents/modelConfig.test.ts` — add `classifyModelError(apiErr(200)) === 'input'` (WR-01 lock)
-- [ ] `src/lib/verification/security-grep.test.ts` — VER-04 gate (Pattern 3, incl. canary assertion)
+- [ ] `src/lib/verification/security-grep.test.ts` — VER-04 gate (Pattern 3, incl. canary assertion + Test 3's self-file exclusion)
 - [ ] `src/lib/agents/openrouter-only-chain.test.ts` — VER-03 child-env test (Pattern 2, skip guard, 120s timeout)
 - [ ] `scripts/probe-openrouter-only.ts` — VER-03 child probe (dotenv load, company by name, upsert OR-only settings, analyzeCompany, JSON out)
 - [ ] `playwright.config.ts` + `e2e/auth.setup.ts` — harness (Pattern 1, project-based setup, dotenv load, workers: 1)
