@@ -45,5 +45,7 @@ yarn-error.log*
 drizzle/
 skills-lock.json
 
-# Playwright e2e auth state (real Clerk session cookies — never commit)
+# Playwright e2e (generated output + auth state — never commit)
 e2e/.clerk/
+test-results/
+playwright-report/
