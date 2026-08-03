@@ -39,6 +39,19 @@ const envSchema = z.object({
   // server-only. Never logged, never sent to client. Auto-loaded by
   // createOpenRouter (no explicit apiKey pass).
   OPENROUTER_API_KEY: z.string().optional(),
+  // Phase 23 (REG-02): NousResearch direct-inference key. Optional/degrade-
+  // gracefully like the OpenRouter key — an unset key must not crash the app at
+  // import time; the chain-aware env gate lands in Phase 25. Non-PUBLIC_ prefix
+  // = server-only. Never logged, never sent to client. Phase 25 passes it
+  // EXPLICITLY at construction (no SDK env auto-load — v1.5 SUMMARY finding 3).
+  NOUSRESEARCH_API_KEY: z.string().optional(),
+  // Phase 23 (REG-02): OpenCode key — ONE key shared by the Zen and Go
+  // endpoints (verified). Same optional/degrade-gracefully scope — an unset key
+  // must not crash the app at import time; the chain-aware env gate lands in
+  // Phase 25. Non-PUBLIC_ prefix = server-only. Never logged, never sent to
+  // client. Phase 25 passes it EXPLICITLY at construction (no SDK env
+  // auto-load — v1.5 SUMMARY finding 3).
+  OPENCODE_API_KEY: z.string().optional(),
   FIRECRAWL_API_KEY: z.string().optional(),
   LANGFUSE_PUBLIC_KEY: z.string().optional(),
   LANGFUSE_SECRET_KEY: z.string().optional(),
