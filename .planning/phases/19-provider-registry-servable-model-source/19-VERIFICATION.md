@@ -1,10 +1,18 @@
 ---
 phase: 19-provider-registry-servable-model-source
-verified: 2026-08-02T22:10:00Z
-status: human_needed
+verified: 2026-08-03T17:45:00Z
+status: passed
 score: 5/5 success criteria verified
 overrides_applied: 0
 gaps: []
+re_verification:
+  previous_status: human_needed
+  previous_score: 5/5 success criteria verified
+  gaps_closed:
+    - "human_verification #1 (Vercel env declaration): OPENROUTER_API_KEY verified present in Vercel Production + Preview (Encrypted, server-only, no PUBLIC_/NEXT_PUBLIC_ leak) via `vercel env ls`"
+    - "human_verification #2 (cross-provider chain + Settings card rendering): Phase 21 shipped the Settings UI; Phase 22 VER-02 E2E saved an OpenRouter primary and round-tripped (model_used matched); VER-03 live UAT covered the provider picker/badges/provider-switch"
+  gaps_remaining: []
+  regressions: []
 human_verification:
   - test: "Set OPENROUTER_API_KEY in the Vercel project env (server-only, non-PUBLIC_)"
     expected: "The key exists as a server-only env var in Vercel project Settings → Environment Variables for project 360-arclumen (prj_DbEzimzON9nzF7Nmk7Nueta7k00V), not PUBLIC_-prefixed"
@@ -120,18 +128,20 @@ No 🛑 blockers. No TBD/FIXME/XXX debt markers in any phase-modified file (the 
 **Test:** Add `OPENROUTER_API_KEY` in the Vercel project env (project `360-arclumen`, `prj_DbEzimzON9nzF7Nmk7Nueta7k00V`) — server-only, never `PUBLIC_`-prefixed, production (optionally preview/development for Phase 20 testing).
 **Expected:** The key exists as a server-only env var in Vercel Settings → Environment Variables.
 **Why human:** Dashboard-managed env vars are not readable from the repo; the local declarations (`env.ts:41`, `.env.example:33`) are verified, the Vercel half is an operator action. Non-blocking per D-11 — nothing consumes the key until Phase 20's chain-aware gate.
+**RESOLVED 2026-08-03:** `vercel env ls production|preview` shows `OPENROUTER_API_KEY` = Encrypted in Production + Preview; no `PUBLIC_OPENROUTER`/`NEXT_PUBLIC_OPENROUTER` anywhere. Server-only, non-leaking.
 
 ### 2. Settings card provider-choice rendering (Phase 21 surface)
 
 **Test:** Open `/settings` signed in; confirm the card loads and an OpenRouter model id (e.g. `anthropic/claude-sonnet-4.6`) is accepted by the save path end-to-end once Phase 21's provider selector renders.
 **Expected:** The union validation (REG-07) accepts cross-provider chains; the picker renders provider-badged options (Phase 21 deliverable).
 **Why human:** SC1's "can express a provider choice" is verified at the registry + validation layer; the visible selector UI is explicitly Phase 21 (CONTEXT boundary). Requires a browser with a signed-in session.
+**RESOLVED 2026-08-03:** Phase 21 shipped the Settings UI (provider selector, badges, union fallback pickers); Phase 22 VER-02 E2E saved an OpenRouter primary and round-tripped with `model_used` matching; VER-03 live UAT covered picker rendering, badges, provider-switch draft preservation. See 19-HUMAN-UAT.md (status: complete).
 
 ### Gaps Summary
 
-No gaps. All 5 success criteria and all 7 requirements (REG-01..07) are verified against the actual codebase with file:line evidence, 53/53 targeted tests and 317/323 full-suite tests pass, tsc is clean, and every claimed commit exists. Three review warnings (WR-01..03) from 19-REVIEW.md are confirmed valid and remain open — all are test-coverage/robustness issues, not goal-blocking defects; the verifier independently probed the behaviors they guard (D-06 real-default resolution, collision canaries, verbatim id flow) and confirmed the code is correct. Status is `human_needed` only because the Vercel env declaration and the Phase-21 UI surface require human/operator verification.
+No gaps. All 5 success criteria and all 7 requirements (REG-01..07) are verified against the actual codebase with file:line evidence, 53/53 targeted tests and 317/323 full-suite tests pass, tsc is clean, and every claimed commit exists. Three review warnings (WR-01..03) from 19-REVIEW.md are confirmed valid and remain open — all are test-coverage/robustness issues, not goal-blocking defects; the verifier independently probed the behaviors they guard (D-06 real-default resolution, collision canaries, verbatim id flow) and confirmed the code is correct. Status is `passed` after re-verification — both human items (Vercel env declaration and the Phase-21 UI surface) resolved 2026-08-03.
 
 ---
 
-_Verified: 2026-08-02T22:10:00Z_
+_Verified: 2026-08-03T17:45:00Z_
 _Verifier: Claude (gsd-verifier)_
