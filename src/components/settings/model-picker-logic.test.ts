@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  PROVIDER_NAMES,
   groupByProvider,
   isHighCost,
   optionsForSlot,
@@ -251,10 +252,26 @@ describe('optionsForSlot (D-08/D-09 widened, Open Question 3)', () => {
 });
 
 describe('providerName (D-21-09)', () => {
-  it('maps the provider id to its display name', () => {
+  it('maps every provider id to its display name (REG-01 4-entry registry map)', () => {
     // Given / When / Then
     expect(providerName('anthropic')).toBe('Anthropic');
     expect(providerName('openrouter')).toBe('OpenRouter');
+    expect(providerName('nousresearch')).toBe('NousResearch');
+    expect(providerName('opencode')).toBe('OpenCode');
+  });
+
+  it('PROVIDER_NAMES is the complete 4-entry record (TS-enforced shape)', () => {
+    // Given the map is the single source of provider display names (REG-01) —
+    // record completeness is TS-enforced at compile, but this locks it against
+    // accidental partial growth (a 3-entry map with a 4-provider union breaks tsc)
+    // When / Then
+    expect(Object.keys(PROVIDER_NAMES).sort()).toEqual(
+      ['anthropic', 'nousresearch', 'opencode', 'openrouter'].sort(),
+    );
+    // Then every value is a non-empty display string — no blank labels can ship
+    for (const [id, name] of Object.entries(PROVIDER_NAMES)) {
+      expect(name.length, `providerName(${id}) label is empty`).toBeGreaterThan(0);
+    }
   });
 });
 
