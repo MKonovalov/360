@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Multi-Provider AI Model Configuration
 status: executing
-last_updated: "2026-08-03T10:09:49.363Z"
-last_activity: 2026-08-03 -- Phase 22 planning complete
+last_updated: "2026-08-03T10:25:52.232Z"
+last_activity: 2026-08-03
 progress:
   total_phases: 4
   completed_phases: 3
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-02)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** Phase 22 — verification gate
+**Current focus:** Phase 22 — verification-gate
 
 ## Current Position
 
-Phase: 22
-Plan: Not started
+Phase: 22 (verification-gate) — EXECUTING
+Plan: 2 of 7
 Status: Ready to execute
-Last activity: 2026-08-03 -- Phase 22 planning complete
+Last activity: 2026-08-03
 
-Progress: [██████████] 100%
+Progress: [███████░░░] 70%
 
 ## Performance Metrics
 
@@ -67,6 +67,7 @@ Progress: [██████████] 100%
 | Phase 21-settings-ui P05 | 5min | 2 tasks | 1 files |
 | Phase 21-settings-ui P06 | 3min | 2 tasks | 3 files |
 | Phase 21-settings-ui P07 | 2min | 2 tasks | 1 files |
+| Phase 22-verification-gate P22-01 | 2min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -130,6 +131,7 @@ Recent decisions affecting current work:
 - [Phase 21-settings-ui]: P06: pinned row carries data-checked (boolean true) — the vendored CommandItem auto-renders its CheckIcon on group-data-[checked=true], closing GAP-2's primary checkmark with the name-resolvable source review CR-01 names
 - [Phase 21-settings-ui]: 21-07: valueName source = the already-trimmed unionServableModels prop (server-validated, T-17-09) — no new import, catalog.json stays server-only; every valid primary resolves, a stale id yields undefined so the raw-id fallback + staleLabel path stay untouched (CR-01 call-site fix)
 - [Phase 21-settings-ui]: 21-07: markDirty uses the updater form setStatus((s) => (s === 'saving' ? s : 'idle')) — review WR-01 exact fix; a just-started save is never relabeled by a concurrent edit; markDirty fires from all six draft mutators and is NOT called from handleSave (it manages its own 'saving' → 'saved'|'error' transitions); setResetHint lifecycle untouched
+- [Phase 22-verification-gate]: VER-01 (22-01): the two RESEARCH-documented test gaps (direct isOpenRouterPlatformRateLimit tests, statusCode-200 -> 'input' pin) are closed at their home files per D-16; the three locked matrices (collision canaries catalog.test.ts:182-192, 4-cell 429 hop modelConfig.test.ts:151-177, error classes :56-77) audited green and left byte-identical (D-22-06)
 
 ### Pending Todos
 
@@ -160,9 +162,9 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-03T08:22:44.024Z
+Last session: 2026-08-03T10:25:52.225Z
 Stopped at: Phase 22 context gathered
-Resume file: .planning/phases/22-verification-gate/22-CONTEXT.md
+Resume file: Completed 22-01-PLAN.md (VER-01 audit + gap-fill)
 
 ## Operator Next Steps
 
