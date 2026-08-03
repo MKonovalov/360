@@ -20,6 +20,22 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
+// WR-03: SET-06's fallback-picker row count must come from the catalog module,
+// never a magic literal — a catalog refresh (npm run models:fetch) or
+// OpenRouter model drift can't break this "permanent gate" assertion. Relative
+// import (ver-02-analyze.spec.ts:30-33 pattern); catalog.ts itself imports only
+// ./catalog.json, so no @/ alias resolution is needed here.
+import { getUnionServableIds } from '../src/lib/models/catalog';
+import catalogJson from '../src/lib/models/catalog.json';
+
+// unionServableModels.length == getUnionServableIds(catalogJson).length (the
+// settings page trims one row per union id). SET-06 forces the OpenRouter
+// default primary (anthropic/claude-sonnet-4.6), which optionsForSlot
+// (model-picker-logic.ts:91-100) always excludes from its own picker — so the
+// rendered option count is union length - 1, dynamic against the committed
+// snapshot (WR-03).
+const EXPECTED_UNION_OPTION_COUNT = getUnionServableIds(catalogJson).length - 1;
+
 // The settings pane only renders behind the real Clerk session.
 const SETTINGS_HEADING = 'AI Model Configuration';
 
@@ -107,10 +123,11 @@ test('VER-05: picker search + provider grouping (SET-06)', async ({ page }) => {
   const searchInput = page.getByPlaceholder('Search models…');
 
   // The union fallback picker (grouped, D-21-08) renders the full servable
-  // union: 336 openrouter + 1 anthropic allowlist = 337, minus the openrouter
-  // primary anthropic/claude-sonnet-4.6 → 336 rows (UI-SPEC §Pickers).
+  // union (getUnionServableIds) minus the current primary — SET-06 forces the
+  // OpenRouter default, so the expected row count is union length - 1, derived
+  // from the catalog module rather than a magic literal (WR-03).
   const options = page.getByRole('option');
-  await expect(options).toHaveCount(336);
+  await expect(options).toHaveCount(EXPECTED_UNION_OPTION_COUNT);
 
   // Two CommandGroups bucket by provider (insertion order = SERVABLE_PROVIDERS
   // ['anthropic','openrouter']): heading text == providerName() output. Family
@@ -118,14 +135,14 @@ test('VER-05: picker search + provider grouping (SET-06)', async ({ page }) => {
   await expect(page.locator('[cmdk-group-heading]')).toHaveText(['Anthropic', 'OpenRouter']);
 
   // Type-to-filter narrows the list on the composite search index (id + name +
-  // family). A distinctive subset keyword collapses 336 → handful.
+  // family). A distinctive subset keyword collapses the full union → handful.
   await searchInput.fill(':free');
   const freeCount = await page.getByRole('option').count();
   expect(freeCount).toBeGreaterThan(0);
   expect(freeCount).toBeLessThan(50);
   // Clearing restores the full picker with grouping intact.
   await searchInput.fill('');
-  await expect(page.getByRole('option')).toHaveCount(336);
+  await expect(page.getByRole('option')).toHaveCount(EXPECTED_UNION_OPTION_COUNT);
   await expect(page.locator('[cmdk-group-heading]')).toHaveText(['Anthropic', 'OpenRouter']);
 
   // No-match → cmdk's "No models found." empty state (not a 500/blank page).

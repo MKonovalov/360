@@ -86,9 +86,6 @@ async function main() {
     signalProposal,
     correction,
   } = await import('../lib/db/schema');
-  const { insertSignal } = await import('../lib/db/queries/signals');
-  const { insertCompanyPersonaRole } = await import('../lib/db/queries/companyPersonaRoles');
-
   // This pipeline fully owns the seed dataset — clear prior seed-managed
   // rows (children first, respecting FK constraints) so re-running `npm run
   // seed` is idempotent and never accumulates duplicate companies/personas
@@ -97,85 +94,97 @@ async function main() {
   // company/signal_proposal and must be cleared first — otherwise Postgres
   // rejects the company delete (agent_run_company_id_company_id_fk), which
   // surfaces as a seed failure on any DB that has had a live analyze run.
-  await db.delete(correction);
-  await db.delete(signalProposal);
-  await db.delete(agentRun);
-  await db.delete(companyPersonaRole);
-  await db.delete(signal);
-  await db.delete(persona);
-  await db.delete(company);
+  // WR-01: the destructive delete + full re-insert runs as ONE transaction.
+  // A mid-run failure (constraint violation, transient connection loss, a
+  // malformed CSV row) rolls the entire sequence back instead of leaving all
+  // seven tables empty — including the runtime audit tables agent_run,
+  // signal_proposal, correction. Re-seeding still resets run history by
+  // design; the transaction only makes that destructive reset atomic.
+  await db.transaction(async (tx) => {
+    await tx.delete(correction);
+    await tx.delete(signalProposal);
+    await tx.delete(agentRun);
+    await tx.delete(companyPersonaRole);
+    await tx.delete(signal);
+    await tx.delete(persona);
+    await tx.delete(company);
 
-  const companyNameToId = new Map<string, number>();
-  for (const row of companyRows) {
-    const [inserted] = await db
-      .insert(company)
-      .values({
-        name: row.name,
-        industry: row.industry,
-        employeeCountBand: row.employee_count_band,
-        hqLocation: row.hq_location,
-        revenueBand: row.revenue_band,
-        ownershipType: row.ownership_type,
-        techStack: row.tech_stack ? row.tech_stack.split('|').map((s) => s.trim()) : undefined,
-      })
-      .returning();
-    companyNameToId.set(row.name, inserted.id);
-  }
+    const companyNameToId = new Map<string, number>();
+    for (const row of companyRows) {
+      const [inserted] = await tx
+        .insert(company)
+        .values({
+          name: row.name,
+          industry: row.industry,
+          employeeCountBand: row.employee_count_band,
+          hqLocation: row.hq_location,
+          revenueBand: row.revenue_band,
+          ownershipType: row.ownership_type,
+          techStack: row.tech_stack ? row.tech_stack.split('|').map((s) => s.trim()) : undefined,
+        })
+        .returning();
+      companyNameToId.set(row.name, inserted.id);
+    }
 
-  const personaNameToId = new Map<string, number>();
-  for (const row of personaRows) {
-    const [inserted] = await db
-      .insert(persona)
-      .values({
-        name: row.name,
+    const personaNameToId = new Map<string, number>();
+    for (const row of personaRows) {
+      const [inserted] = await tx
+        .insert(persona)
+        .values({
+          name: row.name,
+          title: row.title,
+          seniority: row.seniority,
+          email: row.email,
+          linkedinUrl: row.linkedin_url,
+        })
+        .returning();
+      personaNameToId.set(row.name, inserted.id);
+    }
+
+    for (const row of signalRows) {
+      const companyId = companyNameToId.get(row.company_name);
+      if (!companyId) {
+        throw new Error(
+          `signals.csv references unknown company_name "${row.company_name}" — must match a name in companies.csv`
+        );
+      }
+      // Inlined from insertSignal() (queries/signals.ts) so the insert uses
+      // this transaction's tx client — the wrapper binds the module-level db.
+      await tx.insert(signal).values({
+        companyId,
+        signalType: row.signal_type,
+        strength: row.strength,
+        source: row.source,
+        detectedAt: row.detected_at,
+        note: row.note,
+      });
+    }
+
+    for (const row of roleRows) {
+      const companyId = companyNameToId.get(row.company_name);
+      const personaId = personaNameToId.get(row.persona_name);
+      if (!companyId) {
+        throw new Error(
+          `company_persona_roles.csv references unknown company_name "${row.company_name}" — must match a name in companies.csv`
+        );
+      }
+      if (!personaId) {
+        throw new Error(
+          `company_persona_roles.csv references unknown persona_name "${row.persona_name}" — must match a name in personas.csv`
+        );
+      }
+      // Inlined from insertCompanyPersonaRole() (queries/companyPersonaRoles.ts)
+      // so it participates in this transaction's tx client.
+      await tx.insert(companyPersonaRole).values({
+        companyId,
+        personaId,
         title: row.title,
-        seniority: row.seniority,
-        email: row.email,
-        linkedinUrl: row.linkedin_url,
-      })
-      .returning();
-    personaNameToId.set(row.name, inserted.id);
-  }
-
-  for (const row of signalRows) {
-    const companyId = companyNameToId.get(row.company_name);
-    if (!companyId) {
-      throw new Error(
-        `signals.csv references unknown company_name "${row.company_name}" — must match a name in companies.csv`
-      );
+        isCurrent: row.is_current,
+        startDate: row.start_date,
+        endDate: row.end_date,
+      });
     }
-    await insertSignal({
-      companyId,
-      signalType: row.signal_type,
-      strength: row.strength,
-      source: row.source,
-      detectedAt: row.detected_at,
-      note: row.note,
-    });
-  }
-
-  for (const row of roleRows) {
-    const companyId = companyNameToId.get(row.company_name);
-    const personaId = personaNameToId.get(row.persona_name);
-    if (!companyId) {
-      throw new Error(
-        `company_persona_roles.csv references unknown company_name "${row.company_name}" — must match a name in companies.csv`
-      );
-    }
-    if (!personaId) {
-      throw new Error(
-        `company_persona_roles.csv references unknown persona_name "${row.persona_name}" — must match a name in personas.csv`
-      );
-    }
-    await insertCompanyPersonaRole({
-      companyId,
-      personaId,
-      title: row.title,
-      isCurrent: row.is_current,
-      startDate: row.start_date,
-      endDate: row.end_date,
-    });
-  }
+  });
 
   console.log(
     `Inserted: ${companyRows.length} companies, ${personaRows.length} personas, ${signalRows.length} signals, ${roleRows.length} company_persona_roles`

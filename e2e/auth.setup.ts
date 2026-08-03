@@ -10,8 +10,19 @@ setup('global setup', async () => {
 });
 
 setup('authenticate and save state', async ({ page }) => {
+  // WR-02: fail loud with a descriptive message when the test staff account
+  // env var is missing (probe-openrouter-only.ts:41-46 pattern) — the former
+  // `!` non-null assertion only silenced TS; at runtime it would pass
+  // `undefined` into clerk.signIn and surface an obscure SDK error.
+  const email = process.env.E2E_CLERK_USER_EMAIL;
+  if (!email) {
+    throw new Error(
+      'E2E_CLERK_USER_EMAIL is missing from .env.local — provision the test staff account per plan 22-03 Task 3'
+    );
+  }
+
   await page.goto('/');
-  await clerk.signIn({ page, emailAddress: process.env.E2E_CLERK_USER_EMAIL! });
+  await clerk.signIn({ page, emailAddress: email });
   // The RESEARCH Pattern 1 literal waitForURL('**/companies/**') assumed a
   // recall.ai-style dashboard redirect; this app's post-login dashboard is '/'
   // (the (dashboard) route group). clerk.signIn sets the real __session cookie
