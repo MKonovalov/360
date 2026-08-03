@@ -74,7 +74,7 @@ Each task was committed atomically:
 2. **Task 2: model-picker-logic.test.ts — providerName 4-entry assertions + PROVIDER_NAMES completeness** - `a8c53a77` (test)
 3. **Task 3: settings/page.tsx — shared-map provider selector + dedupeProviderRows-backed trimRow** - `cb9f05aa` (feat)
 
-**Plan metadata:** pending (docs commit below)
+**Plan metadata:** `bf4ecb03` (docs: complete plan — STATE.md + ROADMAP.md)
 
 ## Files Created/Modified
 
