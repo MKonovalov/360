@@ -9,12 +9,12 @@ Requirements for milestone v1.5. Each maps to a roadmap phase.
 
 ### Provider Registry + Servable Model Sources
 
-- [ ] **REG-01**: User can select the AI Provider for their model configuration — Anthropic, OpenRouter (existing), **NousResearch** and **OpenCode** (new) — in the Settings AI Model Configuration card; `SERVABLE_PROVIDERS` grows to 4 and `providerName()` becomes a registry-driven map (no new hardcoded branch)
+- [x] **REG-01**: User can select the AI Provider for their model configuration — Anthropic, OpenRouter (existing), **NousResearch** and **OpenCode** (new) — in the Settings AI Model Configuration card; `SERVABLE_PROVIDERS` grows to 4 and `providerName()` becomes a registry-driven map (no new hardcoded branch)
 - [ ] **REG-02**: `@ai-sdk/openai-compatible@^3.0.20` is installed; `NOUSRESEARCH_API_KEY` + `OPENCODE_API_KEY` declared in `env.ts` (optional, non-`PUBLIC_`, degrade-gracefully mirroring `OPENROUTER_API_KEY`), `.env.example`, and Vercel env
-- [ ] **REG-03**: OpenCode is ONE logical provider spanning two snapshot providerIDs (`opencode` = Zen, `opencode-go` = Go); servable set = the gated rows (chat-completions 30 + Claude 19 = 49 of 77), with dual-listed ids deduped by a deterministic Zen-wins rule (5 Go-exclusive ids keep their Go rows) locked by a no-flip canary
-- [ ] **REG-04**: NousResearch servable set = curated `PROVIDER_GATES.nousresearch` allowlist of native `nousresearch/*` ids (Hermes-4 pair today, ~2 rows) — NOT the full 292-row portal roster (OpenRouter mirror, mass collision)
-- [ ] **REG-05**: `getProviderForModelId` widens to the 4 logical providers with an EXPLICIT precedence order (nousresearch row wins over openrouter for the 2 shared hermes ids; opencode scope includes both `opencode` + `opencode-go` row ids); the anthropic default `claude-sonnet-4-6` keeps resolving to anthropic (priority-order regression lock); collision canary extended + passing
-- [ ] **REG-06**: `PROVIDER_DEFAULT_MODELS` gains `nousresearch` (Hermes-4 pair member) + `opencode` (pinned concrete id chosen in planning) reset-to-provider-default targets
+- [x] **REG-03**: OpenCode is ONE logical provider spanning two snapshot providerIDs (`opencode` = Zen, `opencode-go` = Go); servable set = the gated rows (chat-completions 30 + Claude 19 = 49 of 77), with dual-listed ids deduped by a deterministic Zen-wins rule (5 Go-exclusive ids keep their Go rows) locked by a no-flip canary
+- [x] **REG-04**: NousResearch servable set = curated `PROVIDER_GATES.nousresearch` allowlist of native `nousresearch/*` ids (Hermes-4 pair today, ~2 rows) — NOT the full 292-row portal roster (OpenRouter mirror, mass collision)
+- [x] **REG-05**: `getProviderForModelId` widens to the 4 logical providers with an EXPLICIT precedence order (nousresearch row wins over openrouter for the 2 shared hermes ids; opencode scope includes both `opencode` + `opencode-go` row ids); the anthropic default `claude-sonnet-4-6` keeps resolving to anthropic (priority-order regression lock); collision canary extended + passing
+- [x] **REG-06**: `PROVIDER_DEFAULT_MODELS` gains `nousresearch` (Hermes-4 pair member) + `opencode` (pinned concrete id chosen in planning) reset-to-provider-default targets
 - [ ] **REG-07**: Union-wide save validation + staleness gate cover all 4 providers automatically (membership-based `saveSettingsAction` unchanged structurally); cross-provider chains spanning the new providers save and validate
 
 ### Refresh Script + Catalog Data
@@ -80,12 +80,12 @@ Deferred to future releases. Tracked but not in the current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REG-01 | 23 | Pending |
+| REG-01 | 23 | Complete |
 | REG-02 | 23 | Pending |
-| REG-03 | 23 | Pending |
-| REG-04 | 23 | Pending |
-| REG-05 | 23 | Pending |
-| REG-06 | 23 | Pending |
+| REG-03 | 23 | Complete |
+| REG-04 | 23 | Complete |
+| REG-05 | 23 | Complete |
+| REG-06 | 23 | Complete |
 | REG-07 | 23 | Pending |
 | CAT-01 | 24 | Pending |
 | CAT-02 | 24 | Pending |

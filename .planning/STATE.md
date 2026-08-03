@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Additional AI Providers
 status: executing
-last_updated: "2026-08-03T22:18:09.140Z"
-last_activity: 2026-08-03 -- Phase 23 planning complete
+last_updated: "2026-08-03T22:43:26.250Z"
+last_activity: 2026-08-03
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 4
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 25
 ---
 
 # Project State
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-02)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** v1.5 Phase 23 — Provider Registry + Servable Sources
+**Current focus:** Phase 23 — provider-registry-servable-sources
 
 ## Current Position
 
-Phase: 23 — Provider Registry + Servable Sources (0/5 complete)
-Plan: —
-Status: Ready to execute
-Last activity: 2026-08-03 -- Phase 23 planning complete
+Phase: 23 (provider-registry-servable-sources) — EXECUTING
+Plan: 2 of 4 (plan 1 complete)
+Status: Executing Phase 23 — 4-provider registry keystone delivered (23-01)
+Last activity: 2026-08-03 -- 23-01-SUMMARY.md written
 
 ## Performance Metrics
 
@@ -72,6 +72,7 @@ Last activity: 2026-08-03 -- Phase 23 planning complete
 | Phase 22-verification-gate P06 | 25min | 1 tasks | 1 files |
 | Phase 22-verification-gate P05 | 75 | 3 tasks | 1 files |
 | Phase 22-verification-gate P07 | 3min | 2 tasks | 2 files |
+| Phase 23 P01 | 5min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -154,6 +155,11 @@ VER-02/VER-05 requirement status: harness + test account (the operator prerequis
 - [Phase 22-verification-gate]: P05: VER-02 live run returned 402 from OpenRouter (key uncredited: limit null, is_free_tier true) — recorded as the documented pending-credit limitation (IN-03 billing observation for plan 22-07), no retry per plan, no assertion weakening; full stack through the provider contract proven (real Clerk login, Settings UI save, analyze route)
 - [Phase 22-verification-gate]: 22-VERIFICATION.md status: passed (plan-mandated frontmatter) means the RECORD is complete — 5/5 success criteria mapped to executed evidence — not that every live assertion is green; VER-02/VER-03 live billing-success assertions (201 + modelUsed 'anthropic/claude-sonnet-4.6') are explicitly PENDING-credit (uncredited OPENROUTER_API_KEY, limit null, is_free_tier true) and flagged in the truth table, never falsely green. — The record's job is to map all five success criteria to executed evidence with re-runnable commands; the two live-key proofs are structurally delivered (full stack through the provider contract proven, assertions intact) but their 201/modelUsed evidence awaits key top-up. Flagging pending-credit keeps the record honest while still a complete 5/5 Evidence map.
 - [Phase 22-verification-gate]: REQUIREMENTS.md honesty at the milestone's final verification-gate: VER-02/VER-03 remain Pending (their literal satisfaction — agent_run.model_used matching the saved OpenRouter slug; an OpenRouter-only chain running successfully — awaits a credited key's 201/modelUsed evidence); VER-01/VER-04/VER-05 stay Complete. This plan records evidence shapes; it does not fabricate requirement closure. — Requirement status must reflect proven fact, not aspiration. A 402-billing terminal state is durable evidence everything up to the money works, but it is not a satisfied "matches the saved slug" claim. Marking them Complete would corrupt REQUIREMENTS.md traceability for the milestone audit.
+- [Phase 23]: 23-01: ModelProviderId grows to 4 with PROVIDER_PRECEDENCE = ['anthropic','nousresearch','openrouter','opencode'] — nousresearch MUST outrank openrouter (D-23-07 hermes ranking, index 1), anthropic first (claude-sonnet-4-6 regression lock), opencode last
+- [Phase 23]: 23-01: ProviderGate = { allowlist?, npm? }; PROVIDER_GATES: nousresearch = hermes-pair allowlist pins (D-23-05, never ~latest), opencode = npm-value gate ['@ai-sdk/openai-compatible','@ai-sdk/anthropic'] (D-23-01, GPT/Gemini self-exclude)
+- [Phase 23]: 23-01: Zen-wins dedup as one data-driven dedupeProviderRows (returns ROWS, first-providerID-wins via SNAPSHOT_PROVIDER_IDS.opencode = ['opencode','opencode-go'] — D-23-08/09/10); getServableIdsForProvider = dedup-then-gate pipeline
+- [Phase 23]: 23-01: getProviderForModelId = servable-membership precedence iteration (fail-closed null); claude-sonnet-5 anthropic->opencode + big-pickle null->opencode are DELIBERATE reworks (never deletes, why-comments); opencode servable set locked at post-dedup 39 (23+16, 0 GPT/Gemini), not pre-dedup 49
+- [Phase 23]: 23-01: PROVIDER_DEFAULT_MODELS = 4-entry Record<ModelProviderId,string> — nousresearch/hermes-4-70b (D-23-06), opencode claude-sonnet-4-6 (D-23-03, same id as anthropic default = keep-if-valid re-badge); instantiateModel dispatch stays 2-provider (Phase 25, research A4)
 
 ### Pending Todos
 
@@ -185,9 +191,9 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-03T21:39:46.184Z
+Last session: 2026-08-03T22:42:00.767Z
 Stopped at: Phase 23 context gathered
-Resume file: .planning/phases/23-provider-registry-servable-sources/23-CONTEXT.md
+Resume file: None
 
 ## Operator Next Steps
 
