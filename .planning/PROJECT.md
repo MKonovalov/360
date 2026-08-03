@@ -201,4 +201,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-02 — v1.4 Phase 20 (Cross-Provider Run Path) complete*
+*Last updated: 2026-08-03 — v1.4 Phase 21 (Settings UI) complete*
