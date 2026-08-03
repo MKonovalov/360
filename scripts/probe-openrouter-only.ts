@@ -14,13 +14,17 @@
 import { config } from 'dotenv';
 
 // tsx does not auto-load .env.local the way Next.js's own dev/build pipeline
-// does (seed.ts:5-11 why-comment). src/lib/env.ts validates process.env at
-// MODULE-EVALUATION time (envSchema.parse), and ES module imports are hoisted
-// above this file's top-level code — a static import of any src/lib module
-// would run (and fail) before the config() call below ever executes. Load
-// .env.local first, then dynamically import everything that transitively
-// touches src/lib/env.ts inside main().
-config({ path: '.env.local' });
+// does (seed.ts:2-11 why). dotenv validates process.env at MODULE-EVALUATION
+// time via the env schema, and ES module imports are hoisted above this
+// file's top-level code — a static import of any src/lib module would run
+// (and fail) before the config() call executes. Load .env.local first, then
+// dynamically import everything that transitively touches src/lib/env.ts
+// inside main().
+//
+// quiet: true — dotenv prints an "injected env" banner to stdout on every
+// load; this probe's stdout is the JSON contract the parent test parses
+// ({ ok, modelUsed, modelChain }), so the banner must be suppressed.
+config({ path: '.env.local', quiet: true });
 
 async function main() {
   const { createClerkClient } = await import('@clerk/backend');
