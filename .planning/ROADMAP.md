@@ -160,7 +160,7 @@ Plans:
   4. The OpenRouter picker (336 rows) is usable via Command-pattern type-to-filter search + provider/family grouping, both in P1
   5. `~latest` aliases are labeled "always the latest" (drift caveat) and `:free` variants labeled rate-limited free tier (shared 50 req/day quota, fail-loud on cap); the staleness gate covers the union-wide servable set, the catalog freshness caption is retained, and cost captions include high-cost warnings (e.g. $150/M)
 
-**Plans**: 5 plans
+ **Plans**: 7 plans
 Plans:
 **Wave 1**
 
@@ -175,6 +175,16 @@ Plans:
 **Wave 3** *(blocked on Wave 2 completion)*
 
 - [x] 21-05-PLAN.md — `model-settings-form.tsx` provider dimension (selector + reset reducer + hint + union gate) + ModelPicker swaps + saved-chain recap; npm test + npm run build gate (SET-01..08)
+
+**Gap closure** *(21-06..21-07 — CR-01 trigger-name/check-state fix + WR-02 empty-list + WR-01 stale feedback; from 21-VERIFICATION.md)*
+
+**Wave 1**
+
+- [ ] 21-06-PLAN.md — Pure name-resolution seam: `triggerLabel` + `pinnedSelection` helpers + tests; wrapper consumes them (valueName prop, pinned checked current-selection row, WR-02 only-model explanation) (SET-05/06)
+
+**Wave 2** *(blocked on 21-06)*
+
+- [ ] 21-07-PLAN.md — Form wiring: valueName on the primary slot (CR-01 call-site fix) + markDirty feedback reset (WR-01) (SET-05/06)
 
 **UI hint**: yes
 
