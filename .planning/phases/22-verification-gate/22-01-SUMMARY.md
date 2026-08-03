@@ -156,3 +156,12 @@ None - no external service configuration required for this plan (pure unit-test 
 ---
 *Phase: 22-verification-gate*
 *Completed: 2026-08-03*
+
+## Self-Check: PASSED
+
+- [x] `src/lib/agents/runAgent.test.ts` exists with the new top-level describe (6 cases) + import — verified via grep (`VER-01 gap` count = 2)
+- [x] `src/lib/agents/modelConfig.test.ts` exists with `statusCode: 200` (l.111) and `toBe('input')` (count = 3) — verified via grep
+- [x] Commit `d40d2fd4` (test(22-01)) exists in `git log`
+- [x] Commit `48cb03ce` (docs(22-verification-gate-01)) exists in `git log`
+- [x] Targeted 3-file regression exits 0 (73 tests); targeted 2-file run exits 0 (50 tests); `npm test` exits 0 (373 passed | 6 skipped)
+- [x] `git diff --stat src/lib/models/catalog.test.ts` empty (collision matrix untouched — D-22-06)
