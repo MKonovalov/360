@@ -64,6 +64,37 @@ describe('saveSettingsAction security matrix (T-17-02..06)', () => {
     });
   });
 
+  it('REG-07 (4-provider): a cross-provider chain spanning the new providers saves against the widened union, ids pass through verbatim (D-04)', async () => {
+    // Given — the widened 4-provider union: an anthropic id + an openrouter id +
+    // a nousresearch pin + an opencode Zen id + an opencode Go-exclusive id
+    // (proving the logical opencode provider spans both snapshot providerIDs at
+    // the save seam; the existing 2-provider union from beforeEach is overridden
+    // here — the mock seam itself is unchanged).
+    mocks.getUnionServableIds.mockReturnValue([
+      'claude-sonnet-4-6',
+      'anthropic/claude-sonnet-4.6',
+      'nousresearch/hermes-4-70b',
+      'deepseek-v4-flash',
+      'hy3',
+    ]);
+
+    // When — an opencode primary + nousresearch fallback: a chain that was
+    // impossible before v1.5.
+    const result = await saveSettingsAction({
+      primaryModel: 'deepseek-v4-flash',
+      fallbacks: ['nousresearch/hermes-4-70b'],
+    });
+
+    // Then — raw ids verbatim (no prefix-strip, no translation, D-04).
+    expect(result).toEqual({ ok: true });
+    expect(mocks.upsertModelSettings).toHaveBeenCalledWith({
+      userId: 'user_123',
+      primaryModel: 'deepseek-v4-flash',
+      fallbackModels: ['nousresearch/hermes-4-70b'],
+    });
+    expect(revalidatePath).toHaveBeenCalledWith('/settings');
+  });
+
   it('rejects malformed input before any write (missing primary, fallbacks not an array)', async () => {
     // Given / When
     const result = await saveSettingsAction({ fallbacks: 'nope' });
