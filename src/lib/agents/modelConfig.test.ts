@@ -99,6 +99,22 @@ describe('classifyModelError', () => {
     }
   });
 
+  // D-20-05/06 (WR-01): mid-stream 429s surface as APICallError with statusCode
+  // 200 + data — the classifier falls through the statusCode switch to 'input'
+  // (never failover-eligible); Phase 22's error matrix records 'input', NOT
+  // 'output'.
+  it('classifies a statusCode-200 APICallError (mid-stream 429) as input — NOT output (WR-01)', () => {
+    const midStream = new APICallError({
+      message: 'finish_reason: error',
+      url: 'u',
+      requestBodyValues: {},
+      statusCode: 200,
+      data: { error: { message: 'rate limit exceeded mid-stream' } },
+    });
+    expect(classifyModelError(midStream)).toBe('input');
+    expect(isFailoverEligible('input')).toBe(false);
+  });
+
   it('classifies output/schema/config errors as never eligible; NoSuchModelError as eligible', () => {
     expect(classifyModelError(new InvalidResponseDataError({ data: {} }))).toBe('output');
     expect(classifyModelError(new NoObjectGeneratedError({

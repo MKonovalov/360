@@ -42,7 +42,7 @@ vi.mock('firecrawl', () => ({ Firecrawl: vi.fn() }));
 // the real static file (harmless).
 vi.mock('@/lib/models/catalog', () => ({ getProviderForModelId: mocks.getProviderForModelId }));
 
-import { runAgent } from './runAgent';
+import { isOpenRouterPlatformRateLimit, runAgent } from './runAgent';
 import { buildAnalyzePrompt } from './prompt';
 import { outputSchema } from './types';
 
@@ -347,5 +347,81 @@ describe('buildAnalyzePrompt (Test 3)', () => {
     const prompt = buildAnalyzePrompt(company, []);
     expect(prompt).toMatch(/fabricat/i);
     expect(prompt).toMatch(/URL|url/i);
+  });
+});
+
+// D-20-08 (VER-01 gap): isOpenRouterPlatformRateLimit is diagnostics-only — the
+// advance decision already happened in the FAL-03 loop (shouldAdvance's pure
+// provider matrix). These tests lock the REASON-string split used by
+// analyzeCompany for telemetry: platform-level 429s (X-RateLimit-* response
+// headers) vs upstream pass-through 429s (metadata.provider_code). Helper is a
+// pure export of runAgent.ts — no module deps beyond APICallError.isInstance.
+describe('isOpenRouterPlatformRateLimit (D-20-08, VER-01 gap)', () => {
+  // Helper under test (runAgent.ts:126-135) reads err.data.error.metadata
+  // error_type/provider_code, then err.responseHeaders X-RateLimit-* keys.
+  const platformErr = new APICallError({
+    message: 'rate limited',
+    url: 'u',
+    requestBodyValues: {},
+    statusCode: 429,
+    responseHeaders: { 'x-ratelimit-limit': '20' },
+  });
+  const upstreamErr = new APICallError({
+    message: 'rate limited',
+    url: 'u',
+    requestBodyValues: {},
+    statusCode: 429,
+    data: { error: { metadata: { error_type: 'rate_limit_exceeded', provider_code: 'anthropic' } } },
+  });
+
+  it('platform-level 429: X-RateLimit response headers resolve true', () => {
+    expect(isOpenRouterPlatformRateLimit(platformErr)).toBe(true);
+  });
+
+  it('upstream pass-through 429: metadata.provider_code present resolves false', () => {
+    expect(isOpenRouterPlatformRateLimit(upstreamErr)).toBe(false);
+  });
+
+  it('platform-level 429: metadata.error_type with NO provider_code resolves true', () => {
+    const err = new APICallError({
+      message: 'rate limited',
+      url: 'u',
+      requestBodyValues: {},
+      statusCode: 429,
+      data: { error: { metadata: { error_type: 'rate_limit_exceeded' } } },
+    });
+    expect(isOpenRouterPlatformRateLimit(err)).toBe(true);
+  });
+
+  it('non-APICallError (plain Error) resolves false', () => {
+    expect(isOpenRouterPlatformRateLimit(new Error('x'))).toBe(false);
+  });
+
+  it('empty-body 429 (no headers, no data) resolves false — header-dependent (D-20-08)', () => {
+    expect(
+      isOpenRouterPlatformRateLimit(
+        new APICallError({ message: 'rate limited', url: 'u', requestBodyValues: {}, statusCode: 429 }),
+      ),
+    ).toBe(false);
+  });
+
+  it('mid-stream 429 shape (statusCode 200 + data) is header-dependent: headers → true, none → false', () => {
+    const midStream = new APICallError({
+      message: 'finish_reason: error',
+      url: 'u',
+      requestBodyValues: {},
+      statusCode: 200,
+      data: { error: { message: 'rate limit exceeded mid-stream' } },
+      responseHeaders: { 'x-ratelimit-reset': '1' },
+    });
+    const midStreamNoHeaders = new APICallError({
+      message: 'finish_reason: error',
+      url: 'u',
+      requestBodyValues: {},
+      statusCode: 200,
+      data: { error: { message: 'rate limit exceeded mid-stream' } },
+    });
+    expect(isOpenRouterPlatformRateLimit(midStream)).toBe(true);
+    expect(isOpenRouterPlatformRateLimit(midStreamNoHeaders)).toBe(false);
   });
 });
