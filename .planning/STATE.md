@@ -6,7 +6,7 @@ status: planning
 last_updated: "2026-08-03T18:45:41.304Z"
 last_activity: 2026-08-03
 progress:
-  total_phases: 0
+  total_phases: 5
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-02)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** Milestone complete
+**Current focus:** v1.5 Phase 23 — Provider Registry + Servable Sources
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 23 — Provider Registry + Servable Sources (0/5 complete)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-08-03 — Milestone v1.5 started
+Status: Roadmap created — awaiting /gsd-plan-phase 23
+Last activity: 2026-08-03 — v1.5 roadmap created (Phases 23-27)
 
 ## Performance Metrics
 
@@ -79,6 +79,10 @@ Last activity: 2026-08-03 — Milestone v1.5 started
 
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
+
+- **Roadmap (v1.5): Phase structure follows research SUMMARY "Implications for Roadmap"** — Phase 23 (A) Provider Registry + Servable Sources (REG-01..07) → Phase 24 (B) Refresh Script + Catalog Data (CAT-01..04) → Phase 25 (C) Run Path / modelFactory Seam (RUN-01..06) → Phase 26 (D) Settings UI (SET-01..06) → Phase 27 (E) Verification Gate (VER-01..05). Sequential numbering continues from v1.4's Phase 22 (v1.5 starts at Phase 23). Phase ordering rationale (locked): registry/canary first (the priority-order `getProviderForModelId` change is a PREREQUISITE for every other provider-resolution consumer), then the committed snapshot data (consumed by the run path), then the instantiation seam, then UI + verification — the v1.4 19→20→21→22 shape, one phase shorter (no classifier work — 402/429 semantics unchanged for these providers).
+- **Roadmap (v1.5): Requirement count is 28, not 27** — REG-01..07 (7) + CAT-01..04 (4) + RUN-01..06 (6) + SET-01..06 (6) + VER-01..05 (5) = 28. All 28 mapped, no orphans, no double-mapping. Coverage validated before writing.
+- **Roadmap (v1.5): Locked product decisions (research-verified — do NOT re-litigate)** — OpenCode = ONE provider, servable gate = 49 rows (30 chat-completions + 19 Claude via `createAnthropic({ baseURL })`); GPT-5 (Responses API) + Gemini rows deferred to v2; 2 new env keys (`NOUSRESEARCH_API_KEY` + `OPENCODE_API_KEY` — one OpenCode key shared Zen+Go); Zen-wins dual-listed-id dedup (12 dual-listed ids; 5 Go-exclusive ids keep Go rows); NousResearch = curated `nousresearch/*` allowlist (Hermes-4 pair) over the anonymous 292-row roster; `getProviderForModelId` explicit precedence (anthropic → openrouter → nousresearch-over-openrouter → opencode; `claude-sonnet-4-6` MUST keep resolving to anthropic — regression lock); `supportsStructuredOutputs` starts false on new instances until a live key-backed probe; constraint 11 (modelFactory is the ONLY SDK-importing module); no schema change — provider identity derived from catalog.
 
 - **Roadmap (v1.4): Phase structure follows research SUMMARY "Implications for Roadmap"** — Phase 19 (A) Provider Registry + Servable Model Source (REG-01..07) → Phase 20 (B) Cross-Provider Run Path (FAL-01..05) → Phase 21 (C) Settings UI (SET-01..08) → Phase 22 (D) Verification Gate (VER-01..05). Sequential numbering continues from v1.3's Phase 18.
 - **Roadmap (v1.4): Requirement count is 25, not 24** — REG-01..07 (7) + FAL-01..05 (5) + SET-01..08 (8) + VER-01..05 (5) = 25. All 25 mapped, no orphans. REQUIREMENTS.md coverage footer corrected from the initial 24 (traceability table already had 25 rows).
@@ -187,4 +191,6 @@ Resume file: None
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Plan Phase 23 with /gsd-plan-phase 23
+- Vercel env: declare `NOUSRESEARCH_API_KEY` + `OPENCODE_API_KEY` (operator dashboard action, D-11-style human item) during Phase 23/25
+- Phase 27: live key-backed `json_schema` probe at Zen/Go/Nous gates the `supportsStructuredOutputs` flip (RUN-06) — schedule with billing-credit verification
