@@ -77,7 +77,15 @@ async function main() {
   // with a descriptive error, never a partial insert or a raw Postgres
   // exception surfacing to the caller.
   const { db } = await import('../lib/db');
-  const { company, persona, signal, companyPersonaRole } = await import('../lib/db/schema');
+  const {
+    company,
+    persona,
+    signal,
+    companyPersonaRole,
+    agentRun,
+    signalProposal,
+    correction,
+  } = await import('../lib/db/schema');
   const { insertSignal } = await import('../lib/db/queries/signals');
   const { insertCompanyPersonaRole } = await import('../lib/db/queries/companyPersonaRoles');
 
@@ -85,6 +93,13 @@ async function main() {
   // rows (children first, respecting FK constraints) so re-running `npm run
   // seed` is idempotent and never accumulates duplicate companies/personas
   // across runs (e.g. Phase 1's original 2-row placeholder set).
+  // The runtime tables (agent_run, signal_proposal, correction) FK-reference
+  // company/signal_proposal and must be cleared first — otherwise Postgres
+  // rejects the company delete (agent_run_company_id_company_id_fk), which
+  // surfaces as a seed failure on any DB that has had a live analyze run.
+  await db.delete(correction);
+  await db.delete(signalProposal);
+  await db.delete(agentRun);
   await db.delete(companyPersonaRole);
   await db.delete(signal);
   await db.delete(persona);
