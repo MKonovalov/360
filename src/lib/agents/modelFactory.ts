@@ -23,11 +23,30 @@ const openrouter = createOpenRouter({ compatibility: 'strict' });
 // defaultChain() in Phase 19 (see the defaultChain why-comment).
 export const OPENROUTER_DEFAULT_MODEL_ID = 'anthropic/claude-sonnet-4.6';
 
-// D-07: per-provider default primaries for Phase 21's reset-to-provider-default
-// (keep-if-valid → reset-to-provider-default consumes this map).
+// D-23-06: NousResearch default primary — sonnet-class cost philosophy
+// (cheaper/faster workhorse); the 405b stays servable but is not the reset
+// target. Pinned concrete id, never `~`/`:free`/auto (D-07 doctrine). Rows
+// land in the snapshot in Phase 24; the live-snapshot servability assertion
+// is a Phase 24 task (D-23-07 / research Pitfall 5).
+export const NOUSRESEARCH_DEFAULT_MODEL_ID = 'nousresearch/hermes-4-70b';
+
+// D-23-03: OpenCode default primary — mirrors the D-07 sonnet-class
+// philosophy: SAME id as the anthropic default (deliberate: keep-if-valid
+// re-badges, never resets — D-23-04); roster-verified 2026-08-03 against the
+// committed snapshot's opencode dual row (sorts first, npm-gated servable);
+// stable cost captions.
+export const OPENCODE_DEFAULT_MODEL_ID = 'claude-sonnet-4-6';
+
+// D-07: per-provider default primaries for Phase 21/26's reset-to-provider-
+// default (keep-if-valid → reset-to-provider-default consumes this map) — NOT
+// by defaultChain() (see the defaultChain why-comment). The
+// Record<ModelProviderId, string> type is what TS-enforces the 4 entries at
+// compile time (Pitfall 9).
 export const PROVIDER_DEFAULT_MODELS: Record<ModelProviderId, string> = {
   anthropic: FAST_MODEL_ID,
   openrouter: OPENROUTER_DEFAULT_MODEL_ID,
+  nousresearch: NOUSRESEARCH_DEFAULT_MODEL_ID,
+  opencode: OPENCODE_DEFAULT_MODEL_ID,
 };
 
 // instantiateModel — the single provider-aware instantiation seam (REG-06,

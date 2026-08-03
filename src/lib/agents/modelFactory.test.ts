@@ -20,11 +20,15 @@ vi.mock('@/lib/env', () => ({ env: { OPENROUTER_API_KEY: 'test-key' } }));
 
 import {
   OPENROUTER_DEFAULT_MODEL_ID,
+  NOUSRESEARCH_DEFAULT_MODEL_ID,
+  OPENCODE_DEFAULT_MODEL_ID,
   PROVIDER_DEFAULT_MODELS,
   defaultChain,
   instantiateChain,
   instantiateModel,
 } from './modelFactory';
+import catalogJson from '@/lib/models/catalog.json';
+import { getServableIdsForProvider } from '@/lib/models/catalog';
 
 describe('modelFactory (19-03)', () => {
   beforeEach(() => {
@@ -95,11 +99,25 @@ describe('modelFactory (19-03)', () => {
     expect(chain).toHaveLength(1);
   });
 
-  it('D-07 default constants: OpenRouter default primary + per-provider map for Phase 21', () => {
+  it('D-07 default constants: per-provider default primaries for Phase 21/26 reset (4-provider map)', () => {
     expect(OPENROUTER_DEFAULT_MODEL_ID).toBe('anthropic/claude-sonnet-4.6');
+    expect(NOUSRESEARCH_DEFAULT_MODEL_ID).toBe('nousresearch/hermes-4-70b');
+    expect(OPENCODE_DEFAULT_MODEL_ID).toBe('claude-sonnet-4-6');
     expect(PROVIDER_DEFAULT_MODELS).toEqual({
       anthropic: 'claude-sonnet-4-6',
       openrouter: 'anthropic/claude-sonnet-4.6',
+      nousresearch: 'nousresearch/hermes-4-70b',
+      opencode: 'claude-sonnet-4-6',
     });
+  });
+
+  it('D-23-03: the opencode default is servable against the LIVE committed snapshot (roster-verified)', () => {
+    // The opencode row exists in the committed snapshot (roster-verified,
+    // D-23-03). Deliberately NO nousresearch live-snapshot assertion — the
+    // snapshot holds 0 nousresearch rows until Phase 24 (research Pitfall 5;
+    // that assertion is a Phase 24 task per D-23-07).
+    expect(getServableIdsForProvider(catalogJson, 'opencode')).toContain(
+      OPENCODE_DEFAULT_MODEL_ID,
+    );
   });
 });
