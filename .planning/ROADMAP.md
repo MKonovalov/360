@@ -81,7 +81,7 @@ Full details: [`.planning/milestones/v1.3-ROADMAP.md`](milestones/v1.3-ROADMAP.m
 - [x] **Phase 19: Provider Registry + Servable Model Source** - Two-provider foundation: catalog registry with per-provider servable rules (OpenRouter full catalog incl. labeled `~latest`/`:free`; Anthropic sonnet-only allowlist), provider-derived-from-catalog lookup + collision canary, `modelFactory` provider-aware instantiation seam, `@openrouter/ai-sdk-provider@^3.0.0` + `OPENROUTER_API_KEY` env gate, and union-wide save validation (completed 2026-08-02)
 - [x] **Phase 20: Cross-Provider Run Path** - Provider-aware classifier (`billing` class for 402, 502/503 model-availability semantics), hop-aware 429 policy with 4-cell matrix, chain-aware env gate, and provider-accurate `model_used`/`model_chain` audit for cross-provider chains (completed 2026-08-02)
 - [x] **Phase 21: Settings UI** - AI Provider selector above Primary, provider-scoped Primary picker with keep-if-valid → default reset, union-grouped fallback pickers with Command search + provider badges, `~latest`/`:free` labels, union-wide staleness gate; gap closure 21-06/21-07: trigger-name/check-state fix (CR-01), empty-list explanation (WR-02), stale feedback reset (WR-01) (completed 2026-08-03)
-- [ ] **Phase 22: Verification Gate** - Vitest collision/429-hop/error matrices, end-to-end OpenRouter-primary Analyze → `model_used` UAT, OpenRouter-only chain proof, security-matrix grep, live-browser provider-switch/picker UAT
+- [x] **Phase 22: Verification Gate** - Vitest collision/429-hop/error matrices, end-to-end OpenRouter-primary Analyze → `model_used` UAT, OpenRouter-only chain proof, security-matrix grep, live-browser provider-switch/picker UAT (completed 2026-08-03)
 
 ### Phase 19: Provider Registry + Servable Model Source
 
@@ -220,7 +220,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 22-07-PLAN.md — Proof recording: 22-VERIFICATION.md (5/5 criteria) + 22-HUMAN-UAT.md (IN-02/IN-03 observations)
+- [x] 22-07-PLAN.md — Proof recording: 22-VERIFICATION.md (5/5 criteria) + 22-HUMAN-UAT.md (IN-02/IN-03 observations)
 
 **Operator prerequisites** (before Wave 2 live work): dedicated Clerk test staff account (provisioned in plan 22-03 via Backend API), credited OPENROUTER_API_KEY (verified by the self-served `curl .../auth/key` credit check in plan 22-04 Task 2 before the VER-03 child run, and re-verified with a blocking operator checkpoint in plan 22-05 Task 1/2 before the VER-02 ~cents spend)
 
@@ -252,7 +252,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 19. Provider Registry + Servable Model Source | v1.4 | 5/5 | Complete    | 2026-08-02 |
 | 20. Cross-Provider Run Path | v1.4 | 4/4 | Complete    | 2026-08-02 |
 | 21. Settings UI | v1.4 | 7/7 | Complete    | 2026-08-03 |
-| 22. Verification Gate | v1.4 | 6/7 | In Progress|  |
+| 22. Verification Gate | v1.4 | 7/7 | Complete   | 2026-08-03 |
 
 ---
 

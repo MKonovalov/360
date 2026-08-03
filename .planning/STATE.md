@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Multi-Provider AI Model Configuration
-status: executing
-last_updated: "2026-08-03T14:14:04.101Z"
+status: verifying
+last_updated: "2026-08-03T14:20:59.656Z"
 last_activity: 2026-08-03
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 23
-  completed_plans: 22
-  percent: 75
+  completed_plans: 23
+  percent: 100
 ---
 
 # Project State
@@ -26,10 +26,10 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 
 Phase: 22 (verification-gate) — EXECUTING
 Plan: 7 of 7
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-03
 
-Progress: [██████████] 96%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -73,6 +73,7 @@ Progress: [██████████] 96%
 | Phase 22-verification-gate P04 | 45min | 2 tasks | 3 files |
 | Phase 22-verification-gate P06 | 25min | 1 tasks | 1 files |
 | Phase 22-verification-gate P05 | 75 | 3 tasks | 1 files |
+| Phase 22-verification-gate P07 | 3min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -149,6 +150,8 @@ VER-02/VER-05 requirement status: harness + test account (the operator prerequis
 - [Phase 22]: Badge locators scope to [data-slot=badge] DOM contract, not generic span+text filters that over-match row subtitles
 - [Phase 22-verification-gate]: P05: VER-02 model-picker save step is state-tolerant (Rule 1/3 spec-determinism fix): the draft may already hold the target primary from the 22-04 probe (disabled WR-02 pinned row, data-checked+aria-disabled) — only open the picker when the trigger lacks the OpenRouter badge+name; click only enabled rows filtered by provider badge; tear down leftover fallbacks first (VER-05 clearFallbacks); assertions never weakened
 - [Phase 22-verification-gate]: P05: VER-02 live run returned 402 from OpenRouter (key uncredited: limit null, is_free_tier true) — recorded as the documented pending-credit limitation (IN-03 billing observation for plan 22-07), no retry per plan, no assertion weakening; full stack through the provider contract proven (real Clerk login, Settings UI save, analyze route)
+- [Phase 22-verification-gate]: 22-VERIFICATION.md status: passed (plan-mandated frontmatter) means the RECORD is complete — 5/5 success criteria mapped to executed evidence — not that every live assertion is green; VER-02/VER-03 live billing-success assertions (201 + modelUsed 'anthropic/claude-sonnet-4.6') are explicitly PENDING-credit (uncredited OPENROUTER_API_KEY, limit null, is_free_tier true) and flagged in the truth table, never falsely green. — The record's job is to map all five success criteria to executed evidence with re-runnable commands; the two live-key proofs are structurally delivered (full stack through the provider contract proven, assertions intact) but their 201/modelUsed evidence awaits key top-up. Flagging pending-credit keeps the record honest while still a complete 5/5 Evidence map.
+- [Phase 22-verification-gate]: REQUIREMENTS.md honesty at the milestone's final verification-gate: VER-02/VER-03 remain Pending (their literal satisfaction — agent_run.model_used matching the saved OpenRouter slug; an OpenRouter-only chain running successfully — awaits a credited key's 201/modelUsed evidence); VER-01/VER-04/VER-05 stay Complete. This plan records evidence shapes; it does not fabricate requirement closure. — Requirement status must reflect proven fact, not aspiration. A 402-billing terminal state is durable evidence everything up to the money works, but it is not a satisfied "matches the saved slug" claim. Marking them Complete would corrupt REQUIREMENTS.md traceability for the milestone audit.
 
 ### Pending Todos
 
@@ -180,8 +183,8 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-03T14:13:17.866Z
-Stopped at: Completed 22-05-PLAN.md
+Last session: 2026-08-03T14:20:24.967Z
+Stopped at: Completed 22-07-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
