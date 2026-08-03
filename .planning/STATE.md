@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.4
-milestone_name: Multi-Provider AI Model Configuration
-status: Awaiting next milestone
-last_updated: "2026-08-03T15:59:25.780Z"
-last_activity: 2026-08-03 — Milestone v1.4 completed and archived
+milestone: v1.5
+milestone_name: Additional AI Providers
+status: planning
+last_updated: "2026-08-03T18:45:41.304Z"
+last_activity: 2026-08-03
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 23
-  completed_plans: 23
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 
 ## Current Position
 
-Phase: Milestone v1.4 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-08-03 — Milestone v1.4 completed and archived
+Status: Defining requirements
+Last activity: 2026-08-03 — Milestone v1.5 started
 
 ## Performance Metrics
 

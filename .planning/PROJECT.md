@@ -8,9 +8,11 @@ ArcLumen 360 is an end-to-end demand generation pipeline for ArcLumen Partners, 
 
 Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds, replacing signal knowledge that today lives scattered across individual heads and inboxes.
 
-## Milestone Status: v1.4 SHIPPED (2026-08-03)
+## Milestone Status: v1.5 IN PROGRESS (2026-08-03)
 
-**v1.4 Multi-Provider AI Model Configuration** — 4 phases, 23 plans, 46 tasks, 25/25 requirements validated. Delivered: the two-provider catalog registry + `modelFactory` SDK seam + `OPENROUTER_API_KEY` env declaration (Phase 19), the cross-provider run path — billing-aware 402 classifier, hop-aware `shouldAdvance` 429 semantics, chain-aware all-or-nothing env gate (Phase 20), the visible AI Provider selector with provider-scoped pickers over the 337-row union (Phase 21), and a verification gate — the repo's first Playwright e2e suite, security-grep gate, 13-item checklist closure (Phase 22). Archived to `.planning/milestones/v1.4-*`.
+**v1.5 Additional AI Providers** — not yet scoped (requirements/roadmap pending).
+
+**v1.4 Multi-Provider AI Model Configuration (SHIPPED 2026-08-03)** — 4 phases, 23 plans, 46 tasks, 25/25 requirements validated. Delivered: the two-provider catalog registry + `modelFactory` SDK seam + `OPENROUTER_API_KEY` env declaration (Phase 19), the cross-provider run path — billing-aware 402 classifier, hop-aware `shouldAdvance` 429 semantics, chain-aware all-or-nothing env gate (Phase 20), the visible AI Provider selector with provider-scoped pickers over the 337-row union (Phase 21), and a verification gate — the repo's first Playwright e2e suite, security-grep gate, 13-item checklist closure (Phase 22). Archived to `.planning/milestones/v1.4-*`.
 
 **v1.3 AI Model Settings** — 4 phases, 12 plans, 30 tasks, 25/25 requirements validated. Delivered: per-user model chain (primary + up to 2 fallbacks) persisted via atomic upsert (Phase 15), error-driven failover orchestration with a bounded chain loop + per-attempt timeouts under the 60s ceiling (Phase 16), the Settings page + servable-only cost-captioned pickers + 7-case security-matrix Server Action (Phase 17), and a verification gate closing all 13 "looks done but isn't" checklist items (Phase 18).
 
@@ -18,22 +20,22 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 
 **v1.1 Start Page + Import + Analytic Agent** — 5 phases, 27 plans, 32 tasks, 31/31 requirements validated. Delivered: stacked full-width list/detail layout on both explorers, Start Page dashboard, shared ExplorerMenu, CSV import with partial-commit validation + rollback, Apollo.io/Prospeo enrichment with provenance, and the web-search Analytic Agent with a human-reviewed proposal queue + Langfuse tracing.
 
-## Current Milestone: v1.4 Multi-Provider AI Model Configuration — SHIPPED 2026-08-03
+## Current Milestone: v1.5 Additional AI Providers
 
-**Goal (achieved):** Add an AI Provider selector to Settings above the Primary model — Anthropic (existing) plus OpenRouter (new) — so the Primary model picker refreshes from the selected provider's model source, and the Analytic Agent can resolve and run model chains whose entries (primary and fallbacks) come from either provider.
+**Goal:** Extend the multi-provider AI model configuration from two providers (Anthropic + OpenRouter) to four — adding NousResearch (direct inference API) and OpenCode (Zen + Go endpoints under one provider) — so the Settings AI Provider selector and the cross-provider run path cover all four providers.
 
 **Target features:**
-- "AI Provider" selector above the Primary model in the AI Model Configuration card
-- Provider choices: Anthropic (existing) and OpenRouter (new)
-- Selecting a provider refreshes the Primary model list from that provider's servable source
-- OpenRouter: full servable catalog (all active rows in the committed snapshot, ~336 models); Anthropic stays sonnet-only (existing `ANTHROPIC_ALLOWLIST`)
-- Cross-provider fallback chains — a fallback may come from a different provider than the primary
-- Provider-aware model instantiation in the agent run path (`anthropic()` / OpenRouter provider) + new `@openrouter/ai-sdk-provider` runtime dependency
-- `OPENROUTER_API_KEY` env gate mirroring the D-15 `ANTHROPIC_API_KEY` pattern
+- "AI Provider" selector gains NousResearch and OpenCode entries (Anthropic + OpenRouter remain)
+- NousResearch: servable catalog fetched from the direct inference API (`https://inference-api.nousresearch.com/v1`) under `providerID: 'nousresearch'`
+- OpenCode: one provider spanning both endpoints — Zen (`https://opencode.ai/zen/v1`) and Go (`https://opencode.ai/zen/go/v1`) — snapshot rows already exist (`opencode` 60 + `opencode-go` 17), wired servable under one provider
+- Provider registry extended: `ModelProviderId` grows to 4; `PROVIDER_GATES`/`SERVABLE_PROVIDERS`/`getProviderForModelId`/collision canaries cover the new providers
+- New env keys: `NOUSRESEARCH_API_KEY` + `OPENCODE_API_KEY` (one OpenCode key shared by Zen + Go), mirroring the degrade-gracefully pattern
+- Cross-provider fallback chains may span all four providers; chain-aware env gate names the new keys; `model_used`/`model_chain` audit stays provider-accurate
+- Verification: e2e + security-grep coverage extended to the new providers
 
-**Status:** SHIPPED 2026-08-03 — all 4 phases complete (Phase 19-22), 25/25 requirements validated, milestone archived to `.planning/milestones/v1.4-*` (MILESTONE-AUDIT, ROADMAP, REQUIREMENTS; phases 19-22 in `v1.4-phases/`). Full shipped scope below in Current State + `.planning/milestones/`.
+**Status:** IN PROGRESS — milestone scoping confirmed 2026-08-03; requirements + roadmap pending.
 
-**Open questions for research:** persist a provider column on `user_model_settings` vs derive provider from the catalog by model id — RESOLVED (derive from catalog, no schema change, REG-05); per-chain API-key gating when a chain spans providers — Phase 20 (chain-aware env gate, FAL-04); OpenRouter id shape in the snapshot (ids carry a `~` prefix) — INCLUDED + labeled (SET-07).
+**Open questions for research:** whether the direct Nous inference API exposes an anonymous `GET /v1/models` roster (or requires a key) for the refresh-script fetch; how to label the Zen/Go split inside the single OpenCode provider (family-based grouping vs. suffix); whether OpenCode Zen + Go share one credential scope (2-key vs 3-key decision — locked to 2 keys).
 
 ## Requirements
 
@@ -212,4 +214,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-03 — v1.4 (Multi-Provider AI Model Configuration) shipped*
+*Last updated: 2026-08-03 — v1.5 (Additional AI Providers) milestone started*
