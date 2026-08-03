@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Additional AI Providers
 status: executing
-last_updated: "2026-08-03T22:48:42.093Z"
+last_updated: "2026-08-03T22:53:25.906Z"
 last_activity: 2026-08-03
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 4
-  completed_plans: 2
-  percent: 50
+  completed_plans: 3
+  percent: 75
 ---
 
 # Project State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 ## Current Position
 
 Phase: 23 (provider-registry-servable-sources) — EXECUTING
-Plan: 3 of 4 (plan 1 complete)
+Plan: 4 of 4 (plan 1 complete)
 Status: Ready to execute
 Last activity: 2026-08-03
 
@@ -74,6 +74,7 @@ Last activity: 2026-08-03
 | Phase 22-verification-gate P07 | 3min | 2 tasks | 2 files |
 | Phase 23 P01 | 5min | 3 tasks | 5 files |
 | Phase 23 P02 | 3min | 2 tasks | 2 files |
+| Phase 23 P03 | 1 min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -163,6 +164,9 @@ VER-02/VER-05 requirement status: harness + test account (the operator prerequis
 - [Phase 23]: 23-01: PROVIDER_DEFAULT_MODELS = 4-entry Record<ModelProviderId,string> — nousresearch/hermes-4-70b (D-23-06), opencode claude-sonnet-4-6 (D-23-03, same id as anthropic default = keep-if-valid re-badge); instantiateModel dispatch stays 2-provider (Phase 25, research A4)
 - [Phase 23]: 23-02: NOUSRESEARCH_API_KEY + OPENCODE_API_KEY declared optional server-only in env.ts (z.string().optional(), D-15), byte-for-byte mirror of OPENROUTER_API_KEY; declared in .env.example with no value; import-time parse proven with keys absent AND present (T-23-07) — REG-02 declaration half — declaration-only phase boundary (23-CONTEXT line 11); Phase 25 chain-aware gate + Vercel env add deferred (research Open Question 2)
 - [Phase 23]: 23-02: The plan's Task-1 acceptance check `'KEY' in env` is unsatisfiable with any correct .optional() implementation — zod v4 omits absent optional keys from the parsed output object; verified the intended truths instead (parse-no-crash + undefined read path absent, value round-trip present) — Verification-command artifact, not an implementation defect — the code is byte-for-byte the mandated OPENROUTER mirror; future plans should assert parsed.KEY === undefined rather than 'KEY' in parsed for optional keys
+- [Phase 23]: 23-03: settings.ts verified byte-identical (zero edits) — REG-07 union-membership check over getUnionServableIds(catalogJson) is structurally provider-count-agnostic; the widened 4-provider union from 23-01 covers opencode + nousresearch chains with no code change (verify-only honored; git diff empty, tsc 0 errors, 0 opencode/nousresearch mentions)
+- [Phase 23]: 23-03: settings.test.ts new REG-07 4-provider case overrides the beforeEach union mock INLINE (mockReturnValue with 5 ids — anthropic claude-sonnet-4-6 + openrouter anthropic/claude-sonnet-4.6 + nousresearch pin + opencode Zen deepseek-v4-flash + opencode Go-exclusive hy3) rather than widening beforeEach — keeps the existing 8-case security matrix byte-identical (31 insertions/0 deletions) and proves the logical opencode provider spans both snapshot providerIDs at the save seam; chain deepseek-v4-flash + nousresearch/hermes-4-70b saves { ok: true } with raw ids verbatim (D-04)
+- [Phase 23]: 23-03: reject half of REG-07 NOT duplicated — the existing non-servable case (claude-opus-4-9 → invalid_model, no write) already proves rejection against a mocked union; the new case proves only the save-through half
 
 ### Pending Todos
 
@@ -194,8 +198,8 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-03T22:48:42.085Z
-Stopped at: Completed 23-02-PLAN.md
+Last session: 2026-08-03T22:52:52.402Z
+Stopped at: Completed 23-03-PLAN.md
 Resume file: None
 
 ## Operator Next Steps

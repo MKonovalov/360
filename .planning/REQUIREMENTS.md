@@ -15,7 +15,7 @@ Requirements for milestone v1.5. Each maps to a roadmap phase.
 - [x] **REG-04**: NousResearch servable set = curated `PROVIDER_GATES.nousresearch` allowlist of native `nousresearch/*` ids (Hermes-4 pair today, ~2 rows) — NOT the full 292-row portal roster (OpenRouter mirror, mass collision)
 - [x] **REG-05**: `getProviderForModelId` widens to the 4 logical providers with an EXPLICIT precedence order (nousresearch row wins over openrouter for the 2 shared hermes ids; opencode scope includes both `opencode` + `opencode-go` row ids); the anthropic default `claude-sonnet-4-6` keeps resolving to anthropic (priority-order regression lock); collision canary extended + passing
 - [x] **REG-06**: `PROVIDER_DEFAULT_MODELS` gains `nousresearch` (Hermes-4 pair member) + `opencode` (pinned concrete id chosen in planning) reset-to-provider-default targets
-- [ ] **REG-07**: Union-wide save validation + staleness gate cover all 4 providers automatically (membership-based `saveSettingsAction` unchanged structurally); cross-provider chains spanning the new providers save and validate
+- [x] **REG-07**: Union-wide save validation + staleness gate cover all 4 providers automatically (membership-based `saveSettingsAction` unchanged structurally); cross-provider chains spanning the new providers save and validate
 
 ### Refresh Script + Catalog Data
 
@@ -86,7 +86,7 @@ Deferred to future releases. Tracked but not in the current roadmap.
 | REG-04 | 23 | Complete |
 | REG-05 | 23 | Complete |
 | REG-06 | 23 | Complete |
-| REG-07 | 23 | Pending |
+| REG-07 | 23 | Complete |
 | CAT-01 | 24 | Pending |
 | CAT-02 | 24 | Pending |
 | CAT-03 | 24 | Pending |
