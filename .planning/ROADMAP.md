@@ -259,4 +259,19 @@ Plans:
   4. The security-matrix grep extends — `NOUSRESEARCH`/`OPENCODE` absent from client components / Server Action returns / no `NEXT_PUBLIC_*` leakage; the `SERVER_COMPONENT` exemption set covers `modelFactory.ts`'s explicit `process.env.*` reads; the non-vacuous canary stays green.
   5. Live-browser UAT confirms the 4-entry provider selector, Zen/Go endpoint captions, Hermes capability captions, and badge disambiguation across 4 providers; a live key-backed `json_schema` probe gates the `supportsStructuredOutputs` flip (RUN-06).
 
-**Plans**: TBD
+**Plans**: 6 plans
+Plans:
+**Wave 1**
+
+- [ ] 27-01-PLAN.md — VER-02/03: NousResearch + OpenCode single-key isolation + round-trip proof (child-env probes)
+- [ ] 27-02-PLAN.md — RUN-06/VER-05: live structuredOutputs probe + per-instance modelFactory flag flip
+- [ ] 27-03-PLAN.md — VER-04: security-matrix grep widened to NOUSRESEARCH/OPENCODE
+- [ ] 27-04-PLAN.md — CR-01/CR-02 fixes in model-settings-form.tsx (save-in-flight race + missing try/catch)
+
+**Wave 2** *(blocked on 27-04 completion)*
+
+- [ ] 27-05-PLAN.md — VER-05: Playwright extension (4-provider round trip, Zen/Go + Hermes captions, badge disambiguation, CR-01 regression) — closes 26-HUMAN-UAT.md's 4 items
+
+**Wave 3** *(blocked on Wave 1 + Wave 2 completion)*
+
+- [ ] 27-06-PLAN.md — VER-01 audit + 27-VERIFICATION.md + 26-HUMAN-UAT.md closure
