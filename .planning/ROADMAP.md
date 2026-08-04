@@ -137,7 +137,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 24. Refresh Script + Catalog Data | v1.5 | 4/4 | Complete    | 2026-08-04 |
 | 25. Run Path / modelFactory Seam | v1.5 | 4/4 | Complete    | 2026-08-04 |
 | 26. Settings UI | v1.5 | 2/2 | Complete    | 2026-08-04 |
-| 27. Verification Gate | v1.5 | 4/6 | In Progress|  |
+| 27. Verification Gate | v1.5 | 5/6 | In Progress|  |
 
 ---
 
@@ -270,7 +270,7 @@ Plans:
 
 **Wave 2** *(blocked on 27-04 completion)*
 
-- [ ] 27-05-PLAN.md — VER-05: Playwright extension (4-provider round trip, Zen/Go + Hermes captions, badge disambiguation, CR-01 regression) — closes 26-HUMAN-UAT.md's 4 items
+- [x] 27-05-PLAN.md — VER-05: Playwright extension (4-provider round trip, Zen/Go + Hermes captions, badge disambiguation, CR-01 regression) — closes 26-HUMAN-UAT.md's 4 items
 
 **Wave 3** *(blocked on Wave 1 + Wave 2 completion)*
 
