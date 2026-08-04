@@ -53,13 +53,15 @@ describe('buyerRoles query module (30-02)', () => {
 
   it('listBuyerRoles returns all buyer roles (no status filter — plain reusable lookup)', async () => {
     const rows = [{ id: 9, name: 'CFO' }, { id: 10, name: 'Head of GBS' }];
-    const from = vi.fn().mockResolvedValue(rows);
+    const orderBy = vi.fn().mockResolvedValue(rows);
+    const from = vi.fn().mockReturnValue({ orderBy });
     mocks.db.select.mockReturnValue({ from });
 
     const result = await listBuyerRoles();
 
     expect(result).toEqual(rows);
     expect(from).toHaveBeenCalledWith(buyerRole);
+    expect(orderBy).toHaveBeenCalled();
   });
 
   it('updateBuyerRole explicitly stamps updatedAt and updatedBy on top of the patch', async () => {
