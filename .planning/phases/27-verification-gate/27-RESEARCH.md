@@ -338,12 +338,13 @@ Both keys authenticate successfully. Whether they are CREDITED for real chat-com
 
 ## Open Questions
 
-1. **Are `NOUSRESEARCH_API_KEY` and `OPENCODE_API_KEY` actually credited for real chat-completion spend?**
+1. **(RESOLVED — via live probe, planned) Are `NOUSRESEARCH_API_KEY` and `OPENCODE_API_KEY` actually credited for real chat-completion spend?**
    - What we know: both keys authenticate successfully against their `/v1/models` list endpoints (HTTP 200, verified this session).
    - What's unclear: whether a real `generateText`/chat-completion call against them will succeed or hit the same `billing`/402 wall that blocks the OpenRouter re-proof. NousResearch and OpenCode are different billing systems from OpenRouter, so there's no reason to assume the SAME failure, but there's also no direct evidence of a successful paid call in this session (I deliberately avoided spending real money during research).
    - Recommendation: the phase's first live-probe task (whichever isolation test or structuredOutputs probe runs first) will resolve this immediately and cheaply. If either turns out uncredited, follow the exact Phase 22/this-phase precedent: document as pending-credit in `27-VERIFICATION.md`, never force a fix, never weaken the assertion.
 
-2. **Should the corrected "strip all 3 other keys" isolation pattern (Pitfall 2) also be retrofitted onto the existing `openrouter-only-chain.test.ts`?**
+2. **(RESOLVED — planner declined retrofit) Should the corrected "strip all 3 other keys" isolation pattern (Pitfall 2) also be retrofitted onto the existing `openrouter-only-chain.test.ts`?**
+   - Resolution: not retrofitted — the two new tests (27-01) apply the corrected pattern; the existing test was left unchanged, consistent with D-27-04's stated boundary (only the 2 NEW tests are mandated).
    - What we know: the existing test only strips `ANTHROPIC_API_KEY`; `NOUSRESEARCH_API_KEY`/`OPENCODE_API_KEY` are live in that test's child env too (harmless today since OpenRouter fails on billing before ever touching another provider, but not a rigorous isolation proof).
    - What's unclear: whether this is in-scope "verification gate work" (arguably yes, closing a real coverage gap) or scope creep beyond D-27-04's stated boundary (which only mandates the 2 NEW tests).
    - Recommendation: flag for planner discretion — low cost to fix (one line), genuinely improves rigor, but not explicitly locked by any D-27 decision. Could go either way without contradicting CONTEXT.md.

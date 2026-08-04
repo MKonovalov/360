@@ -1,9 +1,9 @@
 ---
 phase: 27
 slug: verification-gate
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: ready
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-08-04
 ---
 
@@ -56,11 +56,13 @@ created: 2026-08-04
 
 ## Wave 0 Requirements
 
-- [ ] `src/lib/agents/nousresearch-only-chain.test.ts` — covers VER-03 (NousResearch), mirrors `openrouter-only-chain.test.ts` but strips all 3 other provider keys (not just one — Pitfall 2 fix)
-- [ ] `src/lib/agents/opencode-only-chain.test.ts` — covers VER-03 (OpenCode), same isolation fix
-- [ ] `scripts/probe-nousresearch-only.ts` — companion child-process probe, mirrors `scripts/probe-openrouter-only.ts`
-- [ ] `scripts/probe-opencode-only.ts` — companion child-process probe
-- [ ] `src/lib/agents/structured-outputs-probe.test.ts` (or 3 sibling files) — covers RUN-06's live flip gate against the real `outputSchema` from `src/lib/agents/types.ts`; no existing test shape to extend, genuinely new infra
+**Deviation note:** the planner folded Wave 0 test-creation into the Wave 1 tasks that also run them (plan 27-01, 27-02), rather than a separate preparatory plan — a valid pattern per gsd-plan-checker's review (0 blockers). All items below are created and exercised within Wave 1:
+
+- [x] `src/lib/agents/nousresearch-only-chain.test.ts` — covers VER-03 (NousResearch), mirrors `openrouter-only-chain.test.ts` but strips all 3 other provider keys (not just one — Pitfall 2 fix). Created in 27-01.
+- [x] `src/lib/agents/opencode-only-chain.test.ts` — covers VER-03 (OpenCode), same isolation fix. Created in 27-01.
+- [x] `scripts/probe-nousresearch-only.ts` — companion child-process probe, mirrors `scripts/probe-openrouter-only.ts`. Created in 27-01.
+- [x] `scripts/probe-opencode-only.ts` — companion child-process probe. Created in 27-01.
+- [x] `src/lib/agents/structured-outputs-probe.test.ts` (or 3 sibling files) — covers RUN-06's live flip gate against the real `outputSchema` from `src/lib/agents/types.ts`; no existing test shape to extend, genuinely new infra. Created in 27-02.
 
 ---
 
@@ -82,4 +84,4 @@ created: 2026-08-04
 - [ ] Feedback latency < 60s
 - [ ] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved 2026-08-04 — gsd-plan-checker reviewed 6 plans, 0 blockers
