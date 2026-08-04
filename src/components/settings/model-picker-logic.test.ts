@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
   PROVIDER_NAMES,
+  endpointLabel,
   groupByProvider,
+  hermesCaptionLabel,
   isHighCost,
   optionsForSlot,
   pinnedSelection,
   primaryAfterProviderSwitch,
   providerName,
+  resolveBadgeProvider,
+  rowCaption,
   searchValue,
   staleIds,
   suffixLabel,
@@ -29,6 +33,7 @@ const fixture: ServableModel[] = [
     providerID: 'anthropic',
     costInput: 3,
     costOutput: 15,
+    endpoint: null,
   },
   {
     id: 'anthropic/claude-sonnet-4.6',
@@ -37,6 +42,7 @@ const fixture: ServableModel[] = [
     providerID: 'openrouter',
     costInput: 3,
     costOutput: 15,
+    endpoint: null,
   },
   {
     id: 'openai/o1-pro',
@@ -45,6 +51,7 @@ const fixture: ServableModel[] = [
     providerID: 'openrouter',
     costInput: 150,
     costOutput: 600,
+    endpoint: null,
   },
   {
     id: '~openai/gpt-5',
@@ -53,6 +60,7 @@ const fixture: ServableModel[] = [
     providerID: 'openrouter',
     costInput: 1.25,
     costOutput: 10,
+    endpoint: null,
   },
   {
     id: 'openai/gpt-oss-20b:free',
@@ -61,16 +69,55 @@ const fixture: ServableModel[] = [
     providerID: 'openrouter',
     costInput: 0,
     costOutput: 0,
+    endpoint: null,
   },
 ];
+
+// 4-provider fixture extension (SET-01/02/06 verification gap, RESEARCH
+// Pitfall 6) — one real nousresearch row and two real-shaped opencode rows
+// (one Zen dual-listed-shaped, one Go-exclusive-shaped), closing the gap
+// where servableByProvider previously left nousresearch/opencode empty.
+const nousresearchRow: ServableModel = {
+  id: 'nousresearch/hermes-4-70b',
+  name: 'Hermes 4 70B',
+  family: 'hermes',
+  providerID: 'nousresearch',
+  costInput: 0.05,
+  costOutput: 0.2,
+  endpoint: null,
+};
+
+const opencodeZenRow: ServableModel = {
+  id: 'deepseek-v4-flash',
+  name: 'DeepSeek V4 Flash',
+  family: 'deepseek',
+  providerID: 'opencode',
+  costInput: 0,
+  costOutput: 0,
+  endpoint: 'zen',
+};
+
+const opencodeGoRow: ServableModel = {
+  id: 'hy3',
+  name: 'Hy3',
+  family: 'hy',
+  providerID: 'opencode',
+  costInput: 0,
+  costOutput: 0,
+  endpoint: 'go',
+};
+
+// Union fixture spanning all 4 providers — used by resolveBadgeProvider and
+// the groupByProvider 4-key coverage case.
+const unionFixture4: ServableModel[] = [...fixture, nousresearchRow, opencodeZenRow, opencodeGoRow];
 
 // Record<ModelProviderId, ...> — the 4-provider union (Phase 23) forces all
 // four keys; the picker functions index this record by any provider id.
 const servableByProvider: Record<ModelProviderId, ServableModel[]> = {
   anthropic: [fixture[0]],
   openrouter: [fixture[1], fixture[2], fixture[3], fixture[4]],
-  nousresearch: [],
-  opencode: [],
+  nousresearch: [nousresearchRow],
+  opencode: [opencodeZenRow, opencodeGoRow],
 };
 
 const defaults: Record<ModelProviderId, { id: string; name: string }> = {
@@ -110,6 +157,117 @@ describe('searchValue (SET-06)', () => {
     const composites = fixture.map((m) => searchValue(m));
     // Then no two rows share a composite — the id-first rule makes collisions impossible
     expect(new Set(composites).size).toBe(fixture.length);
+  });
+
+  it('includes the lowercase raw endpoint token in the composite (D-26-03)', () => {
+    // Given a row with an endpoint — 'go', not the capitalized 'Go' label
+    // When
+    const value = searchValue({ id: 'x', name: 'X', family: 'f', endpoint: 'go' });
+    // Then
+    expect(value).toBe('x x f go');
+  });
+
+  it('is byte-identical to today when no endpoint key is present (backward-compatible, every existing call site)', () => {
+    // Given a call shaped exactly like every pre-Phase-26 call site (no endpoint key)
+    // When
+    const value = searchValue({ id: 'x', name: 'X', family: 'f' });
+    // Then
+    expect(value).toBe('x x f');
+  });
+});
+
+describe('endpointLabel (D-26-01/D-26-03)', () => {
+  it("labels 'zen' as 'Zen'", () => {
+    // Given / When / Then
+    expect(endpointLabel('zen')).toBe('Zen');
+  });
+
+  it("labels 'go' as 'Go'", () => {
+    // Given / When / Then
+    expect(endpointLabel('go')).toBe('Go');
+  });
+
+  it('returns null for non-opencode rows', () => {
+    // Given / When / Then
+    expect(endpointLabel(null)).toBeNull();
+  });
+});
+
+describe('hermesCaptionLabel (D-26-04, Pitfall 4)', () => {
+  it('captions the resolved nousresearch provider with the uniform capability descriptor', () => {
+    // Given the row's RESOLVED providerID is nousresearch (post-trim)
+    // When / Then
+    expect(hermesCaptionLabel('nousresearch')).toBe('chat/reasoning-tuned');
+  });
+
+  it('excludes the openrouter mirror row even though it shares family:hermes (Pitfall 4 — never key on bare family)', () => {
+    // Given the openrouter-scoped mirror row (same family:'hermes', different resolved provider)
+    // When / Then
+    expect(hermesCaptionLabel('openrouter')).toBeNull();
+  });
+
+  it('returns null for anthropic', () => {
+    // Given / When / Then
+    expect(hermesCaptionLabel('anthropic')).toBeNull();
+  });
+
+  it('returns null for opencode', () => {
+    // Given / When / Then
+    expect(hermesCaptionLabel('opencode')).toBeNull();
+  });
+});
+
+describe('rowCaption (D-26-01 composition order: endpoint -> suffix -> hermes)', () => {
+  it('composes the synthetic compound case — endpoint first, suffix second (no live row has both today)', () => {
+    // Given a synthetic row with both an endpoint and a suffix-eligible id
+    // When / Then
+    expect(rowCaption({ id: 'x:free', providerID: 'opencode', endpoint: 'zen' })).toBe(
+      'Zen · free tier — 50 req/day shared',
+    );
+  });
+
+  it('renders a plain opencode-Go row with just the endpoint label', () => {
+    // Given a Go-exclusive row with no suffix and a non-nousresearch provider
+    // When / Then
+    expect(rowCaption({ id: 'hy3', providerID: 'opencode', endpoint: 'go' })).toBe('Go');
+  });
+
+  it('renders a NousResearch row with just the hermes capability caption', () => {
+    // Given a nousresearch-resolved row with no endpoint and no suffix
+    // When / Then
+    expect(
+      rowCaption({ id: 'nousresearch/hermes-4-70b', providerID: 'nousresearch', endpoint: null }),
+    ).toBe('chat/reasoning-tuned');
+  });
+
+  it('returns null when none of the three parts apply (plain anthropic row)', () => {
+    // Given a row with no endpoint, no suffix, and a non-nousresearch provider
+    // When / Then
+    expect(rowCaption({ id: 'claude-sonnet-4-6', providerID: 'anthropic', endpoint: null })).toBeNull();
+  });
+});
+
+describe('resolveBadgeProvider (D-26-11, SET-05 badge-accuracy fix)', () => {
+  it('resolves claude-sonnet-4-6 to its TRUE anthropic provider, not the opencode dropdown decoy', () => {
+    // Given the union fixture where claude-sonnet-4-6 resolves to providerID 'anthropic'
+    // When the dropdown is (incorrectly) on opencode
+    // Then the resolved badge is the TRUE provider, not the dropdown value
+    expect(resolveBadgeProvider('claude-sonnet-4-6', unionFixture4, 'opencode')).toBe('anthropic');
+  });
+
+  it('resolves the hermes id to its TRUE nousresearch provider, not the openrouter dropdown decoy', () => {
+    // Given the union fixture where nousresearch/hermes-4-70b resolves to providerID 'nousresearch'
+    // When the dropdown is (incorrectly) on openrouter
+    // Then the resolved badge is the TRUE provider, not the dropdown value
+    expect(resolveBadgeProvider('nousresearch/hermes-4-70b', unionFixture4, 'openrouter')).toBe(
+      'nousresearch',
+    );
+  });
+
+  it('falls back to the dropdown provider for a value absent from the union list (preserves current behavior)', () => {
+    // Given a dropped id no longer in the union servable set
+    // When / Then
+    expect(resolveBadgeProvider('dropped-id', unionFixture4, 'anthropic')).toBe('anthropic');
   });
 });
 
@@ -176,6 +334,45 @@ describe('primaryAfterProviderSwitch (SET-03)', () => {
   // NOTE: fallback preservation on switch (D-21-02) is NOT asserted here — it is
   // a form-state concern (the draft's fallbacks array is untouched by this pure
   // reducer), by locked decision D-21-01/D-21-02.
+
+  it('keeps a valid primary when switching into nousresearch (keep-if-valid, 4-provider fixture)', () => {
+    // Given the draft primary is already in nousresearch's servable list
+    // When the provider switches
+    const result = primaryAfterProviderSwitch(
+      'nousresearch/hermes-4-70b',
+      'nousresearch',
+      servableByProvider,
+      defaults,
+    );
+    // Then the primary is preserved
+    expect(result).toEqual({ primary: 'nousresearch/hermes-4-70b', resetToDefault: false });
+  });
+
+  it('resets to the nousresearch default when the primary is absent from its servable list', () => {
+    // Given an anthropic primary and a switch to nousresearch, whose servable
+    // list cannot contain a bare anthropic id
+    // When the provider switches
+    const result = primaryAfterProviderSwitch('claude-sonnet-4-6', 'nousresearch', servableByProvider, defaults);
+    // Then the primary resets to the nousresearch default
+    expect(result).toEqual({ primary: 'nousresearch/hermes-4-70b', resetToDefault: true });
+  });
+
+  it('keeps a valid primary when switching into opencode (keep-if-valid, 4-provider fixture)', () => {
+    // Given the draft primary is already in opencode's servable list (Zen row)
+    // When the provider switches
+    const result = primaryAfterProviderSwitch('deepseek-v4-flash', 'opencode', servableByProvider, defaults);
+    // Then the primary is preserved
+    expect(result).toEqual({ primary: 'deepseek-v4-flash', resetToDefault: false });
+  });
+
+  it('resets to the opencode default when the primary is absent from its servable list', () => {
+    // Given an openrouter primary and a switch to opencode, whose servable
+    // list (Zen/Go rows only, per this fixture) does not contain it
+    // When the provider switches
+    const result = primaryAfterProviderSwitch('openai/o1-pro', 'opencode', servableByProvider, defaults);
+    // Then the primary resets to the opencode default
+    expect(result).toEqual({ primary: 'claude-sonnet-4-6', resetToDefault: true });
+  });
 });
 
 describe('staleIds (SET-08, D-21-14)', () => {
@@ -222,6 +419,16 @@ describe('groupByProvider (SET-04)', () => {
     // Then
     expect(Object.keys(groups)).toEqual(['anthropic']);
     expect(groups['openrouter']).toBeUndefined();
+  });
+
+  it('buckets a 4-provider fixture into all 4 provider keys with correct membership (SET-02/06 verification gap)', () => {
+    // Given the 8-row union fixture spanning all 4 providers
+    // When
+    const groups = groupByProvider(unionFixture4);
+    // Then every provider key is present, in first-seen order, with correct membership
+    expect(Object.keys(groups)).toEqual(['anthropic', 'openrouter', 'nousresearch', 'opencode']);
+    expect(groups['nousresearch']).toEqual([nousresearchRow]);
+    expect(groups['opencode']).toEqual([opencodeZenRow, opencodeGoRow]);
   });
 });
 

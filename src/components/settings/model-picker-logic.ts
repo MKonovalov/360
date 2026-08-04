@@ -19,6 +19,11 @@ export type ServableModel = {
   providerID: ModelProviderId;
   costInput: number;
   costOutput: number;
+  // SET-03/D-26-01: opencode-scoped rows resolve 'zen' or 'go' (Zen-wins
+  // dedup guarantees a dual-listed id's matched row is 'zen' unless it is one
+  // of the 5 Go-exclusive ids); every non-opencode row is null. Derived
+  // server-side only (page.tsx's trimRow) — never re-derived from the id.
+  endpoint: 'zen' | 'go' | null;
 };
 
 // D-21-09: single source of the display-name map used by badges, section
@@ -43,8 +48,17 @@ export function providerName(provider: ModelProviderId): string {
 // drops empty family (22/336 openrouter rows lack family) and empty name. The id
 // is FIRST so composites are unique per row — the onSelect reverse-lookup
 // (Pitfall 3) can never collide: ids are unique per servable row.
-export function searchValue(m: { id: string; name: string; family: string }): string {
-  return [m.id, m.name, m.family].filter(Boolean).join(' ').toLowerCase();
+// D-26-03: widened to accept an optional endpoint token — appended AFTER
+// family, raw lowercase ('zen'/'go', not the capitalized label), so typing
+// "go" filters to Go-endpoint rows. Optional keeps every pre-Phase-26 call
+// site (no endpoint key) byte-identical.
+export function searchValue(m: {
+  id: string;
+  name: string;
+  family: string;
+  endpoint?: 'zen' | 'go' | null;
+}): string {
+  return [m.id, m.name, m.family, m.endpoint ?? ''].filter(Boolean).join(' ').toLowerCase();
 }
 
 // D-21-12: suffix labels derived from the id — id is the source of truth. Check
@@ -54,6 +68,42 @@ export function suffixLabel(id: string): string | null {
   if (id.startsWith('~')) return 'always the latest'; // drift caveat (FAL-05)
   if (id.endsWith(':free')) return 'free tier — 50 req/day shared'; // fail-loud shared quota
   return null;
+}
+
+// D-26-01/D-26-03: endpoint identity label — the primary identity cue for an
+// opencode-scoped row (which endpoint serves it). Verified live: of
+// opencode's 40 servable rows, 34 resolve Zen (Zen-wins dedup) and 6 resolve
+// Go (the exclusive ids) — see page.tsx's trimRow for the derivation.
+export function endpointLabel(endpoint: 'zen' | 'go' | null): string | null {
+  if (endpoint === 'zen') return 'Zen';
+  if (endpoint === 'go') return 'Go';
+  return null;
+}
+
+// D-26-04/Pitfall 4: keyed on the RESOLVED providerID, never bare family —
+// both the native NousResearch rows AND their OpenRouter mirror carry
+// family:'hermes' (verified), but D-26-05 gives the mirror row different
+// (cost-caption, not capability-caption) treatment. providerID === 'nousresearch'
+// is the only safe key.
+export function hermesCaptionLabel(providerID: ModelProviderId): string | null {
+  if (providerID === 'nousresearch') return 'chat/reasoning-tuned';
+  return null;
+}
+
+// D-26-01: composes endpoint -> suffix -> hermes in that locked order
+// (identity cue first, descriptive context after). No live row currently has
+// more than one part populated (opencode rows never resolve
+// providerID === 'nousresearch'), so the compound path is proven by a
+// synthetic test fixture, not committed-snapshot data.
+export function rowCaption(m: {
+  id: string;
+  providerID: ModelProviderId;
+  endpoint: 'zen' | 'go' | null;
+}): string | null {
+  const parts = [endpointLabel(m.endpoint), suffixLabel(m.id), hermesCaptionLabel(m.providerID)].filter(
+    (p): p is string => p !== null,
+  );
+  return parts.length ? parts.join(' · ') : null;
 }
 
 // D-21-13: high-cost threshold, inclusive (UI-SPEC §Color). Verified: exactly 1
@@ -154,4 +204,22 @@ export function pinnedSelection(
   // data-checked; no pin needed.
   if (options.some((m) => m.id === value)) return null;
   return { name: valueName, onlyModel: options.length === 0 };
+}
+
+// D-26-11/SET-05: the primary trigger badge must show the row's TRUE
+// resolved provider, not the raw dropdown selection — verified real
+// collisions where the two diverge: claude-sonnet-4-6 (dropdown may say
+// opencode, but PROVIDER_PRECEDENCE always resolves it to anthropic) and
+// both hermes ids (dropdown may say openrouter, always resolves to
+// nousresearch). Resolves from the union list, whose providerID is already
+// precedence-resolved (getProviderForModelId) — the same source every OTHER
+// badge site (fallback triggers, saved-chain recap, union rows) already
+// uses. Falls back to the dropdown provider for the empty/stale/
+// single-provider case, preserving current behavior there.
+export function resolveBadgeProvider(
+  value: string,
+  unionModels: ServableModel[],
+  fallbackProvider: ModelProviderId,
+): ModelProviderId {
+  return unionModels.find((m) => m.id === value)?.providerID ?? fallbackProvider;
 }
