@@ -136,7 +136,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 23. Provider Registry + Servable Sources | v1.5 | 4/4 | Complete    | 2026-08-03 |
 | 24. Refresh Script + Catalog Data | v1.5 | 4/4 | Complete    | 2026-08-04 |
 | 25. Run Path / modelFactory Seam | v1.5 | 4/4 | Complete    | 2026-08-04 |
-| 26. Settings UI | v1.5 | 0/2 | Not started | - |
+| 26. Settings UI | v1.5 | 1/2 | In Progress|  |
 | 27. Verification Gate | v1.5 | 0/0 | Not started | - |
 
 ---
@@ -238,7 +238,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 Plans:
 **Wave 1**
 
-- [ ] 26-01-PLAN.md — Wave 1: model-picker-logic.ts endpoint/Hermes/badge-resolution logic + tests (contract), page.tsx endpoint derivation
+- [x] 26-01-PLAN.md — Wave 1: model-picker-logic.ts endpoint/Hermes/badge-resolution logic + tests (contract), page.tsx endpoint derivation
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
