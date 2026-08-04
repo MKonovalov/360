@@ -45,7 +45,7 @@ created: 2026-08-04
 | 24-02-01 | 02 | 2 | CAT-01/02/03 | — | N/A | manual | `npm run models:fetch` (observable snapshot or clean abort) | ⬜ W0 | ⬜ pending |
 | 24-02-02 | 02 | 2 | CAT-04, D-24-06/07 | — | N/A | manual | `npm run models:fetch` (drift → abort expected pre-CLI-upgrade) | ⬜ W0 | ⬜ pending |
 | 24-03-01 | 03 | 3 | CAT-03, D-24-11 | — | N/A | unit | `npm run models:fetch` + `npx vitest run src/lib/models/catalog.test.ts` | ⬜ W0 | ⬜ pending |
-| 24-04-01 | 04 | 3 | D-24-12 | — | N/A | unit | `npx vitest run src/lib/models/catalog.test.ts -t "nousresearch"` | ⬜ W0 | ⬜ pending |
+| 24-04-01 | 04 | 4 | D-24-12 | — | N/A | unit | `npx vitest run src/lib/models/catalog.test.ts -t "NOUSRESEARCH"` | ⬜ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 

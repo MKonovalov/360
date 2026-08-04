@@ -468,24 +468,26 @@ const perMTok = (perToken: string | undefined): number => {
 | A4 | Sorting `providers` keys alphabetically is acceptable for diff stability | Implementation Approach | Pure formatting; no functional impact (Claude's discretion, D-24-03) |
 | A5 | No new npm dependencies are needed (global `fetch` + existing `tsx`) | File-by-file Change Map | If Node <18 on the dev machine, `fetch` is unavailable — but Node 22 is the project pin |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **CLI/live Go drift (BLOCKING for the refresh step)**
+> All four questions were resolved at planning time — each is operationally covered by a plan task below (see the inline `RESOLVED:` notes).
+
+1. **CLI/live Go drift (BLOCKING for the refresh step)** — **RESOLVED:** 24-02 Task 2 (pre-flight `opencode upgrade` + go-roster re-verify with a human checkpoint) + 24-03 Task 1's prerequisite escalation branch — if the run still aborts at the Go drift check, the refresh is BLOCKED by design (throws-not-degrades), the per-id drift list is captured, and the phase escalates; D-24-07 strictness is never silently relaxed.
    - What we know: live Go = 25; CLI (v1.18.11, even after `--refresh`) = 18; models.dev = 24. Strict D-24-07 aborts today.
    - What's unclear: whether upgrading the opencode CLI (or a models.dev refresh) will yield the live 25-row set; whether the executor may run the refresh and accept the abort (snapshot stays usable, but Go stays 18).
    - Recommendation: plan a pre-flight `opencode upgrade` + `--refresh` + id-set re-verify task with a human checkpoint; if still drifting, escalate to discuss-phase (relax strictness vs. blocked refresh vs. accept 18-row Go).
 
-2. **Exact post-refresh canary numbers**
+2. **Exact post-refresh canary numbers** — **RESOLVED:** the re-lock numbers are computed from the ACTUAL regenerated snapshot at execution time — 24-03 Task 2 re-locks COUNT-STABILITY/NO-FLIP from the committed file (never research estimates, never auto-derived inside the test — D-24-11), and 24-04 Task 1 computes the D-24-12 group's counts the same way.
    - What we know: CLI-based estimate = pool 66, servable 40 {23 compat + 17 anthropic}; live-based = pool 69, 16 dual + 9 go-exclusive.
    - What's unclear: the npm split of the 7 new Go ids (`mimo-v2-pro`, `mimo-v2-omni`, `hy3-preview` are `@ai-sdk/openai-compatible`-undefined in models.dev; `qwen3.5-plus`, `minimax-m2.5` are `@ai-sdk/anthropic`) — the npm-gated servable count depends on the final CLI roster.
    - Recommendation: compute the re-lock numbers from the ACTUAL regenerated snapshot at execution time (D-24-11); the plan should not hardcode research-time estimates.
 
-3. **`hy3-preview` and models.dev-only ids**
+3. **`hy3-preview` and models.dev-only ids** — **RESOLVED:** covered by the same 24-02 Task 2 CLI-upgrade checkpoint + 24-03 Task 1 escalation branch as Q1 — if the drift persists after upgrade, the per-id list (incl. `hy3-preview`) is captured for the user; D-24-07 strictness is never relaxed.
    - What we know: `hy3-preview` exists live but not in models.dev; 6 models.dev go ids are missing from the CLI's filtered roster.
    - What's unclear: whether these are temporary registry-lag artifacts or permanent exclusions (CLI filters reasoning/tool models?).
    - Recommendation: covered by the same CLI-upgrade checkpoint as Q1; if the drift persists after upgrade, capture the per-id list for the user.
 
-4. **Phase 25/26/27 snapshot-parsing consumers**
+4. **Phase 25/26/27 snapshot-parsing consumers** — **RESOLVED:** the `getAllModels(catalog)` helper (shipped in 24-01 Task 2) is the single flattening owner — the grouped shape is a superset of the flat shape through it. Every Phase 25/26/27 consumer compiles unchanged because the registry functions keep the `ModelCatalog` param type (24-01 Task 2 keeps it source-compatible); Phase 25-27 planners use the registry helper, never raw `.models`.
    - What we know: Phase 25 (`modelFactory` zen-vs-go dispatch by `api.url`), Phase 26 (`endpoint` derived field + picker groups), Phase 27 (matrices) consume the snapshot rows.
    - What's unclear: whether any of them read `.models` directly (not via catalog.ts) — none exist in the current tree (grep-verified), but Phase 25/26 code is unwritten.
    - Recommendation: the grouped shape is a superset of the flat shape via `getAllModels`; Phase 25-27 planners should use the registry helper, not raw `.models`.
