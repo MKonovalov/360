@@ -13,6 +13,10 @@ const mocks = vi.hoisted(() => ({
     // Phase 20 (FAL-04): the chain-aware gate reads it — without it, every test
     // whose chain resolves to an openrouter id fails at the new gate.
     OPENROUTER_API_KEY: 'test-key' as string | undefined,
+    // Phase 25 (RUN-03/D-25-05): the widened 4-provider gate reads them — the
+    // not_configured tests clear a key at runtime (string | undefined).
+    NOUSRESEARCH_API_KEY: 'test-key' as string | undefined,
+    OPENCODE_API_KEY: 'test-key' as string | undefined,
   },
   getCompanyById: vi.fn(),
   listSignalsForCompany: vi.fn(),
@@ -358,6 +362,92 @@ describe('analyzeCompany (09-01-03)', () => {
     expect(result.ok).toBe(true);
     // The resolved cross-provider chain maps through the factory.
     expect(mocks.instantiateChain).toHaveBeenCalledWith(['claude-sonnet-4-6', 'anthropic/claude-sonnet-4.6']);
+  });
+
+  describe('missing — RUN-03 chain-aware gate widened to 4 providers (D-25-05)', () => {
+    it('returns not_configured naming the missing NOUSRESEARCH key on a nousresearch-only chain (D-25-05)', async () => {
+      // Real snapshot id: nousresearch/hermes-4-70b (nousresearch allowlist pin)
+      // — real resolveModelChain + real getProviderForModelId resolve it.
+      mocks.getModelSettingsForUser.mockResolvedValue({
+        primaryModel: 'nousresearch/hermes-4-70b',
+        fallbackModels: [],
+      });
+      mocks.env.NOUSRESEARCH_API_KEY = undefined;
+
+      const result = await analyzeCompany(1, 'user_test');
+
+      expect(result).toEqual({ ok: false, reason: 'not_configured', missingKey: 'NOUSRESEARCH_API_KEY' });
+      expect(mocks.runAgent).not.toHaveBeenCalled();
+      mocks.env.NOUSRESEARCH_API_KEY = 'test-key'; // restore
+    });
+
+    it('returns not_configured naming the missing OPENCODE key on an opencode-only chain (D-25-05)', async () => {
+      // Real snapshot id: deepseek-v4-flash (opencode Zen row) — the dual
+      // snapshot providerIDs collapse to logical 'opencode' via SNAPSHOT_PROVIDER_IDS.
+      mocks.getModelSettingsForUser.mockResolvedValue({
+        primaryModel: 'deepseek-v4-flash',
+        fallbackModels: [],
+      });
+      mocks.env.OPENCODE_API_KEY = undefined;
+
+      const result = await analyzeCompany(1, 'user_test');
+
+      expect(result).toEqual({ ok: false, reason: 'not_configured', missingKey: 'OPENCODE_API_KEY' });
+      expect(mocks.runAgent).not.toHaveBeenCalled();
+      mocks.env.OPENCODE_API_KEY = 'test-key'; // restore
+    });
+
+    it('runs an opencode-only chain with only the OPENCODE key — ANTHROPIC/NOUSRESEARCH not blanket-required (D-25-05)', async () => {
+      // hy3 = opencode Go-exclusive snapshot id. The opencode-only provider set
+      // must not blanket-require the anthropic/nousresearch keys.
+      mocks.getModelSettingsForUser.mockResolvedValue({
+        primaryModel: 'hy3',
+        fallbackModels: [],
+      });
+      mocks.env.ANTHROPIC_API_KEY = undefined;
+      mocks.env.NOUSRESEARCH_API_KEY = undefined;
+
+      const result = await analyzeCompany(1, 'user_test');
+
+      expect(result.ok).toBe(true);
+      expect(mocks.instantiateChain).toHaveBeenCalledWith(['hy3']);
+      mocks.env.ANTHROPIC_API_KEY = 'test-key';
+      mocks.env.NOUSRESEARCH_API_KEY = 'test-key'; // restore both
+    });
+
+    it('runs a mixed chain across the 4-provider gate when all keys are set (D-25-05)', async () => {
+      mocks.getModelSettingsForUser.mockResolvedValue({
+        primaryModel: 'claude-sonnet-4-6',
+        fallbackModels: ['nousresearch/hermes-4-70b'],
+      });
+      mocks.instantiateChain.mockReturnValue([
+        { provider: 'anthropic', modelId: 'claude-sonnet-4-6' },
+        { provider: 'nousresearch', modelId: 'nousresearch/hermes-4-70b' },
+      ]);
+
+      const result = await analyzeCompany(1, 'user_test');
+
+      expect(result.ok).toBe(true);
+      // The resolved cross-provider chain maps through the factory with all
+      // four keys set — no not_configured for the mixed anthropic+nousresearch set.
+      expect(mocks.instantiateChain).toHaveBeenCalledWith(['claude-sonnet-4-6', 'nousresearch/hermes-4-70b']);
+    });
+
+    it('runs an opencode+nousresearch mixed chain when all keys are set (D-25-05)', async () => {
+      mocks.getModelSettingsForUser.mockResolvedValue({
+        primaryModel: 'deepseek-v4-flash',
+        fallbackModels: ['nousresearch/hermes-4-70b'],
+      });
+      mocks.instantiateChain.mockReturnValue([
+        { provider: 'opencode', modelId: 'deepseek-v4-flash' },
+        { provider: 'nousresearch', modelId: 'nousresearch/hermes-4-70b' },
+      ]);
+
+      const result = await analyzeCompany(1, 'user_test');
+
+      expect(result.ok).toBe(true);
+      expect(mocks.instantiateChain).toHaveBeenCalledWith(['deepseek-v4-flash', 'nousresearch/hermes-4-70b']);
+    });
   });
 
   it('maps a 402 throw to the distinct billing reason (FAL-02/D-20-10)', async () => {
