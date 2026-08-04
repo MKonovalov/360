@@ -44,3 +44,4 @@ yarn-error.log*
 .planning/quick/
 drizzle/
 skills-lock.json
+.env*.local
