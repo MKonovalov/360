@@ -106,3 +106,12 @@ None - no new external service configuration required. The existing Clerk test a
 ---
 *Phase: 27-verification-gate*
 *Completed: 2026-08-04*
+
+## Self-Check: PASSED
+
+- FOUND: e2e/ver-05-settings.spec.ts
+- FOUND: .planning/phases/27-verification-gate/27-05-SUMMARY.md
+- FOUND commit: d74710de (Task 1)
+- FOUND commit: 9631c02f (Task 2)
+- FOUND commit: 8bc1f656 (Task 3)
+- FOUND commit: d286d924 (SUMMARY)
