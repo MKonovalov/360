@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Signals & Offerings
-status: planning
-last_updated: "2026-08-04T10:34:22.068Z"
+status: executing
+last_updated: "2026-08-04T12:00:00.000Z"
 last_activity: 2026-08-04
 progress:
   total_phases: 3
   completed_phases: 0
-  total_plans: 0
+  total_plans: 6
   completed_plans: 0
   percent: 0
 ---
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 ## Current Position
 
-Phase: 30 — Shared Data Model + Seed (not started)
-Plan: —
-Status: Roadmap created, awaiting `/gsd-plan-phase 30`
-Last activity: 2026-08-04 — v1.4 ROADMAP.md created (Phases 30-32, 27/27 requirements mapped)
+Phase: 30 — Shared Data Model + Seed (planned, ready to execute)
+Plan: 0 of 6
+Status: 6 plans created (30-01..30-06), plan-checker PASSED (0 blockers), awaiting `/gsd-execute-phase 30`
+Last activity: 2026-08-04 — Phase 30 planned: CONTEXT (PRD express path) → RESEARCH → PATTERNS → 6 PLAN.md → plan-checker verified
 
 ## Performance Metrics
 
@@ -64,10 +64,16 @@ Recent decisions affecting current work:
 - **Roadmap (v1.4): Phase 30 is intentionally a no-UI, backend-only phase** — this is expected and correct, not a coverage gap. Phase 31 and Phase 32 both depend only on Phase 30 (need seeded `buyer_role`/`offering` data); Phase 32 does not strictly depend on Phase 31 (different UI surfaces) but stays sequential in the roadmap per the "Signals first" priority.
 - **Roadmap (v1.4): sourced from a fully pre-authored external spec** (`.planning/specs/v1.4-signals-offerings.md`) — data model, business rules, UI, seed data, and sequencing were already decided before this cycle; research was skipped for this milestone (see REQUIREMENTS.md header).
 - [Phase ?]: v1.4 started before v1.3 closed; v1.3 Phase 18 (VER-04) left unexecuted, phase dirs 15-18 cleared from disk (not archived) to make room for v1.4 numbering — recoverable via git history since `commit_docs: true`.
+- [Phase 30]: `signal_offering_link`'s discriminator reuses the existing `recordTypeEnum`/`record_type` Postgres type instead of a new `pgEnum('signal_type', ...)`, which would have collided with the pre-existing unrelated `signal_type` enum at `schema.ts:6` (v1.0 buying-signal entity) — caught by research, verified by plan-checker.
+- [Phase 30]: New query modules named `companySignals.ts`/`personaSignals.ts`, never `signals.ts` — that name is already taken by the unrelated core `signal` (buying-signal) entity's query module.
+- [Phase 30]: No `db.transaction()` anywhere in this phase — `neon-http` driver has zero transaction support; seed script and delete-guards use sequential dependency-ordered operations instead, matching `importBatches.ts`/`proposals.ts` precedent.
+- [Phase 30]: `requireStaffAccess()` is never called inside new query modules — this repo's convention calls it only at the Server Action layer; Phase 30 ships no Server Actions, so query functions accept `userId`/`createdBy`/`updatedBy` as plain parameters (wired end-to-end in Phase 31/32).
+- [Phase 30]: `offering.description` (not just `commercial_model_text`) is Claude-authored one-line text beyond what CONTEXT.md pre-approved — schema requires it NOT NULL but spec Section 7.3 doesn't tabulate it; flagged in 30-06-PLAN.md for human review in the phase's SUMMARY.
+- [Phase 30]: Literal seed counts corrected from ROADMAP's approximate "~24 company signals / ~9 persona signals" to the spec's actual literal counts: 11 offerings, 22 offering-buyer-role links, 11 triggers, 27 company signals, 12 persona signals, 10 signal-offering-link rows.
 
 ### Pending Todos
 
-None yet — Phase 30 not yet planned.
+None yet — Phase 30 planned, not yet executed.
 
 ### Blockers/Concerns
 
@@ -97,10 +103,10 @@ Items acknowledged and carried forward, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-04T10:34:22.068Z
-Stopped at: v1.4 ROADMAP.md + STATE.md created, REQUIREMENTS.md traceability confirmed
+Last session: 2026-08-04T12:00:00.000Z
+Stopped at: Phase 30 fully planned (CONTEXT/RESEARCH/PATTERNS/VALIDATION/6×PLAN.md), plan-checker PASSED
 Resume file: None
 
 ## Operator Next Steps
 
-- Plan Phase 30 with `/gsd-plan-phase 30` (Shared Data Model + Seed — no UI, first phase of v1.4)
+- Execute Phase 30 with `/gsd-execute-phase 30` (6 plans, 3 waves: schema+push → 4 parallel query modules → seed script). Requires a real `.env.local`/`DATABASE_URL` for `npm run db:push` and `npm run seed:gbs` to run against the live Neon dev DB.
