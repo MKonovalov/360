@@ -101,26 +101,38 @@ export function ModelSettingsForm({
   function handleSave() {
     setStatus('saving');
     startTransition(async () => {
-      // An unfilled fallback row carries no model — drop it before sending so
-      // a transient in-progress row never trips the action's invalid_model.
-      const result = await saveSettingsAction({
-        primaryModel: primary,
-        fallbacks: fallbacks.filter((id) => id !== ''),
-      });
-      if (result.ok) {
-        setStatus('saved');
-        setErrorMsg(null);
-        // Record the persisted chain for the saved-chain recap (D-21-10) and
-        // clear the reset hint — the reset is moot once the primary is saved
-        // (RESEARCH Open Question 2 — RESOLVED). Unfilled fallback rows are
-        // dropped from the record, matching the submitted payload below.
-        setLastSaved({ primary, fallbacks: fallbacks.filter((id) => id !== '') });
-        setResetHint(null);
-      } else {
-        // D-13: the draft is preserved verbatim on failure — never reset the
-        // useState; retry = press Save again with the draft still staged.
+      // CR-02: a client-side transport failure invoking the Server Action
+      // (offline, dropped connection, RSC/action-encoding error) rejects
+      // this promise BEFORE the server's own internal try/catch ever runs —
+      // without this try/catch the rejection is unhandled and the form is
+      // stranded on 'Saving…' forever. Degrade to the existing error state
+      // instead (CLAUDE.md "fail safe, fail silent" convention).
+      try {
+        // An unfilled fallback row carries no model — drop it before sending
+        // so a transient in-progress row never trips the action's
+        // invalid_model.
+        const result = await saveSettingsAction({
+          primaryModel: primary,
+          fallbacks: fallbacks.filter((id) => id !== ''),
+        });
+        if (result.ok) {
+          setStatus('saved');
+          setErrorMsg(null);
+          // Record the persisted chain for the saved-chain recap (D-21-10) and
+          // clear the reset hint — the reset is moot once the primary is saved
+          // (RESEARCH Open Question 2 — RESOLVED). Unfilled fallback rows are
+          // dropped from the record, matching the submitted payload below.
+          setLastSaved({ primary, fallbacks: fallbacks.filter((id) => id !== '') });
+          setResetHint(null);
+        } else {
+          // D-13: the draft is preserved verbatim on failure — never reset the
+          // useState; retry = press Save again with the draft still staged.
+          setStatus('error');
+          setErrorMsg(ERROR_COPY[result.reason] ?? ERROR_COPY.action_failed);
+        }
+      } catch {
         setStatus('error');
-        setErrorMsg(ERROR_COPY[result.reason] ?? ERROR_COPY.action_failed);
+        setErrorMsg(ERROR_COPY.action_failed);
       }
     });
   }
@@ -380,8 +392,20 @@ export function ModelSettingsForm({
             <Button variant="default" disabled={saveDisabled} onClick={handleSave}>
               {isPending ? 'Saving…' : 'Save changes'}
             </Button>
-            {status === 'saved' ? (
+            {status === 'saved' &&
+            lastSaved &&
+            primary === lastSaved.primary &&
+            fallbacks.filter((f) => f !== '').join('|') === lastSaved.fallbacks.join('|') ? (
               <div className="flex flex-col gap-1">
+                {/* CR-01: the "Saved." confirmation is now gated on the SAME
+                    draft-equals-lastSaved check as the recap below (previously
+                    it rendered unconditionally on status === 'saved', which
+                    could show a false confirmation if the draft changed while
+                    a prior save was still in flight — markDirty()'s 'saving'
+                    exemption means status stays 'saving' during that edit, but
+                    the async resolution still ran setStatus('saved') for the
+                    STALE request). The inner recap's own equality check below
+                    is now redundant-safe but left in place intentionally. */}
                 <p className="text-[14px] font-normal leading-[1.5] text-slate-600">Saved.</p>
                 {/* D-21-10: the saved-chain recap — one entry per model in the
                     persisted chain, each with a provider badge. The badges are
