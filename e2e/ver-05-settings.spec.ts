@@ -405,3 +405,73 @@ test('VER-05: NousResearch Hermes capability + cost captions (SET-04)', async ({
   // drift with a catalog refresh (npm run models:fetch).
   await expect(hermesRow).toContainText(/\$[\d.]+ \/ \$[\d.]+ per MTok/);
 });
+
+test('VER-05: hermes-4-70b trigger badge accuracy under OpenRouter (closes 26-HUMAN-UAT item 4b)', async ({
+  page,
+}) => {
+  await page.goto('/settings');
+  await expect(page.getByText(SETTINGS_HEADING)).toBeVisible();
+  await clearFallbacks(page);
+
+  // Land the draft on the NousResearch hermes-4-70b default primary.
+  await setProvider(page, 'NousResearch', 'NousResearch');
+  await expect(page.getByLabel('Primary model')).toContainText('Hermes 4 70B');
+
+  // nousresearch/hermes-4-70b is ALSO an active OpenRouter mirror row with the
+  // IDENTICAL id string — switching the dropdown to OpenRouter passes
+  // keep-if-valid (the id IS openrouter-servable) and preserves it verbatim,
+  // but D-23-07's PROVIDER_PRECEDENCE (nousresearch outranks openrouter)
+  // always resolves it back to nousresearch, so the badge must never flip.
+  await setProvider(page, 'OpenRouter', 'OpenRouter');
+  await expect(page.getByLabel('Primary model')).toContainText('Hermes 4 70B');
+  const badge = page.getByLabel('Primary model').locator('[data-slot="badge"]');
+  await expect(badge).toHaveText('NousResearch');
+});
+
+test('VER-05: CR-01 mid-save-edit no longer shows a false Saved. confirmation', async ({ page }) => {
+  await page.goto('/settings');
+  await expect(page.getByText(SETTINGS_HEADING)).toBeVisible();
+  await clearFallbacks(page);
+  await setProvider(page, 'OpenCode', 'OpenCode');
+
+  const primaryTrigger = page.getByLabel('Primary model');
+  const searchInput = page.getByPlaceholder('Search models…');
+
+  // Playwright cannot literally suspend a real network request mid-flight to
+  // reproduce the exact race Plan 27-04 fixed (a local dev server typically
+  // resolves saveSettingsAction faster than a second Playwright action can
+  // dispatch) — this is the plan-sanctioned browser-level approximation:
+  // saving twice in a row, editing the draft between each save, and asserting
+  // the now-STALE "Saved." confirmation disappears the instant the draft
+  // diverges from lastSaved — synchronously with the edit, before any new
+  // save request is even sent. This proves the CR-01 render-gate
+  // (draft-equals-lastSaved) transitions correctly on each edit.
+
+  // --- Save #1: primary = big-pickle -----------------------------------------
+  await primaryTrigger.click();
+  await searchInput.fill('big-pickle');
+  await page.getByRole('option').filter({ hasText: 'Big Pickle' }).click();
+  await expect(primaryTrigger).toContainText('Big Pickle');
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(page.getByText('Saved.')).toBeVisible();
+  await expect(page.getByText(/Saved chain:/)).toContainText('Big Pickle');
+
+  // --- Edit WITHOUT saving: the gate must hide the now-stale "Saved."
+  // confirmation immediately — this is the exact draft-equals-lastSaved check
+  // CR-01 added, closing the false-positive window a stale async resolution
+  // for an in-flight save could otherwise exploit.
+  await primaryTrigger.click();
+  await searchInput.fill('hy3');
+  await page.getByRole('option').filter({ hasText: 'Hy3' }).click();
+  await expect(primaryTrigger).toContainText('Hy3');
+  await expect(page.getByText('Saved.')).not.toBeVisible();
+  await expect(page.getByText(/Saved chain:/)).not.toBeVisible();
+
+  // --- Save #2: primary = hy3 — the fresh confirmation must name the CURRENT
+  // draft, never the value from save #1 that was in flight moments ago.
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(page.getByText('Saved.')).toBeVisible();
+  const recap = page.getByText(/Saved chain:/);
+  await expect(recap).toContainText('Hy3');
+  await expect(recap).not.toContainText('Big Pickle');
+});
