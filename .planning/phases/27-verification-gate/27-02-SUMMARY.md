@@ -88,3 +88,11 @@ None - no external service configuration required for this plan itself. **Recomm
 ---
 *Phase: 27-verification-gate*
 *Completed: 2026-08-04*
+
+## Self-Check: PASSED
+
+- FOUND: src/lib/agents/structured-outputs-probe.test.ts
+- FOUND: .planning/phases/27-verification-gate/27-02-SUMMARY.md
+- FOUND commit: eed08d63 (Task 1)
+- FOUND commit: bd4cc523 (Task 2)
+- FOUND commit: 35dfa90a (SUMMARY)
