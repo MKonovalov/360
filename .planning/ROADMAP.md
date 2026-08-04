@@ -137,7 +137,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 24. Refresh Script + Catalog Data | v1.5 | 4/4 | Complete    | 2026-08-04 |
 | 25. Run Path / modelFactory Seam | v1.5 | 4/4 | Complete    | 2026-08-04 |
 | 26. Settings UI | v1.5 | 2/2 | Complete    | 2026-08-04 |
-| 27. Verification Gate | v1.5 | 0/0 | Not started | - |
+| 27. Verification Gate | v1.5 | 4/6 | In Progress|  |
 
 ---
 
@@ -263,10 +263,10 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 27-01-PLAN.md — VER-02/03: NousResearch + OpenCode single-key isolation + round-trip proof (child-env probes)
-- [ ] 27-02-PLAN.md — RUN-06/VER-05: live structuredOutputs probe + per-instance modelFactory flag flip
-- [ ] 27-03-PLAN.md — VER-04: security-matrix grep widened to NOUSRESEARCH/OPENCODE
-- [ ] 27-04-PLAN.md — CR-01/CR-02 fixes in model-settings-form.tsx (save-in-flight race + missing try/catch)
+- [x] 27-01-PLAN.md — VER-02/03: NousResearch + OpenCode single-key isolation + round-trip proof (child-env probes)
+- [x] 27-02-PLAN.md — RUN-06/VER-05: live structuredOutputs probe + per-instance modelFactory flag flip
+- [x] 27-03-PLAN.md — VER-04: security-matrix grep widened to NOUSRESEARCH/OPENCODE
+- [x] 27-04-PLAN.md — CR-01/CR-02 fixes in model-settings-form.tsx (save-in-flight race + missing try/catch)
 
 **Wave 2** *(blocked on 27-04 completion)*
 
