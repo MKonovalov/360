@@ -45,7 +45,7 @@ const SETTINGS_HEADING = 'AI Model Configuration';
 // draft state, so flipping to a known target first normalizes the baseline.
 async function setProvider(
   page: Page,
-  target: 'Anthropic' | 'OpenRouter',
+  target: 'Anthropic' | 'OpenRouter' | 'NousResearch' | 'OpenCode',
   named: string,
 ): Promise<void> {
   await page.getByLabel('AI provider').click();
@@ -255,4 +255,77 @@ test('VER-05: IN-02 stale-primary badge guess observed (observation)', async ({ 
   // green behavior this spec proves in SET-05) — the stale-id guess is a
   // documented limitation observable only by corrupting a saved id, out of
   // reach through the UI. Nothing to assert beyond the page mounting.
+});
+
+// --- Phase 27 (VER-05): extended coverage closing 26-HUMAN-UAT.md's 4 pending
+// items (D-27-09/10) — the 4-provider selector, Zen/Go + Hermes captions,
+// badge disambiguation, and the CR-01 save-race regression, exercised live
+// through Plan 27-04's fixed Save lifecycle.
+
+test('VER-05: full 4-provider selector -> picker -> save round trip (closes 26-HUMAN-UAT item 1)', async ({
+  page,
+}) => {
+  await page.goto('/settings');
+  await expect(page.getByText(SETTINGS_HEADING)).toBeVisible();
+  await clearFallbacks(page);
+
+  // Switch through all 4 SERVABLE_PROVIDERS entries in order, asserting each
+  // switch lands the dropdown on the right label (setProvider's own
+  // assertion) and the Primary picker re-renders with SOME resolved model
+  // (a visible provider badge on the trigger — the provider-scoped default or
+  // a kept-if-valid id, never a blank trigger). Badge-vs-dropdown MATCHING is
+  // deliberately not asserted here — the claude-sonnet-4-6 collision (proven
+  // separately below) means a badge can legitimately diverge from the
+  // dropdown's own selection when a higher-precedence provider still serves
+  // the same id.
+  const providersToCheck: Array<'Anthropic' | 'OpenRouter' | 'NousResearch' | 'OpenCode'> = [
+    'Anthropic',
+    'OpenRouter',
+    'NousResearch',
+    'OpenCode',
+  ];
+  const primaryBadge = page.getByLabel('Primary model').locator('[data-slot="badge"]');
+  for (const target of providersToCheck) {
+    await setProvider(page, target, target);
+    await expect(primaryBadge).toBeVisible();
+    const badgeText = await primaryBadge.innerText();
+    expect(badgeText.trim().length).toBeGreaterThan(0);
+  }
+
+  // Ends on OpenCode — save and confirm the round trip persisted.
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(page.getByText('Saved.')).toBeVisible();
+});
+
+test('VER-05: reset-hint + trigger badge accuracy for the claude-sonnet-4-6 collision (closes 26-HUMAN-UAT items 3+4a)', async ({
+  page,
+}) => {
+  await page.goto('/settings');
+  await expect(page.getByText(SETTINGS_HEADING)).toBeVisible();
+  await clearFallbacks(page);
+
+  // Anthropic's servable set is the sonnet-only single-row allowlist — any
+  // switch here keep-if-valid-fails unless the draft is already exactly
+  // claude-sonnet-4-6, so this deterministically lands the primary on the
+  // Anthropic default regardless of whatever a prior test left staged.
+  await setProvider(page, 'Anthropic', 'Anthropic');
+  await expect(page.getByLabel('Primary model')).toContainText('Claude Sonnet 4.6');
+
+  // claude-sonnet-4-6 is ALSO npm-gated servable under opencode (same raw id)
+  // — switching there passes keep-if-valid (the id IS opencode-servable), but
+  // PROVIDER_PRECEDENCE always resolves it back to anthropic (regression
+  // lock), so BOTH the reset-hint and badge-collision scenarios fire on this
+  // single switch (26-VERIFICATION.md human_verification items 3 and 4a).
+  await setProvider(page, 'OpenCode', 'OpenCode');
+
+  const hint = page.getByText(/stays routed through Anthropic/);
+  await expect(hint).toBeVisible();
+  await expect(hint).toContainText(
+    "Claude Sonnet 4.6 stays routed through Anthropic — OpenCode's copy isn't used while a higher-priority provider serves the same id.",
+  );
+
+  // The trigger badge must read the TRUE resolved provider, never the raw
+  // dropdown value — the D-26-11 resolveBadgeProvider fix under live test.
+  const badge = page.getByLabel('Primary model').locator('[data-slot="badge"]');
+  await expect(badge).toHaveText('Anthropic');
 });
