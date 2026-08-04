@@ -237,3 +237,82 @@ describe('structuredOutputs (RUN-06)', () => {
     }
   });
 });
+
+// RUN-02 (25-01-02): dispatch tests use LOCKED real snapshot ids (Pitfall 4 —
+// never enumerate the servable set). Assertions are RESULT-SHAPE checks: the
+// hoist-time callable implementations return marker'd { provider, modelId }
+// objects, so dispatch is proven without depending on mock.calls history
+// (which beforeEach's vi.clearAllMocks wipes).
+describe('dispatch (RUN-02)', () => {
+  it('nousresearch/hermes-4-70b → nousresearch (openai-compatible npm row)', () => {
+    expect(instantiateModel('nousresearch/hermes-4-70b')).toEqual({
+      provider: 'nousresearch',
+      modelId: 'nousresearch/hermes-4-70b',
+    });
+  });
+
+  it('nousresearch/hermes-4-405b → nousresearch (second Hermes pin)', () => {
+    expect(instantiateModel('nousresearch/hermes-4-405b')).toEqual({
+      provider: 'nousresearch',
+      modelId: 'nousresearch/hermes-4-405b',
+    });
+  });
+
+  it('hy3 → opencode-go (go-exclusive row, openai-compatible npm) — the openaiCompatibleGo dispatch', () => {
+    expect(instantiateModel('hy3')).toEqual({
+      provider: 'opencode-go',
+      modelId: 'hy3',
+    });
+  });
+
+  it('qwen3.8-max → anthropic-go (go-exclusive row, anthropic npm) — the anthropicGo dispatch', () => {
+    expect(instantiateModel('qwen3.8-max')).toEqual({
+      provider: 'anthropic-go',
+      modelId: 'qwen3.8-max',
+    });
+  });
+
+  it('qwen3.6-plus → anthropic-zen (dual-listed, BOTH rows anthropic npm; Zen row wins via flatten order)', () => {
+    expect(instantiateModel('qwen3.6-plus')).toEqual({
+      provider: 'anthropic-zen',
+      modelId: 'qwen3.6-plus',
+    });
+  });
+
+  it('claude-sonnet-5 → anthropic-zen (opencode row is Zen + anthropic npm; NOT in ANTHROPIC_ALLOWLIST)', () => {
+    expect(instantiateModel('claude-sonnet-5')).toEqual({
+      provider: 'anthropic-zen',
+      modelId: 'claude-sonnet-5',
+    });
+  });
+
+  it('deepseek-v4-flash → opencode-zen (dual-listed, both rows openai-compatible; Zen wins)', () => {
+    expect(instantiateModel('deepseek-v4-flash')).toEqual({
+      provider: 'opencode-zen',
+      modelId: 'deepseek-v4-flash',
+    });
+  });
+
+  it('COLLISION CANARY: minimax-m2.7 → opencode-zen, NEVER anthropic-go (Pitfall 1 npm trap)', () => {
+    // Zen row = @ai-sdk/openai-compatible, Go row = @ai-sdk/anthropic — the
+    // scoped find (flatten order: opencode before opencode-go) must route to
+    // the openai-compatible callable, not anthropicGo.
+    expect(instantiateModel('minimax-m2.7')).toEqual({
+      provider: 'opencode-zen',
+      modelId: 'minimax-m2.7',
+    });
+    expect(instantiateModel('minimax-m2.7')).not.toEqual(
+      expect.objectContaining({ provider: 'anthropic-go' }),
+    );
+  });
+
+  it('COLLISION CANARY: minimax-m3 → opencode-zen, NEVER anthropic-go (Pitfall 1 npm trap)', () => {
+    expect(instantiateModel('minimax-m3')).toEqual({
+      provider: 'opencode-zen',
+      modelId: 'minimax-m3',
+    });
+    expect(instantiateModel('minimax-m3')).not.toEqual(
+      expect.objectContaining({ provider: 'anthropic-go' }),
+    );
+  });
+});
