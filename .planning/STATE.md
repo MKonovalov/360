@@ -2,16 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Additional AI Providers
-status: milestone_complete
-last_updated: 2026-08-04T22:20:03.338Z
-last_activity: 2026-08-04 -- Phase 27 execution started
+status: Awaiting next milestone
+last_updated: "2026-08-04T22:28:22.144Z"
+last_activity: 2026-08-04 — Milestone v1.5 completed and archived
 progress:
-  total_phases: 27
-  completed_phases: 27
+  total_phases: 5
+  completed_phases: 5
   total_plans: 20
   completed_plans: 20
   percent: 100
-stopped_at: Milestone complete (Phase 27 was final phase)
 ---
 
 # Project State
@@ -25,11 +24,10 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 
 ## Current Position
 
-Phase: 27
-Plan: Not started
-Status: Milestone complete
-Last activity: 2026-08-04
-Next up: Phase 27 — Verification Gate (CONTEXT not yet gathered — run /gsd-discuss-phase 27)
+Phase: Milestone v1.5 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-08-04 — Milestone v1.5 completed and archived
 
 ## Performance Metrics
 
@@ -245,6 +243,4 @@ Resume file: .planning/phases/27-verification-gate/27-CONTEXT.md
 
 ## Operator Next Steps
 
-- Plan Phase 23 with /gsd-plan-phase 23
-- Vercel env: declare `NOUSRESEARCH_API_KEY` + `OPENCODE_API_KEY` (operator dashboard action, D-11-style human item) during Phase 23/25
-- Phase 27: live key-backed `json_schema` probe at Zen/Go/Nous gates the `supportsStructuredOutputs` flip (RUN-06) — schedule with billing-credit verification
+- Start the next milestone with /gsd-new-milestone
