@@ -136,6 +136,16 @@ None — no new environment variables or dashboard configuration introduced by t
 - No blockers for the remaining Phase 27 plans (27-02 through 27-06) — this plan's scope (VER-02/VER-03 for NousResearch/OpenCode) is complete and self-contained
 - Two live-account-side follow-ups exist for the milestone's final verification-gate record: NousResearch credit top-up, and the OpenCode `supportsStructuredOutputs` live flip probe (VER-05, tracked separately)
 
+## Self-Check: PASSED
+
+- FOUND: scripts/probe-nousresearch-only.ts
+- FOUND: scripts/probe-opencode-only.ts
+- FOUND: src/lib/agents/nousresearch-only-chain.test.ts
+- FOUND: src/lib/agents/opencode-only-chain.test.ts
+- FOUND: .planning/phases/27-verification-gate/27-01-SUMMARY.md
+- FOUND commit: c32300de (Task 1)
+- FOUND commit: 5d7fabda (Task 2)
+
 ---
 *Phase: 27-verification-gate*
 *Completed: 2026-08-04*
