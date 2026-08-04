@@ -18,8 +18,14 @@ import {
   updateOffering,
   listAllOfferingsForPracticeArea,
   listActiveOfferingsForPracticeArea,
+  insertOfferingBuyerRole,
+  insertTrigger,
+  listTriggersForOffering,
+  listBuyerRolesForOffering,
+  hasOfferingDependents,
+  deleteOffering,
 } from './offerings';
-import { offering } from '../schema';
+import { buyerRole, offering, offeringBuyerRole, signalOfferingLink, trigger } from '../schema';
 
 // Flattens a Drizzle SQL expression's queryChunks into a single string so a
 // .where() argument can be asserted on its literal contents (param values,
@@ -161,5 +167,163 @@ describe('offerings query module (30-03)', () => {
     // Empty patch: the set clause is STILL the two audit stamps and nothing
     // else — proving the update never silently skips attribution.
     expect(set).toHaveBeenCalledWith({ updatedAt: expect.any(Date), updatedBy: 'user-2' });
+  });
+
+  it('insertOfferingBuyerRole inserts a ranked buyer-role link with updatedBy equal to createdBy', async () => {
+    const inserted = { id: 1, offeringId: 11, buyerRoleId: 2, rank: 1 };
+    const returning = vi.fn().mockResolvedValue([inserted]);
+    const values = vi.fn().mockReturnValue({ returning });
+    mocks.db.insert.mockReturnValue({ values });
+
+    const result = await insertOfferingBuyerRole({ offeringId: 11, buyerRoleId: 2, rank: 1, createdBy: 'user-1' });
+
+    expect(mocks.db.insert).toHaveBeenCalledWith(offeringBuyerRole);
+    expect(values).toHaveBeenCalledWith(
+      expect.objectContaining({ offeringId: 11, buyerRoleId: 2, rank: 1, createdBy: 'user-1', updatedBy: 'user-1' })
+    );
+    expect(result).toEqual(inserted);
+  });
+
+  it('insertTrigger inserts a trigger row for an offering with updatedBy equal to createdBy', async () => {
+    const inserted = { id: 1, offeringId: 11, triggerText: 'New CFO appointed', sortOrder: 1 };
+    const returning = vi.fn().mockResolvedValue([inserted]);
+    const values = vi.fn().mockReturnValue({ returning });
+    mocks.db.insert.mockReturnValue({ values });
+
+    const result = await insertTrigger({ offeringId: 11, triggerText: 'New CFO appointed', sortOrder: 1, createdBy: 'user-1' });
+
+    expect(mocks.db.insert).toHaveBeenCalledWith(trigger);
+    expect(values).toHaveBeenCalledWith(
+      expect.objectContaining({ offeringId: 11, triggerText: 'New CFO appointed', sortOrder: 1, createdBy: 'user-1', updatedBy: 'user-1' })
+    );
+    expect(result).toEqual(inserted);
+  });
+
+  it('listTriggersForOffering returns the offering triggers ordered by sortOrder', async () => {
+    const rows = [{ id: 1, triggerText: 'First', sortOrder: 1 }, { id: 2, triggerText: 'Second', sortOrder: 2 }];
+    const orderBy = vi.fn().mockResolvedValue(rows);
+    const where = vi.fn().mockReturnValue({ orderBy });
+    const from = vi.fn().mockReturnValue({ where });
+    mocks.db.select.mockReturnValue({ from });
+
+    const result = await listTriggersForOffering(11);
+
+    expect(result).toEqual(rows);
+    expect(from).toHaveBeenCalledWith(trigger);
+    expect(where).toHaveBeenCalled();
+    expect(orderBy).toHaveBeenCalled();
+  });
+
+  it('listBuyerRolesForOffering joins buyerRole.name and orders by rank', async () => {
+    const rows = [
+      { buyerRoleId: 1, name: 'CFO', rank: 1 },
+      { buyerRoleId: 2, name: 'Head of GBS', rank: 2 },
+    ];
+    const orderBy = vi.fn().mockResolvedValue(rows);
+    const where = vi.fn().mockReturnValue({ orderBy });
+    const innerJoin = vi.fn().mockReturnValue({ where });
+    const from = vi.fn().mockReturnValue({ innerJoin });
+    mocks.db.select.mockReturnValue({ from });
+
+    const result = await listBuyerRolesForOffering(11);
+
+    expect(result).toEqual(rows);
+    expect(from).toHaveBeenCalledWith(offeringBuyerRole);
+    expect(innerJoin).toHaveBeenCalledWith(buyerRole, expect.anything());
+    expect(where).toHaveBeenCalled();
+    expect(orderBy).toHaveBeenCalled();
+  });
+
+  it('hasOfferingDependents short-circuits true on an offeringBuyerRole hit alone', async () => {
+    const limit = vi.fn().mockResolvedValue([{ one: 1 }]);
+    const where = vi.fn().mockReturnValue({ limit });
+    const from = vi.fn().mockReturnValue({ where });
+    mocks.db.select.mockReturnValue({ from });
+
+    const result = await hasOfferingDependents(11);
+
+    expect(result).toBe(true);
+    expect(from).toHaveBeenCalledWith(offeringBuyerRole);
+    // Short-circuit: the first dependent table checked returns a hit, so no
+    // further existence query runs.
+    expect(mocks.db.select).toHaveBeenCalledTimes(1);
+  });
+
+  it('hasOfferingDependents returns true on a trigger hit alone (offeringBuyerRole empty)', async () => {
+    const limit = vi
+      .fn()
+      .mockResolvedValueOnce([]) // offeringBuyerRole: no match
+      .mockResolvedValueOnce([{ one: 1 }]); // trigger: match
+    const where = vi.fn().mockReturnValue({ limit });
+    const from = vi.fn().mockReturnValue({ where });
+    mocks.db.select.mockReturnValue({ from });
+
+    const result = await hasOfferingDependents(11);
+
+    expect(result).toBe(true);
+    expect(mocks.db.select).toHaveBeenCalledTimes(2);
+    expect(from).toHaveBeenCalledWith(offeringBuyerRole);
+    expect(from).toHaveBeenCalledWith(trigger);
+  });
+
+  it('hasOfferingDependents returns true on a signalOfferingLink hit alone (both prior tables empty)', async () => {
+    const limit = vi
+      .fn()
+      .mockResolvedValueOnce([]) // offeringBuyerRole: no match
+      .mockResolvedValueOnce([]) // trigger: no match
+      .mockResolvedValueOnce([{ one: 1 }]); // signalOfferingLink: match
+    const where = vi.fn().mockReturnValue({ limit });
+    const from = vi.fn().mockReturnValue({ where });
+    mocks.db.select.mockReturnValue({ from });
+
+    const result = await hasOfferingDependents(11);
+
+    expect(result).toBe(true);
+    expect(mocks.db.select).toHaveBeenCalledTimes(3);
+    expect(from).toHaveBeenCalledWith(offeringBuyerRole);
+    expect(from).toHaveBeenCalledWith(trigger);
+    expect(from).toHaveBeenCalledWith(signalOfferingLink);
+  });
+
+  it('hasOfferingDependents returns false when none of the three dependent tables match', async () => {
+    const limit = vi.fn().mockResolvedValue([]);
+    const where = vi.fn().mockReturnValue({ limit });
+    const from = vi.fn().mockReturnValue({ where });
+    mocks.db.select.mockReturnValue({ from });
+
+    const result = await hasOfferingDependents(11);
+
+    expect(result).toBe(false);
+    expect(mocks.db.select).toHaveBeenCalledTimes(3);
+    expect(from).toHaveBeenCalledWith(offeringBuyerRole);
+    expect(from).toHaveBeenCalledWith(trigger);
+    expect(from).toHaveBeenCalledWith(signalOfferingLink);
+  });
+
+  it('deleteOffering returns has_dependents without deleting when a dependent exists', async () => {
+    const limit = vi.fn().mockResolvedValue([{ one: 1 }]);
+    const where = vi.fn().mockReturnValue({ limit });
+    const from = vi.fn().mockReturnValue({ where });
+    mocks.db.select.mockReturnValue({ from });
+
+    const result = await deleteOffering(11);
+
+    expect(result).toEqual({ ok: false, reason: 'has_dependents' });
+    expect(mocks.db.delete).not.toHaveBeenCalled();
+  });
+
+  it('deleteOffering removes the row and returns ok when no dependents exist', async () => {
+    const limit = vi.fn().mockResolvedValue([]);
+    const where = vi.fn().mockReturnValue({ limit });
+    const from = vi.fn().mockReturnValue({ where });
+    mocks.db.select.mockReturnValue({ from });
+    const deleteWhere = vi.fn().mockResolvedValue([{ id: 11 }]);
+    mocks.db.delete.mockReturnValue({ where: deleteWhere });
+
+    const result = await deleteOffering(11);
+
+    expect(result).toEqual({ ok: true });
+    expect(mocks.db.delete).toHaveBeenCalledWith(offering);
+    expect(deleteWhere).toHaveBeenCalled();
   });
 });
