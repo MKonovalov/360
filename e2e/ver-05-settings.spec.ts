@@ -129,10 +129,17 @@ test('VER-05: picker search + provider grouping (SET-06)', async ({ page }) => {
   const options = page.getByRole('option');
   await expect(options).toHaveCount(EXPECTED_UNION_OPTION_COUNT);
 
-  // Two CommandGroups bucket by provider (insertion order = SERVABLE_PROVIDERS
-  // ['anthropic','openrouter']): heading text == providerName() output. Family
+  // Four CommandGroups bucket by provider (insertion order = SERVABLE_PROVIDERS
+  // ['anthropic','openrouter','nousresearch','opencode'], widened from the
+  // original 2-provider phase-21 assertion once Phase 23/25 added
+  // NousResearch/OpenCode): heading text == providerName() output. Family
   // stays a row subtitle — never a subgroup (D-21-11).
-  await expect(page.locator('[cmdk-group-heading]')).toHaveText(['Anthropic', 'OpenRouter']);
+  await expect(page.locator('[cmdk-group-heading]')).toHaveText([
+    'Anthropic',
+    'OpenRouter',
+    'NousResearch',
+    'OpenCode',
+  ]);
 
   // Type-to-filter narrows the list on the composite search index (id + name +
   // family). A distinctive subset keyword collapses the full union → handful.
@@ -143,7 +150,12 @@ test('VER-05: picker search + provider grouping (SET-06)', async ({ page }) => {
   // Clearing restores the full picker with grouping intact.
   await searchInput.fill('');
   await expect(page.getByRole('option')).toHaveCount(EXPECTED_UNION_OPTION_COUNT);
-  await expect(page.locator('[cmdk-group-heading]')).toHaveText(['Anthropic', 'OpenRouter']);
+  await expect(page.locator('[cmdk-group-heading]')).toHaveText([
+    'Anthropic',
+    'OpenRouter',
+    'NousResearch',
+    'OpenCode',
+  ]);
 
   // No-match → cmdk's "No models found." empty state (not a 500/blank page).
   await searchInput.fill('zzzz-no-such-model-zzzz');
@@ -399,7 +411,14 @@ test('VER-05: NousResearch Hermes capability + cost captions (SET-04)', async ({
   // same rowCaption/cost-caption composition for a real hermes id.
   const primaryTrigger = page.getByLabel('Primary model');
   await primaryTrigger.click();
-  const hermesRow = page.getByRole('option').filter({ hasText: /Hermes/ }).first();
+  // The pinned/disabled row (current selection) ALSO text-matches /Hermes/ and
+  // renders first in DOM order — exclude it explicitly so .first() lands on
+  // the real, captioned 405b row the comment above describes, not the pin.
+  const hermesRow = page
+    .getByRole('option')
+    .filter({ hasText: /Hermes/ })
+    .and(page.locator(':not([aria-disabled="true"])'))
+    .first();
   await expect(hermesRow).toContainText('chat/reasoning-tuned');
   // Pattern match, never a hard-coded dollar figure — the exact price can
   // drift with a catalog refresh (npm run models:fetch).
@@ -446,6 +465,18 @@ test('VER-05: CR-01 mid-save-edit no longer shows a false Saved. confirmation', 
   // diverges from lastSaved — synchronously with the edit, before any new
   // save request is even sent. This proves the CR-01 render-gate
   // (draft-equals-lastSaved) transitions correctly on each edit.
+
+  // --- Guard: a prior test in this file may have already saved 'big-pickle'
+  // as this account's persisted primary (real shared DB across tests, not
+  // isolated per-test) — keep-if-valid then leaves it selected on page load,
+  // rendering it as the disabled pin row, which the click below can never
+  // resolve. Force a distinct starting point first when that's the case.
+  if ((await primaryTrigger.textContent())?.includes('Big Pickle')) {
+    await primaryTrigger.click();
+    await searchInput.fill('claude-sonnet-4-6');
+    await page.getByRole('option').filter({ hasText: 'Claude Sonnet 4.6' }).click();
+    await expect(primaryTrigger).not.toContainText('Big Pickle');
+  }
 
   // --- Save #1: primary = big-pickle -----------------------------------------
   await primaryTrigger.click();
