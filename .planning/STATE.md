@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Additional AI Providers
 status: executing
-last_updated: "2026-08-04T11:38:19.945Z"
+last_updated: "2026-08-04T12:23:12.021Z"
 last_activity: 2026-08-04
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 12
-  completed_plans: 9
-  percent: 75
+  completed_plans: 10
+  percent: 40
 ---
 
 # Project State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 ## Current Position
 
 Phase: 25 (run-path-modelfactory-seam) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-08-04
 Next up: Phase 25 — Run Path / modelFactory Seam (CONTEXT not yet gathered)
@@ -81,6 +81,7 @@ Next up: Phase 25 — Run Path / modelFactory Seam (CONTEXT not yet gathered)
 | Phase 24-refresh-script-catalog-data P03 | 20min | 3 tasks | 2 files |
 | Phase 24-refresh-script-catalog-data P04 | 5min | 1 tasks | 1 files |
 | Phase 25-run-path-modelfactory-seam P01 | 4min | 3 tasks | 4 files |
+| Phase 25-run-path-modelfactory-seam P02 | 3min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -187,6 +188,7 @@ VER-02/VER-05 requirement status: harness + test account (the operator prerequis
 - [Phase 25-run-path-modelfactory-seam]: 25-01: constructorCalls capture arrays typed precisely (OpenAICompatibleOptions[]/AnthropicOptions[]) instead of the plan's unknown[] — RUN-06 tests read opts.supportsStructuredOutputs without casts
 - [Phase 25-run-path-modelfactory-seam]: 25-01: RUN-02 dispatch tests are RESULT-SHAPE assertions on marker'd callable returns (never mock.calls history) — order-independent under parallel/random test order, immune to beforeEach's vi.clearAllMocks
 - [Phase 25-run-path-modelfactory-seam]: 25-01: TDD split per plan — Tasks 1+2 are test-only RED tasks whose shared GREEN lands in Task 3; RED 42152c6e + RED 2c624ac5 strictly precede GREEN 970112d9 (TDD gate satisfied)
+- [Phase 25-run-path-modelfactory-seam]: 25-02: D-25-05 executed with zero special-casing — getProviderForModelId already collapses opencode + opencode-go snapshot ids to logical 'opencode' via SNAPSHOT_PROVIDER_IDS, so the dual-id→single-key mapping (OPENCODE_API_KEY) is free; 4 guards in first-hit-wins order (anthropic/openrouter/nousresearch/opencode); type predicate widened to ModelProviderId — no literal-union drift between the gate and the registry (T-25-07)
 
 ### Pending Todos
 
@@ -219,8 +221,8 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-04T11:38:19.935Z
-Stopped at: Completed 25-01-PLAN.md
+Last session: 2026-08-04T12:23:12.013Z
+Stopped at: Completed 25-02-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
