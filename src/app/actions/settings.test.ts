@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   requireStaffAccess: vi.fn().mockResolvedValue({ userId: 'user_123' }),
   upsertModelSettings: vi.fn(),
-  getAllowlistedServableIds: vi.fn(),
+  getUnionServableIds: vi.fn(),
 }));
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
@@ -14,7 +14,7 @@ vi.mock('@/lib/db/queries/userModelSettings', () => ({
   upsertModelSettings: mocks.upsertModelSettings,
 }));
 vi.mock('@/lib/models/catalog', () => ({
-  getAllowlistedServableIds: mocks.getAllowlistedServableIds,
+  getUnionServableIds: mocks.getUnionServableIds,
 }));
 
 import { revalidatePath } from 'next/cache';
@@ -23,7 +23,7 @@ import { saveSettingsAction } from './settings';
 describe('saveSettingsAction security matrix (T-17-02..06)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.getAllowlistedServableIds.mockReturnValue(['claude-sonnet-4-6', 'claude-haiku-4-5']);
+    mocks.getUnionServableIds.mockReturnValue(['claude-sonnet-4-6', 'anthropic/claude-sonnet-4.6']);
     mocks.upsertModelSettings.mockResolvedValue(undefined);
   });
 
@@ -31,7 +31,7 @@ describe('saveSettingsAction security matrix (T-17-02..06)', () => {
     // Given / When
     const result = await saveSettingsAction({
       primaryModel: 'claude-sonnet-4-6',
-      fallbacks: ['claude-haiku-4-5'],
+      fallbacks: ['anthropic/claude-sonnet-4.6'],
     });
 
     // Then
@@ -43,7 +43,54 @@ describe('saveSettingsAction security matrix (T-17-02..06)', () => {
     expect(mocks.upsertModelSettings).toHaveBeenCalledWith({
       userId: 'user_123',
       primaryModel: 'claude-sonnet-4-6',
-      fallbackModels: ['claude-haiku-4-5'],
+      fallbackModels: ['anthropic/claude-sonnet-4.6'],
+    });
+    expect(revalidatePath).toHaveBeenCalledWith('/settings');
+  });
+
+  it('accepts a cross-provider chain against the union servable set (REG-07) — ids pass through verbatim (D-04)', async () => {
+    // Given / When
+    const result = await saveSettingsAction({
+      primaryModel: 'claude-sonnet-4-6',
+      fallbacks: ['anthropic/claude-sonnet-4.6'],
+    });
+
+    // Then
+    expect(result).toEqual({ ok: true });
+    expect(mocks.upsertModelSettings).toHaveBeenCalledWith({
+      userId: 'user_123',
+      primaryModel: 'claude-sonnet-4-6',
+      fallbackModels: ['anthropic/claude-sonnet-4.6'],
+    });
+  });
+
+  it('REG-07 (4-provider): a cross-provider chain spanning the new providers saves against the widened union, ids pass through verbatim (D-04)', async () => {
+    // Given — the widened 4-provider union: an anthropic id + an openrouter id +
+    // a nousresearch pin + an opencode Zen id + an opencode Go-exclusive id
+    // (proving the logical opencode provider spans both snapshot providerIDs at
+    // the save seam; the existing 2-provider union from beforeEach is overridden
+    // here — the mock seam itself is unchanged).
+    mocks.getUnionServableIds.mockReturnValue([
+      'claude-sonnet-4-6',
+      'anthropic/claude-sonnet-4.6',
+      'nousresearch/hermes-4-70b',
+      'deepseek-v4-flash',
+      'hy3',
+    ]);
+
+    // When — an opencode primary + nousresearch fallback: a chain that was
+    // impossible before v1.5.
+    const result = await saveSettingsAction({
+      primaryModel: 'deepseek-v4-flash',
+      fallbacks: ['nousresearch/hermes-4-70b'],
+    });
+
+    // Then — raw ids verbatim (no prefix-strip, no translation, D-04).
+    expect(result).toEqual({ ok: true });
+    expect(mocks.upsertModelSettings).toHaveBeenCalledWith({
+      userId: 'user_123',
+      primaryModel: 'deepseek-v4-flash',
+      fallbackModels: ['nousresearch/hermes-4-70b'],
     });
     expect(revalidatePath).toHaveBeenCalledWith('/settings');
   });
@@ -78,7 +125,7 @@ describe('saveSettingsAction security matrix (T-17-02..06)', () => {
 
     // Then
     expect(result).toEqual({ ok: false, reason: 'invalid_model' });
-    expect(mocks.getAllowlistedServableIds).toHaveBeenCalled();
+    expect(mocks.getUnionServableIds).toHaveBeenCalled();
     expect(mocks.upsertModelSettings).not.toHaveBeenCalled();
   });
 
@@ -98,7 +145,7 @@ describe('saveSettingsAction security matrix (T-17-02..06)', () => {
     // Given / When
     const result = await saveSettingsAction({
       primaryModel: 'claude-sonnet-4-6',
-      fallbacks: ['claude-haiku-4-5', 'claude-haiku-4-5'],
+      fallbacks: ['anthropic/claude-sonnet-4.6', 'anthropic/claude-sonnet-4.6'],
     });
 
     // Then
@@ -113,7 +160,7 @@ describe('saveSettingsAction security matrix (T-17-02..06)', () => {
     // When
     const result = await saveSettingsAction({
       primaryModel: 'claude-sonnet-4-6',
-      fallbacks: ['claude-haiku-4-5'],
+      fallbacks: ['anthropic/claude-sonnet-4.6'],
     });
 
     // Then

@@ -1,165 +1,84 @@
-# Research Summary — v1.3 AI Model Settings
+# Project Research Summary
 
-**Project:** ArcLumen 360 (internal staff demand-gen tool)
-**Domain:** Per-user AI model management — primary model + ordered fallback chain for AI agents, model list sourced from the local opencode installation, error-driven failover consumed by the Analytic Agent
-**Milestone:** v1.3 (per-user AI model settings)
-**Researched:** 2026-08-02
-**Confidence:** HIGH overall — three research files HIGH (live-verified opencode CLI 1.18.10, installed `ai@7.0.45`/`@ai-sdk/anthropic@4.0.26` node_modules, direct codebase reads); two MEDIUM sub-flags (OhMyOpenCode behavior is docs-sourced; the Drizzle migration apply flow is unconfirmed)
+**Project:** ArcLumen 360
+**Domain:** Adding two AI providers — NOUSRESEARCH (direct inference API, `https://inference-api.nousresearch.com/v1`) and OPENCODE (one provider spanning Zen `https://opencode.ai/zen/v1` + Go `https://opencode.ai/zen/go/v1`, single shared key) — to the validated two-provider (Anthropic + OpenRouter) setup from v1.4.
+**Milestone:** v1.5 (continues from v1.4's Phase 22)
+**Researched:** 2026-08-03
+**Confidence:** HIGH — every claim verified against the live anonymous rosters (all three `/v1/models` endpoints curl'd, HTTP 200 no auth), the packed `@ai-sdk/openai-compatible@3.0.20` / `@ai-sdk/openai@4.0.27` / `@ai-sdk/anthropic@4.0.27` dist sources, npm registry metadata, OpenCode's official Zen docs, and direct reads of this repo's `modelFactory.ts`, `catalog.ts`, `catalog.json`, `env.ts`, `refresh-model-catalog.ts`.
 
 ## Executive Summary
 
-v1.3 adds a Settings surface where each staff user picks a primary AI model plus an ordered fallback chain, with the model list sourced from the local opencode installation and the Analytic Agent consuming the config via error-driven failover. Research verified the reference pattern: **opencode core has no error-driven fallback — ordered fallback is OhMyOpenCode's `fallback_models` addition, resolved silently (no interactive retry), never surfaced to the user.** v1.3 replicates exactly that: one run, silent retry down the chain, fail loud only when the whole chain is exhausted, and the model that actually served recorded durably (`agent_run` columns + the existing Langfuse trace, per the D-14 "DB is truth, Langfuse is mirror" rule).
+The v1.5 addition is **one new runtime dependency — `@ai-sdk/openai-compatible@3.0.20` — instantiated three times** (nousresearch, opencode-zen, opencode-go). All three endpoints are OpenAI-compatible; no dedicated Nous/OpenCode SDK exists or is needed. `@ai-sdk/anthropic@4.0.27` (already installed) can optionally serve the 19 OpenCode Claude rows via Zen's `/v1/messages` using a `baseURL` override (`createAnthropic({ baseURL: 'https://opencode.ai/zen/v1', apiKey: process.env.OPENCODE_API_KEY })`) — zero new packages. New env keys `NOUSRESEARCH_API_KEY` + `OPENCODE_API_KEY` (one key shared by Zen + Go, verified) are **not auto-loaded by any SDK** (verified in the dist: the openai-compatible provider builds `Authorization: Bearer ${apiKey}` only from the passed option), so both must be passed explicitly at instance construction. `supportsStructuredOutputs` on these instances should start **false** (the safe `json_object` fallback — verified dist behavior — until a live key-backed probe proves `json_schema` acceptance).
 
-**The single architectural constraint dominates the design: Vercel serverless cannot reach a local opencode installation.** Verified empirically — `opencode serve` binds `127.0.0.1`, there is no binary and no `~/.config/opencode` cache in serverless, and a request-time shell-out would throw (and would be an RCE-adjacent subprocess on the request path). The model list is therefore a **dev-machine snapshot**: a fetch script runs `opencode models --verbose` on the developer's machine and writes a committed, trimmed JSON file (`src/data/opencode-models.json` / `src/lib/models/catalog.json`); the settings page reads the committed snapshot; refresh is a deliberate `npm run models:fetch`. Second, **the opencode catalog is a menu, not a guarantee**: it lists 1,130 `provider/model` slugs across 75+ providers, while the app has only `@ai-sdk/anthropic` + `ANTHROPIC_API_KEY`, and `anthropic('id')` does zero client-side validation (bad/dated IDs only fail at runtime as a 404 — the exact v1.1 incident class). The curated **allowlist** (verified-runnable models) is the source of truth; the opencode list is only a dev-machine display enhancement that degrades gracefully to the allowlist when opencode is absent. A secret-leak hazard was confirmed: opencode's `GET /config/providers` returns the machine's raw API key — never proxy it.
+Three findings reshape the plan beyond "just add packages":
 
-The integration surface is small, well-precedented, and needs **zero new runtime npm dependencies**: a `settings` key added to the locked `NavKey` contract (nav.ts + Vitest suites), a `/settings` route in the `(dashboard)` group behind `requireStaffAccess()`, one new Drizzle table (`userModelSettings`, Clerk-`userId`-keyed, no FK — the `recentlyViewed` pattern), a `LanguageModel[]`-shaped chain replacing the single-model `runAgent` seam, a pure `classifyModelError`/`isFailoverEligibleError` gate so **only provider/model errors (404/model-not-found) advance the chain — never validation, auth, or rate-limit errors** — and `agent_run.modelUsed`/`modelChain` audit columns. The Vercel Hobby 60s `maxDuration` ceiling bounds the chain to **primary + 1 fallback** with per-attempt timeouts (PITFALLS budget math: `attempts × per-attempt budget + SDK backoff ≤ 60s`). The biggest risks are config-drift (a saved ID that 404s — mitigated by the failover loop + allowlist), the 60s ceiling being blown by compounding SDK retries, and the "settings stored but never consumed" wiring gap (locked by one end-to-end UAT: change settings → Analyze → `agent_run.model_used` matches).
+1. **The opencode `api.npm` split kills the "one package covers everything" assumption for the full roster.** Of the 77 opencode rows, only **30 speak Chat Completions** (20 zen + 10 go — servable by the single openai-compatible package). The other 47 do not: 23 GPT-5 rows need `/v1/responses` (`@ai-sdk/openai`), 19 Claude rows need `/v1/messages` (`@ai-sdk/anthropic`), 5 Gemini rows need `/v1/models/gemini-*` (`@ai-sdk/google`) — OpenCode's own docs table says exactly this, and Zen **proxies** upstream protocols, it does not convert them. Recommend gating the OpenCode provider to chat-completions rows (30) with the Claude extension as the cheap zero-new-package middle ground; defer the Responses (GPT) and Gemini protocols entirely.
+2. **A `getProviderForModelId` regression trap (verified in `catalog.json`).** Every id dual-listed between opencode and another provider sorts its `opencode` row FIRST (`claude-sonnet-4-6` at index 11 `opencode` vs 92 `anthropic`). Today the canary's `find()` is scoped to `('anthropic','openrouter')`, so the anthropic default resolves correctly; the moment 'opencode' enters that scope with the same first-match `find()`, `claude-sonnet-4-6` silently re-resolves to **opencode** — breaking the FAST_MODEL_ID default, `model_used` audit, and the anthropic run path. The registry must become **priority-ordered** (anthropic → openrouter → opencode → nousresearch), and the existing collision-canary tests (`claude-sonnet-5` → anthropic) are the regression lock.
+3. **All three `/v1/models` rosters are anonymous (HTTP 200, no key).** The Nous roster (292 rows) is the rich new source — `pricing` in **per-token** units (×1e6 to match the snapshot's per-M `cost` convention, else costs render 6 orders of magnitude off), `context_length`, and `supported_parameters` (214/292 advertise `structured_outputs` → a live join for the `structuredOutputs` flag, same doctrine as the existing OpenRouter join). The Zen/Go rosters are lean id lists (60 / **25** live vs 17 in the snapshot → regenerate). Both enable roster-verify per the D-02 doctrine.
 
 ## Key Findings
 
-### Recommended Stack (from STACK.md — HIGH)
+### Recommended Stack (from STACK.md — HIGH, live-verified)
 
-**Core technologies:**
-- **opencode CLI `models` command (v1.18.10, dev-time tool only)** — the exact `/models` TUI backend. `opencode models` prints 1,130 `provider/model` IDs; `--verbose` adds JSON metadata (name, family, cost, context/output limits, status, and critically `api.npm` — the AI SDK package that serves the model). Never a runtime dependency — the deployed app never shells out.
-- **Committed model snapshot (`npm run models:fetch` → `src/data/opencode-models.json`)** — the only Vercel-safe bridge. Fetch script shells `opencode models --verbose` on the dev machine, trims to UI-needed fields (~100–200KB, not the 3.3MB raw registry), writes the committed JSON; settings page imports it at render time; UI shows `generatedAt`. Binary resolution: `OPENCODE_BIN` → `which opencode` → `~/.opencode/bin/opencode`; fails with a clear message if absent (snapshot stays usable).
-- **Drizzle `userModelSettings` table** — per-user persistence: `userId text not null` (Clerk external, no FK — `recentlyViewed` pattern), `primaryModel text`, `fallbackModels` (ordered array), `updatedAt timestamp`, one row per user, upsert via `onConflictDoUpdate` (the `recordView` pattern).
-- **Query module `src/lib/db/queries/userModelSettings.ts`** — `getModelSettingsForUser(userId)` + `upsertModelSettings(...)`; house convention: query modules never catch, no `db.transaction()` (neon-http has none).
-- **Runtime model registry `src/lib/models/registry.ts`** — maps stored IDs → callable AI SDK models via the snapshot's `api.npm` (provider factory selection) and `api.url` (empty = vendor default = servable; custom URL = opencode/OpenRouter/gateway proxy = NOT servable from Vercel). Only includes providers with an env key set (the `not_configured` degrade pattern). Exposes `resolveModels(ids)` — pure, unit-testable.
-- **Error-driven failover loop (`runWithFallback`, ~20 lines)** — verified `ai@7.0.45` has no built-in fallback helper. Loops `generateText` per model; continues on `APICallError`/`NoSuchModelError` (and `NoObjectGeneratedError` — structured-output failure is model-dependent); rethrows prompt/validation errors (`InvalidPromptError`, `TypeValidationError`).
-- **Existing `ai@7.0.45` + `@ai-sdk/anthropic@4.0.26`** — zero new runtime deps. The registry's `api.npm` mapping is the growth path: adding `OPENAI_API_KEY` + `@ai-sdk/openai` makes OpenAI models servable with no code change beyond the install.
+- `@ai-sdk/openai-compatible@3.0.20` (npm `latest`; deps `@ai-sdk/provider@4.0.4` + `@ai-sdk/provider-utils@5.0.18`; peer `zod ^3.25.76 || ^4.1.8` — all satisfied by the installed `ai@7.0.48` tree + `zod@4.4.3`). `createOpenAICompatible({ name (required), apiKey, baseURL })` returns a **callable provider** `(id) => LanguageModel` — the identical call shape `anthropic(id)` already uses. Three module-scope instances in `modelFactory.ts`: `nousresearch` (baseURL `https://inference-api.nousresearch.com/v1`, key `NOUSRESEARCH_API_KEY`), `opencode-zen` (baseURL `https://opencode.ai/zen/v1`, key `OPENCODE_API_KEY`), `opencode-go` (baseURL `https://opencode.ai/zen/go/v1`, same key). Names differ because `name` becomes the `provider` metadata key.
+- `@ai-sdk/anthropic@4.0.27` (already installed `^4.0.26`) — optional Claude-row extension via `createAnthropic({ baseURL, apiKey })` (verified in dist: `baseURL` option with `ANTHROPIC_BASE_URL` env fallback, `apiKey` with `ANTHROPIC_API_KEY` fallback).
+- **Not** `@ai-sdk/openai` (Responses API only — 23 GPT rows, defer; its default model call is the Responses API, verified) and **not** `@ai-sdk/google` (5 Gemini rows, unverified URL shape).
+- New env keys: `NOUSRESEARCH_API_KEY` + `OPENCODE_API_KEY`, both `z.string().optional()` in `env.ts` (D-11 degrade-gracefully), `.env.example`, Vercel env, named by the Phase-20 chain-aware gate.
+- Refresh script: new `fetchNousRoster()` (anonymous GET; `cost = pricing × 1e6` per-token→per-M; live `supported_parameters` join for `structuredOutputs`); Zen/Go roster-verify optional; regenerate snapshot (Go 17 → 25 rows).
 
-**Critical version facts (verified against installed node_modules):** `ai@7.0.45` + `@ai-sdk/anthropic@4.0.26` work together in production (Phase 9). `APICallError` has `statusCode` + `isRetryable` (defaults to 408/409/429/≥500 — **a 404 is NOT retryable by default and must be added explicitly**). `RetryError` wraps the last error after the SDK's built-in `maxRetries: 2` backoff. **`TooManyRequestsError` does NOT exist in this version — never import it; classify 429 via `statusCode === 429`.** `anthropic('id')` returns a `LanguageModel` (`AnthropicProvider extends ProviderV4`) but does no client-side model validation. Models.dev (`https://models.dev/api.json`) is content-identical to opencode's cache but **unfiltered** (5,939 models vs opencode's 1,130 servable) — don't use it as the settings source.
+### Architecture Approach (from STACK.md — HIGH)
 
-### Expected Features (from FEATURES.md — HIGH in-repo/opencode, MEDIUM OMO)
+Integrates with the v1.4 seams, no schema change:
+1. `catalog.ts` — `ModelProviderId` grows to `'anthropic' | 'openrouter' | 'nousresearch' | 'opencode'` (both `opencode` and `opencode-go` snapshot providerIDs map to the single `'opencode'` registry id); `PROVIDER_GATES`/`SERVABLE_PROVIDERS`/`PROVIDER_DEFAULT_MODELS` extended; **`getProviderForModelId` becomes priority-ordered** (explicit precedence iteration, not an extended first-match find); nousresearch id space (`vendor/model`, `~latest` aliases) can overlap openrouter ids — the canary handles it.
+2. `modelFactory.ts` — three new module-scope `createOpenAICompatible` instances with explicit `apiKey`; `instantiateModel` dispatches opencode rows to the zen vs go instance by the row's `api.url` (Anti-Pattern 1 scoped-row find, same as openrouter today); constraint 11 (only module importing SDKs) stays intact.
+3. D-08 note — the per-model `structuredOutputs: { strict: false }` option has **no per-model equivalent** in openai-compatible; its knob is provider-level `supportsStructuredOutputs` (default false → schema dropped to `json_object` + warning, verified dist l.525/557). The app's `Output.object` (runAgent.ts:74) still works via JSON mode + client-side validation — the safe starting default until live verification.
 
-**Must have (table stakes, all P1):** Settings nav item + `/settings` route behind `requireStaffAccess()`; per-user persistence keyed by Clerk `userId`; settings page (primary `<Select>` + ordered reorderable fallback list); model list from the opencode snapshot restricted to **runnable** models (Anthropic-only in v1.3 — the app has one provider package/key); agent consumes the config with error-driven failover; `agent_run.modelUsed` + `modelsAttempted` (feeds the D-14 durable audit + existing Langfuse); fail-loud when the chain is exhausted (existing `analysis_failed` + ERROR_COPY); graceful empty-registry degradation (agent keeps the `FAST_MODEL_ID` default — never breaks the shipped agent).
+### Critical Pitfalls (from STACK.md — HIGH)
 
-**Should have (differentiators, P2):** "ran on X (fallback)" line in the Analyze status strip on success-after-fallback (needs the route body to carry `modelUsed`); rich registry metadata in the picker (family · cost · context · deprecated) — data already in the snapshot; "Last synced" timestamp + dev-only refresh action; agent-agnostic registry so future agents (AI-drafted outreach) read the same config.
-
-**Defer (v2+, P3):** cross-provider expansion (zen/openai/google via `@ai-sdk/openai-compatible` — needs the OPENCODE_API_KEY strategy decided); per-agent model assignment; cross-family fallback with prompt-family detection (OMO's explicit "prompt degradation" warning); per-model settings (variant/reasoningEffort/thinking — schema-ready, render later); `small_model` second selector; BYOK (needs a dedicated security milestone).
-
-**Anti-features (do NOT build):** proxying opencode's `/config/providers` (verified: returns the raw API key — exfiltration hazard); listing the full 1,130-model catalog as selectable (~95% can't run → dead selects → 502s); per-user BYOK in v1.3; unguarded cross-family fallback (Anthropic-tuned prompt degrades on GPT); interactive retry prompts (breaks the one-run model, impossible in the 60s budget); auto-refresh of the registry per request (localhost unreachable from Vercel).
-
-### Architecture Approach (from ARCHITECTURE.md — HIGH)
-
-The feature integrates with the existing app rather than creating new foundations. **Major components:**
-1. **`user_model_settings` table + `userModelSettings` query module** — per-user primary + ordered fallback; mirrors `recentlyViewed.ts` (Clerk-id keyed, no FK, atomic `onConflictDoUpdate` upsert — full-value write, never read-modify-write).
-2. **Settings page + form + Server Action** — server page in `(dashboard)/settings/` (mirrors `reviews/page.tsx`), client `model-settings-form.tsx`, `actions/settings.ts` ('use server', zod-validate at the boundary, `revalidatePath`).
-3. **Vendored generated catalog** — `scripts/refresh-model-catalog.ts` → committed `src/lib/models/catalog.json` + typed `catalog.ts` (provider-filtered); a Server Component imports it — no runtime fetch.
-4. **Model-config resolver + failover predicate** — pure `resolveModelChain(primary, fallbacks, defaults)` + `isFailoverEligibleError(err)` in a testable module (repo's "Vitest pure functions only, zero live calls" D-16 rule).
-5. **Analyze route wiring** — route captures `{ userId }` from `requireStaffAccess()` (1-line change), threads it into `analyzeCompany(companyId, userId)` → `getUserModelSettings(userId)` → resolve chain → `runAgent({ models })`; missing row → defaults (never a gate failure).
-6. **`runAgent` failover loop** — `models?: LanguageModel[]` replaces the single-model seam (backward compatible: omitted → `[anthropic(FAST_MODEL_ID)]`, existing test still passes); per-attempt `generateText` with `timeout: { totalMs }`; first success returns; exhaustion rethrows last error (fail loud).
-7. **Nav contract + sidebar** — `NavKey` union gains `'settings'`; Manage-group item next to Reviews; 11-case + 7-case Vitest suites grow cases.
-
-**Key patterns:** Pattern 1 = per-user row with Clerk-id PK + atomic upsert (exact `recentlyViewed` precedent, verified against installed `drizzle-orm@0.45.2`); Pattern 2 = failover loop gated by a pure retry predicate (each `generateText` already emits its own Langfuse span — the loop needs no extra telemetry plumbing); Pattern 3 = vendored generated catalog (the only opencode-derived source that survives Vercel serverless). A missing settings row must NEVER surface as `gate_failed`/`not_configured` — no settings simply means the default chain. ⚠️ **MEDIUM flag:** `drizzle/meta/_journal.json` has **zero migration entries** — the live schema appears pushed/applied without committed migrations; the phase must confirm the repo's actual apply flow (`drizzle-kit push` vs generate+commit) before adding the table.
-
-### Critical Pitfalls (from PITFALLS.md — HIGH, verified)
-
-The "one decision that prevents half of these pitfalls": **the opencode model list is a menu, not a guarantee, and not a runtime dependency — a curated, provider-filtered allowlist is the source of truth for "what the app can run".**
-
-1. **Model-ID drift (Pitfall 1 — CRITICAL):** the opencode slug `anthropic/claude-sonnet-4-6` is not the AI SDK string `claude-sonnet-4-6`; dated snapshot IDs (`claude-sonnet-4-5-20250929`) 404 weeks later — the v1.1 incident repeating through user config. *Avoid:* store the **raw provider model ID** (no `/`) in the DB, strip the provider prefix only after an `anthropic/` filter (never `opencode/*`), in one tested pure function; allowlist is truth; 404 classification is the backstop. **Prevented in Phase A + C.**
-2. **Non-failover errors wrongly retried (Pitfall 2):** a bare `catch → next model` burns the whole chain (and N× 12-step agent runs + Firecrawl) on a 400/422/401 or `LoadAPIKeyError` that fails identically on every model. *Avoid:* `classifyModelError(err) → 'model_not_found' | 'input' | 'auth' | 'transient' | 'config' | 'output'` as a pure function; only `model_not_found` advances. **Phase B.**
-3. **Auth/rate-limit vs model-not-found misclassification (Pitfall 3):** 429s are account-level (fallback on the same key hits the same limit — never chain-switch); a 404 hidden behind a `RetryError` never triggers fallback. *Avoid:* unwrap `RetryError` FIRST, then classify the underlying error; written rate-limit policy (429 → no chain-switch → fail loud with retry suggestion). **Phase B.**
-4. **SDK retries compounding app retries → 60s blowout (Pitfall 4/6):** one broken primary = 3 SDK attempts + backoff + fallback attempt; ~66s → Vercel kills the request mid-fallback (504). *Avoid:* budget explicitly — `maxAttempts` (recommend **primary + 1 fallback** in v1.3), per-attempt `timeout: { totalMs }` (verified supported in ai@7), document `attempts × per-attempt + SDK backoff ≤ 60s`. **Phase B, verified Phase D.**
-5. **Failover silently runs a different model (Pitfall 5):** nothing records that the primary was dead — and `agent_run` has no model column today (D-14 violation if only Langfuse knows). *Avoid:* `runAgent` returns `modelUsed` + `attempts[]`; persist `model_used` text + `model_chain` jsonb on `agent_run`; Langfuse spans are the visual, DB columns are the durable truth. **Phase A (columns) + Phase B (populate).**
-6. **Settings stored but never consumed (Pitfall 10):** the seam `RunAgentInput.model` never gets threaded to the saved config; settings become decorative. *Avoid:* make the seam chain-shaped and provider-agnostic (`LanguageModel[]`, not `ReturnType<typeof anthropic>`); the milestone's core acceptance test is: change settings → Analyze → `agent_run.model_used` matches. **Phase B + D.**
-7. **The opencode source breaks on Vercel (Pitfall 8):** shelling out at request time throws in serverless — dev works, production 500s. *Avoid:* never spawn in `src/`; committed snapshot + allowlist + (optionally) cached models.dev fetch; never-throws degradation helper. **Phase A + C.**
-8. **AI-SDK syntax drift (Pitfall 11):** training data says v5-era patterns (`agent:`, model strings to `generateText`, `NoSuchModelError` catching bad IDs) — ai@7 differs. *Avoid:* verify against installed `node_modules/ai/dist/index.d.ts` **before** writing the loop (the proven v1.1 mitigation); prefer the documented primitive contract. **Phase 0/planning note.**
+1. **Canary regression trap (CRITICAL):** dual-listed ids sort opencode-first in `catalog.json`; naive scope extension of `getProviderForModelId` re-resolves `claude-sonnet-4-6` (anthropic default) → opencode. Must be priority-ordered + canary tests extended.
+2. **Nous pricing unit mismatch:** Nous `pricing` is per-token (`0.0000016`) vs the snapshot's dollars-per-1M — verbatim mapping renders $0.0000016 where $1.60 belongs. ×1e6 in the refresh script.
+3. **No env auto-load in openai-compatible:** both new keys must be passed as explicit `apiKey` at construction; an unset key → request goes out unauthenticated → 401 at request time (unreachable once the chain-aware gate names the keys).
+4. **`~latest` aliases exist on the Nous roster (11 rows)** — pass verbatim (D-04), same trap as v1.4's `~` research; label rather than strip.
+5. **Structured-output support at Zen/Go is unverified** (snapshot's all-true is the script default for non-openrouter rows; lean rosters can't confirm) — start `supportsStructuredOutputs` false, flip per instance only after a live key-backed probe.
 
 ## Implications for Roadmap
 
-The four research files converge on a dependency-driven **Phase A → B → C → D** structure (PITFALLS' mapping table + ARCHITECTURE's build order agree; the pre-existing SUMMARY draft's "nav first" ordering is superseded — see Conflicts). Foundations first, riskiest consumer last, verification as a gate.
+1. **Registry + servable sources (code phase, mirrors v1.4 Phase 19)** — `ModelProviderId` → 4, priority-ordered `getProviderForModelId`, gates/defaults extended, opencode chat-completions gate (30 rows) or Claude-extension variant, collision-canary tests extended. Addresses: STACK.md registry changes; avoids: the dual-listed-id regression trap.
+2. **Refresh script + catalog regeneration (data phase)** — `fetchNousRoster()` with ×1e6 cost mapping + live structured-output join, Zen/Go roster-verify, regenerate (Go 17 → 25), commit `nousresearch` rows. Addresses: rich Nous roster; avoids: pricing-unit bug + stale Go rows.
+3. **`modelFactory` seam (code phase, mirrors v1.4 Phase 20)** — three instances, zen-vs-go dispatch by `api.url`, optional `createAnthropic` baseURL instance for Claude rows, `supportsStructuredOutputs` verify-live-then-flip. Addresses: constraint-11 seam; env gate names the new keys.
+4. **Settings UI + verification gate (mirrors v1.4 Phases 21–22)** — 4-provider selector, e2e + security-grep extension (`SERVER_COMPONENT` exemption set covers `modelFactory.ts`'s explicit `process.env.*` reads).
 
-### Phase A: Model Registry Foundation + Persistence
-**Rationale:** every other pitfall's fix composes on the mapping function, the allowlist, the audit columns, and the atomic upsert; the pure functions are testable before any UI or loop exists (D-16 convention).
-**Delivers:** `user_model_settings` table + `userModelSettings` query module (atomic full-value upsert, `updatedAt`); `agent_run.model_used` + `model_chain` audit columns; `scripts/refresh-model-catalog.ts` → committed `src/lib/models/catalog.json` + typed `catalog.ts`; pure `opencodeSlugToModelId` (provider-filtered) + allowlist-filter functions + never-throws degradation helper; resolve the migration apply flow (MEDIUM flag).
-**Addresses (FEATURES.md):** registry table-equivalent (snapshot), per-user settings persistence foundation, modelUsed audit columns, empty-registry degradation.
-**Avoids (PITFALLS.md):** 1 (ID drift — storage format + mapping locked here), 5 (audit columns), 7 (filter fn), 8 (degradation helper), 9 (atomic upsert).
+**Phase ordering rationale:** registry/canary first (the priority-order change is a prerequisite for every other provider-resolution consumer), then snapshot data, then the instantiation seam, then UI + verification — the v1.4 19→20→21→22 shape, one phase shorter (no classifier work — the 402/429 semantics are unchanged for these providers).
 
-### Phase B: Failover Orchestration (the core value)
-**Rationale:** the riskiest consumer (touches the tested orchestrator) lands after the pure predicate is locked by tests, so the wiring change is a thin, provable slice.
-**Delivers:** `classifyModelError` pure function (RetryError-unwrap-first; only `model_not_found` advances; 429 → no chain-switch); `runAgent` chain loop (`LanguageModel[]` seam, per-attempt `timeout`, attempt cap → **primary + 1 fallback**); snapshot-chain-at-request-start (mid-run edits inert); route threads `userId` → `analyzeCompany(companyId, userId)` → resolve → pass chain; `runAgent`/`analyzeCompany` test updates; populate `model_used`/`model_chain`.
-**Addresses (FEATURES.md):** the entire P1 failover set — chain support, retryable-error classifier, 60s budget management, modelUsed/modelsAttempted.
-**Avoids (PITFALLS.md):** 2, 3, 4, 6, 9 (snapshot-at-entry), 10 (wiring — the core deliverable here, not a Phase-C afterthought).
-
-### Phase C: Settings UI + List Source
-**Rationale:** depends on Phase A (catalog + queries); can proceed in parallel with Phase B — the UI and the loop are decoupled by the DB.
-**Delivers:** `settings` NavKey + `getActiveNavKey`/tooltip branches + Vitest cases; Manage-group sidebar item; `(dashboard)/settings/page.tsx` + `model-settings-form.tsx` (primary Select + ordered reorderable fallback list, runnable-only, no duplicates, ≥0 fallbacks, zod-validated against the catalog) + `actions/settings.ts` (requireStaffAccess, upsert, revalidatePath); empty-registry empty state; (P2) "ran on X (fallback)" status line + metadata-rich picker + last-synced.
-**Addresses (FEATURES.md):** all table-stakes P1 UI + P2 differentiators.
-**Avoids (PITFALLS.md):** 1 (UI only offers allowlisted `anthropic/` rows), 7 (server-side double filter — never the 1130-row payload), 8 (no opencode dependency at request time — Vercel preview must render).
-
-### Phase D: Verification Gate
-**Rationale:** the milestone's correctness claims are falsifiable checklists — a dedicated gate, not an afterthought.
-**Delivers:** Vitest matrices (400/401/403/422 → no fallback; 404 → fallback; wrapped-404; exhausted-retry 429; non-eligible errors rethrown); 60s budget checklist; live-browser UAT: settings → Analyze → `agent_run.model_used` matches (the core acceptance test); mid-run-edit inertness; two-tab concurrent saves; Vercel preview with no opencode; grep `exec|spawn|child_process` in `src/` = zero; existing `runAgent` default-model test updated deliberately, not deleted; Langfuse trace shows per-attempt spans with `ai.model.id`.
-**Addresses:** the full "Looks Done But Isn't" checklist (PITFALLS).
-**Avoids:** every pitfall's verification row.
-
-### Phase Ordering Rationale
-- **A before B and C:** schema→queries→catalog→pure logic are independently shippable foundations; both the failover runtime and the Settings UI consume them.
-- **B before D, C parallel to B:** the failover loop is the highest-risk logic and needs the pure classifier locked by tests before wiring into the tested orchestrator; the UI is decoupled via the DB.
-- **This ordering supersedes the earlier "nav/route first" draft** — nav is cheap and can ride with Phase C; starting with foundations prevents the pitfalls that the nav-first draft left unaddressed.
-
-### Research Flags
-- **Phase 0 / planning pre-flight (all phases):** resolve the open decisions below; add the Pitfall 11 note to the phase plan — "verify `generateText` model option type, exported error classes, and `anthropic('id')` behavior against installed `ai@7.0.45`/`@ai-sdk/anthropic@4.0.26` dist types BEFORE writing the loop" (the proven v1.1 mitigation).
-- **Phase A:** confirm the migration apply flow (`drizzle-kit push` vs generate+commit) — the one MEDIUM-confidence item (empty `_journal.json`). Small, targeted check; not deep research.
-- **Phase C:** standard patterns (shadcn Select/Button/Badge already vendored, Server Actions, nav contract) — **skip research-phase**.
-- **Phase B:** failover taxonomy is fully specified by PITFALLS (verified against SDK source) — **skip research-phase**; no new ai@7 research needed.
-- **No phase needs `/gsd-plan-phase --research-phase`** unless the planner rejects the recommended resolutions of the conflicts below.
-
-## Conflicts / Open Decisions (planner MUST resolve)
-
-1. **DB storage format — raw provider ID vs `provider/model` slug. [CONFLICT — HIGH impact]**
-   - ARCHITECTURE + PITFALLS (agree): store the **raw provider ID** (`claude-sonnet-4-6`) — PITFALLS' invariant is "saved values never contain `/`", and the mapping function strips the prefix at save. ARCHITECTURE's schema comment: "Model IDs as the APP instantiates them — never provider-prefixed catalog ids."
-   - STACK: store the **vendor-normalized `provider/model` form** (`anthropic/claude-sonnet-4-6`, the `opencode models <provider>` output), resolved at runtime by the registry's `api.npm` mapping.
-   - **Recommendation:** raw provider ID for v1.3 (Anthropic-only — removes the verbatim-feed 404 bug class and the `opencode/*` collision; matches the two most detailed files). Keep the registry's `api.npm` mapping as the seam so multi-provider support later only adds a provider column/mapping, not a storage migration. Planner must state this in PROJECT.md to end the ambiguity.
-2. **Catalog storage — committed JSON snapshot vs DB registry table. [CONFLICT — HIGH impact]**
-   - STACK + ARCHITECTURE (agree): committed JSON snapshot (`src/data/opencode-models.json` or `src/lib/models/catalog.json`), zero DB writes for static data.
-   - FEATURES: a `modelRegistry` DB table (upserted by the sync script). The earlier SUMMARY draft followed FEATURES — superseded.
-   - **Recommendation:** committed snapshot (Vercel-safe, no migration for static data, "only preferences are per-user DB state" scope guard). If "live" freshness is ever required, revisit with a cached models.dev fetch — never a DB table for static catalog data.
-3. **Failover taxonomy — only-404-advances vs any-`isRetryable`. [CONFLICT — HIGH impact]**
-   - PITFALLS (deepest, SDK-source-verified): classify first, **only `model_not_found` (404/`NoSuchModelError`) advances**; 429 → no chain-switch (account-level); auth → fail loud; `LoadAPIKeyError` → `not_configured`, never fallback; `RetryError` unwrapped first.
-   - ARCHITECTURE's `isFailoverEligibleError`: retries any `isRetryable` (incl. 429/5xx) + 404 — missing RetryError unwrap and the 429 policy. STACK lists `LoadAPIKeyError` as failover-eligible (wrong per PITFALLS — the whole chain shares one key).
-   - **Recommendation:** adopt PITFALLS' classification model wholesale (`classifyModelError` with RetryError-unwrap-first, only `model_not_found` advances). ARCHITECTURE's version is a reasonable v1 simplification but insufficient; the planner should not mix the two.
-4. **Chain length — primary + 1 vs primary + 2. [CONFLICT — LOW impact]**
-   - PITFALLS: **primary + 1 fallback** (budget math: 35s primary + 20s fallback + SDK backoff ≤ 60s). FEATURES: "primary + 2 fast fallbacks".
-   - **Recommendation:** primary + 1 for v1.3 (PITFALLS has the budget model and the 60s ceiling constraint); revisit with real-world 429/5xx observation (FEATURES' P2 tuning item). Max 3 in the UI to keep the option open.
-5. **`fallbackModels` column type — `text[]` vs jsonb. [MINOR]**
-   - ARCHITECTURE: `text('fallback_models').array()` — "the honest Postgres shape" for a homogeneous string list, typed `string[]` in Drizzle. STACK/FEATURES: jsonb (repo precedent: `company.techStack`, `usageTokens`).
-   - **Recommendation:** `text[]` (simpler, no `$type<>` casting, direct typing); jsonb is acceptable if repo-jsonb consistency is preferred. Either works with the upsert pattern — decide in Phase A, don't leave it open.
-6. **Output/schema-failure fallback — `NoObjectGeneratedError`/`InvalidResponseDataError`. [MINOR]**
-   - STACK: `NoObjectGeneratedError` should trigger failover (model-dependent). PITFALLS: default to **no fallback** (fail loud, gate never skipped); one fallback "defensible" if decided explicitly.
-   - **Recommendation:** no fallback on output/schema errors in v1.3 — the gate (`validateRunArtifacts`) must never be skipped; revisit if a weaker-model-produces-unparseable-JSON pattern shows up in traces.
-7. **Naming variance (non-blocking):** `src/lib/models/registry.ts` (STACK) vs `src/lib/agents/modelConfig.ts` (ARCHITECTURE); `modelUsed`/`modelsAttempted` (FEATURES) vs `model_used`/`model_chain` (PITFALLS); snapshot path `src/data/` vs `src/lib/models/`. Planner picks one consistent set; the functional shape is agreed.
+**Research flags for phases:**
+- Registry phase: LOW risk — priority-order change is well-specified; extend existing canary tests.
+- Seam phase: needs a **live key-backed probe** of `json_schema` acceptance at Zen/Go (and per-model at Nous) before flipping `supportsStructuredOutputs`; Nous chat-completions billing verification may defer a live success assertion (v1.4's OpenRouter-credit pattern).
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | opencode CLI 1.18.10 + models.dev live-verified; installed `ai@7.0.45`/`@ai-sdk/anthropic@4.0.26`/`drizzle-orm@0.45.2` read from node_modules; `@opencode-ai/sdk` existence MEDIUM (not installed, rejected anyway) |
-| Features | HIGH (in-repo + opencode) · MEDIUM (OMO) | OMO `fallback_models` semantics from docs/community, not a local run — but v1.3 builds its own loop, so OMO is a reference, not a dependency |
-| Architecture | HIGH · one MEDIUM | migration apply flow unconfirmed (empty `_journal.json`) — verify in Phase A; all integration points read directly from on-disk source |
-| Pitfalls | HIGH | error-class semantics verified against installed SDK dist source; opencode claims executed live; app claims from direct code reads + v1.1/v1.2 decision records |
+| Stack | HIGH | Packages/versions verified against npm registry + packed dist sources; env conventions verified from dist code (no auto-load) |
+| Features | MEDIUM-HIGH | OpenCode protocol split from official docs + snapshot `api.npm` (HIGH); Zen/Go structured-output support unverified (MEDIUM-LOW) |
+| Architecture | HIGH | Priority-order trap verified against `catalog.json` row indices; dispatch shapes verified in dist |
+| Pitfalls | HIGH | Unit-conversion, id-verbatim, canary-regression, env-auto-load traps all verified against live data or dist source |
 
-**Overall confidence: HIGH** (with the two MEDIUM sub-flags above and the open decisions in the previous section).
+## Gaps to Address
 
-### Gaps to Address
-- **Migration apply flow (MEDIUM):** confirm `drizzle-kit push` vs generate+commit in Phase A before touching `schema.ts`.
-- **Allowlist curation:** only `claude-sonnet-4-6` is currently roster-verified (2026-08-01, `GET /v1/models`); Phase A must re-verify any curated additions — the standing v1.1 practice, now part of allowlist maintenance.
-- **Open decisions 1–6:** must be resolved at planning (recommendations provided above) — they change schema, storage, and loop behavior.
-- **OMO semantics (docs-sourced):** if cross-family fallback or per-model settings are ever pursued (v2+), run OMO locally to confirm behavior rather than trusting docs.
+- Zen/Go (and per-model Nous) `json_schema` acceptance needs a real-key runtime probe before `supportsStructuredOutputs: true` — schedule with the billing-credit verification.
+- Go roster is 25 live vs 17 snapshot — regenerate timing belongs to the refresh-script phase.
+- OpenCode servable gate scope (30 chat-completions rows vs Claude extension via `createAnthropic`) is a product decision the research frames but does not make — flag for requirements.
 
 ## Sources
 
-### Primary (HIGH confidence)
-- **opencode CLI 1.18.10 (live execution, 2026-08-02):** `opencode models`, `--verbose`/`--pure`/`--refresh`, `opencode models <provider>`, `opencode serve` + `GET /api/model` + `GET /config/providers` (raw-key leak confirmed); `~/.cache/opencode/models.json` vs `https://models.dev/api.json` byte-identical (177 providers, 5,939 models)
-- **Installed node_modules:** `ai@7.0.45` exports (`APICallError`/`RetryError`/`LoadAPIKeyError`/`InvalidResponseDataError`/`NoSuchModelError`/`LanguageModel`; NO `TooManyRequestsError`, no fallback helper), `@ai-sdk/provider@4.0.4` (`isRetryable` defaults 408/409/429/≥500, 404 not retryable), `@ai-sdk/anthropic@4.0.26` (factory + callable provider, no client-side validation), `drizzle-orm@0.45.2` (`onConflictDoUpdate`, jsonb/text[] typing)
-- **Context7 `/vercel/ai`:** `createAnthropic`/`createOpenAI` factory docs, error semantics, retry-with-exponential-backoff source (`maxRetries` 2, backoff 2s×2, retry-after honored), `timeout: { totalMs }`, `telemetry.metadata`, `ai.model.id`/`gen_ai.request.model` span attributes
-- **Codebase reads:** `schema.ts` (+ `recentlyViewed`/`usageTokens`/`agent_run` patterns), `queries/recentlyViewed.ts`, `runAgent.ts` (+ v1.1 dated-ID 404 comment, `FAST_MODEL_ID`), `analyzeCompany.ts` (`isMisconfigurationError` precedent, fail-closed gate), `api/companies/[id]/analyze/route.ts` (`maxDuration = 60`, `requireStaffAccess`, structured error contract), `nav.ts` + `nav.test.ts`, `app-sidebar.tsx`/`app-shell-layout.tsx`, `(dashboard)/layout.tsx` + `reviews/page.tsx`, `actions/reviews.ts`, `env.ts` (D-15 optional keys), `langfuse.ts` (D-14), v1.1/v1.2 PROJECT.md decision records (D-06, D-07, D-08, D-14, D-15, D-16)
-
-### Secondary (MEDIUM confidence)
-- **OhMyOpenCode / oh-my-opencode docs (github.com/code-yeongyu/oh-my-opencode):** `fallback_models` semantics, resolution priority, per-model settings, cross-family degradation warnings — docs/community, not run locally
-- **npm registry:** `@opencode-ai/sdk@1.18.11` exists (rejected: requires a running `opencode serve` host), `@opencode-ai/plugin@1.18.11`
-- **Migration apply flow:** `drizzle/meta/_journal.json` has zero entries — push-vs-generate unconfirmed (verify in Phase A)
+- Live API (2026-08-03): `GET https://opencode.ai/zen/v1/models` (200 anonymous, 60 lean rows), `GET https://opencode.ai/zen/go/v1/models` (200 anonymous, **25** rows), `GET https://inference-api.nousresearch.com/v1/models` (200 anonymous, **292** rich rows: per-token `pricing`, `context_length`, `supported_parameters` 214/292 `structured_outputs`, `~latest` aliases) — HIGH
+- OpenCode docs `https://opencode.ai/docs/zen/` + `https://opencode.ai/docs/providers/` — per-model Endpoint + AI SDK Package table (`/v1/chat/completions` → `@ai-sdk/openai-compatible`, `/v1/responses` → `@ai-sdk/openai`, `/v1/messages` → `@ai-sdk/anthropic`, `/v1/models/gemini-*` → `@ai-sdk/google`); per-model `provider.npm` override guidance — HIGH
+- Docker Agent OpenCode Zen doc — Token Variable `OPENCODE_API_KEY`; "The same API key works for both OpenCode Go and OpenCode Zen" (Zen pay-per-use vs Go $10/mo) — MEDIUM-HIGH
+- Nous portal `https://portal.nousresearch.com/api-docs` + `/info` (API-key flow; "250 models via the Nous API … powered by OpenRouter"); Langertha metacpan + OmniRoute PR #2835 (`/v1/chat/completions` pattern) — MEDIUM-HIGH
+- npm registry: `@ai-sdk/openai-compatible` latest **3.0.20**, `@ai-sdk/openai` **4.0.27**, `@ai-sdk/anthropic` **4.0.27**, `@ai-sdk/google` **4.0.31**, `ai` **7.0.48** — HIGH
+- Packed dist sources: openai-compatible (no env auto-load l.1746-1749; `supportsStructuredOutputs` default false l.435; json_schema→json_object + warning l.525/557), `@ai-sdk/openai` (default = Responses API l.8303; `OPENAI_API_KEY` env default l.9483), `@ai-sdk/anthropic` (`createAnthropic` baseURL/apiKey options) — HIGH
+- Codebase reads: `modelFactory.ts`, `catalog.ts`, `catalog.json` (opencode 60 / opencode-go 17 rows; `api.npm` split 21/20/14/5 and 10/5/2; dual-listed ids opencode-first: `claude-sonnet-4-6` idx 11 vs 92), `env.ts`, `refresh-model-catalog.ts`, `runAgent.ts` (`Output.object` at l.74), `package.json` — HIGH
 
 ---
-*Research completed: 2026-08-02*
-*Ready for roadmap: yes — pending resolution of Conflicts / Open Decisions 1–6 at planning*
+*Research completed: 2026-08-03*
+*Ready for roadmap: yes — pending one product decision (OpenCode servable gate scope) and one runtime verification item (structured-output support per endpoint)*

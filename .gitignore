@@ -44,4 +44,8 @@ yarn-error.log*
 .planning/quick/
 drizzle/
 skills-lock.json
-.env*.local
+
+# Playwright e2e (generated output + auth state — never commit)
+e2e/.clerk/
+test-results/
+playwright-report/

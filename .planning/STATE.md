@@ -1,39 +1,40 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.4
-milestone_name: Signals & Offerings
+milestone: v1.5
+milestone_name: Additional AI Providers
 status: executing
-last_updated: "2026-08-04T11:22:54.821Z"
-last_activity: 2026-08-04 -- Phase 30 execution started
+last_updated: "2026-08-04T11:38:19.945Z"
+last_activity: 2026-08-04
 progress:
-  total_phases: 7
-  completed_phases: 0
-  total_plans: 6
-  completed_plans: 0
-  percent: 0
+  total_phases: 5
+  completed_phases: 2
+  total_plans: 12
+  completed_plans: 9
+  percent: 75
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-08-04)
+See: .planning/PROJECT.md (updated 2026-08-02)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** Phase 30 — shared-data-model-seed
+**Current focus:** Phase 25 — run-path-modelfactory-seam
 
 ## Current Position
 
-Phase: 30 (shared-data-model-seed) — EXECUTING
-Plan: 1 of 6
-Status: Executing Phase 30
-Last activity: 2026-08-04 -- Phase 30 execution started
+Phase: 25 (run-path-modelfactory-seam) — EXECUTING
+Plan: 2 of 4
+Status: Ready to execute
+Last activity: 2026-08-04
+Next up: Phase 25 — Run Path / modelFactory Seam (CONTEXT not yet gathered)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 60 (v1.0: 14 + v1.1: 27 + v1.2: 10); v1.3: 11 plans across Phases 15-17 (Phase 18 partial, 2/3)
+- Total plans completed: 94 (v1.0: 14 + v1.1: 27 + v1.2: 10 + v1.3: 12)
 - Average duration: - min
 - Total execution time: - hours (v1.4 not started)
 
@@ -41,16 +42,45 @@ Last activity: 2026-08-04 -- Phase 30 execution started
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
-| 30-shared-data-model-seed | — | — | — | — |
-| 31-signals-ui | — | — | — | — |
-| 32-offerings-ui | — | — | — | — |
+| - | - | - | - | - |
 
 **Recent Trend:**
 
-- Last 5 plans (v1.3): Phase 18 P02 (21min, 3 tasks, 3 files); Phase 18 P01 (3min); Phase 17 P01-03 (2-7min)
-- Trend: N/A (new milestone, phase numbering restarts at 30)
+- Last milestone (v1.3): 12 plans across 4 phases, all completed same-day (2026-08-02)
+- Trend: Stable — v1.3 delivered its full 4-phase cycle in one day
 
 *Updated after each plan completion*
+| Phase 19 P1 | 3 min | 3 tasks | 5 files |
+| Phase 19 P02 | 5 | 3 tasks | 5 files |
+| Phase 19 P03 | 3min | 2 tasks | 2 files |
+| Phase 19 P04 | 3min | 2 tasks | 2 files |
+| Phase 19 P05 | 6min | 3 tasks | 4 files |
+| Phase 20-cross-provider-run-path P01 | 3min | 2 tasks | 2 files |
+| Phase 20-cross-provider-run-path P02 | 5 | 2 tasks | 2 files |
+| Phase 20-cross-provider-run-path P03 | 8min | 2 tasks | 2 files |
+| Phase 20-cross-provider-run-path P04 | 2min | 2 tasks | 1 files |
+| Phase 21-settings-ui P01 | 12min | 1 tasks | 6 files |
+| Phase 21-settings-ui P02 | 3min | 2 tasks | 2 files |
+| Phase 21-settings-ui P03 | 11 | 1 tasks | 2 files |
+| Phase 21-settings-ui P04 | 20min | 1 tasks | 1 files |
+| Phase 21-settings-ui P05 | 5min | 2 tasks | 1 files |
+| Phase 21-settings-ui P06 | 3min | 2 tasks | 3 files |
+| Phase 21-settings-ui P07 | 2min | 2 tasks | 1 files |
+| Phase 22-verification-gate P22-01 | 2min | 2 tasks | 2 files |
+| Phase 22-verification-gate P22-02 | 4min | 1 task | 1 file |
+| Phase 22-verification-gate P3 | 12min | 3 tasks | 6 files |
+| Phase 22-verification-gate P04 | 45min | 2 tasks | 3 files |
+| Phase 22-verification-gate P06 | 25min | 1 tasks | 1 files |
+| Phase 22-verification-gate P05 | 75 | 3 tasks | 1 files |
+| Phase 22-verification-gate P07 | 3min | 2 tasks | 2 files |
+| Phase 23 P01 | 5min | 3 tasks | 5 files |
+| Phase 23 P02 | 3min | 2 tasks | 2 files |
+| Phase 23 P03 | 1 min | 2 tasks | 1 files |
+| Phase 23 P04 | 3min | 3 tasks | 3 files |
+| Phase 24 P01 | 1h43m | 3 tasks | 4 files |
+| Phase 24-refresh-script-catalog-data P03 | 20min | 3 tasks | 2 files |
+| Phase 24-refresh-script-catalog-data P04 | 5min | 1 tasks | 1 files |
+| Phase 25-run-path-modelfactory-seam P01 | 4min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -59,33 +89,134 @@ Last activity: 2026-08-04 -- Phase 30 execution started
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- **Roadmap (v1.4): Phase count, numbers, and sequencing are explicit user decisions, not derived** — exactly 3 phases, numbered 30/31/32 (skipping 19-29 by explicit choice, not continuing from v1.3's Phase 18 and not resetting to 1). Phase 30 (shared data model + GBS seed, no UI) → Phase 31 (Signals UI) → Phase 32 (Offerings UI), per spec Section 6's recommended sequencing.
-- **Roadmap (v1.4): 27/27 requirements mapped, zero orphans** — DATA-01..10 (10) → Phase 30, SIG-01..09 (9) → Phase 31, OFR-01..08 (8) → Phase 32.
-- **Roadmap (v1.4): Phase 30 is intentionally a no-UI, backend-only phase** — this is expected and correct, not a coverage gap. Phase 31 and Phase 32 both depend only on Phase 30 (need seeded `buyer_role`/`offering` data); Phase 32 does not strictly depend on Phase 31 (different UI surfaces) but stays sequential in the roadmap per the "Signals first" priority.
-- **Roadmap (v1.4): sourced from a fully pre-authored external spec** (`.planning/specs/v1.4-signals-offerings.md`) — data model, business rules, UI, seed data, and sequencing were already decided before this cycle; research was skipped for this milestone (see REQUIREMENTS.md header).
-- [Phase ?]: v1.4 started before v1.3 closed; v1.3 Phase 18 (VER-04) left unexecuted, phase dirs 15-18 cleared from disk (not archived) to make room for v1.4 numbering — recoverable via git history since `commit_docs: true`.
-- [Phase 30]: `signal_offering_link`'s discriminator reuses the existing `recordTypeEnum`/`record_type` Postgres type instead of a new `pgEnum('signal_type', ...)`, which would have collided with the pre-existing unrelated `signal_type` enum at `schema.ts:6` (v1.0 buying-signal entity) — caught by research, verified by plan-checker.
-- [Phase 30]: New query modules named `companySignals.ts`/`personaSignals.ts`, never `signals.ts` — that name is already taken by the unrelated core `signal` (buying-signal) entity's query module.
-- [Phase 30]: No `db.transaction()` anywhere in this phase — `neon-http` driver has zero transaction support; seed script and delete-guards use sequential dependency-ordered operations instead, matching `importBatches.ts`/`proposals.ts` precedent.
-- [Phase 30]: `requireStaffAccess()` is never called inside new query modules — this repo's convention calls it only at the Server Action layer; Phase 30 ships no Server Actions, so query functions accept `userId`/`createdBy`/`updatedBy` as plain parameters (wired end-to-end in Phase 31/32).
-- [Phase 30]: `offering.description` (not just `commercial_model_text`) is Claude-authored one-line text beyond what CONTEXT.md pre-approved — schema requires it NOT NULL but spec Section 7.3 doesn't tabulate it; flagged in 30-06-PLAN.md for human review in the phase's SUMMARY.
-- [Phase 30]: Literal seed counts corrected from ROADMAP's approximate "~24 company signals / ~9 persona signals" to the spec's actual literal counts: 11 offerings, 22 offering-buyer-role links, 11 triggers, 27 company signals, 12 persona signals, 10 signal-offering-link rows.
+- **Roadmap (v1.5): Phase structure follows research SUMMARY "Implications for Roadmap"** — Phase 23 (A) Provider Registry + Servable Sources (REG-01..07) → Phase 24 (B) Refresh Script + Catalog Data (CAT-01..04) → Phase 25 (C) Run Path / modelFactory Seam (RUN-01..06) → Phase 26 (D) Settings UI (SET-01..06) → Phase 27 (E) Verification Gate (VER-01..05). Sequential numbering continues from v1.4's Phase 22 (v1.5 starts at Phase 23). Phase ordering rationale (locked): registry/canary first (the priority-order `getProviderForModelId` change is a PREREQUISITE for every other provider-resolution consumer), then the committed snapshot data (consumed by the run path), then the instantiation seam, then UI + verification — the v1.4 19→20→21→22 shape, one phase shorter (no classifier work — 402/429 semantics unchanged for these providers).
+- **Roadmap (v1.5): Requirement count is 28, not 27** — REG-01..07 (7) + CAT-01..04 (4) + RUN-01..06 (6) + SET-01..06 (6) + VER-01..05 (5) = 28. All 28 mapped, no orphans, no double-mapping. Coverage validated before writing.
+- **Roadmap (v1.5): Locked product decisions (research-verified — do NOT re-litigate)** — OpenCode = ONE provider, servable gate = 49 rows (30 chat-completions + 19 Claude via `createAnthropic({ baseURL })`); GPT-5 (Responses API) + Gemini rows deferred to v2; 2 new env keys (`NOUSRESEARCH_API_KEY` + `OPENCODE_API_KEY` — one OpenCode key shared Zen+Go); Zen-wins dual-listed-id dedup (12 dual-listed ids; 5 Go-exclusive ids keep Go rows); NousResearch = curated `nousresearch/*` allowlist (Hermes-4 pair) over the anonymous 292-row roster; `getProviderForModelId` explicit precedence (anthropic → openrouter → nousresearch-over-openrouter → opencode; `claude-sonnet-4-6` MUST keep resolving to anthropic — regression lock); `supportsStructuredOutputs` starts false on new instances until a live key-backed probe; constraint 11 (modelFactory is the ONLY SDK-importing module); no schema change — provider identity derived from catalog.
+
+- **Roadmap (v1.4): Phase structure follows research SUMMARY "Implications for Roadmap"** — Phase 19 (A) Provider Registry + Servable Model Source (REG-01..07) → Phase 20 (B) Cross-Provider Run Path (FAL-01..05) → Phase 21 (C) Settings UI (SET-01..08) → Phase 22 (D) Verification Gate (VER-01..05). Sequential numbering continues from v1.3's Phase 18.
+- **Roadmap (v1.4): Requirement count is 25, not 24** — REG-01..07 (7) + FAL-01..05 (5) + SET-01..08 (8) + VER-01..05 (5) = 25. All 25 mapped, no orphans. REQUIREMENTS.md coverage footer corrected from the initial 24 (traceability table already had 25 rows).
+- **Roadmap (v1.4): Locked product decisions (research overrides — do NOT re-litigate)** — `~latest` aliases and `:free` variants INCLUDED in the OpenRouter servable set and LABELED (overrides PITFALLS 2/4 exclusion; SET-07 labels); cross-provider 429 is hop-aware advance (`rate_limited` advances only when next model is on a different provider — FAL-03, overrides the blanket never/always debate); OpenRouter default primary = pinned concrete slug CHOSEN IN PLANNING (SET-03); picker = grouping + Command-pattern search BOTH in P1 (SET-06); provider DERIVED from catalog, NO `user_model_settings` schema change (REG-05).
+- **Roadmap (v1.4): REG-01 (user selects provider) is the UI-facing half of the registry** — the provider-selector capability lands fully in Phase 21 (SET-01); Phase 19 delivers the registry + servable source + validation that makes the selector meaningful. The requirement maps to Phase 19 per the requirement category grouping (registry/servable foundation), with SET-01 carrying the visible selector.
+- **Roadmap (v1.4): OpenRouter default primary (Conflict 8) decided at planning** — pinned concrete slug (avoids `~`/`:free`/auto issues, stable cost captions); must be roster-verified against the committed snapshot before Phase 21 pickers render it.
+- **Roadmap (v1.4): structured-output strict pass (Conflict 9) is a Phase 19 curation decision** — identify which servable OpenRouter models need `openrouter(id, { structuredOutputs: { strict: false } })` during Phase 19's servable-set work; never a global `strict: false`.
+- **Roadmap (v1.4): Vendor curation posture (Conflict 7) resolved toward full catalog + labels** — full 336-row catalog ships (REG-03) with vendor badges + egress copy + cost captions (SET-05/SET-08) rather than a curated subset; `openai/o1-pro` $150/M warning included.
+- [Phase 19 pre-flag]: small targeted re-verification at phase start only — createOpenRouter strict-compat + structured-output + env-key against the INSTALLED package (PITFALLS G; tarball d.ts already verified in research but re-check post-install).
+- [Phase 20 pre-flag]: confirm `APICallError.responseBody` is populated by the installed provider before writing `isOpenRouterPlatformRateLimit` (PITFALLS 3, AI-SDK drift discipline).
+- [Phase 19]: getAllowlistedServableIds removed outright (D-05 remove-and-migrate) — no deprecated alias; all 3 callers migrated in the same change so next build stays green
+- [Phase 19]: PROVIDER_GATES data map: anthropic = ANTHROPIC_ALLOWLIST (sonnet-only, REG-04), openrouter = {} (full active catalog per D-02/SET-07)
+- [Phase 19]: getProviderForModelId scopes the find to the two servable providerIDs — never a bare id find (Anti-Pattern 1 / T-19-03 collision canary)
+- [Phase 19]: saveSettingsAction widens to getUnionServableIds (REG-07) — cross-provider chains accepted, non-servable ids rejected with invalid_model
+- [Phase 19]: structuredOutputs is a first-class snapshot field derived from live OpenRouter supported_parameters by exact-id join (D-08) — never a code-side map, never a global strict:false
+- [Phase 19]: refresh-model-catalog.ts throws (aborts, no write) if the live OpenRouter fetch fails — the committed snapshot stays usable (T-19-06)
+- [Phase 19]: modelFactory is the single provider-aware instantiation seam (constraint 11) — instantiateModel dispatches by catalog providerID with raw ids verbatim (D-04); instantiateChain maps once at entry (FAL-01); defaultChain stays the Anthropic fast path in Phase 19 (D-11)
+- [Phase 19]: OPENROUTER_DEFAULT_MODEL_ID = 'anthropic/claude-sonnet-4.6' + PROVIDER_DEFAULT_MODELS exported as named constants for Phase 21's provider-switch reset (D-07)
+- [Phase 19]: createOpenRouter({ compatibility: 'strict' }) with the option EXPLICIT (bare defaults to 'compatible'); no apiKey (auto-loads OPENROUTER_API_KEY); D-08 per-model structuredOutputs strict:false only for snapshot-flagged non-strict models — never global
+- [Phase 19]: openrouter row lookup for the D-08 flag is provider-scoped (m.providerID === 'openrouter') — a bare id find reads the inert kilo/vercel flag for 54 dual-listed non-strict models and silently skips the opt-out (Rule 1 auto-fix)
+- [Phase 19]: resolveModelChain default widens from ANTHROPIC_ALLOWLIST to getUnionServableIds(catalogJson) (D-06) — only behavioral change of 19-04; dedupe/cap-2/REG-05 default byte-identical (provider-agnostic)
+- [Phase 19]: resolveModelChain param renamed allowlist → servableIds; ANTHROPIC_ALLOWLIST import kept (plan-mandated, noUnusedLocals off)
+- [Phase 19]: modelConfig imports catalog.json directly mirroring catalog.ts (ARCHITECTURE.md Pattern 2) — pure-module contract intact (constraint 11)
+- [Phase 19]: runAgent defaults via defaultChain() — last hardcoded anthropic(FAST_MODEL_ID) default gone from the run path; factory default stays Anthropic fast path (D-11)
+- [Phase 19]: analyzeCompany maps chain ids once at entry via instantiateChain(modelChain) — Pitfall 11 comment preserved; env gate untouched (D-11/FAL-04 is Phase 20)
+- [Phase 19]: Explicit-models tests use string-form LanguageModel stubs ('m1') — plan's {provider,modelId} literals fail tsc against the LanguageModel union (Rule 1 fix)
+- [Phase 20]: FAL-02/FAL-03 (plan 20-01): 402 → 'billing' (never failover-eligible, PITFALLS 3); 502/503 stay server_error/eligible as model-availability signals (comment-only); D-20-06 mid-stream-429 note on the output branch; shouldAdvance implements the locked 4-cell matrix — rate_limited advances ONLY cross-provider, all other eligible classes advance regardless, fail-closed on null provider identity; locked by the D-16 test matrix
+- [Phase ?]: FAL-03 loop composition: (isFailoverEligible(cls) || cls === 'rate_limited') && shouldAdvance(cls, from, to) — the OR is REQUIRED because isFailoverEligible('rate_limited') is false by D-03; a literal AND would silently never advance cross-provider 429s
+- [Phase ?]: from/to provider identity is catalog-derived via getProviderForModelId on model ids only (D-20-07) — never the error body; to === null (last model / catalog drift) fail-closes a 429 advance
+- [Phase ?]: isOpenRouterPlatformRateLimit is loop-side diagnostics-only (D-20-08): informs reason strings + telemetry, structurally unable to flip the advance decision
+- [Phase ?]: Audit identity untouched: modelUsed = modelIdOf(models[i]) records the served id verbatim incl. slashed OpenRouter slugs + ~latest aliases (FAL-05)
+- [Phase ?]: D-20-03 execution: the pre-DB fast gate is FIRECRAWL-only — ANTHROPIC is a provider key, so it moves into the chain-aware named-key path (an openrouter-only chain runs with only OPENROUTER set; an ANTHROPIC-missing anthropic chain names ANTHROPIC_API_KEY)
+- [Phase ?]: FAL-04/D-20-01/02: missingProviderKey checks the RESOLVED chain's provider set all-or-nothing at run entry; unknown ids (null provider) are skipped — the union servable gate upstream (resolveModelChain) already excludes non-servable ids
+- [Phase ?]: D-20-10: 402 maps to billing 'provider credits exhausted'; 429 maps to rate_limited with the diagnostics-split platform/upstream message — message values are fixed server-side constants (T-20-09), only key NAMES surface in missingKey (T-20-07)
+- [Phase ?]: D-20-09/10/11 execution: not_configured -> 400 with message naming the missing key (undefined on the bare FIRECRAWL fast-gate path - JSON drops it); billing -> 402 'provider credits exhausted'; rate_limited -> 429 with result.message; the 502 family untouched
+- [Phase ?]: FAL-05 is verification-only (RESEARCH caveat 6): Phase 19/20-02 already wired modelUsed/modelChain; proven by 3 greps + a tsx identity smoke rather than new code
+- [Phase ?]: The catalog stores ~latest aliases with a LEADING ~ ('~anthropic/claude-sonnet-latest'), not 'anthropic/claude-sonnet-latest' - the plan's smoke literal would fail; corrected smoke uses the real alias and still proves the FAL-05 intent (ids resolve to providers, flow verbatim)
+- [Phase 21-settings-ui]: SET-06 infra shipped (21-01): vendored shadcn Command/Popover via official CLI; cmdk@^1.1.1 is the phase's single new npm dep, recorded in package-lock.json via npm (no yarn.lock). The v4 CommandGroup heading contract is the compiled descendant form (**[[cmdk-group-heading]]:text-xs...), NOT the literal class string. Wrapper (21-04) MUST pass data-checked per CommandItem — vendored CheckIcon is gated on group-data-[checked=true] but cmdk only emits data-selected/aria-selected (PATTERNS Pitfall 1). SET-06 stays open until 21-05
+- [Phase 21-settings-ui]: ServableModel six-field shape { id, name, family, providerID, costInput, costOutput } defined once in model-picker-logic.ts — the shared prop type page.tsx (21-03), model-picker.tsx (21-04), and the form (21-05) all import — Avoids three drifting local copies of the trimmed prop shape
+- [Phase 21-settings-ui]: model-picker-logic.ts's ONLY import is import type { ModelProviderId } from '@/lib/models/catalog' — erased at compile; a value import would drag the 1131-row snapshot into the client bundle (T-17-09) — Client-safety canary grep (catalog.json -> 0) stays clean; the union cannot drift from catalog.ts
+- [Phase 21-settings-ui]: Task 1/2 executed as one TDD cycle per the plan's tdd=true flag on Task 1: the full Vitest suite was authored in Task 1's RED phase (failing test commit) and the module implemented in GREEN — RED test commit 35617605 strictly precedes GREEN feat commit 0c69783f — the TDD gate is satisfied; Task 2's deliverable is the RED commit
+- [Phase 21-settings-ui]: P03: settings/page.tsx delivers the five provider-aware props (providers SET-01, servableByProvider SET-02, unionServableModels SET-04, defaults from PROVIDER_DEFAULT_MODELS SET-03 source, savedChain SET-05) — all server-computed through a single provider-scoped trimRow (mm.id === id && mm.providerID === provider, Anti-Pattern 1 lock); catalog.json stays server-only (T-17-09); defaultPrimary deleted (defaults subsumes it)
+- [Phase 21-settings-ui]: P03: Rule 3 auto-fix — model-settings-form re-pointed to the new props in this plan (type-only imports, union staleness gate, union option sources, sonnet-only branch removed) so the plan's tsc gate passes; 21-05 Task 1 lands the provider selector dimension on top. Flag for 21-05: import ModelProviderId from @/lib/models/catalog (canonical source) — model-picker-logic imports but does NOT re-export it (TS2459)
+- [Phase 21-settings-ui]: P04: model-picker.tsx wrapper — no manual Check icon (vendored CommandItem auto-renders its CheckIcon gated on group-data-[checked=true]; a Check import would be dead code)
+- [Phase 21-settings-ui]: P04: ModelProviderId deliberately NOT imported in the wrapper — the plan's import spec is self-contradictory (canonical-source import trips the lib/models/catalog->0 canary; model-picker-logic imports but does not re-export it -> TS2459). Resolved via ServableModel['providerID'] indexed access — same union, cannot drift, canary stays 0
+- [Phase 21-settings-ui]: P04: trigger label uses the truthy-value form ({value ? selected?.name ?? value : placeholder}) — the plan's literal ??-chain renders a BLANK trigger for value='' (in-progress fallback row); the placeholder must show instead
+- [Phase 21-settings-ui]: P04: row anatomy wrapped in a flex flex-col container so the family subtitle renders as line 2 — a block span as a direct flex child of the vendored CommandItem (flex items-center) would sit inline after the cost caption (UI-SPEC Row Anatomy is authoritative)
+- [Phase 21-settings-ui]: P04: cn() used for the cost-caption conditional (justifies the plan-mandated cn import; tailwind-merge output identical to the plan's template literal)
+- [Phase 21-settings-ui]: P05: initial provider = savedChain[0].providerID (saved primary's provider) else anthropic (REG-05 fast path); handleProviderChange is a function declaration calling primaryAfterProviderSwitch — hint set only on resetToDefault, fallbacks never touched (D-21-02), reset draft-only (D-07)
+- [Phase 21-settings-ui]: P05: primary ModelPicker options = optionsForSlot(primary, fallbacks, -1, servableByProvider[provider]) — slotIndex -1 excludes primary + all fallback ids (Open Question 3) so Save can't hit duplicate_model; primary onChange also clears resetHint (hint lifecycle RESOLVED)
+- [Phase 21-settings-ui]: P05: saved-chain recap entries resolve provider via unionServableModels lookup and name via savedChain with raw-id fallback (T-21-14/15); recap gated on a lastSaved snapshot equality check so it self-hides on any slot edit
+- [Phase 21-settings-ui]: P06: triggerLabel precedence locked — '' → null (placeholder), non-empty valueName → valueName (CR-01 fix: the deduped options are NOT the trigger-name source for the primary slot), else options.find()?.name, else the raw value verbatim (UI-SPEC raw-id fallback)
+- [Phase 21-settings-ui]: P06: pinnedSelection contract locked — null when !value or !valueName (stale/unknown stays on the staleLabel path), null when the value IS selectable (normal data-checked row), else { name: valueName, onlyModel: options.length === 0 }; onlyModel true = anthropic single-model empty-list case (WR-02)
+- [Phase 21-settings-ui]: P06: pinned row carries data-checked (boolean true) — the vendored CommandItem auto-renders its CheckIcon on group-data-[checked=true], closing GAP-2's primary checkmark with the name-resolvable source review CR-01 names
+- [Phase 21-settings-ui]: 21-07: valueName source = the already-trimmed unionServableModels prop (server-validated, T-17-09) — no new import, catalog.json stays server-only; every valid primary resolves, a stale id yields undefined so the raw-id fallback + staleLabel path stay untouched (CR-01 call-site fix)
+- [Phase 21-settings-ui]: 21-07: markDirty uses the updater form setStatus((s) => (s === 'saving' ? s : 'idle')) — review WR-01 exact fix; a just-started save is never relabeled by a concurrent edit; markDirty fires from all six draft mutators and is NOT called from handleSave (it manages its own 'saving' → 'saved'|'error' transitions); setResetHint lifecycle untouched
+- [Phase 22-verification-gate]: VER-01 (22-01): the two RESEARCH-documented test gaps (direct isOpenRouterPlatformRateLimit tests, statusCode-200 -> 'input' pin) are closed at their home files per D-16; the three locked matrices (collision canaries catalog.test.ts:182-192, 4-cell 429 hop modelConfig.test.ts:151-177, error classes :56-77) audited green and left byte-identical (D-22-06)
+- [Phase 22-verification-gate]: VER-04 (22-02): the security-matrix grep is a permanent Vitest gate (D-22-07) — src/lib/verification/security-grep.test.ts fails on any OPENROUTER in client-reachable code ('use client'/components/Server Actions) or any NEXT_PUBLIC_OPENROUTER in src/ or .env.example; ALLOWED = lib/env.ts + modelFactory.ts + analyzeCompany.ts (verified 3-file baseline); Test 4 canary keeps it non-vacuous (Pitfall 6); Test-1 self-skip added (Rule 1 — the gate's own isClient predicate holds the 'use client' literal, so without the skip it fail-open on its own source); runs with every npm test (377 passed | 6 skipped)
+- [Phase 22-verification-gate]: VER-02/VER-05 (22-03): Playwright e2e harness built — @playwright/test@^1.62.1 + @clerk/testing@^2.2.16 devDeps (D-22-04), webServer auto-start config, project-based Clerk auth setup (never globalSetup, Pitfall 3), real Clerk login via clerkSetup + clerk.signIn (D-22-05 — no cookie-injection stubs), storageState e2e/.clerk/user.json gitignored; auth-setup smoke green proves real auth end-to-end.
+
+D-22-05 account mechanics: dedicated test staff account e2e-staff@arclumenpartners.com provisioned via Clerk Backend API createClerkClient().users.createUser (RESEARCH Open Questions 1 first path); E2E_CLERK_USER_EMAIL/E2E_CLERK_USER_PASSWORD written to .env.local only (gitignored); no dashboard fallback or human checkpoint needed.
+Post-login navigation target (22-03 Rule 3 fix): RESEARCH Pattern 1's waitForURL('**/companies/**') is wrong for this app — the post-login dashboard is '/' (the (dashboard) route group behind requireStaffAccess), not a recall.ai-style /companies/**; clerk.signIn sets the __session cookie but does not auto-redirect, so the setup navigates to '/' explicitly and asserts the ArcLumen 360 dashboard renders — same real-auth proof intent, correct target.
+VER-02/VER-05 requirement status: harness + test account (the operator prerequisite) are resolved by 22-03, but VER-02/VER-05 remain Pending in REQUIREMENTS.md — their evidence (live-key analyze e2e, browser UAT) lands in plans 22-05/22-06.
+
+- [Phase 22]: Live collision pair for badge disambiguation is claude-sonnet-4-6 (anthropic) vs anthropic/claude-sonnet-4.6 (openrouter) — the plan's claude-sonnet-5 pair does not materialize (claude-sonnet-5 is opencode-only, not servable)
+- [Phase 22]: Persisted-DB UI specs must tear down saved fallback rows per test (clearFallbacks) — the saved chain survives across runs and addFallback caps at 2 rows
+- [Phase 22]: Badge locators scope to [data-slot=badge] DOM contract, not generic span+text filters that over-match row subtitles
+- [Phase 22-verification-gate]: P05: VER-02 model-picker save step is state-tolerant (Rule 1/3 spec-determinism fix): the draft may already hold the target primary from the 22-04 probe (disabled WR-02 pinned row, data-checked+aria-disabled) — only open the picker when the trigger lacks the OpenRouter badge+name; click only enabled rows filtered by provider badge; tear down leftover fallbacks first (VER-05 clearFallbacks); assertions never weakened
+- [Phase 22-verification-gate]: P05: VER-02 live run returned 402 from OpenRouter (key uncredited: limit null, is_free_tier true) — recorded as the documented pending-credit limitation (IN-03 billing observation for plan 22-07), no retry per plan, no assertion weakening; full stack through the provider contract proven (real Clerk login, Settings UI save, analyze route)
+- [Phase 22-verification-gate]: 22-VERIFICATION.md status: passed (plan-mandated frontmatter) means the RECORD is complete — 5/5 success criteria mapped to executed evidence — not that every live assertion is green; VER-02/VER-03 live billing-success assertions (201 + modelUsed 'anthropic/claude-sonnet-4.6') are explicitly PENDING-credit (uncredited OPENROUTER_API_KEY, limit null, is_free_tier true) and flagged in the truth table, never falsely green. — The record's job is to map all five success criteria to executed evidence with re-runnable commands; the two live-key proofs are structurally delivered (full stack through the provider contract proven, assertions intact) but their 201/modelUsed evidence awaits key top-up. Flagging pending-credit keeps the record honest while still a complete 5/5 Evidence map.
+- [Phase 22-verification-gate]: REQUIREMENTS.md honesty at the milestone's final verification-gate: VER-02/VER-03 remain Pending (their literal satisfaction — agent_run.model_used matching the saved OpenRouter slug; an OpenRouter-only chain running successfully — awaits a credited key's 201/modelUsed evidence); VER-01/VER-04/VER-05 stay Complete. This plan records evidence shapes; it does not fabricate requirement closure. — Requirement status must reflect proven fact, not aspiration. A 402-billing terminal state is durable evidence everything up to the money works, but it is not a satisfied "matches the saved slug" claim. Marking them Complete would corrupt REQUIREMENTS.md traceability for the milestone audit.
+- [Phase 23]: 23-01: ModelProviderId grows to 4 with PROVIDER_PRECEDENCE = ['anthropic','nousresearch','openrouter','opencode'] — nousresearch MUST outrank openrouter (D-23-07 hermes ranking, index 1), anthropic first (claude-sonnet-4-6 regression lock), opencode last
+- [Phase 23]: 23-01: ProviderGate = { allowlist?, npm? }; PROVIDER_GATES: nousresearch = hermes-pair allowlist pins (D-23-05, never ~latest), opencode = npm-value gate ['@ai-sdk/openai-compatible','@ai-sdk/anthropic'] (D-23-01, GPT/Gemini self-exclude)
+- [Phase 23]: 23-01: Zen-wins dedup as one data-driven dedupeProviderRows (returns ROWS, first-providerID-wins via SNAPSHOT_PROVIDER_IDS.opencode = ['opencode','opencode-go'] — D-23-08/09/10); getServableIdsForProvider = dedup-then-gate pipeline
+- [Phase 23]: 23-01: getProviderForModelId = servable-membership precedence iteration (fail-closed null); claude-sonnet-5 anthropic->opencode + big-pickle null->opencode are DELIBERATE reworks (never deletes, why-comments); opencode servable set locked at post-dedup 39 (23+16, 0 GPT/Gemini), not pre-dedup 49
+- [Phase 23]: 23-01: PROVIDER_DEFAULT_MODELS = 4-entry Record<ModelProviderId,string> — nousresearch/hermes-4-70b (D-23-06), opencode claude-sonnet-4-6 (D-23-03, same id as anthropic default = keep-if-valid re-badge); instantiateModel dispatch stays 2-provider (Phase 25, research A4)
+- [Phase 23]: 23-02: NOUSRESEARCH_API_KEY + OPENCODE_API_KEY declared optional server-only in env.ts (z.string().optional(), D-15), byte-for-byte mirror of OPENROUTER_API_KEY; declared in .env.example with no value; import-time parse proven with keys absent AND present (T-23-07) — REG-02 declaration half — declaration-only phase boundary (23-CONTEXT line 11); Phase 25 chain-aware gate + Vercel env add deferred (research Open Question 2)
+- [Phase 23]: 23-02: The plan's Task-1 acceptance check `'KEY' in env` is unsatisfiable with any correct .optional() implementation — zod v4 omits absent optional keys from the parsed output object; verified the intended truths instead (parse-no-crash + undefined read path absent, value round-trip present) — Verification-command artifact, not an implementation defect — the code is byte-for-byte the mandated OPENROUTER mirror; future plans should assert parsed.KEY === undefined rather than 'KEY' in parsed for optional keys
+- [Phase 23]: 23-03: settings.ts verified byte-identical (zero edits) — REG-07 union-membership check over getUnionServableIds(catalogJson) is structurally provider-count-agnostic; the widened 4-provider union from 23-01 covers opencode + nousresearch chains with no code change (verify-only honored; git diff empty, tsc 0 errors, 0 opencode/nousresearch mentions)
+- [Phase 23]: 23-03: settings.test.ts new REG-07 4-provider case overrides the beforeEach union mock INLINE (mockReturnValue with 5 ids — anthropic claude-sonnet-4-6 + openrouter anthropic/claude-sonnet-4.6 + nousresearch pin + opencode Zen deepseek-v4-flash + opencode Go-exclusive hy3) rather than widening beforeEach — keeps the existing 8-case security matrix byte-identical (31 insertions/0 deletions) and proves the logical opencode provider spans both snapshot providerIDs at the save seam; chain deepseek-v4-flash + nousresearch/hermes-4-70b saves { ok: true } with raw ids verbatim (D-04)
+- [Phase 23]: 23-03: reject half of REG-07 NOT duplicated — the existing non-servable case (claude-opus-4-9 → invalid_model, no write) already proves rejection against a mocked union; the new case proves only the save-through half
+- [Phase 23]: 23-04: PROVIDER_NAMES (4-entry Record<ModelProviderId, string>) is the single display-name source, shared by the client-side providerName() and the settings page's server-computed selector options — both hardcoded 2-way provider-name ternaries die (REG-01, research Pitfall 4); providerName return type widens to string (all consumers render it as React text, tsc-verified)
+- [Phase 23]: 23-04: trimRow rewired to dedupeProviderRows(catalogJson, provider) — the Zen-wins dedup helper IS the provider scope (filters by SNAPSHOT_PROVIDER_IDS[provider]), so the 5 go-exclusive opencode-go ids (hy3, mimo-v2.5, mimo-v2.5-pro, qwen3.7-max, qwen3.7-plus) resolve name/cost instead of the raw-id/0 fallback (research Open Question 4)
+- [Phase 24]: 24-01: Tasks 1-3 shipped as ONE atomic commit (D-24-04) — snapshot regroup, registry type migration, fixture migration + modelFactory re-route; intermediate states intentionally red, green gate at end of Task 3
+- [Phase 24]: 24-01: Grouped snapshot keyed by the snapshot's own providerID string values (D-24-05) — opencode and opencode-go stay SEPARATE groups (never merged); the registry's logical-provider mapping (SNAPSHOT_PROVIDER_IDS) is unchanged; keys sorted alphabetically for diff stability
+- [Phase 24]: 24-01: getAllModels() is the single flattening owner of the restructure — getModelDisplayName, dedupeProviderRows, and modelFactory's openrouter row lookup route through it; registry gates/precedence/union/dedup byte-identical (D-24-05, git-diff-verified 3 intended hunks)
+- [Phase 24]: 24-01: Hermes nousresearch fixture rows re-valued to live-verified data (2026-08-04): 0.05/0.2 and 0.09/0.37 per-MTok, context 131072, structuredOutputs false (hermes advertises response_format, not structured_outputs — Pitfall 5); openrouter mirror rows keep 0.2/0.6 and 0.8/1.2
+- [Phase ?]: Go roster drift escalation (Plan 24-02 Task 2, Landmine 1) — user chose OPTION 1 (wait)
+- [Phase 24-02]: D-24-07 AMENDED (deliberate strictness revisit, user-approved 2026-08-04): Go drift persists post-CLI-upgrade (opencode 1.18.12 = npm latest, 18 opencode-go rows vs 25 live — models.dev lags by hy3-preview + 6 CLI-filtered ids), so the escalation options were presented and the user chose the deliberate revisit. Implemented as a pinned GO_KNOWN_LIVE_ONLY_IDS exception (commit 444bb9ed): the Go compare accepts ONLY the 7 known live-only ids (minimax-m2.5, kimi-k2.5, glm-5, qwen3.5-plus, mimo-v2-pro, mimo-v2-omni, hy3-preview); ANY NEW live-only id or ANY CLI-only id still aborts; ZEN STAYS FULLY STRICT; accepted drift is logged to stderr every run (never silent). npm run models:fetch now exits 0 (regenerated snapshot restored — Plan 03 owns the commit). — The strict D-24-07 check cannot pass with any available CLI (registry-side gap); the user's explicit sign-off is the documented, non-silent exception the research Landmine 1 escalation branch requires. The exception is acceptance-only — the snapshot's opencode-go group still holds the 18 CLI rows until a future release closes the gap (then the pinned set becomes inert and can be deleted).
+- [Phase 24-refresh-script-catalog-data]: D-24-11 deliberate re-lock APPROVED by blocking human checkpoint (2026-08-04): canaries re-locked to the ACTUAL regenerated snapshot in the same commit as the snapshot (56d9fdaa) — COUNT-STABILITY 40 {compat 23, anthropic 17}, NO-FLIP pool 66 (dual 12 unchanged, go-exclusive 6 +qwen3.8-max), boundary canary = hermes pins; opencode-go ships 18 rows (accepted D-24-07 drift — models.dev lags live Go by 7); all CAT-01..04 marked complete
+- [Phase 24]: D-24-12 full Nous canary group shipped (commit 80d06ee8): 292 rows + api mapping, hermes pins through the gate, x1e6 pricing (0.05/0.2, 0.09/0.37 @ 131072 ctx), structuredOutputs non-vacuous (hermes false, 214/78), family + qwen/qwen3.8-max counter-example, 11 ~latest self-excluded, fixture facts; counts re-locked from actual snapshot with re-lock-date comment (D-24-11)
+- [Phase 25-run-path-modelfactory-seam]: 25-01: npm install recorded ^3.0.22 in package.json (not the plan's literal ^3.0.20) — standard npm caret resolution; ^3.0.22 ⊆ ^3.0.20, both resolve to the research-verified 3.0.22
+- [Phase 25-run-path-modelfactory-seam]: 25-01: constructorCalls capture arrays typed precisely (OpenAICompatibleOptions[]/AnthropicOptions[]) instead of the plan's unknown[] — RUN-06 tests read opts.supportsStructuredOutputs without casts
+- [Phase 25-run-path-modelfactory-seam]: 25-01: RUN-02 dispatch tests are RESULT-SHAPE assertions on marker'd callable returns (never mock.calls history) — order-independent under parallel/random test order, immune to beforeEach's vi.clearAllMocks
+- [Phase 25-run-path-modelfactory-seam]: 25-01: TDD split per plan — Tasks 1+2 are test-only RED tasks whose shared GREEN lands in Task 3; RED 42152c6e + RED 2c624ac5 strictly precede GREEN 970112d9 (TDD gate satisfied)
+
+**v1.6 Signals & Offerings (queued, not yet started — see PROJECT.md "Queued Milestone"):**
+
+- **Reconciliation (2026-08-04):** v1.6 was planned end-to-end (REQUIREMENTS.md 27 reqs, ROADMAP.md Phase 28-30, Phase 28 fully planned with plan-checker PASS) in an isolated worktree (`workspace/signals`) that forked from this branch's `a6b583a9` ancestor and had no visibility into v1.5's real progress. Reconciled by merging this branch (`chore/18-verification-gate`) into `workspace/signals` and renumbering the queued milestone's phases 30/31/32 → 28/29/30. Zero code conflict (`workspace/signals` had made no real source changes — `schema.ts` was byte-identical between branches at merge time); conflicts were `.planning/{PROJECT,STATE,ROADMAP,REQUIREMENTS}.md` + `.gitignore` only, resolved by keeping this branch's content as the live/active truth and appending v1.6's content as clearly-marked queued sections.
+- [Phase 28 (queued)]: `signal_offering_link`'s discriminator reuses the existing `recordTypeEnum`/`record_type` Postgres type instead of a new `pgEnum('signal_type', ...)`, which would collide with the pre-existing unrelated `signal_type` enum in `schema.ts` (v1.0 buying-signal entity)
+- [Phase 28 (queued)]: New query modules will be named `companySignals.ts`/`personaSignals.ts`, never `signals.ts` — that name is already taken by the unrelated core `signal` (buying-signal) entity's query module
+- [Phase 28 (queued)]: No `db.transaction()` anywhere in this phase's plan — `neon-http` driver has zero transaction support; seed script and delete-guards use sequential dependency-ordered operations instead
+- [Phase 28 (queued)]: A first execution attempt of the queued Phase 28's schema+push plan (then numbered 30-01) was run in a git worktree that mistakenly branched from this branch's OLDER tip (`1fd116ee`, predating 235 commits of subsequent work) — the resulting `worktree-agent-a332a750f9e7bd06d` branch/worktree was discarded, not merged; Phase 28 has not actually been executed against this branch yet
 
 ### Pending Todos
 
-None yet — Phase 30 planned, not yet executed.
+None yet for v1.5. v1.6 is fully planned and queued (see Decisions above) but execution has not started — do not begin Phase 28 until v1.5 ships and `/gsd-complete-milestone` archives it.
 
 ### Blockers/Concerns
 
-- **v1.3 Phase 18/VER-04 remains open** (Vercel preview + `/settings` render + `exec|spawn|child_process` grep gate) — carried in PROJECT.md Active, not part of v1.4's roadmap, but not yet closed either.
-- **No numeric pricing field on `offering`** — `commercial_model_text` (free text, mechanism only) per spec Section 8; do not invent/infer a price figure from seed data during Phase 30 seeding.
-- **GBS/Technology offering-name boundary is unresolved** — "Automation & AI Portfolio Governance & Benefit Realisation" exists in both catalogues with overlapping meaning; v1.4 seeds it once under GBS only. Resolve the boundary before any future practice-area seeding (OFR-SEED-01, deferred).
-- **Category taxonomy is free text, not an enum** — do not hardcode the 8 GBS company-signal categories or 5 persona-signal categories as a fixed enum in Phase 30's schema; other practice areas will need different categories (spec Section 8).
-- Carried from v1.1/v1.2/v1.3: persona-side Arcpedia content gap (seed data); 3 VERIFICATION.md files still `human_needed`; "any authenticated Clerk user = staff" model has no role system (acceptable per PROJECT.md scope).
+- **OpenRouter default primary slug (SET-03) is undecided** — must be pinned concrete slug chosen at Phase 21 (or earlier) planning; roster-verify against committed snapshot per D-02 doctrine.
+- **`strict:false` per-model pass (Conflict 9)** — open-source models via OpenRouter may not honor strict JSON-schema; decide during Phase 19 servable-set curation, never global.
+- **v1.3 "no `/`" invariant tests are now obsolete** — OpenRouter ids legitimately contain `/` and `~`; those tests must be reworked deliberately to provider-aware contracts (PITFALLS 7), not deleted.
+- **Same-provider 429 invariants (D-01/D-03) must survive the hop-aware extension** — Phase 20's 4-cell matrix is the lock; v1.3's never-advance behavior within a provider is preserved verbatim.
+- **60s ceiling is still a hard wall** — OpenRouter proxy latency + SDK retry pile-up must stay under the existing 54s loop clamp (FAL-04 budget); `maxDuration` stays at Hobby's 60.
+- Carried from v1.1/v1.2: persona-side Arcpedia content gap (seed data); 3 VERIFICATION.md files still `human_needed`; "any authenticated Clerk user = staff" model has no role system (acceptable per PROJECT.md scope).
+- OPENROUTER_API_KEY is UNCREDITED (limit: null, is_free_tier: true) — the VER-02 live analyze e2e (22-05) returns 402 and cannot produce its billing-success evidence (201 + modelUsed read-back) until credits are topped up; gates VER-02 requirement + plan 22-07 proof recording; re-run npx playwright test e2e/ver-02-analyze.spec.ts after top-up
+- Go roster drift (Plan 24-02 Task 2, Landmine 1): opencode CLI at latest stable 1.18.12, models.dev still lags live by 7 Go ids (minimax-m2.5, kimi-k2.5, glm-5, qwen3.5-plus, mimo-v2-pro, mimo-v2-omni, hy3-preview). User chose WAIT — D-24-07 strictness intact; Plan 03 regeneration blocked by design until a future opencode/models.dev release closes the gap; re-run the 24-02 Task 2 checkpoint later
+- **(v1.6, queued) Do not start Phase 28 until v1.5 ships** — running two milestones' phases concurrently against this single STATE.md would corrupt progress tracking for whichever session is actively executing v1.5
+- **(v1.6, queued) No numeric pricing field on `offering`** — `commercial_model_text` (free text, mechanism only) per spec Section 8; do not invent/infer a price figure from seed data during Phase 28 seeding
+- **(v1.6, queued) GBS/Technology offering-name boundary is unresolved** — "Automation & AI Portfolio Governance & Benefit Realisation" exists in both catalogues with overlapping meaning; v1.6 seeds it once under GBS only
 
 ## Deferred Items
 
-Items acknowledged and carried forward, still open:
+Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 | Category | Item | Status |
 |----------|------|--------|
@@ -94,19 +225,18 @@ Items acknowledged and carried forward, still open:
 | uat_gap | 02-HUMAN-UAT.md | partial — 4 pending scenarios |
 | uat_gap | 04-HUMAN-UAT.md | partial — 1 pending scenario (Persona-side Arcpedia content gap) |
 | verification_gap | 01/02/03/04-VERIFICATION.md | human_needed |
-| verification_gap | v1.3 Phase 18 VER-04 (Vercel preview + grep gate) | unexecuted, left open when v1.4 started |
-| future_requirement | HYP-01 Hypotheses feature | deferred past v1.4 (spec Section 1) |
-| future_requirement | SIG-CAT-01 promote signal category to lookup table | deferred until a 2nd practice area is seeded (spec Section 8) |
-| future_requirement | SIG-CO-01 dual-persona co-occurrence scoring | deferred to Hypotheses milestone (spec Section 8) |
-| future_requirement | OFR-PRICE-01 numeric pricing fields | deferred pending firm confirmation (spec Section 8) |
-| future_requirement | OFR-SEED-01 seed remaining 5 practice areas | blocked on GBS/Technology naming-boundary resolution (spec Section 8) |
+| tech_debt | CAT-03 `opencodeSlugToModelId` has no production consumer (tested only) | open — and MUST NOT be generalized to OpenRouter ids (PITFALLS 1) |
+| tech_debt | Stale root docs (README/CLAUDE.md still describe pre-Next.js stack) | open |
+| future_milestone | v1.6 Signals & Offerings — fully planned (27 reqs, Phases 28-30, Phase 28 plan-checker PASSED) | queued — starts after v1.5 ships, see PROJECT.md "Queued Milestone" |
 
 ## Session Continuity
 
-Last session: 2026-08-04T12:00:00.000Z
-Stopped at: Phase 30 fully planned (CONTEXT/RESEARCH/PATTERNS/VALIDATION/6×PLAN.md), plan-checker PASSED
+Last session: 2026-08-04T11:38:19.935Z
+Stopped at: Completed 25-01-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
 
-- Execute Phase 30 with `/gsd-execute-phase 30` (6 plans, 3 waves: schema+push → 4 parallel query modules → seed script). Requires a real `.env.local`/`DATABASE_URL` for `npm run db:push` and `npm run seed:gbs` to run against the live Neon dev DB.
+- Plan Phase 23 with /gsd-plan-phase 23
+- Vercel env: declare `NOUSRESEARCH_API_KEY` + `OPENCODE_API_KEY` (operator dashboard action, D-11-style human item) during Phase 23/25
+- Phase 27: live key-backed `json_schema` probe at Zen/Go/Nous gates the `supportsStructuredOutputs` flip (RUN-06) — schedule with billing-credit verification

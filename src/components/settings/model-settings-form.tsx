@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { ArrowDown, ArrowUp, Plus, X } from 'lucide-react';
 import { saveSettingsAction } from '@/app/actions/settings';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -12,6 +13,19 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { dateFormatter } from '@/components/explorer/explorer-format';
+import { ModelPicker } from './model-picker';
+// Type-only imports — erased at compile (T-17-09): model-picker-logic is a
+// client-safe pure module, and a type-only catalog import never reaches a
+// client bundle. ModelProviderId comes from its canonical source (catalog.ts
+// declares the union; model-picker-logic does not re-export it).
+import {
+  optionsForSlot,
+  primaryAfterProviderSwitch,
+  providerName,
+  staleIds as computeStaleIds,
+} from './model-picker-logic';
+import type { ServableModel } from './model-picker-logic';
+import type { ModelProviderId } from '@/lib/models/catalog';
 
 // Reason-code copy map — exactly the three codes saveSettingsAction can emit
 // (17-UI-SPEC lines 132/134/135, apostrophes force double-quoted strings).
@@ -26,29 +40,50 @@ const ERROR_COPY: Record<string, string> = {
 };
 
 type SavedSettings = { primaryModel: string; fallbackModels: string[] };
-type ServableModel = { id: string; name: string; costInput: number; costOutput: number };
 
 export function ModelSettingsForm({
   saved,
-  servableModels,
-  defaultPrimary,
+  providers,
+  servableByProvider,
+  unionServableModels,
+  defaults,
+  savedChain,
   catalogGeneratedAt,
 }: {
   saved: SavedSettings | null;
-  servableModels: ServableModel[];
-  defaultPrimary: { id: string; name: string };
+  providers: { id: ModelProviderId; name: string }[];
+  servableByProvider: Record<ModelProviderId, ServableModel[]>;
+  unionServableModels: ServableModel[];
+  defaults: Record<ModelProviderId, { id: string; name: string }>;
+  savedChain: { id: string; name: string; providerID: ModelProviderId | null }[] | null;
   catalogGeneratedAt: string;
 }) {
   // All edits stage in local draft state (D-07) — nothing persists until Save
   // (D-12). At mount the draft mirrors the saved row; the empty-state prefill
   // is the server-computed default chain head (REG-05).
-  const [primary, setPrimary] = useState<string>(saved?.primaryModel ?? defaultPrimary.id);
+  // Initial provider = the saved primary's provider (savedChain[0] is the
+  // saved primary's chain entry — server-resolved, plan 21-03), else the
+  // REG-05 Anthropic fast path.
+  const [provider, setProvider] = useState<ModelProviderId>(
+    savedChain?.[0]?.providerID ?? 'anthropic',
+  );
+  const [primary, setPrimary] = useState<string>(saved?.primaryModel ?? defaults[provider].id);
   const [fallbacks, setFallbacks] = useState<string[]>(saved?.fallbackModels ?? []);
   const [isPending, startTransition] = useTransition();
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Non-blocking provider-switch reset hint (D-21-01, UI-SPEC §Copywriting) —
+  // informational slate-600 text under the selector, never red.
+  const [resetHint, setResetHint] = useState<string | null>(null);
+  // The saved-chain recap gate (D-21-10): records what the last successful
+  // Save persisted, so the recap renders only while the draft still equals
+  // it — any edit to a slot fails the equality check and hides the recap.
+  const [lastSaved, setLastSaved] = useState<{ primary: string; fallbacks: string[] } | null>(
+    null,
+  );
 
-  const servableIds = servableModels.map((m) => m.id);
+  // Union-wide servable set (D-21-14) — the staleness gate widened from the
+  // anthropic-only list to the union servable set (21-UI-SPEC SET-08).
 
   // Staleness derives from the CURRENT DRAFT, never the immutable `saved` props
   // (they never change — a saved-stale id would block Save forever). An empty
@@ -57,7 +92,8 @@ export function ModelSettingsForm({
   // immediately; replacing it in a picker (or removing a stale fallback row)
   // clears staleIds and re-enables Save — "replacing the value re-enables
   // Save" (17-UI-SPEC line 192).
-  const staleIds = [primary, ...fallbacks].filter((id) => id && !servableIds.includes(id));
+  const unionIds = new Set(unionServableModels.map((m) => m.id));
+  const staleIds = computeStaleIds([primary, ...fallbacks], unionIds);
   const saveDisabled = isPending || staleIds.length > 0;
 
   function handleSave() {
@@ -72,6 +108,12 @@ export function ModelSettingsForm({
       if (result.ok) {
         setStatus('saved');
         setErrorMsg(null);
+        // Record the persisted chain for the saved-chain recap (D-21-10) and
+        // clear the reset hint — the reset is moot once the primary is saved
+        // (RESEARCH Open Question 2 — RESOLVED). Unfilled fallback rows are
+        // dropped from the record, matching the submitted payload below.
+        setLastSaved({ primary, fallbacks: fallbacks.filter((id) => id !== '') });
+        setResetHint(null);
       } else {
         // D-13: the draft is preserved verbatim on failure — never reset the
         // useState; retry = press Save again with the draft still staged.
@@ -81,7 +123,17 @@ export function ModelSettingsForm({
     });
   }
 
+  // WR-01 — after a failed save the red errorMsg must not persist while the
+  // user edits, and 'Saved.' must not survive a dirty draft; the 'saving'
+  // status is exempt so a just-started save is never relabeled by a concurrent
+  // edit (review WR-01's exact fix).
+  function markDirty() {
+    setStatus((s) => (s === 'saving' ? s : 'idle'));
+    setErrorMsg(null);
+  }
+
   function moveFallback(index: number, dir: -1 | 1) {
+    markDirty();
     setFallbacks((prev) => {
       const target = index + dir;
       if (target < 0 || target >= prev.length) return prev;
@@ -92,24 +144,42 @@ export function ModelSettingsForm({
   }
 
   function removeFallback(index: number) {
+    markDirty();
     setFallbacks((prev) => prev.filter((_, j) => j !== index));
   }
 
   function addFallback() {
+    markDirty();
     setFallbacks((prev) => (prev.length >= 2 ? prev : [...prev, '']));
   }
 
-  // D-03 picker row: name + cost caption on one row via the vendored
-  // SelectItem span-gap (`*:[span]:last:flex ... gap-2`). A stale id (dropped
-  // from the roster) has no snapshot entry the client may read — fall back to
-  // the raw id (getModelDisplayName D-06 fallback rule).
-  function optionLabel(id: string) {
-    const m = servableModels.find((mm) => mm.id === id);
-    if (!m) return id;
-    return `${m.name} · $${m.costInput} / $${m.costOutput} per MTok`;
+  // D-21-01/03: provider switch = keep-if-valid → reset-to-provider-default.
+  function handleProviderChange(next: ModelProviderId) {
+    // A provider switch stages a new primary (draft edit) — clear stale save
+    // feedback even when keep-if-valid preserves the value (WR-01).
+    markDirty();
+    // Fallbacks are NEVER touched on a provider switch (D-21-02): the chain
+    // may become cross-provider by design — the union pickers still render
+    // them verbatim.
+    const result = primaryAfterProviderSwitch(primary, next, servableByProvider, defaults);
+    setPrimary(result.primary);
+    // The reset is draft-only (D-07) — nothing persists until Save.
+    if (result.resetToDefault) {
+      setResetHint(
+        `Primary model reset to ${defaults[next].name} for ${
+          providers.find((p) => p.id === next)?.name ?? next
+        }.`,
+      );
+    } else {
+      setResetHint(null);
+    }
+    setProvider(next);
+    // Pitfall 6: if the reset lands on an id a preserved fallback already
+    // holds, the server duplicate_model backstop surfaces the existing
+    // ERROR_COPY — do NOT clear the fallback (research recommendation).
   }
 
-  const isStale = (id: string) => id !== '' && !servableIds.includes(id);
+  const isStale = (id: string) => id !== '' && !unionIds.has(id);
 
   return (
     <div>
@@ -120,7 +190,7 @@ export function ModelSettingsForm({
               No model configuration saved
             </p>
             <p className="text-sm text-slate-500">
-              You're currently using the default model — {defaultPrimary.name} — with no
+              You're currently using the default model — {defaults[provider].name} — with no
               fallbacks. Choose a primary model below to customize.
             </p>
           </div>
@@ -136,28 +206,63 @@ export function ModelSettingsForm({
           </p>
         </div>
 
+        {/* D-21-03: the always-valued provider selector sits directly above
+            the Primary model label (SET-01). Stays a shadcn Select (D-21-06) —
+            the Combobox swap is scoped to model slots only. */}
         <div className="flex flex-col gap-2">
-          <p className="text-[12px] font-normal leading-[1.4] text-slate-500">Primary model</p>
-          <Select value={primary} onValueChange={setPrimary}>
-            <SelectTrigger id="primary-model" size="default">
+          <p className="text-[12px] font-normal leading-[1.4] text-slate-500">AI provider</p>
+          <Select value={provider} onValueChange={handleProviderChange}>
+            <SelectTrigger aria-label="AI provider" size="default">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {servableModels.map((m) => (
-                <SelectItem key={m.id} value={m.id}>
-                  <span>{m.name}</span>
-                  <span className="text-[12px] font-normal leading-[1.4] text-slate-500">
-                    · ${m.costInput} / ${m.costOutput} per MTok
-                  </span>
+              {providers.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
                 </SelectItem>
               ))}
-              {isStale(primary) ? (
-                <SelectItem key={primary} value={primary} disabled>
-                  <span>{optionLabel(primary)}</span>
-                </SelectItem>
-              ) : null}
             </SelectContent>
           </Select>
+          {/* D-21-01: the non-blocking reset hint — informational slate-600,
+              never red (it describes a successful draft reset, not an error). */}
+          {resetHint !== null ? (
+            <p className="text-[14px] font-normal leading-[1.5] text-slate-600">{resetHint}</p>
+          ) : null}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <p className="text-[12px] font-normal leading-[1.4] text-slate-500">Primary model</p>
+          {/* D-21-06: the primary slot is a Command Combobox, provider-scoped
+              (SET-02). slotIndex -1 = the primary direction: options exclude
+              the primary id AND every fallback-chosen id (Open Question 3) so
+              Save can never hit duplicate_model. */}
+          <ModelPicker
+            id="primary-model"
+            ariaLabel="Primary model"
+            value={primary}
+            // CR-01 name seam: the primary id is excluded from its own options
+            // by optionsForSlot(slotIndex = -1) dup-chain prevention, so the
+            // trigger name resolves from the union instead (the 21-06 valueName
+            // prop the wrapper's triggerLabel prefers; a stale id yields
+            // undefined → raw-id fallback + staleLabel path unchanged).
+            valueName={unionServableModels.find((m) => m.id === primary)?.name}
+            options={optionsForSlot(primary, fallbacks, -1, servableByProvider[provider])}
+            onChange={(v) => {
+              markDirty();
+              setPrimary(v);
+              // Hint lifecycle (Open Question 2 — RESOLVED): a manual primary
+              // edit supersedes the provider-switch reset — clear the hint.
+              setResetHint(null);
+            }}
+            placeholder="Select a model…"
+            badge={provider}
+            grouped={false}
+            staleLabel={
+              isStale(primary)
+                ? (savedChain?.find((sc) => sc.id === primary)?.name ?? primary)
+                : null
+            }
+          />
           {isStale(primary) ? (
             <p className="text-[14px] font-normal leading-[1.5] text-red-600">
               This model is no longer runnable — pick a replacement before saving.
@@ -166,136 +271,83 @@ export function ModelSettingsForm({
         </div>
 
         <div className="flex flex-col gap-2 border-t border-slate-100 pt-4">
-          {servableModels.length === 1 ? (
-            <>
-              <p className="text-[12px] font-normal leading-[1.4] text-slate-500">
-                No additional models available — only one model is runnable right now.
-              </p>
-              {/* A stale saved fallback must stay renderable and removable even
-                  in the sonnet-only branch (D-10/D-11 must-have truth):
-                  otherwise the stale id lingers in the draft, Save is blocked,
-                  and no row exists to clear it with. Replacement is impossible
-                  here (no other servable models), so remove is the only exit. */}
-              {fallbacks.map((fb, i) =>
-                isStale(fb) ? (
-                  <div key={i} className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2">
-                      <Select value={fb} onValueChange={() => {}}>
-                        <SelectTrigger id={`fallback-${i + 1}`} className="flex-1 min-w-0">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={fb} disabled>
-                            <span>{optionLabel(fb)}</span>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Remove fallback"
-                        onClick={() => removeFallback(i)}
-                      >
-                        <X />
-                      </Button>
-                    </div>
-                    <p className="text-[14px] font-normal leading-[1.5] text-red-600">
-                      This model is no longer runnable — pick a replacement before saving.
-                    </p>
-                  </div>
-                ) : null
-              )}
-            </>
-          ) : (
-            <>
-              <p className="text-[12px] font-normal leading-[1.4] text-slate-500">
-                Fallback models
-              </p>
-              {fallbacks.map((fb, i) => (
-                <div key={i} className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
-                    <Select
-                      value={fb}
-                      onValueChange={(v) => {
-                        setFallbacks((prev) => {
-                          const next = [...prev];
-                          next[i] = v;
-                          return next;
-                        });
-                      }}
-                    >
-                      <SelectTrigger id={`fallback-${i + 1}`} className="flex-1 min-w-0">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {/* D-08/D-09, client-enforced: a model chosen for one
-                            slot disappears from the others, and the primary is
-                            never a fallback option. */}
-                        {servableIds
-                          .filter(
-                            (id) => id !== primary && !fallbacks.some((f, j) => f === id && j !== i)
-                          )
-                          .map((id) => {
-                            const m = servableModels.find((mm) => mm.id === id);
-                            return (
-                              <SelectItem key={id} value={id}>
-                                <span>{m?.name ?? id}</span>
-                                <span className="text-[12px] font-normal leading-[1.4] text-slate-500">
-                                  · ${m?.costInput ?? 0} / ${m?.costOutput ?? 0} per MTok
-                                </span>
-                              </SelectItem>
-                            );
-                          })}
-                        {/* A stale saved fallback at mount renders as a disabled
-                            item appended to the options so the row can display
-                            its current value until the user replaces it. */}
-                        {isStale(fb) ? (
-                          <SelectItem key={fb} value={fb} disabled>
-                            <span>{optionLabel(fb)}</span>
-                          </SelectItem>
-                        ) : null}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Move fallback up"
-                      disabled={i === 0}
-                      onClick={() => moveFallback(i, -1)}
-                    >
-                      <ArrowUp />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Move fallback down"
-                      disabled={i === fallbacks.length - 1}
-                      onClick={() => moveFallback(i, 1)}
-                    >
-                      <ArrowDown />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Remove fallback"
-                      onClick={() => removeFallback(i)}
-                    >
-                      <X />
-                    </Button>
-                  </div>
-                  {isStale(fb) ? (
-                    <p className="text-[14px] font-normal leading-[1.5] text-red-600">
-                      This model is no longer runnable — pick a replacement before saving.
-                    </p>
-                  ) : null}
-                </div>
-              ))}
-              <Button variant="outline" disabled={fallbacks.length >= 2} onClick={addFallback}>
-                <Plus className="size-4" />
-                Add fallback
-              </Button>
-            </>
-          )}
+          {/* The v1.3 sonnet-only branch (single-model message + stale-row
+              only rendering) is gone: the union servable set spans both
+              providers (337 rows — never 1), so the full fallback form always
+              renders. Stale saved fallbacks are handled by the general path
+              below — disabled stale item + red hint + remove button — keeping
+              the D-10/D-11 "stale fallback stays renderable and removable"
+              contract intact. */}
+          <p className="text-[12px] font-normal leading-[1.4] text-slate-500">
+            Fallback models
+          </p>
+          {fallbacks.map((fb, i) => (
+            <div key={i} className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                {/* D-08/D-09, client-enforced via optionsForSlot: a model
+                    chosen for one slot disappears from the others, and the
+                    primary is never a fallback option — widened to the union
+                    servable set (D-21-14). The trigger badge is required on
+                    every picker (UI-SPEC §Row Anatomy): closed-state badges
+                    disambiguate same-name models at a glance. */}
+                <ModelPicker
+                  id={`fallback-${i + 1}`}
+                  ariaLabel={`Fallback model ${i + 1}`}
+                  value={fb}
+                  options={optionsForSlot(primary, fallbacks, i, unionServableModels)}
+                  onChange={(v) => {
+                    markDirty();
+                    setFallbacks((prev) => {
+                      const next = [...prev];
+                      next[i] = v;
+                      return next;
+                    });
+                  }}
+                  placeholder="Select a fallback…"
+                  grouped
+                  badge={unionServableModels.find((m) => m.id === fb)?.providerID ?? undefined}
+                  staleLabel={
+                    isStale(fb) ? (savedChain?.find((sc) => sc.id === fb)?.name ?? fb) : null
+                  }
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Move fallback up"
+                  disabled={i === 0}
+                  onClick={() => moveFallback(i, -1)}
+                >
+                  <ArrowUp />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Move fallback down"
+                  disabled={i === fallbacks.length - 1}
+                  onClick={() => moveFallback(i, 1)}
+                >
+                  <ArrowDown />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Remove fallback"
+                  onClick={() => removeFallback(i)}
+                >
+                  <X />
+                </Button>
+              </div>
+              {isStale(fb) ? (
+                <p className="text-[14px] font-normal leading-[1.5] text-red-600">
+                  This model is no longer runnable — pick a replacement before saving.
+                </p>
+              ) : null}
+            </div>
+          ))}
+          <Button variant="outline" disabled={fallbacks.length >= 2} onClick={addFallback}>
+            <Plus className="size-4" />
+            Add fallback
+          </Button>
         </div>
 
         <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
@@ -304,7 +356,34 @@ export function ModelSettingsForm({
               {isPending ? 'Saving…' : 'Save changes'}
             </Button>
             {status === 'saved' ? (
-              <p className="text-[14px] font-normal leading-[1.5] text-slate-600">Saved.</p>
+              <div className="flex flex-col gap-1">
+                <p className="text-[14px] font-normal leading-[1.5] text-slate-600">Saved.</p>
+                {/* D-21-10: the saved-chain recap — one entry per model in the
+                    persisted chain, each with a provider badge. The badges are
+                    what disambiguate a saved cross-provider chain at a glance.
+                    Saved ids are union-validated, so the union lookup resolves
+                    their provider; names come from savedChain (server-resolved)
+                    with the raw-id fallback. The recap hides as soon as any
+                    slot is edited — the draft no longer equals lastSaved. */}
+                {lastSaved &&
+                primary === lastSaved.primary &&
+                fallbacks.filter((f) => f !== '').join('|') === lastSaved.fallbacks.join('|') ? (
+                  <p className="text-[14px] font-normal leading-[1.5] text-slate-600">
+                    Saved chain:{' '}
+                    {[primary, ...fallbacks.filter((f) => f !== '')].map((id, idx) => (
+                      <span key={id}>
+                        {idx > 0 ? ' → ' : null}
+                        <Badge variant="secondary">
+                          {providerName(
+                            unionServableModels.find((m) => m.id === id)?.providerID ?? 'anthropic',
+                          )}
+                        </Badge>{' '}
+                        {savedChain?.find((sc) => sc.id === id)?.name ?? id}
+                      </span>
+                    ))}
+                  </p>
+                ) : null}
+              </div>
             ) : status === 'error' ? (
               <p className="text-[14px] font-normal leading-[1.5] text-red-600">{errorMsg}</p>
             ) : null}

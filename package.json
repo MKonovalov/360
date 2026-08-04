@@ -12,20 +12,24 @@
     "lint": "eslint",
     "seed": "tsx src/scripts/seed.ts",
     "test": "vitest run",
+    "e2e": "playwright test",
     "models:fetch": "tsx scripts/refresh-model-catalog.ts",
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.26",
+    "@ai-sdk/openai-compatible": "^3.0.22",
     "@clerk/nextjs": "^7.5.22",
     "@langfuse/client": "^5.10.0",
     "@langfuse/otel": "^5.10.0",
     "@langfuse/vercel-ai-sdk": "^5.9.1",
     "@neondatabase/serverless": "^1.1.0",
+    "@openrouter/ai-sdk-provider": "^3.0.0",
     "@opentelemetry/sdk-node": "^0.221.0",
     "ai": "^7.0.45",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
     "csv-parse": "^7.0.1",
     "csv-stringify": "^6.8.1",
     "drizzle-orm": "^0.45.2",
@@ -42,6 +46,8 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@clerk/testing": "^2.2.16",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

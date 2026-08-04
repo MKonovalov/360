@@ -3,13 +3,21 @@ import { APICallError, InvalidResponseDataError, RetryError } from 'ai';
 
 // 09-01-01 anchor: runAgent is the mockable seam (D-16 — zero live calls in
 // tests). Mock 'ai' (generateText + Output.object spy; keep real
-// tool/isStepCount), '@ai-sdk/anthropic' (model constructor), 'firecrawl',
+// tool/isStepCount), './modelFactory' (defaultChain — the factory-default
+// seam, constraint 11: provider SDKs are never imported here), 'firecrawl',
 // and '@/lib/env'.
 const mocks = vi.hoisted(() => ({
   generateText: vi.fn(),
-  anthropic: vi.fn(),
+  defaultChain: vi.fn(),
   initLangfuse: vi.fn(),
   outputObject: vi.fn(),
+  // Phase 20 (FAL-03): provider identity for the hop decision. Default:
+  // every stub id resolves 'anthropic' (preserves all existing same-provider
+  // tests); slashed ids (real OpenRouter slugs) and 'm2' resolve 'openrouter'
+  // for the cross-provider cases.
+  getProviderForModelId: vi.fn((_catalog: unknown, id: string) =>
+    id.includes('/') || id === 'm2' ? 'openrouter' : 'anthropic',
+  ),
 }));
 
 vi.mock('ai', async (importOriginal) => {
@@ -23,12 +31,18 @@ vi.mock('ai', async (importOriginal) => {
     Output: { ...actual.Output, object: mocks.outputObject },
   };
 });
-vi.mock('@ai-sdk/anthropic', () => ({ anthropic: mocks.anthropic }));
 vi.mock('@/lib/telemetry/langfuse', () => ({ initLangfuse: mocks.initLangfuse }));
+vi.mock('./modelFactory', () => ({ defaultChain: mocks.defaultChain }));
 vi.mock('@/lib/env', () => ({ env: { FIRECRAWL_API_KEY: 'test-key' } }));
 vi.mock('firecrawl', () => ({ Firecrawl: vi.fn() }));
+// Phase 20 (FAL-03): runAgent.ts derives hop provider identity from the
+// catalog — the string-form 'm1' stubs are NOT in the real snapshot, so the
+// catalog is mocked with the hoisted provider resolver. The separate
+// '@/lib/models/catalog.json' JSON import is a different specifier and loads
+// the real static file (harmless).
+vi.mock('@/lib/models/catalog', () => ({ getProviderForModelId: mocks.getProviderForModelId }));
 
-import { runAgent } from './runAgent';
+import { isOpenRouterPlatformRateLimit, runAgent } from './runAgent';
 import { buildAnalyzePrompt } from './prompt';
 import { outputSchema } from './types';
 
@@ -62,7 +76,7 @@ const outputSpec = { name: 'object', responseFormat: {} };
 describe('runAgent (09-01-01)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.anthropic.mockReturnValue({ provider: 'anthropic', modelId: 'claude-sonnet-4-6' });
+    mocks.defaultChain.mockReturnValue([{ provider: 'anthropic', modelId: 'claude-sonnet-4-6' }]);
     mocks.generateText.mockResolvedValue(resolvedRun);
     mocks.outputObject.mockReturnValue(outputSpec);
   });
@@ -110,9 +124,10 @@ describe('runAgent (09-01-01)', () => {
     expect(result.usedFallback).toBe(false);
   });
 
-  it('defaults to the fast Anthropic model (T-09-SC model-string re-verify)', async () => {
-    await runAgent({ company, liveSignals: [] });
-    expect(mocks.anthropic).toHaveBeenCalledWith('claude-sonnet-4-6');
+  it('defaults to the factory default chain (T-09-SC model-string re-verify)', async () => {
+    const result = await runAgent({ company, liveSignals: [] });
+    expect(mocks.defaultChain).toHaveBeenCalledTimes(1);
+    expect(result.modelUsed).toBe('claude-sonnet-4-6');
   });
 
   it('never calls initLangfuse (telemetry is the global registerTelemetry from Task 2)', async () => {
@@ -124,7 +139,7 @@ describe('runAgent (09-01-01)', () => {
 describe('runAgent failover loop (FAL-03/04)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.anthropic.mockReturnValue({ provider: 'anthropic', modelId: 'claude-sonnet-4-6' });
+    mocks.defaultChain.mockReturnValue([{ provider: 'anthropic', modelId: 'claude-sonnet-4-6' }]);
     mocks.generateText.mockResolvedValue(resolvedRun);
     mocks.outputObject.mockReturnValue(outputSpec);
   });
@@ -144,19 +159,19 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     const result = await runAgent({
       company,
       liveSignals: [],
-      models: [mocks.anthropic(), mocks.anthropic()],
+      models: ['m1', 'm1'],
     });
 
     expect(mocks.generateText).toHaveBeenCalledTimes(2);
     expect(mocks.generateText.mock.calls[1][0].timeout).toEqual({ totalMs: 50000 });
-    expect(result).toEqual({ ...resolvedRun, modelUsed: 'claude-sonnet-4-6', usedFallback: true });
+    expect(result).toEqual({ ...resolvedRun, modelUsed: 'm1', usedFallback: true });
   });
 
   it('429 never advances — single attempt, throws (D-01)', async () => {
     mocks.generateText.mockRejectedValueOnce(apiErr(429));
 
     await expect(
-      runAgent({ company, liveSignals: [], models: [mocks.anthropic(), mocks.anthropic()] }),
+      runAgent({ company, liveSignals: [], models: ['m1', 'm1'] }),
     ).rejects.toThrow();
     expect(mocks.generateText).toHaveBeenCalledTimes(1);
   });
@@ -165,7 +180,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     mocks.generateText.mockRejectedValueOnce(apiErr(400));
 
     await expect(
-      runAgent({ company, liveSignals: [], models: [mocks.anthropic(), mocks.anthropic()] }),
+      runAgent({ company, liveSignals: [], models: ['m1', 'm1'] }),
     ).rejects.toThrow();
     expect(mocks.generateText).toHaveBeenCalledTimes(1);
   });
@@ -174,7 +189,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     mocks.generateText.mockRejectedValueOnce(apiErr(401));
 
     await expect(
-      runAgent({ company, liveSignals: [], models: [mocks.anthropic(), mocks.anthropic()] }),
+      runAgent({ company, liveSignals: [], models: ['m1', 'm1'] }),
     ).rejects.toThrow();
     expect(mocks.generateText).toHaveBeenCalledTimes(1);
   });
@@ -183,7 +198,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     mocks.generateText.mockRejectedValueOnce(apiErr(403));
 
     await expect(
-      runAgent({ company, liveSignals: [], models: [mocks.anthropic(), mocks.anthropic()] }),
+      runAgent({ company, liveSignals: [], models: ['m1', 'm1'] }),
     ).rejects.toThrow();
     expect(mocks.generateText).toHaveBeenCalledTimes(1);
   });
@@ -192,7 +207,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     mocks.generateText.mockRejectedValueOnce(new InvalidResponseDataError({ data: {} }));
 
     await expect(
-      runAgent({ company, liveSignals: [], models: [mocks.anthropic(), mocks.anthropic()] }),
+      runAgent({ company, liveSignals: [], models: ['m1', 'm1'] }),
     ).rejects.toThrow();
     expect(mocks.generateText).toHaveBeenCalledTimes(1);
   });
@@ -202,7 +217,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     mocks.generateText.mockRejectedValueOnce(apiErr(500)).mockRejectedValueOnce(lastErr);
 
     await expect(
-      runAgent({ company, liveSignals: [], models: [mocks.anthropic(), mocks.anthropic()] }),
+      runAgent({ company, liveSignals: [], models: ['m1', 'm1'] }),
     ).rejects.toThrow(lastErr);
     expect(mocks.generateText).toHaveBeenCalledTimes(2);
   });
@@ -213,7 +228,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     await runAgent({
       company,
       liveSignals: [],
-      models: [mocks.anthropic(), mocks.anthropic()],
+      models: ['m1', 'm1'],
     });
 
     expect(mocks.generateText.mock.calls[0][0].timeout).toEqual({ totalMs: 54000 });
@@ -232,7 +247,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     await runAgent({
       company,
       liveSignals: [],
-      models: [mocks.anthropic(), mocks.anthropic(), mocks.anthropic()],
+      models: ['m1', 'm1', 'm1'],
     });
 
     const timeouts = mocks.generateText.mock.calls.map((c) => c[0].timeout.totalMs);
@@ -255,11 +270,11 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     const result = await runAgent({
       company,
       liveSignals: [],
-      models: [mocks.anthropic(), mocks.anthropic()],
+      models: ['m1', 'm1'],
     });
 
     expect(mocks.generateText).toHaveBeenCalledTimes(2);
-    expect(result).toEqual({ ...resolvedRun, modelUsed: 'claude-sonnet-4-6', usedFallback: true });
+    expect(result).toEqual({ ...resolvedRun, modelUsed: 'm1', usedFallback: true });
   });
 
   it('RetryError-wrapped 404 unwraps to model_not_found and still advances (Pitfall 3)', async () => {
@@ -276,11 +291,48 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     const result = await runAgent({
       company,
       liveSignals: [],
-      models: [mocks.anthropic(), mocks.anthropic()],
+      models: ['m1', 'm1'],
     });
 
     expect(mocks.generateText).toHaveBeenCalledTimes(2);
-    expect(result).toEqual({ ...resolvedRun, modelUsed: 'claude-sonnet-4-6', usedFallback: true });
+    expect(result).toEqual({ ...resolvedRun, modelUsed: 'm1', usedFallback: true });
+  });
+
+  it('429 advances ONLY on a cross-provider hop — mixed chain serves the fallback (FAL-03)', async () => {
+    mocks.generateText.mockRejectedValueOnce(apiErr(429)).mockResolvedValueOnce(resolvedRun);
+
+    const result = await runAgent({ company, liveSignals: [], models: ['m1', 'm2'] });
+
+    expect(mocks.generateText).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({ ...resolvedRun, modelUsed: 'm2', usedFallback: true });
+  });
+
+  it('reverse hop — openrouter primary to anthropic fallback also advances on 429 (FAL-03)', async () => {
+    mocks.generateText.mockRejectedValueOnce(apiErr(429)).mockResolvedValueOnce(resolvedRun);
+
+    const result = await runAgent({ company, liveSignals: [], models: ['m2', 'm1'] });
+
+    expect(mocks.generateText).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({ ...resolvedRun, modelUsed: 'm1', usedFallback: true });
+  });
+
+  it('402 billing never advances even cross-provider — throws on the primary (FAL-02)', async () => {
+    mocks.generateText.mockRejectedValueOnce(apiErr(402));
+
+    await expect(
+      runAgent({ company, liveSignals: [], models: ['m1', 'm2'] }),
+    ).rejects.toThrow();
+    expect(mocks.generateText).toHaveBeenCalledTimes(1);
+  });
+
+  it('records the served OpenRouter slug verbatim incl. aliases (FAL-05)', async () => {
+    mocks.generateText.mockRejectedValueOnce(apiErr(429)).mockResolvedValueOnce(resolvedRun);
+
+    const models = ['m1', 'anthropic/claude-sonnet-latest'];
+    const result = await runAgent({ company, liveSignals: [], models });
+
+    expect(mocks.generateText).toHaveBeenCalledTimes(2);
+    expect(result.modelUsed).toBe(models[1]);
   });
 });
 
@@ -295,5 +347,81 @@ describe('buildAnalyzePrompt (Test 3)', () => {
     const prompt = buildAnalyzePrompt(company, []);
     expect(prompt).toMatch(/fabricat/i);
     expect(prompt).toMatch(/URL|url/i);
+  });
+});
+
+// D-20-08 (VER-01 gap): isOpenRouterPlatformRateLimit is diagnostics-only — the
+// advance decision already happened in the FAL-03 loop (shouldAdvance's pure
+// provider matrix). These tests lock the REASON-string split used by
+// analyzeCompany for telemetry: platform-level 429s (X-RateLimit-* response
+// headers) vs upstream pass-through 429s (metadata.provider_code). Helper is a
+// pure export of runAgent.ts — no module deps beyond APICallError.isInstance.
+describe('isOpenRouterPlatformRateLimit (D-20-08, VER-01 gap)', () => {
+  // Helper under test (runAgent.ts:126-135) reads err.data.error.metadata
+  // error_type/provider_code, then err.responseHeaders X-RateLimit-* keys.
+  const platformErr = new APICallError({
+    message: 'rate limited',
+    url: 'u',
+    requestBodyValues: {},
+    statusCode: 429,
+    responseHeaders: { 'x-ratelimit-limit': '20' },
+  });
+  const upstreamErr = new APICallError({
+    message: 'rate limited',
+    url: 'u',
+    requestBodyValues: {},
+    statusCode: 429,
+    data: { error: { metadata: { error_type: 'rate_limit_exceeded', provider_code: 'anthropic' } } },
+  });
+
+  it('platform-level 429: X-RateLimit response headers resolve true', () => {
+    expect(isOpenRouterPlatformRateLimit(platformErr)).toBe(true);
+  });
+
+  it('upstream pass-through 429: metadata.provider_code present resolves false', () => {
+    expect(isOpenRouterPlatformRateLimit(upstreamErr)).toBe(false);
+  });
+
+  it('platform-level 429: metadata.error_type with NO provider_code resolves true', () => {
+    const err = new APICallError({
+      message: 'rate limited',
+      url: 'u',
+      requestBodyValues: {},
+      statusCode: 429,
+      data: { error: { metadata: { error_type: 'rate_limit_exceeded' } } },
+    });
+    expect(isOpenRouterPlatformRateLimit(err)).toBe(true);
+  });
+
+  it('non-APICallError (plain Error) resolves false', () => {
+    expect(isOpenRouterPlatformRateLimit(new Error('x'))).toBe(false);
+  });
+
+  it('empty-body 429 (no headers, no data) resolves false — header-dependent (D-20-08)', () => {
+    expect(
+      isOpenRouterPlatformRateLimit(
+        new APICallError({ message: 'rate limited', url: 'u', requestBodyValues: {}, statusCode: 429 }),
+      ),
+    ).toBe(false);
+  });
+
+  it('mid-stream 429 shape (statusCode 200 + data) is header-dependent: headers → true, none → false', () => {
+    const midStream = new APICallError({
+      message: 'finish_reason: error',
+      url: 'u',
+      requestBodyValues: {},
+      statusCode: 200,
+      data: { error: { message: 'rate limit exceeded mid-stream' } },
+      responseHeaders: { 'x-ratelimit-reset': '1' },
+    });
+    const midStreamNoHeaders = new APICallError({
+      message: 'finish_reason: error',
+      url: 'u',
+      requestBodyValues: {},
+      statusCode: 200,
+      data: { error: { message: 'rate limit exceeded mid-stream' } },
+    });
+    expect(isOpenRouterPlatformRateLimit(midStream)).toBe(true);
+    expect(isOpenRouterPlatformRateLimit(midStreamNoHeaders)).toBe(false);
   });
 });

@@ -4,14 +4,15 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { upsertModelSettings } from '@/lib/db/queries/userModelSettings';
-import { getAllowlistedServableIds } from '@/lib/models/catalog';
+import { getUnionServableIds } from '@/lib/models/catalog';
 import catalogJson from '@/lib/models/catalog.json';
 
 // Server Action controller for the Settings form (SET-06/SET-07). The order is
 // IMMUTABLE (17-UI-SPEC): requireStaffAccess() FIRST — Server Actions gate
 // independently of the page (reviews.ts precedent) — then zod-validate the
-// unknown input, then check every id against the server-computed servable set
-// (allowlist ∩ committed snapshot — the ONLY source of truth, T-17-03), then
+// unknown input, then check every id against the union servable set
+// (per-provider gates over the committed snapshot — anthropic allowlist ∩
+// active + all active openrouter rows — the ONLY source of truth, T-17-03), then
 // the D-08/D-09 dedupe backstop, then the atomic full-value upsert keyed by
 // the SESSION userId (Pitfall 9 — no read-modify-write; the schema declares no
 // userId field, so the row key can never come from client input, T-17-02).
@@ -37,7 +38,7 @@ export async function saveSettingsAction(input: unknown): Promise<SettingsAction
   if (!parsed.success) return { ok: false, reason: 'invalid_model' };
 
   try {
-    const servableIds = getAllowlistedServableIds(catalogJson);
+    const servableIds = getUnionServableIds(catalogJson);
     const all = [parsed.data.primaryModel, ...parsed.data.fallbacks];
     if (!all.every((id) => servableIds.includes(id))) {
       return { ok: false, reason: 'invalid_model' };

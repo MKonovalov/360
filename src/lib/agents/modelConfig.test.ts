@@ -7,7 +7,7 @@ import {
   NoObjectGeneratedError,
   LoadAPIKeyError,
 } from 'ai';
-import { classifyModelError, isFailoverEligible, resolveModelChain } from './modelConfig';
+import { classifyModelError, isFailoverEligible, resolveModelChain, shouldAdvance } from './modelConfig';
 import { FAST_MODEL_ID } from '@/lib/models/catalog';
 
 // FAL-02/FAL-03 pure unit coverage (D-16): zero mocks, zero live calls — real
@@ -53,6 +53,29 @@ describe('classifyModelError', () => {
     expect(isFailoverEligible(cls)).toBe(true);
   });
 
+  it('classifies 402 as billing — NEVER failover-eligible (FAL-02)', () => {
+    const cls = classifyModelError(apiErr(402));
+    expect(cls).toBe('billing');
+    expect(isFailoverEligible(cls)).toBe(false);
+  });
+
+  it('keeps 502/503 as server_error — failover-eligible model-availability signals (FAL-02)', () => {
+    for (const code of [502, 503]) {
+      expect(classifyModelError(apiErr(code))).toBe('server_error');
+      expect(isFailoverEligible(classifyModelError(apiErr(code)))).toBe(true);
+    }
+  });
+
+  it('unwraps a RetryError-wrapped 402 to billing (Pitfall 3 unwrap-first)', () => {
+    const retry = new RetryError({
+      message: 'retries exhausted',
+      reason: 'maxRetriesExceeded',
+      errors: [apiErr(402)],
+    });
+    expect(classifyModelError(retry)).toBe('billing');
+    expect(isFailoverEligible('billing')).toBe(false);
+  });
+
   it('classifies an APICallError with NO statusCode as connection and eligible (D-02 — AIConnectionError does not exist)', () => {
     const conn = new APICallError({
       message: 'Cannot connect to API: fetch failed',
@@ -74,6 +97,22 @@ describe('classifyModelError', () => {
       expect(classifyModelError(apiErr(code))).toBe('auth');
       expect(isFailoverEligible(classifyModelError(apiErr(code)))).toBe(false);
     }
+  });
+
+  // D-20-05/06 (WR-01): mid-stream 429s surface as APICallError with statusCode
+  // 200 + data — the classifier falls through the statusCode switch to 'input'
+  // (never failover-eligible); Phase 22's error matrix records 'input', NOT
+  // 'output'.
+  it('classifies a statusCode-200 APICallError (mid-stream 429) as input — NOT output (WR-01)', () => {
+    const midStream = new APICallError({
+      message: 'finish_reason: error',
+      url: 'u',
+      requestBodyValues: {},
+      statusCode: 200,
+      data: { error: { message: 'rate limit exceeded mid-stream' } },
+    });
+    expect(classifyModelError(midStream)).toBe('input');
+    expect(isFailoverEligible('input')).toBe(false);
   });
 
   it('classifies output/schema/config errors as never eligible; NoSuchModelError as eligible', () => {
@@ -106,6 +145,34 @@ describe('classifyModelError', () => {
 
     expect(classifyModelError(new Error('something unexpected'))).toBe('input');
     expect(isFailoverEligible('input')).toBe(false);
+  });
+});
+
+describe('shouldAdvance — FAL-03 4-cell matrix (provider-keyed, D-20-07)', () => {
+  it('rate_limited never advances same-provider; advances cross-provider', () => {
+    expect(shouldAdvance('rate_limited', 'anthropic', 'anthropic')).toBe(false); // v1.3 verbatim
+    expect(shouldAdvance('rate_limited', 'openrouter', 'openrouter')).toBe(false); // v1.3 verbatim
+    expect(shouldAdvance('rate_limited', 'anthropic', 'openrouter')).toBe(true); // FAL-03
+    expect(shouldAdvance('rate_limited', 'openrouter', 'anthropic')).toBe(true); // FAL-03
+  });
+
+  it('non-429 eligible classes advance regardless of provider (v1.3 preserved, not a relaxation)', () => {
+    for (const cls of ['model_not_found', 'server_error', 'connection'] as const) {
+      expect(shouldAdvance(cls, 'anthropic', 'anthropic')).toBe(true);
+      expect(shouldAdvance(cls, 'openrouter', 'anthropic')).toBe(true);
+    }
+  });
+
+  it('billing/4xx/output/config never reach shouldAdvance (isFailoverEligible false)', () => {
+    for (const cls of ['billing', 'input', 'output', 'config', 'auth'] as const) {
+      expect(isFailoverEligible(cls)).toBe(false);
+    }
+  });
+
+  it('fail-closed null provider identity never advances a 429; non-429 unaffected', () => {
+    expect(shouldAdvance('rate_limited', 'anthropic', null)).toBe(false); // catalog drift / last-model sentinel
+    expect(shouldAdvance('rate_limited', null, 'openrouter')).toBe(false); // catalog drift / last-model sentinel
+    expect(shouldAdvance('server_error', null, null)).toBe(true); // non-429 eligible unaffected by unknown identity
   });
 });
 
@@ -142,5 +209,20 @@ describe('resolveModelChain', () => {
     expect(
       resolveModelChain({ primaryModel: 'a', fallbackModels: ['b'] }, ['a', 'b']),
     ).toEqual(['a', 'b']);
+  });
+
+  it('accepts a cross-provider chain when both ids are in the union (D-06)', () => {
+    expect(
+      resolveModelChain(
+        { primaryModel: 'claude-sonnet-4-6', fallbackModels: ['anthropic/claude-sonnet-latest'] },
+        ['claude-sonnet-4-6', 'anthropic/claude-sonnet-latest'],
+      ),
+    ).toEqual(['claude-sonnet-4-6', 'anthropic/claude-sonnet-latest']);
+  });
+
+  it('drops ids not in the union servable set', () => {
+    expect(
+      resolveModelChain({ primaryModel: 'not-in-union', fallbackModels: [] }, ['claude-sonnet-4-6']),
+    ).toEqual([FAST_MODEL_ID]);
   });
 });

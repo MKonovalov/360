@@ -5,8 +5,10 @@
 - ✅ **v1.0 MVP** — Phases 1-4 (shipped 2026-07-24)
 - ✅ **v1.1 Start Page + Import + Analytic Agent** — Phases 5-9 (shipped 2026-08-01)
 - ✅ **v1.2 Exa-Style Left Panel** — Phases 10-14 (shipped 2026-08-02)
-- 🚧 **v1.3 AI Model Settings** — Phases 15-18 (in progress, Phase 18/VER-04 left unexecuted)
-- 🚧 **v1.4 Signals & Offerings** — Phases 30-32 (in progress — current focus)
+- ✅ **v1.3 AI Model Settings** — Phases 15-18 (shipped 2026-08-02)
+- ✅ **v1.4 Multi-Provider AI Model Configuration** — Phases 19-22 (shipped 2026-08-03)
+- ⏳ **v1.5 Additional AI Providers** — Phases 23-27 (in progress)
+- 📋 **v1.6 Signals & Offerings** — Phases 28-30 (fully planned, queued behind v1.5)
 
 ## Phases
 
@@ -56,7 +58,8 @@ Full details: [`.planning/milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
 
 </details>
 
-🚧 **v1.3 AI Model Settings (Phases 15-18) — IN PROGRESS**
+<details>
+<summary>✅ v1.3 AI Model Settings (Phases 15-18) — SHIPPED 2026-08-02</summary>
 
 **Milestone Goal:** Give each staff user a Settings surface to manage the AI models used by AI agents — a primary model plus an ordered fallback chain — with the available-models list sourced live from the local opencode installation, and the Analytic Agent consuming the config with error-driven failover.
 
@@ -65,177 +68,62 @@ Full details: [`.planning/milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
 - [x] **Phase 15: Model Registry Foundation + Persistence** - Per-user `user_model_settings` table + atomic upsert query module (Clerk-userId keyed), `agent_run` `model_used`/`model_chain` audit columns, committed opencode catalog snapshot (`opencode models` dev-time script) + pure slug→provider-ID filter functions, and the migration-apply-flow confirmation (completed 2026-08-02)
 - [x] **Phase 16: Failover Orchestration** - Pure `classifyModelError` (RetryError-unwrap-first; only retryable provider/model errors advance), `runAgent` chain loop (primary + 1 fallback, per-attempt timeouts, 60s budget), snapshot-at-entry chain resolution, `userId` threading through the analyze route, and `model_used`/`model_chain` population (completed 2026-08-02)
 - [x] **Phase 17: Settings UI + List Source** - `settings` NavKey + Manage-group sidebar item, `/settings` page + client form + zod-validated Server Action, runnable-only (allowlist ∩ snapshot) model pickers with ordered reorderable fallbacks (completed 2026-08-02)
-- [ ] **Phase 18: Verification Gate** - Vitest failover/catalog/chain matrices, live-browser settings→Analyze→`model_used` UAT, Vercel-preview no-opencode check, and the "looks done but isn't" checklist (VER-04 left unexecuted — see PROJECT.md Active)
+- [x] **Phase 18: Verification Gate** - Vitest failover/catalog/chain matrices, live-browser settings→Analyze→`model_used` UAT, Vercel-preview no-opencode check, and the "looks done but isn't" checklist (completed 2026-08-02)
 
-### Phase 15: Model Registry Foundation + Persistence
+Full details: [`.planning/milestones/v1.3-ROADMAP.md`](milestones/v1.3-ROADMAP.md)
 
-**Goal**: Per-user AI model preferences persist durably — one row per Clerk user storing raw provider IDs via atomic full-value upsert — agent runs gain durable "which model served" audit columns, and a committed, filtered model catalog gives the app its servable-models source with zero runtime opencode dependency.
-**Depends on**: Phase 14 (v1.2 — shipped 2026-08-02); first phase of v1.3
-**Requirements**: REG-01, REG-02, REG-03, REG-04, REG-05, CAT-01, CAT-02, CAT-03, CAT-04
-**Success Criteria** (what must be TRUE):
+</details>
 
-  1. Each staff user's AI model configuration persists in Postgres as exactly one row keyed by Clerk `userId`, created/updated by atomic full-value upsert — no read-modify-write, so concurrent saves can never lose a half-merged chain
-  2. Saved model values are raw provider IDs (`claude-sonnet-4-6`, never `anthropic/...`), primary as text and fallbacks as an ordered `text[]` — DB values are directly consumable by the provider SDK
-  3. Every agent run records which model actually served (`model_used`) and the resolved chain (`model_chain`) as durable `agent_run` columns — "which model ran" is answerable from the DB alone, not only from Langfuse
-  4. A staff user with no saved settings row still gets the existing `claude-sonnet-4-6` default behavior — a missing row never blocks or changes a run
-  5. The app ships a committed catalog snapshot (generated dev-time by `scripts/refresh-model-catalog.ts` → `opencode models`), pure functions filter it to servable Anthropic-allowlisted models and map opencode slugs to raw provider IDs, and the catalog reads server-side with no request-time opencode dependency
+<details>
+<summary>✅ v1.4 Multi-Provider AI Model Configuration (Phases 19-22) — SHIPPED 2026-08-03</summary>
 
-**Plans**: 2 plansPlans:
+**Milestone Goal:** Add an AI Provider selector to Settings above the Primary model — Anthropic (existing) plus OpenRouter (new) — so the Primary model picker refreshes from the selected provider's servable source, and the Analytic Agent can resolve and run model chains whose entries (primary and fallbacks) come from either provider.
 
-- [x] 15-01-PLAN.md — DB foundation: user_model_settings table + agent_run audit columns + userModelSettings query module + schema push + integration tests
-- [x] 15-02-PLAN.md — Catalog: refresh-model-catalog script + models:fetch + committed snapshot + pure allowlist/slug filter functions + tests
+**Phase Numbering:** Continues from v1.3 (which ended at Phase 18) — v1.4 starts at Phase 19.
 
-### Phase 16: Failover Orchestration
+- [x] **Phase 19: Provider Registry + Servable Model Source** - Two-provider foundation: catalog registry with per-provider servable rules (OpenRouter full catalog incl. labeled `~latest`/`:free`; Anthropic sonnet-only allowlist), provider-derived-from-catalog lookup + collision canary, `modelFactory` provider-aware instantiation seam, `@openrouter/ai-sdk-provider@^3.0.0` + `OPENROUTER_API_KEY` env gate, and union-wide save validation (completed 2026-08-02)
+- [x] **Phase 20: Cross-Provider Run Path** - Provider-aware classifier (`billing` class for 402, 502/503 model-availability semantics), hop-aware 429 policy with 4-cell matrix, chain-aware env gate, and provider-accurate `model_used`/`model_chain` audit for cross-provider chains (completed 2026-08-02)
+- [x] **Phase 21: Settings UI** - AI Provider selector above Primary, provider-scoped Primary picker with keep-if-valid → default reset, union-grouped fallback pickers with Command search + provider badges, `~latest`/`:free` labels, union-wide staleness gate; gap closure 21-06/21-07: trigger-name/check-state fix (CR-01), empty-list explanation (WR-02), stale feedback reset (WR-01) (completed 2026-08-03)
+- [x] **Phase 22: Verification Gate** - Vitest collision/429-hop/error matrices, end-to-end OpenRouter-primary Analyze → `model_used` UAT, OpenRouter-only chain proof, security-matrix grep, live-browser provider-switch/picker UAT (completed 2026-08-03)
 
-**Goal**: The Analytic Agent consumes each user's saved model chain (resolved once at run start) and retries down it on provider/model failures within the 60s Vercel ceiling, failing loud — never a silent model switch — when the chain is exhausted or the error is not model-related.
-**Depends on**: Phase 15
-**Requirements**: FAL-01, FAL-02, FAL-03, FAL-04, FAL-05
-**Success Criteria** (what must be TRUE):
+Full details: [`.planning/milestones/v1.4-ROADMAP.md`](milestones/v1.4-ROADMAP.md)
 
-  1. An Analyze run resolves the user's model chain once at entry (snapshot-at-entry) — settings edited mid-run never change the in-flight run's chain or its audit row
-  2. A pure error classifier (RetryError-unwrap-first) distinguishes failover-eligible errors (connection errors, `NoSuchModelError`, 404 model-not-found, retryable `APICallError`) from non-failover errors (validation, output/schema, auth 401/403) — only eligible errors advance to the next model; non-eligible errors fail loud after a single attempt
-  3. The chain is bounded to primary + 1 fallback with per-attempt timeouts (~35s primary / ~20s fallback) so every run completes under the 60s Vercel ceiling; a chain-exhausted run returns the existing structured failure (502 + trace link), never a 504
-  4. The run's `agent_run` row records the model that actually served and the attempted chain, staff can see when a fallback ran (Analyze response carries `modelUsed`; review/run history shows the producing model), and the Langfuse trace shows per-attempt spans with `ai.model.id`
+</details>
 
-**Plans**: 4 plansPlans:
-**Wave 1**
+<details>
+<summary>⏳ v1.5 Additional AI Providers (Phases 23-27) — IN PROGRESS</summary>
 
-- [x] 16-01-PLAN.md — Pure failover foundation: classifyModelError + isFailoverEligible + resolveModelChain (modelConfig.ts) + FAST_MODEL_ID/getModelDisplayName catalog additions
+**Milestone Goal:** Extend the multi-provider AI model configuration from two providers (Anthropic + OpenRouter) to four — adding NousResearch (direct inference API) and OpenCode (Zen + Go endpoints under one provider) — so the Settings AI Provider selector and the cross-provider run path cover all four providers.
 
-**Wave 2** *(blocked on Wave 1 completion)*
+**Phase Numbering:** Continues from v1.4 (which ended at Phase 22) — v1.5 starts at Phase 23.
 
-- [x] 16-02-PLAN.md — runAgent failover chain loop: LanguageModel[] iteration, per-attempt { totalMs } budgets, eligibility gate, modelUsed/usedFallback return
-- [x] 16-04-PLAN.md — AnalyzeRunStatus strip: rate_limited ERROR_COPY row + success-after-fallback note (D-04/D-06)
+- [x] **Phase 23: Provider Registry + Servable Sources** - 4-provider registry foundation: `SERVABLE_PROVIDERS` grows to 4 with a registry-driven `providerName()` map, priority-ordered `getProviderForModelId` (explicit precedence anthropic → openrouter → nousresearch → opencode; regression lock: `claude-sonnet-4-6` → anthropic), OpenCode as ONE provider spanning `opencode` + `opencode-go` rows with Zen-wins dual-listed-id dedup + no-flip canary, curated `nousresearch/*` allowlist (Hermes-4 pair), `PROVIDER_DEFAULT_MODELS` for the new providers, `NOUSRESEARCH_API_KEY` + `OPENCODE_API_KEY` declared optional server-only, and union-wide save validation covering all 4 providers (completed 2026-08-03)
+- [x] **Phase 24: Refresh Script + Catalog Data** - Data phase: anonymous `GET https://inference-api.nousresearch.com/v1/models` fetch source (HTTP 200, 292 rows), per-token → per-MTok pricing conversion (×1e6), `supported_parameters` → `structuredOutputs` live join (throws-not-degrades), family derived from id prefix, snapshot regenerated and committed with `nousresearch` rows + refreshed Go roster (17 → 25 live rows); Zen/Go roster-verify per D-02 doctrine with the Zen-wins dedup expressed once (completed 2026-08-04)
+- [ ] **Phase 25: Run Path / modelFactory Seam** - Instantiation seam: three module-scope `createOpenAICompatible` instances (nousresearch / opencode-zen / opencode-go) with EXPLICIT `apiKey`, zen-vs-go dispatch by the matched row's `api.url`, 19 Claude rows via `createAnthropic({ baseURL, apiKey })` override, chain-aware env gate naming the new keys, `shouldAdvance` 4-provider semantics (Zen↔Go same-provider), provider-accurate `model_used`/`model_chain` audit, and `supportsStructuredOutputs` false-start on the new instances
+- [ ] **Phase 26: Settings UI** - 4-provider selector: always-valued AI Provider entries in `SERVABLE_PROVIDERS` order, provider-scoped Primary refresh, `· Zen` / `· Go` endpoint captions on OpenCode rows (primary + union pickers), honest Hermes capability captions with converted per-MTok costs, provider badges disambiguating same-name models across 4 providers, and 4-provider union grouping + save/staleness verification
+- [ ] **Phase 27: Verification Gate** - Proof: widened 4-provider collision matrix + 16-cell 429 hop semantics, end-to-end NousResearch/OpenCode primary → Analyze → `model_used` UAT, single-key chain proofs (OpenCode-only / NousResearch-only), security-matrix grep over the new keys (SERVER_COMPONENT exemption set covers `modelFactory.ts`), and live-browser UAT + live key-backed `json_schema` probe gating the `supportsStructuredOutputs` flip
 
-**Wave 3** *(blocked on Wave 2 completion)*
+</details>
 
-- [x] 16-03-PLAN.md — analyzeCompany userId threading + snapshot-at-entry resolution + rate_limited reason; route userId capture, rate_limited 502, createRun model fields, flat 201 response
-
-### Phase 17: Settings UI + List Source
-
-**Goal**: Staff can open a Settings page from the shared navigation, see their current AI model configuration, and set/reorder a primary + ordered fallback chain — choosing only from models the app can actually run — with immediate, validated persistence.
-**Depends on**: Phase 15 (decoupled from Phase 16 via the DB — can proceed in parallel)
-**Requirements**: SET-01, SET-02, SET-03, SET-04, SET-05, SET-06, SET-07
-**Success Criteria** (what must be TRUE):
-
-  1. Staff can open a Settings page from a new "Settings" menu item in both the shared ExplorerMenu and the sidebar nav (Manage group, next to Reviews) — `NavKey` union grows `'settings'`
-  2. The Settings page shows the staff member's current configuration — primary model + ordered fallback list, with a clear empty state when none is saved
-  3. Staff can set their primary model from the runnable (Anthropic-allowlisted) list, add up to 2 ordered fallbacks, and remove or reorder fallbacks — an empty fallback list is allowed (primary-only runs)
-  4. Saving persists immediately via a Server Action (gated by `requireStaffAccess()`, zod-validated against the catalog) and the form reflects the saved state after reload
-  5. The model pickers show only models the app can actually run — the allowlist ∩ committed snapshot, never the raw opencode catalog rows — so no pick can save a model that 404s on the next run
-
-**Plans**: 3 plans
-**UI hint**: yesPlans:
-**Wave 1**
-
-- [x] 17-01-PLAN.md — Nav wiring: 'settings' NavKey + tooltip map + sidebar Manage-group item + ExplorerMenu entries (SET-01)
-- [x] 17-02-PLAN.md — D-01 roster re-verify + saveSettingsAction Server Action with security matrix tests (SET-06/SET-07)
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 17-03-PLAN.md — /settings server page + model-settings-form client form (pickers, fallback reorder, save lifecycle) (SET-02..06)
-
-### Phase 18: Verification Gate
-
-**Goal**: The milestone's correctness claims are proven — Vitest matrices lock the failover taxonomy and catalog/chain logic, live-browser UAT proves the settings→Analyze→audit loop end-to-end, and a Vercel preview proves the model list renders with no local opencode.
-**Depends on**: Phases 15, 16, 17
-**Requirements**: VER-01, VER-02, VER-03, VER-04
-**Success Criteria** (what must be TRUE):
-
-  1. Vitest matrices prove the failover taxonomy — 401/403 and output/schema errors do NOT advance the chain, retryable connection/model-not-found errors (incl. a RetryError-wrapped 404) DO, and a fully-failed chain exhausts to the last model (fallback attempted, then the last error rethrown)
-  2. Vitest locks the catalog filter (allowlist ∩ snapshot → servable provider IDs, no `opencode/` or dated-ID leakage) and the model-chain resolution (default, partial, and full chains)
-  3. Live-browser UAT proves the end-to-end flow: Settings → pick primary + fallback → save → run Analyze → `agent_run.model_used` reflects the chosen model, and a forced-fail primary shows the fallback serving and recorded
-  4. A deployed Vercel preview loads the Settings model list without any local opencode — the committed snapshot renders (no 500, no empty list), and grep confirms zero `exec|spawn|child_process` in `src/`
-
-**Plans**: 3 plansPlans:
-**Wave 1**
-
-- [x] 18-01-PLAN.md — VER-01/02 Vitest matrices: 4 loop-level failover tests + real-snapshot catalog + partial-chain resolve tests + 18-VER-01-MATRIX.md (13-item checklist map)
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 18-02-PLAN.md — VER-03 live-browser UAT (settings → Analyze → model_used) with human-verify checkpoint; absorbs 16-HUMAN-UAT + 17-03 items; 18-UAT.md + 18-VERIFICATION.md (SC-3 satisfied-by-extension)
-
-**Wave 3** *(blocked on Wave 2 completion)*
-
-- [ ] 18-03-PLAN.md — VER-04 PR → Vercel preview: /settings renders from committed catalog.json (no 500/empty/opencode/), auth-gate check, zero-hit exec|spawn|child_process grep gate
-
-🚧 **v1.4 Signals & Offerings (Phases 30-32) — IN PROGRESS (current focus)**
+<details>
+<summary>📋 v1.6 Signals & Offerings (Phases 28-30) — QUEUED (fully planned, execution starts after v1.5 ships)</summary>
 
 **Milestone Goal:** Replace the firm's Word-document service catalogues with structured Practice Area → Domain → Offering data, and let partners record reusable Company/Persona buying signals linked to offerings — manual CRUD only, one practice area (GBS — Design, Build & Run) seeded with real data, the other five start empty.
 
-**Phase Numbering:** Restarts at 30 by explicit user choice — v1.4 does NOT continue from v1.3's Phase 18, and does NOT reset to 1. Phases 19-29 are deliberately skipped/unused. Sequencing follows spec Section 6: Phase 30 (shared data model + seed, no UI) → Phase 31 (Signals UI, ships first per "Signals first" priority) → Phase 32 (Offerings UI). Both Phase 31 and Phase 32 depend only on Phase 30 — Phase 32 does not strictly depend on Phase 31 (different UI surfaces) but is kept sequential in the roadmap.
+**Phase Numbering:** Continues directly from v1.5's Phase 27 — no gap. This milestone was originally planned in an isolated git worktree (`workspace/signals`) that had no visibility into v1.5's real phase numbering (it provisionally called these phases 30/31/32); renumbered to 28/29/30 when the branches were reconciled 2026-08-04. Sequencing follows spec Section 6: Phase 28 (shared data model + seed, no UI) → Phase 29 (Signals UI, ships first per "Signals first" priority) → Phase 30 (Offerings UI).
 
-- [ ] **Phase 30: Shared Data Model + Seed** - All Offerings/Signals tables (practice_area, domain, offering, buyer_role, offering_buyer_role, trigger, company_signal, persona_signal, signal-offering link) plus the full GBS seed data set (3 domains, 11 offerings, 5 buyer roles, ~24 company signals, ~9 persona signals, representative links), the delete-guard business rule, and staff-auth-gated writes with created_by/updated_by. No UI in this phase — a backend-only phase is valid and expected here.
-- [ ] **Phase 31: Signals UI** - New `Manage > Reviews > Signals` menu item — Company Signals / Persona Signals tabs with filterable lists, create/edit forms (offering multi-select scoped to Practice Area + active status), and soft-archive.
-- [ ] **Phase 32: Offerings UI** - New `Manage > Reviews > Offerings` menu item — Service Portfolio hierarchy manager (Practice Area → Domain → Offering CRUD/reorder/archive), Offering × Trigger × Buyer Matrix, a shared Buyer Role lookup CRUD panel, and a read-only reverse-lookup of linked signals per offering.
+**Why queued, not active:** v1.5 (Phases 23-27) is genuinely mid-execution (Phase 25 of 27) on this branch. Do not begin Phase 28 until v1.5 ships and `/gsd-complete-milestone` archives it — see PROJECT.md "Queued Milestone" and STATE.md Blockers.
 
-### Phase 30: Shared Data Model + Seed
+- [ ] **Phase 28: Shared Data Model + Seed** - All Offerings/Signals tables (practice_area, domain, offering, buyer_role, offering_buyer_role, trigger, company_signal, persona_signal, signal-offering link) plus the full GBS seed data set (3 domains, 11 offerings, 5 buyer roles, 27 company signals, 12 persona signals, 10 representative links), the delete-guard business rule, and staff-auth-gated writes with created_by/updated_by. No UI in this phase. Fully planned: CONTEXT/RESEARCH/PATTERNS/VALIDATION + 6 PLAN.md files, plan-checker PASSED (0 blockers).
+- [ ] **Phase 29: Signals UI** - New `Manage > Reviews > Signals` menu item — Company Signals / Persona Signals tabs with filterable lists, create/edit forms, and soft-archive.
+- [ ] **Phase 30: Offerings UI** - New `Manage > Reviews > Offerings` menu item — Service Portfolio hierarchy manager, Offering × Trigger × Buyer Matrix, a shared Buyer Role lookup CRUD panel, and a read-only reverse-lookup of linked signals per offering.
 
-**Goal**: Every Offerings and Signals table exists with the correct shape (audit columns, status enums, join tables), the GBS practice area is fully seeded end-to-end (domains, offerings, triggers, ranked buyer roles, company signals, persona signals, and representative signal-offering links), the delete-guard business rule blocks destructive deletes at the query/service layer, and all writes reuse the existing staff-auth gate with `created_by`/`updated_by` recorded. This phase ships no UI — Phase 31 and Phase 32 build against this foundation.
-**Depends on**: Nothing new in-repo (builds on the existing Neon/Drizzle schema and `requireStaffAccess()` gate from v1.0); first phase of v1.4. Not dependent on v1.3 Phase 18 completing.
-**Requirements**: DATA-01, DATA-02, DATA-03, DATA-04, DATA-05, DATA-06, DATA-07, DATA-08, DATA-09, DATA-10
-**Success Criteria** (what must be TRUE):
-
-  1. Querying `practice_area`, `domain`, `offering`, `buyer_role`, `offering_buyer_role`, and `trigger` returns the seeded GBS data: 1 practice area with 3 domains (Design/Build/Run), 11 offerings distributed across those domains, 5 buyer roles, ranked buyer-role links per offering, and at least one trigger per offering — all with `created_at`/`updated_at`/`created_by`/`updated_by` populated and the spec'd `status` enums in place
-  2. Querying `company_signal` returns signals seeded across all 8 GBS categories (~24 signals) and querying `persona_signal` returns the seeded GBS persona signals (~9), each `persona_signal` row referencing a real `buyer_role` id (never null, never a placeholder)
-  3. Querying the signal-to-offering link table returns the representative subset from spec Section 7.6, and every returned link's offering shares the same `practice_area_id` as its signal (enforced at the application layer if not enforceable in the DB)
-  4. A script or direct query attempting to delete a `practice_area`, `domain`, `offering`, or `buyer_role` that has dependent records (offerings, triggers, buyer-role links, signals, signal-offering links) is rejected or requires explicit cascade confirmation — it never silently cascades
-  5. All CRUD writes to these tables go through the existing staff-auth-gated path (reusing `requireStaffAccess()`, no new role/approval system) and populate `created_by`/`updated_by`; there is no separate review/approval workflow
-
-**Plans**: 6 plans
-Plans:
-**Wave 1**
-
-- [ ] 30-01-PLAN.md — Schema foundation: 9 new tables + 3 enums in schema.ts + [BLOCKING] npm run db:push (DATA-01, DATA-02)
-
-**Wave 2** *(blocked on Wave 1 completion, parallel with each other)*
-
-- [ ] 30-02-PLAN.md — practiceAreas.ts + domains.ts + buyerRoles.ts query modules + delete-guards (DATA-01, DATA-09, DATA-10)
-- [ ] 30-03-PLAN.md — offerings.ts query module (CRUD, active/all picker split, offering_buyer_role/trigger helpers, delete-guard) (DATA-01, DATA-09, DATA-10)
-- [ ] 30-04-PLAN.md — companySignals.ts + personaSignals.ts query modules (DATA-02, DATA-09)
-- [ ] 30-05-PLAN.md — signalOfferingLinks.ts query module with cross-practice-area guard (DATA-02, DATA-09)
-
-**Wave 3** *(blocked on Wave 2 completion)*
-
-- [ ] 30-06-PLAN.md — GBS seed script (seedGbs.ts) — full spec Section 7 dataset + live row-count verification (DATA-03, DATA-04, DATA-05, DATA-06, DATA-07, DATA-08, DATA-09)
-
-### Phase 31: Signals UI
-
-**Goal**: Staff can browse, filter, create, edit, and archive Company and Persona Signals from a new `Manage > Reviews > Signals` screen, with every signal optionally linked to offerings seeded in Phase 30.
-**Depends on**: Phase 30 (needs seeded `buyer_role` and `offering` data to populate pickers)
-**Requirements**: SIG-01, SIG-02, SIG-03, SIG-04, SIG-05, SIG-06, SIG-07, SIG-08, SIG-09
-**Success Criteria** (what must be TRUE):
-
-  1. `Manage > Reviews` shows a new "Signals" menu item, matching the existing visual/interaction pattern already used elsewhere under Reviews, that opens a two-tab screen — Company Signals and Persona Signals
-  2. Each tab's list can be filtered by Practice Area, Category (populated from distinct existing values), Status, and free-text search over name/description, and displays the spec'd columns (Company Signals: Name, Category, Practice Area, Linked Offerings count/expandable, Status, Last updated; Persona Signals: same plus Buyer Role)
-  3. Staff can create and edit a Company Signal (Name, Practice Area, autocomplete Category, Description, multi-select Linked Offerings, Status) and a Persona Signal (same fields plus a required Buyer Role select with an inline shortcut into the Buyer Role lookup panel so a partner isn't blocked if the role doesn't exist yet)
-  4. A signal's row-level "archive" action sets `status = retired` and the row remains visible in the list (never a hard delete)
-  5. The Linked Offerings / offering pickers on both forms only ever show active offerings scoped to the signal's selected Practice Area — draft offerings never appear as pickable options
-
-**Plans**: TBD
-**UI hint**: yes
-
-### Phase 32: Offerings UI
-
-**Goal**: Staff can manage the full Service Portfolio hierarchy (Practice Area → Domain → Offering), edit each offering's triggers and ranked buyers via a matrix view, manage the shared Buyer Role lookup from one place, and see which signals currently reference each offering.
-**Depends on**: Phase 30 (needs the seeded/writable Offerings tables). Does not strictly depend on Phase 31 — different UI surfaces — but ships after it per the roadmap's stated sequencing.
-**Requirements**: OFR-01, OFR-02, OFR-03, OFR-04, OFR-05, OFR-06, OFR-07, OFR-08
-**Success Criteria** (what must be TRUE):
-
-  1. `Manage > Reviews` shows a new "Offerings" menu item that opens a two-tab screen — Service Portfolio and Offering × Trigger × Buyer Matrix
-  2. On the Service Portfolio tab, staff can create/edit/reorder/archive a Practice Area, Domain, and Offering, and the Offering edit form captures Name, Practice Area, optional Domain (filtered to the chosen Practice Area's domains), Offer Type, Description, Commercial Model Text, ranked Buyer Roles (multi-select), and Status
-  3. The Offering × Trigger × Buyer Matrix tab, filterable by Practice Area (defaulting to GBS), shows offerings grouped by Domain section headers (Design/Build/Run) with editable Trigger(s) (add/remove) and ranked Primary Buyer(s) per offering
-  4. A "Manage Buyer Roles" action opens a lookup CRUD panel (name + description; create/edit/archive) that is the single place buyer roles are managed, shared by both the Offerings and Signals screens
-  5. An Offering's detail view shows a read-only reverse-lookup list of Company/Persona Signals currently linked to it, and attempting to delete a Practice Area, Domain, Offering, or Buyer Role with dependent records surfaces a block/confirmation in the UI (consuming the Phase 30 delete guard)
-
-**Plans**: TBD
-**UI hint**: yes
+</details>
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 30 → 31 → 32 (19-29 intentionally skipped — v1.4 phase numbering restarts at 30 by explicit user choice)
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 27 → 28 → 29 → 30 (28-30 = v1.6, fully planned but queued — do not start until v1.5/27 ships)
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|-----------------|--------|-----------|
@@ -256,13 +144,190 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 15. Model Registry Foundation + Persistence | v1.3 | 2/2 | Complete    | 2026-08-02 |
 | 16. Failover Orchestration | v1.3 | 4/4 | Complete    | 2026-08-02 |
 | 17. Settings UI + List Source | v1.3 | 3/3 | Complete    | 2026-08-02 |
-| 18. Verification Gate | v1.3 | 2/3 | In Progress (VER-04 pending) |  |
-| 30. Shared Data Model + Seed | v1.4 | 0/? | Not started | - |
-| 31. Signals UI | v1.4 | 0/? | Not started | - |
-| 32. Offerings UI | v1.4 | 0/? | Not started | - |
+| 18. Verification Gate | v1.3 | 3/3 | Complete    | 2026-08-02 |
+| 19. Provider Registry + Servable Model Source | v1.4 | 5/5 | Complete    | 2026-08-02 |
+| 20. Cross-Provider Run Path | v1.4 | 4/4 | Complete    | 2026-08-02 |
+| 21. Settings UI | v1.4 | 7/7 | Complete    | 2026-08-03 |
+| 22. Verification Gate | v1.4 | 7/7 | Complete    | 2026-08-03 |
+| 23. Provider Registry + Servable Sources | v1.5 | 4/4 | Complete    | 2026-08-03 |
+| 24. Refresh Script + Catalog Data | v1.5 | 4/4 | Complete    | 2026-08-04 |
+| 25. Run Path / modelFactory Seam | v1.5 | 1/4 | In Progress|  |
+| 26. Settings UI | v1.5 | 0/0 | Not started | - |
+| 27. Verification Gate | v1.5 | 0/0 | Not started | - |
+| 28. Shared Data Model + Seed | v1.6 | 0/6 | Planned (queued) | - |
+| 29. Signals UI | v1.6 | 0/0 | Not started (queued) | - |
+| 30. Offerings UI | v1.6 | 0/0 | Not started (queued) | - |
 
 ---
 
-*Roadmap for v1.3 created 2026-08-02. All 25 v1.3 requirements mapped across Phases 15-18 (build order A: model registry + persistence → B: failover orchestration → C: settings UI + list source → D: verification gate, per research SUMMARY.md Implications for Roadmap). Phase 15 carries the migration-apply-flow confirmation (`drizzle-kit push` vs generate+commit — the one MEDIUM research flag); Phase 16 carries the Pitfall-11 pre-flight note (verify ai@7.0.45 dist types before writing the failover loop). Full v1.2 detail archived in `.planning/milestones/v1.2-ROADMAP.md`.*
+*Roadmap for v1.4 created 2026-08-02 and shipped 2026-08-03; full v1.4 detail archived in `.planning/milestones/v1.4-ROADMAP.md`. All 25 v1.4 requirements mapped across Phases 19-22 (build order A: provider registry + servable model source → B: cross-provider run path → C: settings UI → D: verification gate, per research SUMMARY.md Implications for Roadmap — verified and refined against the research skeleton). Locked product decisions honored: `~latest`/`:free` INCLUDED + labeled (overrides PITFALLS 2/4 exclusion); hop-aware 429 advance (FAL-03); OpenRouter default = pinned concrete slug chosen in planning (SET-03); picker grouping + Command search both in P1 (SET-06); provider derived from catalog, no schema change (REG-05).*
 
-*Roadmap for v1.4 created 2026-08-04. All 27 v1.4 requirements (DATA-01..10, SIG-01..09, OFR-01..08) mapped across Phases 30-32 with zero orphans — phase count, numbering (30-32, skipping 19-29), and sequencing (30 → 31 → 32) are explicit, non-negotiable user decisions, not derived. Phase 30 is intentionally a no-UI, backend-only phase (shared data model + GBS seed); Phase 31 (Signals UI) and Phase 32 (Offerings UI) both depend only on Phase 30 and are otherwise independent UI surfaces, kept sequential per the user's stated "Signals first" priority. Started before v1.3 fully closed (v1.3 Phase 18/VER-04 remains open, tracked separately in PROJECT.md Active). Source: `.planning/specs/v1.4-signals-offerings.md`.*
+*Roadmap for v1.5 created 2026-08-03; phase detail in the Phase Details section below. All 28 v1.5 requirements mapped across Phases 23-27 (build order A: provider registry + servable sources → B: refresh script + catalog data → C: run path / modelFactory seam → D: settings UI → E: verification gate, per research SUMMARY.md Implications for Roadmap — the v1.4 19→20→21→22 shape, one phase shorter: no classifier work, the 402/429 semantics are unchanged for these providers). Phase ordering rationale (locked): registry/canary first (the priority-order `getProviderForModelId` change is a PREREQUISITE for every other provider-resolution consumer), then the committed snapshot data (consumed by the run path), then the instantiation seam, then UI + verification. Locked product decisions honored (do NOT re-litigate): OpenCode = ONE provider, servable gate = 49 rows (30 chat-completions + 19 Claude via `createAnthropic({ baseURL })`); GPT-5 (Responses API) + Gemini rows deferred to v2; 2 new env keys (`NOUSRESEARCH_API_KEY` + `OPENCODE_API_KEY`, one OpenCode key shared Zen+Go); Zen-wins dual-listed-id dedup (12 dual-listed ids; 5 Go-exclusive ids keep Go rows); NousResearch = curated `nousresearch/*` allowlist (Hermes-4 pair) over the anonymous 292-row roster; `getProviderForModelId` explicit precedence (anthropic → openrouter → nousresearch-over-openrouter → opencode; `claude-sonnet-4-6` MUST keep resolving to anthropic — regression lock); `supportsStructuredOutputs` starts false on new instances until a live key-backed probe; constraint 11 (modelFactory is the ONLY SDK-importing module); no schema change — provider identity derived from catalog.*
+
+## Phase Details
+
+### Phase 23: Provider Registry + Servable Sources
+
+**Goal**: The app recognizes all four AI providers from the committed catalog, and every servable model id resolves to exactly one provider with no silent provider swaps.
+**Depends on**: Nothing (first v1.5 phase; builds on v1.4 Phases 19-22)
+**Requirements**: REG-01, REG-02, REG-03, REG-04, REG-05, REG-06, REG-07
+**Success Criteria** (what must be TRUE):
+
+  1. The Settings AI Provider selector can render 4 data-driven entries (Anthropic, OpenRouter, NousResearch, OpenCode) — `SERVABLE_PROVIDERS` grows to 4 and `providerName()` becomes a registry-driven map with no hardcoded 2-way branch (the visible selector ships in Phase 26).
+  2. `getProviderForModelId` is priority-ordered (anthropic → openrouter → nousresearch-over-openrouter → opencode): `claude-sonnet-4-6` still resolves to anthropic (regression lock), `big-pickle` → opencode, the 2 hermes ids → nousresearch over their openrouter mirrors — collision canary extended and green.
+  3. OpenCode is ONE logical provider spanning the `opencode` + `opencode-go` rows; the 12 dual-listed ids dedupe by the deterministic Zen-wins rule, the 5 Go-exclusive ids keep their Go rows, locked by a no-flip canary.
+  4. The NousResearch servable set is the curated `nousresearch/*` allowlist (Hermes-4 pair) — NOT the 292-row portal roster (OpenRouter mirror, mass collision).
+  5. `PROVIDER_DEFAULT_MODELS` gains nousresearch + opencode reset targets; `NOUSRESEARCH_API_KEY` + `OPENCODE_API_KEY` are declared optional server-only (`env.ts`, `.env.example`, Vercel env — Vercel add deferred to Phase 25 key-provisioning per research Q2); cross-provider chains spanning the new providers pass union-wide save validation.
+
+**Plans**: 4 plansPlans:
+**Wave 1**
+
+- [x] 23-01-PLAN.md — Registry core: 4-provider union, ProviderGate/npm gate, Zen-wins dedup, servable-membership precedence resolver, count-stability/no-flip/hermes canaries, 4-entry PROVIDER_DEFAULT_MODELS
+- [x] 23-02-PLAN.md — Env declarations: NOUSRESEARCH_API_KEY + OPENCODE_API_KEY optional server-only (env.ts + .env.example, declaration-only)
+- [x] 23-03-PLAN.md — Save validation: REG-07 cross-provider chain case over the widened union (settings.ts verify-only)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 23-04-PLAN.md — Registry-driven provider names: PROVIDER_NAMES map kills both hardcoded branches; trimRow via dedupeProviderRows
+
+### Phase 24: Refresh Script + Catalog Data
+
+**Goal**: The committed catalog snapshot ships current NousResearch rows and a refreshed OpenCode roster, generated by an extended dev-time refresh script.
+**Depends on**: Phase 23 (registry accepts `nousresearch` rows; gates/canaries reference the new provider)
+**Requirements**: CAT-01, CAT-02, CAT-03, CAT-04
+**Success Criteria** (what must be TRUE):
+
+  1. `scripts/refresh-model-catalog.ts` fetches the anonymous Nous roster (HTTP 200, 292 rows) mapping rows to `providerID: 'nousresearch'` with `api.url = https://inference-api.nousresearch.com/v1` and `api.npm = @ai-sdk/openai-compatible`.
+  2. Nous `pricing.prompt/completion` converts per-token → per-MTok (×1e6) and `structuredOutputs` live-joins `supported_parameters` — any live-roster fetch failure aborts WITHOUT writing (the committed snapshot stays usable, throws-not-degrades).
+  3. Nous `family` derives from the id prefix (`nousresearch/hermes-4-*` → `hermes`); the snapshot regenerates and commits with the new `nousresearch` rows + refreshed Go roster (17 → 25 live rows).
+  4. Zen/Go rosters roster-verify per the D-02 doctrine; the Zen-wins dual-listed-id dedup is expressed once (refresh script or `getServableIdsForProvider`) and survives regeneration — no id's endpoint flips between refreshes.
+
+**Plans**: 4 plans
+**Wave 1**
+
+- [x] 24-01-PLAN.md — Snapshot restructure + consumer migration: grouped `{ generatedAt, providers }` shape, `getAllModels()` helper, fixture migration + hermes re-value (green at the atomic D-24-04 change)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 24-02-PLAN.md — Script extension: `fetchNousRoster` / `deriveNousFamily` / `verifyZenGoRosters` + grouped write; pre-flight `opencode upgrade` checkpoint (Go drift landmine)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 24-03-PLAN.md — Regenerate + re-lock canaries: `npm run models:fetch` after CLI upgrade, commit regenerated snapshot, re-lock COUNT-STABILITY/NO-FLIP to ACTUAL numbers, flip `nousresearch = []` boundary canary (D-24-11)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 24-04-PLAN.md — Full Nous canary group (D-24-12): 292 rows, hermes pins servable, pricing ×1e6, family derived, ~latest self-exclusion
+
+### Phase 25: Run Path / modelFactory Seam
+
+**Goal**: The Analytic Agent instantiates and runs cross-provider chains across all four providers safely, with provider-accurate audit and safe structured-output defaults.
+**Depends on**: Phase 23 (provider identity resolution), Phase 24 (`nousresearch` rows in the committed snapshot)
+**Requirements**: RUN-01, RUN-02, RUN-03, RUN-04, RUN-05, RUN-06
+**Success Criteria** (what must be TRUE):
+
+  1. `modelFactory` gains three module-scope `createOpenAICompatible` instances — `nousresearch` (baseURL `https://inference-api.nousresearch.com/v1`, key `NOUSRESEARCH_API_KEY`), `opencode-zen` (`https://opencode.ai/zen/v1`, key `OPENCODE_API_KEY`), `opencode-go` (`https://opencode.ai/zen/go/v1`, same key) — with `apiKey` passed EXPLICITLY (no SDK env auto-load); constraint 11 holds (modelFactory remains the only SDK-importing module).
+  2. `instantiateModel` dispatches OpenCode rows to the zen-vs-go instance by the matched row's `api.url` (scoped-row find); the 19 Claude rows instantiate via the already-installed `@ai-sdk/anthropic` with a `createAnthropic({ baseURL: 'https://opencode.ai/zen/v1', apiKey })` override — zero new packages beyond openai-compatible.
+  3. The chain-aware env gate names the new keys — a resolved chain containing a nousresearch model requires `NOUSRESEARCH_API_KEY`; an opencode model requires `OPENCODE_API_KEY` (all-or-nothing, `missingProviderKey` names the exact key).
+  4. `shouldAdvance` failover semantics extend to 4 providers — cross-provider 429 advances, same-provider never-advance preserved (OpenCode Zen↔Go is SAME-provider, one key), 402 billing stays never-eligible.
+  5. `model_used`/`model_chain` record the served provider accurately for all 4 providers (OpenCode rows by bare id; provider derivation via the priority-ordered registry); the three new instances start with `supportsStructuredOutputs` false (safe `json_object` fallback + client-side validation) until a live key-backed probe.
+
+**Plans**: 4 plans
+**Wave 1**
+
+- [x] 25-01-PLAN.md — modelFactory seam (RUN-01/02/06): install @ai-sdk/openai-compatible, 5 module-scope instances (nousresearch/opencode-zen/opencode-go + anthropicZen/Go), 4-provider instantiateModel dispatch + minimax collision canary, supportsStructuredOutputs false-start
+- [ ] 25-02-PLAN.md — Chain-aware env gate (RUN-03): missingProviderKey widened to 4 guards naming NOUSRESEARCH_API_KEY / OPENCODE_API_KEY; opencode-only chain runs with only OPENCODE set
+- [ ] 25-03-PLAN.md — shouldAdvance 16-cell matrix (RUN-04, verify-only): data-driven 4×4 matrix + Zen↔Go same-provider canary; modelConfig.ts byte-identical
+- [ ] 25-04-PLAN.md — RUN-05 loop-level audit: runAgent.test.ts mock extension + opencode/nousresearch 429 hop tests + bare-id audit + 6/6 identity smoke; runAgent.ts untouched
+
+### Phase 26: Settings UI
+
+**Goal**: Staff can see and configure all four providers in the Settings AI Model Configuration card with honest captions and unambiguous badges.
+**Depends on**: Phase 23 (registry), Phase 24 (servable rows), Phase 25 (run-path consumability for end-to-end verification)
+**Requirements**: SET-01, SET-02, SET-03, SET-04, SET-05, SET-06
+**Success Criteria** (what must be TRUE):
+
+  1. The AI Provider selector renders 4 always-valued entries (Anthropic, OpenRouter, NousResearch, OpenCode) in `SERVABLE_PROVIDERS` order.
+  2. Selecting a provider refreshes the Primary model picker from that provider's servable source — opencode (49 rows incl. Claude), nousresearch (Hermes pair), anthropic (1), openrouter (336).
+  3. OpenCode rows render a `· Zen` / `· Go` endpoint caption (derived `endpoint` field set at trim time from the matched row's providerID + `endpointLabel()` helper) in the same caption slot as suffix labels, in BOTH the provider-scoped primary and union fallback pickers.
+  4. NousResearch Hermes rows render honest capability captions (chat/reasoning-tuned caveat, mirroring the `:free` fail-loud pattern) with per-MTok cost captions converted from the API's per-token pricing.
+  5. Provider badges cover all 4 providers and disambiguate same-name models (hermes-4-70b via nousresearch vs openrouter; claude rows via opencode vs anthropic); union fallback pickers group by all 4 providers with correct badges; save + staleness verified end-to-end against 4-provider chains.
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 27: Verification Gate
+
+**Goal**: The 4-provider milestone is proven end-to-end with automated matrices, e2e, security gates, and live-browser evidence.
+**Depends on**: Phases 23-26
+**Requirements**: VER-01, VER-02, VER-03, VER-04, VER-05
+**Success Criteria** (what must be TRUE):
+
+  1. The Vitest collision matrix widens to 4 providers — same-name ids map to the correct provider (`claude-sonnet-4-6` → anthropic NOT opencode; `nousresearch/hermes-4-70b` → nousresearch NOT openrouter; opencode dual-listed ids resolve once, no endpoint flip) and the 4-provider 429 hop semantics (16-cell matrix, same-provider diagonal incl. Zen↔Go all-false) pass.
+  2. End-to-end UAT: saving a NousResearch or OpenCode primary then running Analyze on a company records `agent_run.model_used` matching the saved id.
+  3. An OpenCode-only chain runs with only `OPENCODE_API_KEY` set (no Anthropic/Nous key); a NousResearch-only chain runs with only `NOUSRESEARCH_API_KEY`.
+  4. The security-matrix grep extends — `NOUSRESEARCH`/`OPENCODE` absent from client components / Server Action returns / no `NEXT_PUBLIC_*` leakage; the `SERVER_COMPONENT` exemption set covers `modelFactory.ts`'s explicit `process.env.*` reads; the non-vacuous canary stays green.
+  5. Live-browser UAT confirms the 4-entry provider selector, Zen/Go endpoint captions, Hermes capability captions, and badge disambiguation across 4 providers; a live key-backed `json_schema` probe gates the `supportsStructuredOutputs` flip (RUN-06).
+
+**Plans**: TBD
+
+### Phase 28: Shared Data Model + Seed (v1.6, queued — see "Why queued" in the v1.6 milestone summary above)
+
+**Goal**: Every Offerings and Signals table exists with the correct shape (audit columns, status enums, join tables), the GBS practice area is fully seeded end-to-end (domains, offerings, triggers, ranked buyer roles, company signals, persona signals, and representative signal-offering links), the delete-guard business rule blocks destructive deletes at the query/service layer, and all writes reuse the existing staff-auth gate with `created_by`/`updated_by` recorded. This phase ships no UI — Phase 29 and Phase 30 build against this foundation.
+**Depends on**: Nothing new in-repo (builds on the existing Neon/Drizzle schema and `requireStaffAccess()` gate from v1.0); first phase of v1.6. Not code-dependent on v1.5, but execution is deliberately deferred until v1.5 ships.
+**Requirements**: DATA-01, DATA-02, DATA-03, DATA-04, DATA-05, DATA-06, DATA-07, DATA-08, DATA-09, DATA-10
+**Success Criteria** (what must be TRUE):
+
+  1. Querying `practice_area`, `domain`, `offering`, `buyer_role`, `offering_buyer_role`, and `trigger` returns the seeded GBS data: 1 practice area with 3 domains (Design/Build/Run), 11 offerings distributed across those domains, 5 buyer roles, ranked buyer-role links per offering, and at least one trigger per offering — all with `created_at`/`updated_at`/`created_by`/`updated_by` populated and the spec'd `status` enums in place
+  2. Querying `company_signal` returns signals seeded across all 8 GBS categories (27 signals) and querying `persona_signal` returns the seeded GBS persona signals (12), each `persona_signal` row referencing a real `buyer_role` id (never null, never a placeholder)
+  3. Querying the signal-to-offering link table returns the representative subset from spec Section 7.6 (10 rows), and every returned link's offering shares the same `practice_area_id` as its signal (enforced at the application layer if not enforceable in the DB)
+  4. A script or direct query attempting to delete a `practice_area`, `domain`, `offering`, or `buyer_role` that has dependent records (offerings, triggers, buyer-role links, signals, signal-offering links) is rejected or requires explicit cascade confirmation — it never silently cascades
+  5. All CRUD writes to these tables go through the existing staff-auth-gated path (reusing `requireStaffAccess()`, no new role/approval system) and populate `created_by`/`updated_by`; there is no separate review/approval workflow
+
+**Plans**: 6 plans (renamed from 30-0N to 28-0N at branch reconciliation 2026-08-04 — file contents unchanged otherwise; full spec at `.planning/specs/v1.4-signals-offerings.md`)
+**Wave 1**
+
+- [ ] 28-01-PLAN.md — Schema foundation: 9 new tables + 3 enums in schema.ts + [BLOCKING] npm run db:push (DATA-01, DATA-02)
+
+**Wave 2** *(blocked on Wave 1 completion, parallel with each other)*
+
+- [ ] 28-02-PLAN.md — practiceAreas.ts + domains.ts + buyerRoles.ts query modules + delete-guards (DATA-01, DATA-09, DATA-10)
+- [ ] 28-03-PLAN.md — offerings.ts query module (CRUD, active/all picker split, offering_buyer_role/trigger helpers, delete-guard) (DATA-01, DATA-09, DATA-10)
+- [ ] 28-04-PLAN.md — companySignals.ts + personaSignals.ts query modules (DATA-02, DATA-09)
+- [ ] 28-05-PLAN.md — signalOfferingLinks.ts query module with cross-practice-area guard (DATA-02, DATA-09)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 28-06-PLAN.md — GBS seed script (seedGbs.ts) — full spec Section 7 dataset + live row-count verification (DATA-03, DATA-04, DATA-05, DATA-06, DATA-07, DATA-08, DATA-09)
+
+### Phase 29: Signals UI (v1.6, queued)
+
+**Goal**: Staff can browse, filter, create, edit, and archive Company and Persona Signals from a new `Manage > Reviews > Signals` screen, with every signal optionally linked to offerings seeded in Phase 28.
+**Depends on**: Phase 28 (needs seeded `buyer_role` and `offering` data to populate pickers)
+**Requirements**: SIG-01, SIG-02, SIG-03, SIG-04, SIG-05, SIG-06, SIG-07, SIG-08, SIG-09
+**Success Criteria** (what must be TRUE):
+
+  1. `Manage > Reviews` shows a new "Signals" menu item, matching the existing visual/interaction pattern already used elsewhere under Reviews, that opens a two-tab screen — Company Signals and Persona Signals
+  2. Each tab's list can be filtered by Practice Area, Category (populated from distinct existing values), Status, and free-text search over name/description, and displays the spec'd columns (Company Signals: Name, Category, Practice Area, Linked Offerings count/expandable, Status, Last updated; Persona Signals: same plus Buyer Role)
+  3. Staff can create and edit a Company Signal (Name, Practice Area, autocomplete Category, Description, multi-select Linked Offerings, Status) and a Persona Signal (same fields plus a required Buyer Role select with an inline shortcut into the Buyer Role lookup panel so a partner isn't blocked if the role doesn't exist yet)
+  4. A signal's row-level "archive" action sets `status = retired` and the row remains visible in the list (never a hard delete)
+  5. The Linked Offerings / offering pickers on both forms only ever show active offerings scoped to the signal's selected Practice Area — draft offerings never appear as pickable options
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 30: Offerings UI (v1.6, queued)
+
+**Goal**: Staff can manage the full Service Portfolio hierarchy (Practice Area → Domain → Offering), edit each offering's triggers and ranked buyers via a matrix view, manage the shared Buyer Role lookup from one place, and see which signals currently reference each offering.
+**Depends on**: Phase 28 (needs the seeded/writable Offerings tables). Does not strictly depend on Phase 29 — different UI surfaces — but ships after it per the roadmap's stated sequencing.
+**Requirements**: OFR-01, OFR-02, OFR-03, OFR-04, OFR-05, OFR-06, OFR-07, OFR-08
+**Success Criteria** (what must be TRUE):
+
+  1. `Manage > Reviews` shows a new "Offerings" menu item that opens a two-tab screen — Service Portfolio and Offering × Trigger × Buyer Matrix
+  2. On the Service Portfolio tab, staff can create/edit/reorder/archive a Practice Area, Domain, and Offering, and the Offering edit form captures Name, Practice Area, optional Domain (filtered to the chosen Practice Area's domains), Offer Type, Description, Commercial Model Text, ranked Buyer Roles (multi-select), and Status
+  3. The Offering × Trigger × Buyer Matrix tab, filterable by Practice Area (defaulting to GBS), shows offerings grouped by Domain section headers (Design/Build/Run) with editable Trigger(s) (add/remove) and ranked Primary Buyer(s) per offering
+  4. A "Manage Buyer Roles" action opens a lookup CRUD panel (name + description; create/edit/archive) that is the single place buyer roles are managed, shared by both the Offerings and Signals screens
+  5. An Offering's detail view shows a read-only reverse-lookup list of Company/Persona Signals currently linked to it, and attempting to delete a Practice Area, Domain, Offering, or Buyer Role with dependent records surfaces a block/confirmation in the UI (consuming the Phase 28 delete guard)
+
+**Plans**: TBD
+**UI hint**: yes
