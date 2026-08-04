@@ -187,13 +187,16 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 **Wave 1**
 
 - [ ] 24-01-PLAN.md — Snapshot restructure + consumer migration: grouped `{ generatedAt, providers }` shape, `getAllModels()` helper, fixture migration + hermes re-value (green at the atomic D-24-04 change)
-- [ ] 24-02-PLAN.md — Script extension: `fetchNousRoster` / `deriveNousFamily` / `verifyZenGoRosters` + grouped write; pre-flight `opencode upgrade` checkpoint (Go drift landmine)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 24-03-PLAN.md — Regenerate + re-lock canaries: `npm run models:fetch` after CLI upgrade, commit regenerated snapshot, re-lock COUNT-STABILITY/NO-FLIP to ACTUAL numbers, flip `nousresearch = []` boundary canary (D-24-11)
+- [ ] 24-02-PLAN.md — Script extension: `fetchNousRoster` / `deriveNousFamily` / `verifyZenGoRosters` + grouped write; pre-flight `opencode upgrade` checkpoint (Go drift landmine)
 
 **Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 24-03-PLAN.md — Regenerate + re-lock canaries: `npm run models:fetch` after CLI upgrade, commit regenerated snapshot, re-lock COUNT-STABILITY/NO-FLIP to ACTUAL numbers, flip `nousresearch = []` boundary canary (D-24-11)
+
+**Wave 4** *(blocked on Wave 3 completion)*
 
 - [ ] 24-04-PLAN.md — Full Nous canary group (D-24-12): 292 rows, hermes pins servable, pricing ×1e6, family derived, ~latest self-exclusion
 
