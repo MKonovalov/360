@@ -331,20 +331,23 @@ export type ServableModel = {
 
 ## Open Questions
 
-1. **D-26-05's cost-suppression premise (Pitfall 2)**
+1. **(RESOLVED) D-26-05's cost-suppression premise (Pitfall 2)**
    - What we know: the OpenRouter mirror rows for the 2 Hermes ids demonstrably carry real, non-zero cost data in the live snapshot.
    - What's unclear: whether the "no cost caption" rule should still apply as a POLICY (never show pricing for a row you're steering users away from) independent of whether the data exists, or whether the rule was written under a false premise and should be dropped.
    - Recommendation: surface this to the user/planner explicitly before writing the plan task for SET-04's cost-caption logic; do not silently choose an interpretation.
+   - **Resolution:** CONTEXT.md's D-26-05 was corrected post-research — mirror rows now show their real cost caption, same as native NousResearch rows (no suppression). See `26-CONTEXT.md` decisions, `D-26-05 [CORRECTED post-research]`.
 
-2. **D-26-09's factual accuracy (Pitfall 7)**
+2. **(RESOLVED) D-26-09's factual accuracy (Pitfall 7)**
    - What we know: the ONLY id where keep-if-valid crosses an anthropic→opencode switch in the current catalog is `claude-sonnet-4-6`, and it is PROVABLY always served by native Anthropic regardless of the dropdown, by a Phase-23-locked precedence rule.
    - What's unclear: whether the hint copy should be corrected to state "no change" (honest, but contradicts the D-26-09 decision's literal proposed copy), special-cased to omit the hint for this id, or whether there's a broader intent (e.g. a future id where the hint WOULD be accurate) that wasn't captured in the verified data.
    - Recommendation: same as above — flag for explicit confirmation; do not implement the literal "now serves via OpenCode Zen" copy as-is without addressing this contradiction, since it directly undermines the phase's own "honest captions" goal.
+   - **Resolution:** CONTEXT.md's D-26-09 was corrected post-research — the hint now states the true routing fact ("Claude Sonnet 4.6 stays routed through Anthropic — OpenCode's copy isn't used while a higher-priority provider serves the same id"), generalized in Plan 26-02 Task 2 beyond the single hardcoded id. See `26-CONTEXT.md` decisions, `D-26-09 [CORRECTED post-research]`.
 
-3. **SET-01/02/06 verification depth**
+3. **(RESOLVED) SET-01/02/06 verification depth**
    - What we know: these requirements are structurally already satisfied by generic Phase 21/23 code.
    - What's unclear: whether the planner should write NEW plan tasks purely to add verification coverage (a 4-provider fixture in `model-picker-logic.test.ts`, an end-to-end save test), or fold that verification into the existing SET-03/04/05 tasks' test additions.
    - Recommendation: fold into SET-05's task (badge-accuracy fix naturally needs a 4-provider round-trip test to prove) rather than creating a dedicated near-empty task.
+   - **Resolution:** Folded into Plan 26-01 Task 1's `behavior` block, per the recommendation — the 4-provider fixture extension for `primaryAfterProviderSwitch`/`groupByProvider` lives in the same TDD task as the SET-03/04/05 logic additions, not a separate task.
 
 ## Validation Architecture
 

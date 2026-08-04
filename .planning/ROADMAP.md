@@ -235,9 +235,13 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
   5. Provider badges cover all 4 providers and disambiguate same-name models (hermes-4-70b via nousresearch vs openrouter; claude rows via opencode vs anthropic); union fallback pickers group by all 4 providers with correct badges; save + staleness verified end-to-end against 4-provider chains.
 
 **Plans**: 2 plans
-
 Plans:
+**Wave 1**
+
 - [ ] 26-01-PLAN.md — Wave 1: model-picker-logic.ts endpoint/Hermes/badge-resolution logic + tests (contract), page.tsx endpoint derivation
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 26-02-PLAN.md — Wave 2: model-picker.tsx caption rendering, model-settings-form.tsx badge fix + recap caption + corrected reset hint
 
 **UI hint**: yes

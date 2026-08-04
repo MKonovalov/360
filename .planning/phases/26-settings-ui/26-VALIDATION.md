@@ -2,8 +2,8 @@
 phase: 26
 slug: settings-ui
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-08-04
 ---
 
@@ -37,24 +37,26 @@ created: 2026-08-04
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| TBD | TBD | TBD | SET-01 | — | 4-entry selector order matches `SERVABLE_PROVIDERS` | unit (pure fn) | `npx vitest run src/components/settings/model-picker-logic.test.ts -t "PROVIDER_NAMES"` | ✅ (extend existing fixture-based tests) | ⬜ pending |
-| TBD | TBD | TBD | SET-02 | — | Provider switch refreshes primary picker's option set from that provider's servable source | unit (pure fn) | `npx vitest run src/components/settings/model-picker-logic.test.ts -t "primaryAfterProviderSwitch"` | ✅ existing 2-provider fixture — extend to 4-provider | ⬜ pending |
-| TBD | TBD | TBD | SET-03 | — | `endpointLabel()`/`rowCaption()` render `· Zen`/`· Go`, compose with suffix per D-26-01, join `searchValue` | unit (pure fn) | `npx vitest run src/components/settings/model-picker-logic.test.ts -t "endpoint"` | ❌ W0 — new fn, new tests | ⬜ pending |
-| TBD | TBD | TBD | SET-04 | — | Hermes capability caption + real cost caption (D-26-05 corrected) | unit (pure fn) | `npx vitest run src/components/settings/model-picker-logic.test.ts -t "hermes"` | ❌ W0 — new fn, new tests | ⬜ pending |
-| TBD | TBD | TBD | SET-05 | T-26-01 | Primary trigger badge resolves to the TRUE provider (D-26-11 bug fix) for the 2 verified collision ids | unit (pure fn, extracted `resolveBadgeProvider`) | `npx vitest run src/components/settings/model-picker-logic.test.ts -t "badge"` | ❌ W0 — recommend extraction for testability | ⬜ pending |
-| TBD | TBD | TBD | SET-06 | — | Union grouping covers 4 providers; save/staleness end-to-end against a 4-provider chain | unit (`groupByProvider`) + existing action test | `npx vitest run src/components/settings/model-picker-logic.test.ts -t "groupByProvider"` + `npx vitest run src/app/actions/settings.test.ts` | ✅ save-path covered; grouping needs 4-provider fixture | ⬜ pending |
+| 26-01/T1 | 26-01 | 1 | SET-01 | — | 4-entry selector order matches `SERVABLE_PROVIDERS` | unit (pure fn) | `npx vitest run src/components/settings/model-picker-logic.test.ts -t "PROVIDER_NAMES"` | ✅ (extend existing fixture-based tests) | ⬜ pending |
+| 26-01/T1 | 26-01 | 1 | SET-02 | — | Provider switch refreshes primary picker's option set from that provider's servable source | unit (pure fn) | `npx vitest run src/components/settings/model-picker-logic.test.ts -t "primaryAfterProviderSwitch"` | ✅ existing 2-provider fixture — extended to 4-provider in 26-01/T1's `behavior` block | ⬜ pending |
+| 26-01/T1, 26-02/T1 | 26-01, 26-02 | 1, 2 | SET-03 | — | `endpointLabel()`/`rowCaption()` render `· Zen`/`· Go`, compose with suffix per D-26-01, join `searchValue` (logic in 26-01/T1; render wiring in 26-02/T1) | unit (pure fn) | `npx vitest run src/components/settings/model-picker-logic.test.ts -t "endpoint"` | ✅ delivered by 26-01/T1 (was W0 gap, now closed by planning) | ⬜ pending |
+| 26-01/T1, 26-02/T1 | 26-01, 26-02 | 1, 2 | SET-04 | — | Hermes capability caption + real cost caption (D-26-05 corrected) (logic in 26-01/T1; render wiring in 26-02/T1) | unit (pure fn) | `npx vitest run src/components/settings/model-picker-logic.test.ts -t "hermes"` | ✅ delivered by 26-01/T1 (was W0 gap, now closed by planning) | ⬜ pending |
+| 26-01/T1, 26-02/T2 | 26-01, 26-02 | 1, 2 | SET-05 | T-26-01, T-26-04 | Primary trigger badge resolves to the TRUE provider (D-26-11 bug fix) for the 2 verified collision ids (extracted `resolveBadgeProvider` in 26-01/T1; call-site wiring in 26-02/T2) | unit (pure fn, extracted `resolveBadgeProvider`) | `npx vitest run src/components/settings/model-picker-logic.test.ts -t "badge"` | ✅ delivered by 26-01/T1 (was W0 gap, now closed by planning) | ⬜ pending |
+| 26-01/T1 | 26-01 | 1 | SET-06 | — | Union grouping covers 4 providers; save/staleness end-to-end against a 4-provider chain | unit (`groupByProvider`) + existing action test | `npx vitest run src/components/settings/model-picker-logic.test.ts -t "groupByProvider"` + `npx vitest run src/app/actions/settings.test.ts` | ✅ save-path covered; grouping 4-provider fixture added in 26-01/T1's `behavior` block | ⬜ pending |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
-*Task ID/Plan/Wave columns are TBD — backfilled by the planner once tasks are assigned to plans/waves.*
+*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky (flips to ✅ per row as each plan's tasks execute and their `<verify>` commands pass — this table records the plan/wave assignment, not completed execution)*
+*Task ID/Plan/Wave columns backfilled by the planner now that Plans 26-01 (wave 1) and 26-02 (wave 2, depends_on 26-01) exist.*
 
 ---
 
 ## Wave 0 Requirements
 
-- [ ] `model-picker-logic.test.ts` — new `describe` block for `endpointLabel()`/`rowCaption()`/`searchValue()` endpoint composition (SET-03), synthetic fixture (no live row currently has a compound endpoint+suffix caption)
-- [ ] `model-picker-logic.test.ts` — new `describe` block for the Hermes capability caption + real-cost caption (SET-04, per corrected D-26-05)
-- [ ] `model-picker-logic.test.ts` — 4-provider fixture for `primaryAfterProviderSwitch`/`groupByProvider` (currently only a 2-provider fixture exists) — covers SET-02/06's verification gap
-- [ ] Extract the badge-resolution fix (D-26-11) into a small named pure function (`resolveBadgeProvider`) in `model-picker-logic.ts` rather than inline JSX, so it gets unit coverage — highest-value test given it fixes a real, currently-shipping bug
+All four Wave 0 gaps are covered by Plan 26-01 Task 1's `behavior`/`action` blocks (TDD task, wave 1) — no separate Wave 0 plan was needed since the gaps were foldable into the existing logic-module task per RESEARCH.md Open Question 3's resolution.
+
+- [x] `model-picker-logic.test.ts` — new `describe` block for `endpointLabel()`/`rowCaption()`/`searchValue()` endpoint composition (SET-03), synthetic fixture (no live row currently has a compound endpoint+suffix caption) — planned in 26-01 Task 1
+- [x] `model-picker-logic.test.ts` — new `describe` block for the Hermes capability caption + real-cost caption (SET-04, per corrected D-26-05) — planned in 26-01 Task 1
+- [x] `model-picker-logic.test.ts` — 4-provider fixture for `primaryAfterProviderSwitch`/`groupByProvider` (currently only a 2-provider fixture exists) — covers SET-02/06's verification gap — planned in 26-01 Task 1
+- [x] Extract the badge-resolution fix (D-26-11) into a small named pure function (`resolveBadgeProvider`) in `model-picker-logic.ts` rather than inline JSX, so it gets unit coverage — highest-value test given it fixes a real, currently-shipping bug — planned in 26-01 Task 1
 
 ---
 
@@ -71,11 +73,11 @@ created: 2026-08-04
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 10s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies (26-01 T1/T2, 26-02 T1/T2 all carry `<verify><automated>`)
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify (4 tasks total, all 4 have `<automated>`)
+- [x] Wave 0 covers all MISSING references (all 4 gaps folded into 26-01 Task 1, see Wave 0 Requirements above)
+- [x] No watch-mode flags (all commands use `vitest run`/`tsc --noEmit`, never `--watch`)
+- [x] Feedback latency < 10s (per Test Infrastructure "Estimated runtime" — small pure-function suite)
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** plans 26-01/26-02 satisfy this validation contract in substance (all Wave 0 gaps planned, no 3 consecutive tasks without automated verify, no watch-mode flags); final execution sign-off still occurs at phase-gate per the Sampling Rate above.
