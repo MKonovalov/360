@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Additional AI Providers
-status: verifying
-last_updated: "2026-08-04T10:01:23.770Z"
+status: executing
+last_updated: 2026-08-04T10:20:00.000Z
 last_activity: 2026-08-04
 progress:
   total_phases: 5
@@ -20,20 +20,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-02)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** Phase 24 — refresh-script-catalog-data
+**Current focus:** Phase 24 complete — next up Phase 25 (Run Path / modelFactory Seam)
 
 ## Current Position
 
-Phase: 24 (refresh-script-catalog-data) — EXECUTING
-Plan: 4 of 4
-Status: Phase complete — ready for verification
+Phase: 24 (complete)
+Plan: Not started
+Status: Ready to execute Phase 25
 Last activity: 2026-08-04
+Next up: Phase 25 — Run Path / modelFactory Seam (CONTEXT not yet gathered)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 90 (v1.0: 14 + v1.1: 27 + v1.2: 10 + v1.3: 12)
+- Total plans completed: 94 (v1.0: 14 + v1.1: 27 + v1.2: 10 + v1.3: 12)
 - Average duration: - min
 - Total execution time: - hours (v1.4 not started)
 
