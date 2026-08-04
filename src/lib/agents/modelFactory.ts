@@ -31,17 +31,17 @@ const openrouter = createOpenRouter({ compatibility: 'strict' });
 // still works via JSON mode + client-side parse/validate; the live flip probe
 // is Phase 27 VER-05). Keys read via process.env directly — this module
 // deliberately does NOT import @/lib/env (D-11 declaration-only scope).
-const nousresearch = createOpenAICompatible({
+export const nousresearch = createOpenAICompatible({
   name: 'nousresearch',
   apiKey: process.env.NOUSRESEARCH_API_KEY,
   baseURL: 'https://inference-api.nousresearch.com/v1',
 });
-const openaiCompatibleZen = createOpenAICompatible({
+export const openaiCompatibleZen = createOpenAICompatible({
   name: 'opencode-zen',
   apiKey: process.env.OPENCODE_API_KEY,
   baseURL: 'https://opencode.ai/zen/v1',
 });
-const openaiCompatibleGo = createOpenAICompatible({
+export const openaiCompatibleGo = createOpenAICompatible({
   name: 'opencode-go',
   apiKey: process.env.OPENCODE_API_KEY,
   baseURL: 'https://opencode.ai/zen/go/v1',
