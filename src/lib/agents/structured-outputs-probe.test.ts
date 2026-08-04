@@ -4,7 +4,12 @@ import { config } from 'dotenv';
 config({ path: '.env.local' }); // seed.ts:12 precedent — vitest does NOT auto-load .env.local
 
 import { outputSchema } from './types';
-import { nousresearch, openaiCompatibleZen, openaiCompatibleGo } from './modelFactory';
+// Dynamic import (not static): static imports are hoisted above the config()
+// call above regardless of source order, so modelFactory's module-level
+// `apiKey: process.env.X` reads would run before .env.local is loaded,
+// silently constructing every client with apiKey=undefined (no Authorization
+// header sent at all — a false negative, not a real probe).
+const { nousresearch, openaiCompatibleZen, openaiCompatibleGo } = await import('./modelFactory');
 
 // D-27-08: the REAL production schema from runAgent.ts's Output.object call —
 // proving the actual production path, not a toy/minimal schema. A short

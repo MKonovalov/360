@@ -37,24 +37,25 @@ export const nousresearch = createOpenAICompatible({
   name: 'nousresearch',
   apiKey: process.env.NOUSRESEARCH_API_KEY,
   baseURL: 'https://inference-api.nousresearch.com/v1',
-  // RUN-06: probed 2026-08-04 (structured-outputs-probe.test.ts) — skipped,
-  // no NOUSRESEARCH_API_KEY available in this execution environment; stays
-  // false (json_object fallback) until re-probed with a live key.
+  // RUN-06: probed 2026-08-04 (structured-outputs-probe.test.ts) — real key,
+  // real request, endpoint returned "Not Found" for json_schema mode; stays
+  // false (json_object fallback) until re-probed after upstream support lands.
 });
 export const openaiCompatibleZen = createOpenAICompatible({
   name: 'opencode-zen',
   apiKey: process.env.OPENCODE_API_KEY,
   baseURL: 'https://opencode.ai/zen/v1',
-  // RUN-06: probed 2026-08-04 (structured-outputs-probe.test.ts) — skipped,
-  // no OPENCODE_API_KEY available in this execution environment; stays false
-  // (json_object fallback) until re-probed with a live key.
+  // RUN-06: probed 2026-08-04 (structured-outputs-probe.test.ts) — real key,
+  // real request, blocked on "Insufficient balance" (account uncredited, same
+  // class as the OpenRouter finding); stays false (json_object fallback)
+  // until re-probed with a credited account.
 });
 export const openaiCompatibleGo = createOpenAICompatible({
   name: 'opencode-go',
   apiKey: process.env.OPENCODE_API_KEY,
   baseURL: 'https://opencode.ai/zen/go/v1',
-  // RUN-06: probed 2026-08-04 (structured-outputs-probe.test.ts) — skipped,
-  // no OPENCODE_API_KEY available in this execution environment; stays false
+  // RUN-06: probed 2026-08-04 (structured-outputs-probe.test.ts) — real key,
+  // real request, provider returned a 400 for json_schema mode; stays false
   // (json_object fallback) until re-probed with a live key.
 });
 const anthropicZen = createAnthropic({
