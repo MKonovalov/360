@@ -25,26 +25,37 @@ const openrouter = createOpenRouter({ compatibility: 'strict' });
 // EXPLICITLY — @ai-sdk/openai-compatible has NO env auto-load (dist l.1749
 // builds Authorization: Bearer only from the passed option, unlike
 // createOpenRouter); an unset key fails at request time, a path the Phase 25
-// chain-aware gate (RUN-03) prevents. supportsStructuredOutputs is deliberately
-// UNSET (false) on all three openai-compatible instances (D-25-03: schema
-// requests degrade to response_format json_object + warning; Output.object
-// still works via JSON mode + client-side parse/validate; the live flip probe
-// is Phase 27 VER-05). Keys read via process.env directly — this module
+// chain-aware gate (RUN-03) prevents. supportsStructuredOutputs is a
+// per-instance capability flag, gated STRICTLY on each instance's own live
+// json_schema probe result (D-27-05/06: never all-or-nothing) — see the
+// per-instance comment at each call site below for the recorded outcome.
+// When unset (false), schema requests degrade to response_format json_object
+// + warning; Output.object still works via JSON mode + client-side
+// parse/validate. Keys read via process.env directly — this module
 // deliberately does NOT import @/lib/env (D-11 declaration-only scope).
 export const nousresearch = createOpenAICompatible({
   name: 'nousresearch',
   apiKey: process.env.NOUSRESEARCH_API_KEY,
   baseURL: 'https://inference-api.nousresearch.com/v1',
+  // RUN-06: probed 2026-08-04 (structured-outputs-probe.test.ts) — skipped,
+  // no NOUSRESEARCH_API_KEY available in this execution environment; stays
+  // false (json_object fallback) until re-probed with a live key.
 });
 export const openaiCompatibleZen = createOpenAICompatible({
   name: 'opencode-zen',
   apiKey: process.env.OPENCODE_API_KEY,
   baseURL: 'https://opencode.ai/zen/v1',
+  // RUN-06: probed 2026-08-04 (structured-outputs-probe.test.ts) — skipped,
+  // no OPENCODE_API_KEY available in this execution environment; stays false
+  // (json_object fallback) until re-probed with a live key.
 });
 export const openaiCompatibleGo = createOpenAICompatible({
   name: 'opencode-go',
   apiKey: process.env.OPENCODE_API_KEY,
   baseURL: 'https://opencode.ai/zen/go/v1',
+  // RUN-06: probed 2026-08-04 (structured-outputs-probe.test.ts) — skipped,
+  // no OPENCODE_API_KEY available in this execution environment; stays false
+  // (json_object fallback) until re-probed with a live key.
 });
 const anthropicZen = createAnthropic({
   baseURL: 'https://opencode.ai/zen/v1',
