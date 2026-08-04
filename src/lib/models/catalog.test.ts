@@ -304,12 +304,13 @@ describe('getUnionServableIds', () => {
     expect(new Set(union).size).toBe(union.length);
     // The Set-union (never the sum) is required because claude-sonnet-4-6 is
     // servable under BOTH anthropic and opencode (the phase's own
-    // regression-lock overlap) — the sum double-counts it (1+39=40) while the
-    // deduped union holds 39 slash-free ids. The formula is drift-proof: a new
+    // regression-lock overlap) — the sum double-counts it (1+40=41) while the
+    // deduped union holds 40 slash-free ids. The formula is drift-proof: a new
     // bare-id provider or a new servable id updates the count structurally; a
     // hardcoded 1 would fail now and silently rot later. Provider-aware slash
-    // contract: anthropic + opencode bare, openrouter vendor/model,
-    // nousresearch empty until Phase 24.
+    // contract: anthropic + opencode bare, openrouter vendor/model, and since
+    // the Phase 24 refresh the nousresearch pins are vendor/model too
+    // (slashed, so excluded from the slash-free count).
     const expectedSlashFree = new Set([
       ...getServableIdsForProvider(catalogJson, 'anthropic'),
       ...getServableIdsForProvider(catalogJson, 'opencode'),
@@ -388,8 +389,11 @@ describe('getProviderForModelId', () => {
     expect(getProviderForModelId(catalogJson, 'big-pickle')).toBe('opencode');
   });
 
-  it('Pitfall 5 boundary: the committed snapshot has 0 nousresearch rows, so nousresearch servable is [] — the live hermes canary lands in Phase 24 (D-23-07)', () => {
-    expect(getServableIdsForProvider(catalogJson, 'nousresearch')).toEqual([]);
+  it('Pitfall 5 boundary (D-23-07 — rows landed in Phase 24): the committed snapshot now carries the nousresearch roster, so the live hermes pins resolve through the gate (D-24-11 re-lock)', () => {
+    expect(getServableIdsForProvider(catalogJson, 'nousresearch')).toEqual([
+      'nousresearch/hermes-4-70b',
+      'nousresearch/hermes-4-405b',
+    ]);
   });
 });
 
@@ -426,20 +430,22 @@ describe('PROVIDER_GATES / SERVABLE_PROVIDERS / PROVIDER_PRECEDENCE', () => {
   });
 });
 
-describe('COUNT-STABILITY (D-23-02): committed snapshot opencode servable shape', () => {
-  it('locks the post-dedup registry output at 39 servable ids with the npm split {openai-compatible: 23, anthropic: 16} and zero GPT/Gemini', () => {
-    // 49 = 30+19 is the PRE-DEDUP npm-gated raw count (D-23-02); Zen-wins
-    // dedup collapses 10 dual servable pairs → the registry returns 39 —
-    // locking 49 would assert a shape the registry never returns.
+describe('COUNT-STABILITY (D-23-02 / D-24-11 re-lock): committed snapshot opencode servable shape', () => {
+  it('locks the post-dedup registry output at 40 servable ids with the npm split {openai-compatible: 23, anthropic: 17} and zero GPT/Gemini', () => {
+    // 50 = 30+20 is the PRE-DEDUP npm-gated raw count (D-24-11 re-lock,
+    // 2026-08-04 refresh: the go block 17→18 added qwen3.8-max, an
+    // @ai-sdk/anthropic Go-exclusive servable row); Zen-wins dedup collapses
+    // 10 dual servable pairs → the registry returns 40 — locking 50 would
+    // assert a shape the registry never returns.
     const ids = getServableIdsForProvider(catalogJson, 'opencode');
-    expect(ids).toHaveLength(39);
+    expect(ids).toHaveLength(40);
 
     const pool = dedupeProviderRows(catalogJson, 'opencode');
     const gatedPool = pool.filter(
       (m) => m.status !== 'deprecated' && OPENCODE_NPM_GATE.includes(m.api.npm),
     );
     expect(gatedPool.filter((m) => m.api.npm === '@ai-sdk/openai-compatible')).toHaveLength(23);
-    expect(gatedPool.filter((m) => m.api.npm === '@ai-sdk/anthropic')).toHaveLength(16);
+    expect(gatedPool.filter((m) => m.api.npm === '@ai-sdk/anthropic')).toHaveLength(17);
 
     // GPT-5 (@ai-sdk/openai) and Gemini (@ai-sdk/google) rows self-exclude
     // forever (D-23-01) — prove no such id is servable.
@@ -456,12 +462,15 @@ describe('COUNT-STABILITY (D-23-02): committed snapshot opencode servable shape'
   });
 });
 
-describe('NO-FLIP (D-23-09): Zen/Go dedup determinism + snapshot shape', () => {
-  it('dedupes to the 65-row pool; the 12 dual-listed ids keep the Zen row (URL) and the 5 go-exclusive ids keep their Go rows — no id endpoint flipped', () => {
+describe('NO-FLIP (D-23-09 / D-24-11 re-lock): Zen/Go dedup determinism + snapshot shape', () => {
+  it('dedupes to the 66-row pool; the 12 dual-listed ids keep the Zen row (URL) and the 6 go-exclusive ids keep their Go rows — no id endpoint flipped', () => {
     // D-23-09: determinism + snapshot shape — a roster re-shuffle that changes
     // these counts fails loudly and is re-verified intentionally (D-02).
+    // D-24-11 re-lock (2026-08-04 refresh): the go block 17→18 added the
+    // Go-exclusive qwen3.8-max → pool 65→66, go-exclusive 5→6; the 12
+    // dual-listed ids are unchanged.
     const pool = dedupeProviderRows(catalogJson, 'opencode');
-    expect(pool).toHaveLength(65);
+    expect(pool).toHaveLength(66);
 
     const dualIds = [
       'deepseek-v4-flash',
@@ -483,7 +492,14 @@ describe('NO-FLIP (D-23-09): Zen/Go dedup determinism + snapshot shape', () => {
       expect(row?.api.url, `${id} keeps the Zen url`).toBe('https://opencode.ai/zen/v1');
     }
 
-    const goExclusiveIds = ['hy3', 'mimo-v2.5', 'mimo-v2.5-pro', 'qwen3.7-max', 'qwen3.7-plus'];
+    const goExclusiveIds = [
+      'hy3',
+      'mimo-v2.5',
+      'mimo-v2.5-pro',
+      'qwen3.7-max',
+      'qwen3.7-plus',
+      'qwen3.8-max',
+    ];
     for (const id of goExclusiveIds) {
       const row = pool.find((m) => m.id === id);
       expect(row?.providerID, `${id} keeps the Go row`).toBe('opencode-go');
