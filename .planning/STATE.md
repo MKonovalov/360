@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Additional AI Providers
 status: executing
-last_updated: "2026-08-04T00:52:04.617Z"
-last_activity: 2026-08-04 -- Phase 24 planning complete
+last_updated: "2026-08-04T02:25:06.549Z"
+last_activity: 2026-08-04
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 8
-  completed_plans: 4
-  percent: 20
+  completed_plans: 5
+  percent: 63
 ---
 
 # Project State
@@ -20,13 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-02)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** Phase 23 complete — next up Phase 24 (Refresh Script + Catalog Data)
+**Current focus:** Phase 24 — refresh-script-catalog-data
 
 ## Current Position
 
-Phase: 23 (complete)
+Phase: 24 (refresh-script-catalog-data) — EXECUTING
+Plan: 2 of 4
 Status: Ready to execute
-Last activity: 2026-08-04 -- Phase 24 planning complete
+Last activity: 2026-08-04
 
 ## Performance Metrics
 
@@ -75,6 +76,7 @@ Last activity: 2026-08-04 -- Phase 24 planning complete
 | Phase 23 P02 | 3min | 2 tasks | 2 files |
 | Phase 23 P03 | 1 min | 2 tasks | 1 files |
 | Phase 23 P04 | 3min | 3 tasks | 3 files |
+| Phase 24 P01 | 17min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -169,6 +171,10 @@ VER-02/VER-05 requirement status: harness + test account (the operator prerequis
 - [Phase 23]: 23-03: reject half of REG-07 NOT duplicated — the existing non-servable case (claude-opus-4-9 → invalid_model, no write) already proves rejection against a mocked union; the new case proves only the save-through half
 - [Phase 23]: 23-04: PROVIDER_NAMES (4-entry Record<ModelProviderId, string>) is the single display-name source, shared by the client-side providerName() and the settings page's server-computed selector options — both hardcoded 2-way provider-name ternaries die (REG-01, research Pitfall 4); providerName return type widens to string (all consumers render it as React text, tsc-verified)
 - [Phase 23]: 23-04: trimRow rewired to dedupeProviderRows(catalogJson, provider) — the Zen-wins dedup helper IS the provider scope (filters by SNAPSHOT_PROVIDER_IDS[provider]), so the 5 go-exclusive opencode-go ids (hy3, mimo-v2.5, mimo-v2.5-pro, qwen3.7-max, qwen3.7-plus) resolve name/cost instead of the raw-id/0 fallback (research Open Question 4)
+- [Phase 24]: 24-01: Tasks 1-3 shipped as ONE atomic commit (D-24-04) — snapshot regroup, registry type migration, fixture migration + modelFactory re-route; intermediate states intentionally red, green gate at end of Task 3
+- [Phase 24]: 24-01: Grouped snapshot keyed by the snapshot's own providerID string values (D-24-05) — opencode and opencode-go stay SEPARATE groups (never merged); the registry's logical-provider mapping (SNAPSHOT_PROVIDER_IDS) is unchanged; keys sorted alphabetically for diff stability
+- [Phase 24]: 24-01: getAllModels() is the single flattening owner of the restructure — getModelDisplayName, dedupeProviderRows, and modelFactory's openrouter row lookup route through it; registry gates/precedence/union/dedup byte-identical (D-24-05, git-diff-verified 3 intended hunks)
+- [Phase 24]: 24-01: Hermes nousresearch fixture rows re-valued to live-verified data (2026-08-04): 0.05/0.2 and 0.09/0.37 per-MTok, context 131072, structuredOutputs false (hermes advertises response_format, not structured_outputs — Pitfall 5); openrouter mirror rows keep 0.2/0.6 and 0.8/1.2
 
 ### Pending Todos
 
@@ -200,9 +206,9 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-03T23:45:10.481Z
-Stopped at: Phase 24 context gathered
-Resume file: .planning/phases/24-refresh-script-catalog-data/24-CONTEXT.md
+Last session: 2026-08-04T02:25:06.542Z
+Stopped at: None
+Resume file: Completed 24-01-PLAN.md
 
 ## Operator Next Steps
 

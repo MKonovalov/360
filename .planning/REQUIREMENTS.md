@@ -21,8 +21,8 @@ Requirements for milestone v1.5. Each maps to a roadmap phase.
 
 - [ ] **CAT-01**: `scripts/refresh-model-catalog.ts` gains an anonymous `GET https://inference-api.nousresearch.com/v1/models` source (verified HTTP 200, 292 rows) mapping rows to `providerID: 'nousresearch'`, `api.url = https://inference-api.nousresearch.com/v1`, `api.npm = @ai-sdk/openai-compatible`
 - [ ] **CAT-02**: Nous `pricing.prompt/completion` converted per-token → per-MTok (×1e6) to match the snapshot's cost convention; `supported_parameters` live-joined to the `structuredOutputs` flag (mirroring the OpenRouter join, throws-not-degrades on failure)
-- [ ] **CAT-03**: Nous `family` derived from the id prefix (`nousresearch/hermes-4-*` → `hermes`); snapshot regenerated and committed with the new `nousresearch` rows + refreshed Go roster (17 → 25 live rows)
-- [ ] **CAT-04**: OpenCode Zen/Go roster-verify per the D-02 doctrine; the Zen-wins dual-listed-id dedup is expressed once (refresh script or `getServableIdsForProvider`) and survives regeneration
+- [x] **CAT-03**: Nous `family` derived from the id prefix (`nousresearch/hermes-4-*` → `hermes`); snapshot regenerated and committed with the new `nousresearch` rows + refreshed Go roster (17 → 25 live rows)
+- [x] **CAT-04**: OpenCode Zen/Go roster-verify per the D-02 doctrine; the Zen-wins dual-listed-id dedup is expressed once (refresh script or `getServableIdsForProvider`) and survives regeneration
 
 ### Run Path / modelFactory Seam
 
@@ -89,8 +89,8 @@ Deferred to future releases. Tracked but not in the current roadmap.
 | REG-07 | 23 | Complete |
 | CAT-01 | 24 | Pending |
 | CAT-02 | 24 | Pending |
-| CAT-03 | 24 | Pending |
-| CAT-04 | 24 | Pending |
+| CAT-03 | 24 | Complete |
+| CAT-04 | 24 | Complete |
 | RUN-01 | 25 | Pending |
 | RUN-02 | 25 | Pending |
 | RUN-03 | 25 | Pending |
