@@ -1,9 +1,9 @@
 ---
 phase: 30
 slug: shared-data-model-seed
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: approved
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-08-04
 ---
 
@@ -58,14 +58,16 @@ Two test-file naming conventions in active use, both required:
 
 ## Wave 0 Requirements
 
-- [ ] `src/lib/db/queries/practiceAreas.integration.test.ts` — covers DATA-01, DATA-10 (practice_area leg)
-- [ ] `src/lib/db/queries/domains.integration.test.ts` — covers DATA-01, DATA-10 (domain leg)
-- [ ] `src/lib/db/queries/offerings.integration.test.ts` — covers DATA-01, DATA-10 (offering leg), active/all picker split
-- [ ] `src/lib/db/queries/buyerRoles.integration.test.ts` — covers DATA-01, DATA-10 (buyer_role leg)
-- [ ] `src/lib/db/queries/companySignals.integration.test.ts` — covers DATA-02
-- [ ] `src/lib/db/queries/personaSignals.integration.test.ts` — covers DATA-02
-- [ ] `src/scripts/seedGbs.integration.test.ts` (or equivalent count-check) — covers DATA-03..08
-- [ ] No shared test-fixture/factory file exists yet for these tables — plan decides whether to add one; matching `userModelSettings.integration.test.ts`'s inline `randomUUID()`-per-test-row pattern requires no new fixture file
+Resolved — plan-checker confirmed (2026-08-04) every task across all 6 plans (30-01..30-06) has a concrete `<automated>` verify command; these test files are written as part of their owning plan's tasks, not a separate pre-phase Wave 0 gate:
+
+- [x] `src/lib/db/queries/practiceAreas.integration.test.ts` — covers DATA-01, DATA-10 (practice_area leg) — 30-02-PLAN.md
+- [x] `src/lib/db/queries/domains.integration.test.ts` — covers DATA-01, DATA-10 (domain leg) — 30-02-PLAN.md
+- [x] `src/lib/db/queries/offerings.integration.test.ts` — covers DATA-01, DATA-10 (offering leg), active/all picker split — 30-03-PLAN.md
+- [x] `src/lib/db/queries/buyerRoles.integration.test.ts` — covers DATA-01, DATA-10 (buyer_role leg) — 30-02-PLAN.md
+- [x] `src/lib/db/queries/companySignals.integration.test.ts` — covers DATA-02 — 30-04-PLAN.md
+- [x] `src/lib/db/queries/personaSignals.integration.test.ts` — covers DATA-02 — 30-04-PLAN.md
+- [x] Seed data count-check (DATA-03..08) — 30-06-PLAN.md
+- [x] No shared test-fixture/factory file — matches `userModelSettings.integration.test.ts`'s inline `randomUUID()`-per-test-row pattern, confirmed sufficient by plan-checker
 
 ---
 
@@ -80,11 +82,11 @@ Two test-file naming conventions in active use, both required:
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references (7 test files above)
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 60s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references (8 test files above, each owned by its plan)
+- [x] No watch-mode flags
+- [x] Feedback latency < 60s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved 2026-08-04 — verified by gsd-plan-checker against all 6 PLAN.md files

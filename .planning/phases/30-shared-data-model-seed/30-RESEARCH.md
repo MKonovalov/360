@@ -446,22 +446,25 @@ Not applicable in the usual "library version drift" sense — this phase introdu
 | A5 | New query modules (`practiceAreas.ts`, `offerings.ts`, etc.) should accept `userId`/`createdBy`/`updatedBy` as explicit function parameters rather than calling `requireStaffAccess()` internally | Architecture Patterns → Anti-Patterns; Architectural Responsibility Map | Low — directly verified from the existing `insertSignal`/`upsertModelSettings`/Server Action call-site pattern; very unlikely to be wrong, but flagged since Phase 30 ships no Server Actions to prove the wiring end-to-end (that only happens in Phase 31/32) |
 | A6 | `trigger` and `domain` as Postgres table names are safe when created via `drizzle-kit push` (auto-quoted identifiers) | Common Pitfalls → Pitfall 7 | Low — reasoned from Drizzle's standard behavior and the existing `company.domain` column coexisting fine, but not independently confirmed with a live `npx drizzle-kit push` run in this research session (no `DATABASE_URL` available in this sandbox — see Environment Availability). The plan should include an early, cheap verification task (`npm run db:push` right after adding the `trigger`/`domain` tables) rather than deferring discovery of any real issue |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Shared vs. per-table status enum (`catalog_status`)?**
    - What we know: Both approaches are valid, precedented in this codebase, and functionally identical from any consumer's perspective.
    - What's unclear: No explicit user/spec preference either way.
    - Recommendation: Default to the shared `catalog_status` enum (Code Examples above) for DRY-ness; this is a low-stakes internal decision the planner can make directly without a checkpoint.
+   - **RESOLVED:** 30-01-PLAN.md adopted the shared `catalogStatusEnum` as recommended.
 
 2. **Exact seed script naming/location and npm script name.**
    - What we know: `src/scripts/seed.ts` is the existing precedent, run via `npm run seed`. Phase 30's data is a different domain (GBS catalogue, not company/persona CSVs).
    - What's unclear: Whether to add a `"seed:gbs"` script or extend the existing `seed` script to also run this data.
    - Recommendation: New, separate script (`src/scripts/seedGbs.ts`, `npm run seed:gbs`) — keeps the two data domains (v1.0 company/persona/signal vs. v1.4 Offerings/Signals-feature) independently re-runnable, matching this repo's general "one script per concern" pattern (`seed.ts`, `refresh-model-catalog.ts` are already separate).
+   - **RESOLVED:** 30-06-PLAN.md adopted `src/scripts/seedGbs.ts` / `npm run seed:gbs` as recommended.
 
 3. **Should `signal_offering_link`'s cross-practice-area validation live in every insert call site, or in one shared helper?**
    - What we know: Spec requires app-layer enforcement (not DB-level) that a link's offering shares the signal's `practice_area_id`.
    - What's unclear: Whether the seed script itself needs to run this same validation (spec's 8 representative links are hand-picked and presumably already practice-area-consistent) or only the future Server Action layer needs it.
    - Recommendation: Put the validation in the query-layer `insertSignalOfferingLink()` function itself (not just the future Server Action), so the seed script exercises the same guard its data must satisfy — this doubles as a correctness check on the seed data itself.
+   - **RESOLVED:** 30-05-PLAN.md placed the validation inside `insertSignalOfferingLink()`; 30-06-PLAN.md's seed script routes through this same function, as recommended.
 
 ## Environment Availability
 
