@@ -136,7 +136,7 @@ describeWithDatabase('buyerRoles query boundaries', () => {
       .values({
         offeringId: offering.id,
         buyerRoleId,
-        sortOrder: 1,
+        rank: 1,
         createdBy: 'integration-test',
         updatedBy: 'integration-test',
       })
@@ -159,11 +159,9 @@ describeWithDatabase('buyerRoles query boundaries', () => {
       .values({
         practiceAreaId,
         buyerRoleId,
-        signalType: 'cost_pressure',
-        headline: 'integration-test fixture',
-        url: null,
-        firstSeenAt: new Date(),
-        lastSeenAt: new Date(),
+        name: `IT-PS-${randomUUID()}`,
+        category: 'cost pressure',
+        description: 'integration-test fixture',
         createdBy: 'integration-test',
         updatedBy: 'integration-test',
       })
@@ -202,7 +200,7 @@ describeWithDatabase('buyerRoles query boundaries', () => {
       .values({
         offeringId: offering.id,
         buyerRoleId,
-        sortOrder: 1,
+        rank: 1,
         createdBy: 'integration-test',
         updatedBy: 'integration-test',
       })
@@ -229,11 +227,9 @@ describeWithDatabase('buyerRoles query boundaries', () => {
       .values({
         practiceAreaId,
         buyerRoleId,
-        signalType: 'new_cfo',
-        headline: 'integration-test fixture',
-        url: null,
-        firstSeenAt: new Date(),
-        lastSeenAt: new Date(),
+        name: `IT-PS-${randomUUID()}`,
+        category: 'new cfo',
+        description: 'integration-test fixture',
         createdBy: 'integration-test',
         updatedBy: 'integration-test',
       })
