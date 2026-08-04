@@ -19,9 +19,11 @@ import { ModelPicker } from './model-picker';
 // client bundle. ModelProviderId comes from its canonical source (catalog.ts
 // declares the union; model-picker-logic does not re-export it).
 import {
+  endpointLabel,
   optionsForSlot,
   primaryAfterProviderSwitch,
   providerName,
+  resolveBadgeProvider,
   staleIds as computeStaleIds,
 } from './model-picker-logic';
 import type { ServableModel } from './model-picker-logic';
@@ -171,7 +173,22 @@ export function ModelSettingsForm({
         }.`,
       );
     } else {
-      setResetHint(null);
+      // D-26-09 (corrected, Pitfall 7): keep-if-valid preserved the primary
+      // id verbatim, but that id may still ALWAYS resolve through a
+      // different, higher-precedence provider than the one just selected
+      // (verified live: claude-sonnet-4-6 switching into opencode — it never
+      // actually re-routes). Detect this generically off the union's
+      // precedence-resolved providerID rather than hardcoding the one known
+      // id, so the hint stays correct if a future catalog refresh introduces
+      // a new overlapping id.
+      const resolvedProvider = unionServableModels.find((m) => m.id === result.primary)?.providerID;
+      if (resolvedProvider && resolvedProvider !== next) {
+        setResetHint(
+          `${unionServableModels.find((m) => m.id === result.primary)?.name ?? result.primary} stays routed through ${providerName(resolvedProvider)} — ${providers.find((p) => p.id === next)?.name ?? next}'s copy isn't used while a higher-priority provider serves the same id.`,
+        );
+      } else {
+        setResetHint(null);
+      }
     }
     setProvider(next);
     // Pitfall 6: if the reset lands on an id a preserved fallback already
@@ -255,7 +272,15 @@ export function ModelSettingsForm({
               setResetHint(null);
             }}
             placeholder="Select a model…"
-            badge={provider}
+            // D-26-11/SET-05: the closed trigger badge must show the TRUE
+            // resolved provider (precedence-resolved via the union list),
+            // never the raw AI Provider dropdown value — the two diverge for
+            // claude-sonnet-4-6 (always resolves anthropic) and both hermes
+            // ids (always resolve nousresearch). `?? provider` fallback
+            // preserves current behavior for the non-colliding case; the
+            // primary slot always has SOME value (never the empty-fallback
+            // sentinel the fallback picker's `?? undefined` exists for).
+            badge={resolveBadgeProvider(primary, unionServableModels, provider)}
             grouped={false}
             staleLabel={
               isStale(primary)
@@ -370,17 +395,26 @@ export function ModelSettingsForm({
                 fallbacks.filter((f) => f !== '').join('|') === lastSaved.fallbacks.join('|') ? (
                   <p className="text-[14px] font-normal leading-[1.5] text-slate-600">
                     Saved chain:{' '}
-                    {[primary, ...fallbacks.filter((f) => f !== '')].map((id, idx) => (
-                      <span key={id}>
-                        {idx > 0 ? ' → ' : null}
-                        <Badge variant="secondary">
-                          {providerName(
-                            unionServableModels.find((m) => m.id === id)?.providerID ?? 'anthropic',
-                          )}
-                        </Badge>{' '}
-                        {savedChain?.find((sc) => sc.id === id)?.name ?? id}
-                      </span>
-                    ))}
+                    {[primary, ...fallbacks.filter((f) => f !== '')].map((id, idx) => {
+                      // D-26-02: capture the union lookup ONCE per iteration —
+                      // the badge and the new endpoint caption both read off
+                      // the same resolved row (avoid a second .find() call).
+                      const resolved = unionServableModels.find((m) => m.id === id);
+                      return (
+                        <span key={id}>
+                          {idx > 0 ? ' → ' : null}
+                          <Badge variant="secondary">
+                            {providerName(resolved?.providerID ?? 'anthropic')}
+                          </Badge>{' '}
+                          {savedChain?.find((sc) => sc.id === id)?.name ?? id}
+                          {resolved?.endpoint ? (
+                            <span className="text-[12px] font-normal leading-[1.4] text-slate-500">
+                              {' '}· {endpointLabel(resolved.endpoint)}
+                            </span>
+                          ) : null}
+                        </span>
+                      );
+                    })}
                   </p>
                 ) : null}
               </div>
