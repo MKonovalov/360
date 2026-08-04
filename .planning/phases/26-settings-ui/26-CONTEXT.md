@@ -96,7 +96,7 @@ Staff can see and configure all four providers in the Settings AI Model Configur
 ## Specific Ideas
 
 - Caption examples from discussion: `· Zen · free tier — 50 req/day` (endpoint-first composite, D-26-01) and `· chat/reasoning-tuned` (Hermes uniform label, D-26-04).
-- Mirror-row cost behavior: openrouter hermes mirror rows show no cost caption (D-26-05) — verified the mirror rows genuinely carry no cost data in the committed snapshot.
+- Mirror-row cost behavior [corrected]: openrouter hermes mirror rows show their real cost caption, same as NousResearch rows (D-26-05, corrected post-research) — the live snapshot shows real non-zero cost for both mirrors; the original "no cost data" premise was wrong.
 
 </specifics>
 
