@@ -176,6 +176,46 @@
 
 ---
 
+## Milestone: v1.5 — Additional AI Providers
+
+**Shipped:** 2026-08-04
+**Phases:** 5 (23-27) | **Plans:** 20 | **Tasks:** 43 | **Sessions:** 2026-08-03 → 2026-08-04
+
+### What Was Built
+- Provider Registry + Servable Sources (Phase 23): `SERVABLE_PROVIDERS` widened to 4 with explicit precedence ordering, OpenCode expressed as ONE logical provider spanning two snapshot providerIDs (Zen-wins dedup), curated NousResearch Hermes allowlist, and union-wide save validation proven across all 4 providers
+- Refresh Script + Catalog Data (Phase 24): catalog snapshot restructured to a grouped, provider-keyed schema; live-verified 292-row NousResearch roster; a strict Zen/Go drift check with a human-approved pinned exception for a registry-side lag (models.dev behind live OpenCode CLI)
+- Run Path / modelFactory Seam (Phase 25): 5 new module-scope provider instances, 4-provider `instantiateModel` dispatch, chain-aware env gate widened to 4 guards, and a 16-cell hop-aware failover matrix — delivered with zero production change to the existing failover core
+- Settings UI (Phase 26): all 4 providers surfaced with endpoint/capability captions and provider badge disambiguation; 2 Critical Save-flow bugs found by code review, fixed in Phase 27
+- Verification Gate (Phase 27): 5/5 requirements independently re-verified; a genuine 13/13 live-browser Playwright pass closing all prior Settings UI UAT gaps; 2 real test-infrastructure bugs found and fixed mid-phase (an ESM import-hoisting bug silently sending unauthenticated requests, and 3 live-run-only Playwright bugs); the 2 remaining live-provider round-trip gaps honestly routed to human action (account credits) instead of force-closed
+
+### What Worked
+- The parallel wave-based execution (4 independent plans in Wave 1, worktree-isolated) caught zero merge conflicts — `files_modified` overlap checking before dispatch continues to pay off
+- Running the full test suite AFTER merging worktrees back to the main tree (which has real `.env.local`) surfaced 2 genuine bugs that every individual worktree's isolated self-check had missed, because none of the isolated worktrees had access to real credentials — the post-merge gate against the REAL environment is not redundant with per-plan self-checks, it catches a different class of defect
+- An independent verifier pass (separate agent, no shared context with the plan that wrote the first VERIFICATION.md) caught a real self-grading bias: the phase's own final plan marked itself `passed` with an empty human-verification section despite 2 requirements' defining condition being currently false — this project's own Phase 22 precedent for the identical situation was the correction anchor
+- Standalone (non-Vitest) re-execution of the live provider probes cleanly falsified a plausible-looking code-review finding (a real shared-DB-row race across 3 test files) as the ROOT CAUSE of the NousResearch/OpenCode failures — the race is real and worth fixing, but wasn't what was producing the specific documented findings
+
+### What Was Inefficient
+- `structured-outputs-probe.test.ts`'s ESM import-hoisting bug (static import of `modelFactory` ran before its own `dotenv.config()` call) meant an entire plan's live probe evidence was silently invalid — the SUMMARY.md's confident "skipped, no key available" framing was itself wrong; this class of bug is easy to introduce and easy to miss without an environment that actually has the credentials to expose it
+- The gsd-sdk's `worktree.cleanup-wave` helper repeatedly failed to merge Wave 1 due to a phantom untracked `27-04-SUMMARY.md` regenerating itself in the primary worktree between delete and merge attempts — worked around with manual `git merge --no-ff` per branch instead of debugging the helper's regeneration source
+- `REQUIREMENTS.md`'s traceability table lagged 2 phases behind reality: VER-01/VER-04/VER-05 were independently verified green but the table still showed all 5 VER-* rows Pending, because writing to REQUIREMENTS.md wasn't in the phase's own `files_modified` scope — caught and fixed at milestone close, not phase close
+
+### Patterns Established
+- Post-merge-to-real-environment test runs are a distinct verification layer from per-plan worktree self-checks, worth running explicitly even when every individual plan self-reports success
+- Independent re-verification of a phase's own self-authored VERIFICATION.md (a second agent, no access to the first agent's reasoning) is a cheap, high-value check specifically for phases whose final plan IS the verification report — self-grading bias is real even when the underlying evidence is accurate
+- When a code-review finding could plausibly explain an observed failure, reproduce the failure with that finding's mechanism structurally eliminated (e.g. re-run outside the concurrent test runner) before accepting or dismissing the finding as the cause
+
+### Key Lessons
+1. A test file that "correctly" skips when a key is absent can still be silently broken when the key IS present — dotenv-timing/import-order bugs produce false "ran successfully" or false "skipped correctly" signals that look identical to the real thing until you check what was actually sent over the wire
+2. Self-authored verification reports need an independent check specifically because the failure mode (self-granting `passed` under an empty human-verification section) is invisible to the same reasoning that produced the report — this project's own precedent (Phase 22) was the thing that made the Phase 27 correction obvious to a fresh reader, not obvious to the original author
+3. When closing a milestone, always re-check the requirements traceability table against independently-verified evidence, not just against what the last phase's own `files_modified` scope touched — documentation-sync gaps accumulate silently across phases
+
+### Cost Observations
+- Model mix: not tracked this milestone
+- Sessions: spans 2026-08-03 (Phase 23) through 2026-08-04 (Phases 24-27, same day)
+- Notable: Phase 27 was the most interactive phase of the milestone — 2 real bugs found and fixed via direct post-merge investigation (not delegated to a subagent), plus a full independent re-verification pass that changed the phase's own status
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -186,6 +226,7 @@
 | v1.1 | several | 5 | Layout consolidation + shared primitives (Menu, accordion, dedup keys); first automated test suite (Vitest, 139 tests by Phase 8); first Route Handler + AI/agent integration with durable-truth + fire-and-forget observability split |
 | v1.2 | several | 5 | Exa-style sidebar token foundation + nav restyle + collapse/resize coexistence; Playwright MCP live-browser verification replaces manual UAT for the shipped surface; pure-function regression locks (nav/user/sidebar-collapse/contrast) |
 | v1.3 | 1 | 4 | Per-user AI model settings + error-driven failover chain; verification-gate phase pattern (test gaps + live UAT + deployed preview, all checklist items → one matrix); dev-time snapshot as runtime model-list source |
+| v1.5 | 2 days | 5 | 4-provider registry + wave-based parallel worktree execution; post-merge-to-real-environment test runs as a distinct verification layer from per-plan self-checks; independent re-verification of a phase's own self-authored VERIFICATION.md as a self-grading-bias check |
 
 ### Cumulative Quality
 
@@ -195,6 +236,7 @@
 | v1.1 | 139 (Vitest) | Unit + Neon DB integration; no component/e2e browser coverage yet | 0 (no new deps in Phases 5-6; Phases 7-9 added Vitest, Langfuse, `ai` SDK, vendor clients as required) |
 | v1.2 | ~250 (Vitest) | Unit + pure-function locks + Playwright live-browser matrix; no component tests | 0 (zero new packages across all 5 phases) |
 | v1.3 | 294 (Vitest) | Unit + pure failover/catalog + Neon DB integration + live-browser UAT + deployed preview | 0 (zero new packages across all 4 phases) |
+| v1.5 | 448 (Vitest) + 13 (Playwright) | Unit + 4-provider matrices + live-browser UAT (13/13 real Clerk-account pass) + live-key-gated provider probes | 1 (`@ai-sdk/openai-compatible@3.0.22`, Phase 25) |
 
 ### Top Lessons (Verified Across Milestones)
 
