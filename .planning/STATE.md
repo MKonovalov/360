@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Additional AI Providers
 status: executing
-last_updated: 2026-08-04T10:20:00.000Z
+last_updated: "2026-08-04T10:58:18.899Z"
 last_activity: 2026-08-04
 progress:
   total_phases: 5
@@ -214,9 +214,9 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-04T09:58:41.640Z
-Stopped at: Plan 24-02 RESOLVED — D-24-07 amendment (user-approved pinned GO_KNOWN_LIVE_ONLY_IDS exception, commit 444bb9ed); Go drift blocker resolved; Plan 03 regeneration unblocked
-Resume file: None
+Last session: 2026-08-04T10:58:18.892Z
+Stopped at: Phase 25 context gathered
+Resume file: .planning/phases/25-run-path-modelfactory-seam/25-CONTEXT.md
 
 ## Operator Next Steps
 
