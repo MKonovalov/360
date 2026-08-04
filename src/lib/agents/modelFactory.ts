@@ -1,5 +1,6 @@
-import { anthropic } from '@ai-sdk/anthropic';
+import { anthropic, createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import type { LanguageModel } from 'ai';
 import { FAST_MODEL_ID, getProviderForModelId, getAllModels, type ModelProviderId } from '@/lib/models/catalog';
 import catalogJson from '@/lib/models/catalog.json';
@@ -15,6 +16,44 @@ import catalogJson from '@/lib/models/catalog.json';
 // prevents. This module deliberately does NOT import @/lib/env (D-11
 // declaration-only scope).
 const openrouter = createOpenRouter({ compatibility: 'strict' });
+
+// Phase 25 (RUN-01/02/06): the three openai-compatible endpoints (NousResearch
+// + OpenCode Zen/Go) + the two OpenCode Claude endpoints. Module-singletons,
+// instance-per-endpoint — D-25-01: baseURL is a CONSTRUCTOR option, NOT
+// per-call; the 20 anthropic-npm opencode rows span BOTH endpoints, so one
+// { baseURL: zen } instance would 404/misroute the 6 Go rows. apiKey is passed
+// EXPLICITLY — @ai-sdk/openai-compatible has NO env auto-load (dist l.1749
+// builds Authorization: Bearer only from the passed option, unlike
+// createOpenRouter); an unset key fails at request time, a path the Phase 25
+// chain-aware gate (RUN-03) prevents. supportsStructuredOutputs is deliberately
+// UNSET (false) on all three openai-compatible instances (D-25-03: schema
+// requests degrade to response_format json_object + warning; Output.object
+// still works via JSON mode + client-side parse/validate; the live flip probe
+// is Phase 27 VER-05). Keys read via process.env directly — this module
+// deliberately does NOT import @/lib/env (D-11 declaration-only scope).
+const nousresearch = createOpenAICompatible({
+  name: 'nousresearch',
+  apiKey: process.env.NOUSRESEARCH_API_KEY,
+  baseURL: 'https://inference-api.nousresearch.com/v1',
+});
+const openaiCompatibleZen = createOpenAICompatible({
+  name: 'opencode-zen',
+  apiKey: process.env.OPENCODE_API_KEY,
+  baseURL: 'https://opencode.ai/zen/v1',
+});
+const openaiCompatibleGo = createOpenAICompatible({
+  name: 'opencode-go',
+  apiKey: process.env.OPENCODE_API_KEY,
+  baseURL: 'https://opencode.ai/zen/go/v1',
+});
+const anthropicZen = createAnthropic({
+  baseURL: 'https://opencode.ai/zen/v1',
+  apiKey: process.env.OPENCODE_API_KEY,
+});
+const anthropicGo = createAnthropic({
+  baseURL: 'https://opencode.ai/zen/go/v1',
+  apiKey: process.env.OPENCODE_API_KEY,
+});
 
 // D-07: OpenRouter default primary — pinned concrete slug (never `~`/`:free`/
 // auto), roster-verified in plan 19-02: present in the committed snapshot with
@@ -73,6 +112,27 @@ export function instantiateModel(id: string): LanguageModel {
     return row?.structuredOutputs === false
       ? openrouter(id, { structuredOutputs: { strict: false } })
       : openrouter(id);
+  }
+  if (provider === 'nousresearch') return nousresearch(id);
+  if (provider === 'opencode') {
+    // Anti-Pattern 1 scoped-row find (D-25-02): the snapshot dual-lists ids —
+    // minimax-m2.7/m3 and qwen3.6-plus exist in BOTH the opencode and
+    // opencode-go groups with DIFFERENT api.npm (minimax: Zen row is
+    // openai-compatible, Go row is anthropic) — a bare id find could read the
+    // Go row and misroute to anthropicGo (wrong protocol). getAllModels
+    // flatten order is alphabetical (opencode before opencode-go), so this
+    // scoped find returns the ZEN row first, matching the registry's Zen-wins
+    // dedup.
+    const row = getAllModels(catalogJson).find(
+      (m) => m.id === id && (m.providerID === 'opencode' || m.providerID === 'opencode-go'),
+    );
+    // Fail-loud backstop for catalog drift; unreachable post-gate (union
+    // validation + chain resolution exclude non-servable ids).
+    if (!row) throw new Error(`unsupported provider for model ${id}`);
+    const go = row.api.url === 'https://opencode.ai/zen/go/v1';
+    return row.api.npm === '@ai-sdk/anthropic'
+      ? (go ? anthropicGo(id) : anthropicZen(id))
+      : (go ? openaiCompatibleGo(id) : openaiCompatibleZen(id));
   }
   // Fail-loud backstop for catalog drift; unreachable post-gate (union
   // validation + chain resolution exclude non-servable ids).

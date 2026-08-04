@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.26",
+    "@ai-sdk/openai-compatible": "^3.0.22",
     "@clerk/nextjs": "^7.5.22",
     "@langfuse/client": "^5.10.0",
     "@langfuse/otel": "^5.10.0",
