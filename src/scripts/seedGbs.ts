@@ -193,6 +193,96 @@ const OFFERINGS: OfferingSeed[] = [
   },
 ];
 
+// Spec Section 7.4: 27 company signals across the 8 GBS categories. The spec
+// supplies ONE string per signal (no separate name/description pair) — schema
+// requires both columns, so description is intentionally identical to name
+// (flagged in 30-06-SUMMARY.md).
+const COMPANY_SIGNALS: { category: string; name: string }[] = [
+  // GBS-state (4)
+  { category: 'GBS-state', name: 'No GBS/SSC exists' },
+  { category: 'GBS-state', name: 'GBS exists but has plateaued' },
+  { category: 'GBS-state', name: 'GBS recently stood up' },
+  { category: 'GBS-state', name: 'Fragmented delivery / captive-BPO renewal window' },
+  // Financial & commercial (5)
+  { category: 'Financial & commercial', name: 'Cost-efficiency narrative in investor communications' },
+  { category: 'Financial & commercial', name: 'Margin compression' },
+  { category: 'Financial & commercial', name: 'Activist investor / cost-cutting mandate' },
+  { category: 'Financial & commercial', name: 'PE ownership change with value-creation plan' },
+  { category: 'Financial & commercial', name: 'Credit outlook citing cost structure' },
+  // Organizational & restructuring (4)
+  { category: 'Organizational & restructuring', name: 'Announced restructuring or simplification program' },
+  { category: 'Organizational & restructuring', name: 'New GBS/Shared Services leadership layer visible' },
+  { category: 'Organizational & restructuring', name: 'Back-office-concentrated layoffs' },
+  { category: 'Organizational & restructuring', name: 'Named transformation program' },
+  // M&A & structural (4)
+  { category: 'M&A & structural', name: 'Announced deal with shared-services scope' },
+  { category: 'M&A & structural', name: 'TSA referenced in deal coverage' },
+  { category: 'M&A & structural', name: 'Day-1 / 100-day-plan language' },
+  { category: 'M&A & structural', name: 'Carve-out entity in motion' },
+  // Technology & ERP (3)
+  { category: 'Technology & ERP', name: 'S/4HANA migration announced with no process-redesign narrative' },
+  { category: 'Technology & ERP', name: 'ERP SI tender activity' },
+  { category: 'Technology & ERP', name: 'Legacy system end-of-life pressure' },
+  // Automation & AI maturity (2)
+  { category: 'Automation & AI maturity', name: 'Ungoverned automation/AI pilots' },
+  { category: 'Automation & AI maturity', name: 'Automation CoE / AI governance hiring with no existing governance retainer' },
+  // Public content & intent (4)
+  { category: 'Public content & intent', name: 'GBS/shared-services hiring pattern (Build vs. Run role types)' },
+  { category: 'Public content & intent', name: 'Shared-services language in careers/press content' },
+  { category: 'Public content & intent', name: 'Industry conference presence' },
+  { category: 'Public content & intent', name: 'Public case studies featuring own GBS leadership' },
+  // Geographic (1)
+  { category: 'Geographic', name: 'Expansion into DACH / France / China / APAC / Middle East / CIS' },
+];
+
+// Spec Section 7.5: 12 persona signals. The spec groups "Head of GBS / COO" as
+// one joint bucket, but persona_signal.buyer_role_id is a single required FK —
+// every signal in that bucket is assigned to "Head of GBS" (the first-listed,
+// more GBS-specific role), never COO, never duplicated (flagged in
+// 30-06-SUMMARY.md). The CFO row spec labels "Content engagement/org" is seeded
+// with the resolved category "Org/hiring signal" (its content describes a
+// hiring pattern, not content engagement). description = name, same rationale
+// as COMPANY_SIGNALS.
+const PERSONA_SIGNALS: { buyerRoleName: string; category: string; name: string }[] = [
+  // CFO (4)
+  { buyerRoleName: 'CFO', category: 'Tenure/mandate', name: 'Newly appointed within 12 months' },
+  { buyerRoleName: 'CFO', category: 'Public conviction', name: 'Cost-efficiency / operating-model language in public statements' },
+  { buyerRoleName: 'CFO', category: 'Career pattern', name: 'Previously sponsored a GBS/SSC build' },
+  { buyerRoleName: 'CFO', category: 'Org/hiring signal', name: 'FP&A/controllership hiring tied to efficiency agenda' },
+  // Head of GBS (5) — spec's joint "Head of GBS / COO" bucket
+  { buyerRoleName: 'Head of GBS', category: 'Tenure/mandate', name: 'Newly appointed (6–12 months) with prior GBS-build experience' },
+  { buyerRoleName: 'Head of GBS', category: 'Tenure/mandate', name: 'Entrenched 2+ years with no change narrative' },
+  { buyerRoleName: 'Head of GBS', category: 'Public conviction', name: 'Talks/posts on maturity assessments, SLA/KPI frameworks' },
+  { buyerRoleName: 'Head of GBS', category: 'Org/hiring signal', name: 'Hiring transition managers, service delivery managers, or CI leads' },
+  { buyerRoleName: 'Head of GBS', category: 'Career pattern', name: 'Visible industry engagement (shared-services conferences)' },
+  // Transformation Sponsor (3)
+  { buyerRoleName: 'Transformation Sponsor', category: 'Tenure/mandate', name: 'Role appeared concurrently with an announced deal or named program (tenure irrelevant)' },
+  { buyerRoleName: 'Transformation Sponsor', category: 'Public conviction', name: "LinkedIn 'started new position' tied to the named program" },
+  { buyerRoleName: 'Transformation Sponsor', category: 'Career pattern', name: 'Has run PMO/integration roles across multiple prior deals' },
+];
+
+// Spec Section 7.6: 10 representative signal-offering links (8 table entries,
+// 2 of which link to 2 offerings each). signalName/offeringName must exactly
+// match names seeded above — resolved via the nameToId Maps, throwing loudly
+// on any miss. Every link routes through insertSignalOfferingLink's
+// practice-area guard (T-30-01).
+const SIGNAL_OFFERING_LINKS: {
+  signalType: 'company' | 'persona';
+  signalName: string;
+  offeringName: string;
+}[] = [
+  { signalType: 'company', signalName: 'No GBS/SSC exists', offeringName: 'GBS Maturity & Readiness Assessment' },
+  { signalType: 'company', signalName: 'No GBS/SSC exists', offeringName: 'Target Operating Model & Business Case' },
+  { signalType: 'company', signalName: 'GBS exists but has plateaued', offeringName: 'Service Performance Assurance' },
+  { signalType: 'company', signalName: 'GBS exists but has plateaued', offeringName: 'Governance Advisory' },
+  { signalType: 'company', signalName: 'Announced deal with shared-services scope', offeringName: 'Carve-out / Integration Support' },
+  { signalType: 'company', signalName: 'S/4HANA migration announced with no process-redesign narrative', offeringName: 'Target Operating Model & Business Case' },
+  { signalType: 'company', signalName: 'Ungoverned automation/AI pilots', offeringName: 'Automation & AI Portfolio Governance & Benefit Realisation' },
+  { signalType: 'persona', signalName: 'Newly appointed (6–12 months) with prior GBS-build experience', offeringName: 'GBS Maturity & Readiness Assessment' },
+  { signalType: 'persona', signalName: 'Entrenched 2+ years with no change narrative', offeringName: 'Service Performance Assurance' },
+  { signalType: 'persona', signalName: 'Role appeared concurrently with an announced deal or named program (tenure irrelevant)', offeringName: 'Carve-out / Integration Support' },
+];
+
 async function main() {
   const { db } = await import('../lib/db');
   const {
@@ -210,6 +300,9 @@ async function main() {
   const domains = await import('../lib/db/queries/domains');
   const buyerRoles = await import('../lib/db/queries/buyerRoles');
   const offerings = await import('../lib/db/queries/offerings');
+  const companySignals = await import('../lib/db/queries/companySignals');
+  const personaSignals = await import('../lib/db/queries/personaSignals');
+  const signalOfferingLinks = await import('../lib/db/queries/signalOfferingLinks');
 
   // This script fully owns the 9 Phase 30 tables — clear prior seed-managed
   // rows (children first, respecting FK constraints) so re-running `npm run
@@ -304,6 +397,81 @@ async function main() {
     }
   }
 
-  // TODO Task 2: signals-side inserts (company signals, persona signals,
-  // signal-offering links) + main() invocation.
+  // Spec Section 7.4: company signals. description equals name verbatim — the
+  // spec gives exactly one string per signal; schema requires both columns.
+  const companySignalNameToId = new Map<string, number>();
+  for (const row of COMPANY_SIGNALS) {
+    const inserted = await companySignals.insertCompanySignal({
+      practiceAreaId: gbs.id,
+      name: row.name,
+      category: row.category,
+      description: row.name,
+      status: 'active',
+      createdBy: SEEDED_BY,
+    });
+    companySignalNameToId.set(row.name, inserted.id);
+  }
+
+  // Spec Section 7.5: persona signals, every one referencing a real buyer_role
+  // id from the seeded set above (DATA-07 — never a placeholder).
+  const personaSignalNameToId = new Map<string, number>();
+  for (const row of PERSONA_SIGNALS) {
+    const buyerRoleId = buyerRoleNameToId.get(row.buyerRoleName);
+    if (!buyerRoleId) {
+      throw new Error(
+        `Persona signal "${row.name}" references unknown buyer role "${row.buyerRoleName}" — must match a buyer role seeded above.`
+      );
+    }
+    const inserted = await personaSignals.insertPersonaSignal({
+      practiceAreaId: gbs.id,
+      buyerRoleId,
+      name: row.name,
+      category: row.category,
+      description: row.name,
+      status: 'active',
+      createdBy: SEEDED_BY,
+    });
+    personaSignalNameToId.set(row.name, inserted.id);
+  }
+
+  // Spec Section 7.6: 10 representative signal-offering links. Every link
+  // routes through insertSignalOfferingLink — the SINGLE cross-practice-area
+  // guard (T-30-01). A practice_area_mismatch here means the seed data itself
+  // is inconsistent (every signal and offering in this script shares the one
+  // GBS practice area), so it must throw, never silently skip.
+  for (const row of SIGNAL_OFFERING_LINKS) {
+    const signalNameToId = row.signalType === 'company' ? companySignalNameToId : personaSignalNameToId;
+    const signalId = signalNameToId.get(row.signalName);
+    if (!signalId) {
+      throw new Error(
+        `${row.signalType} signal "${row.signalName}" referenced by a signal-offering link is unknown — must match a signal seeded above.`
+      );
+    }
+    const offeringId = offeringNameToId.get(row.offeringName);
+    if (!offeringId) {
+      throw new Error(
+        `Offering "${row.offeringName}" referenced by a signal-offering link is unknown — must match an offering seeded above.`
+      );
+    }
+    const result = await signalOfferingLinks.insertSignalOfferingLink({
+      signalType: row.signalType,
+      signalId,
+      offeringId,
+      createdBy: SEEDED_BY,
+    });
+    if (!result.ok) {
+      throw new Error(
+        `Signal-offering link seed data inconsistency: "${row.signalName}" and "${row.offeringName}" are in different practice areas`
+      );
+    }
+  }
+
+  console.log(
+    'Inserted: 1 practice area, 3 domains, 5 buyer roles, 11 offerings, 11 triggers, 22 offering-buyer-role links, 27 company signals, 12 persona signals, 10 signal-offering links'
+  );
 }
+
+main().then(() => process.exit(0)).catch((error) => {
+  console.error(error instanceof Error ? error.message : error);
+  process.exit(1);
+});
