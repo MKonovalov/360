@@ -238,12 +238,30 @@ function nousPreMap(r: NousRosterRow) {
   );
 }
 
+// D-24-07 amendment (DELIBERATE, user-approved strictness exception, 2026-08-04):
+// models.dev's Go block lags the live https://opencode.ai/zen/go/v1/models roster
+// by these 7 ids (opencode CLI 1.18.12 = npm latest, verified 2026-08-04). The Go
+// compare accepts them as KNOWN drift; any NEW live-only id NOT in this set — and
+// ANY CLI-only id — still aborts the run. Zen stays fully strict. Never silent:
+// accepted drift is logged on every run.
+const GO_KNOWN_LIVE_ONLY_IDS = new Set([
+  'minimax-m2.5',
+  'kimi-k2.5',
+  'glm-5',
+  'qwen3.5-plus',
+  'mimo-v2-pro',
+  'mimo-v2-omni',
+  'hy3-preview',
+]);
+
 // CAT-04 + D-24-06/07: Zen/Go roster-verify. Fetches the two anonymous lean
 // rosters and compares id-sets against the CLI-parsed roster by providerID
 // ('opencode' ↔ live Zen, 'opencode-go' ↔ live Go). STRICT: ANY difference
 // throws with per-id diffs (no count tolerance, no warn-on-extra — D-24-07);
 // any fetch failure throws too (throws-not-degrades, T-24-06) so main() aborts
-// WITHOUT writing and the committed snapshot stays usable.
+// WITHOUT writing and the committed snapshot stays usable. The GO compare alone
+// carries the user-approved GO_KNOWN_LIVE_ONLY_IDS exception (D-24-07 amendment);
+// Zen stays fully strict.
 async function verifyZenGoRosters(parsed: Record<string, unknown>[]): Promise<void> {
   const compare = async (
     url: string,
@@ -271,12 +289,24 @@ async function verifyZenGoRosters(parsed: Record<string, unknown>[]): Promise<vo
     const liveSet = new Set(liveIds);
     const missing = liveIds.filter((id) => !cliSet.has(id)); // live has, CLI lacks
     const extra = cliIds.filter((id) => !liveSet.has(id)); // CLI has, live lacks
-    if (missing.length > 0 || extra.length > 0) {
+    // D-24-07 amendment: the GO compare accepts the pinned known-drift ids;
+    // any NEW live-only id or ANY CLI-only id still throws. Zen (label !== 'Go')
+    // stays fully strict — every diff aborts.
+    const knownDrift =
+      label === 'Go' ? missing.filter((id) => GO_KNOWN_LIVE_ONLY_IDS.has(id)) : [];
+    const unexpectedMissing = missing.filter((id) => !knownDrift.includes(id));
+    if (unexpectedMissing.length > 0 || extra.length > 0) {
       throw new Error(
         `${label} roster drift — snapshot NOT regenerated. ` +
-          `Live-only ids (${missing.length}): ${missing.join(', ')}. ` +
+          `Live-only ids (${unexpectedMissing.length}): ${unexpectedMissing.join(', ')}. ` +
           `CLI-only ids (${extra.length}): ${extra.join(', ')}. ` +
           `Update the opencode CLI (opencode upgrade) and re-run.`
+      );
+    }
+    // Accepted drift is documented on every run — the exception is never silent.
+    if (knownDrift.length > 0) {
+      console.error(
+        `Known Go roster drift accepted (pinned exception, D-24-07 amendment): ${knownDrift.join(', ')}`
       );
     }
   };
