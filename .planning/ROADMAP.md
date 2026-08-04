@@ -5,7 +5,8 @@
 - ✅ **v1.0 MVP** — Phases 1-4 (shipped 2026-07-24)
 - ✅ **v1.1 Start Page + Import + Analytic Agent** — Phases 5-9 (shipped 2026-08-01)
 - ✅ **v1.2 Exa-Style Left Panel** — Phases 10-14 (shipped 2026-08-02)
-- 🚧 **v1.3 AI Model Settings** — Phases 15-18 (in progress)
+- 🚧 **v1.3 AI Model Settings** — Phases 15-18 (in progress, Phase 18/VER-04 left unexecuted)
+- 🚧 **v1.4 Signals & Offerings** — Phases 30-32 (in progress — current focus)
 
 ## Phases
 
@@ -64,7 +65,7 @@ Full details: [`.planning/milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
 - [x] **Phase 15: Model Registry Foundation + Persistence** - Per-user `user_model_settings` table + atomic upsert query module (Clerk-userId keyed), `agent_run` `model_used`/`model_chain` audit columns, committed opencode catalog snapshot (`opencode models` dev-time script) + pure slug→provider-ID filter functions, and the migration-apply-flow confirmation (completed 2026-08-02)
 - [x] **Phase 16: Failover Orchestration** - Pure `classifyModelError` (RetryError-unwrap-first; only retryable provider/model errors advance), `runAgent` chain loop (primary + 1 fallback, per-attempt timeouts, 60s budget), snapshot-at-entry chain resolution, `userId` threading through the analyze route, and `model_used`/`model_chain` population (completed 2026-08-02)
 - [x] **Phase 17: Settings UI + List Source** - `settings` NavKey + Manage-group sidebar item, `/settings` page + client form + zod-validated Server Action, runnable-only (allowlist ∩ snapshot) model pickers with ordered reorderable fallbacks (completed 2026-08-02)
-- [ ] **Phase 18: Verification Gate** - Vitest failover/catalog/chain matrices, live-browser settings→Analyze→`model_used` UAT, Vercel-preview no-opencode check, and the "looks done but isn't" checklist
+- [ ] **Phase 18: Verification Gate** - Vitest failover/catalog/chain matrices, live-browser settings→Analyze→`model_used` UAT, Vercel-preview no-opencode check, and the "looks done but isn't" checklist (VER-04 left unexecuted — see PROJECT.md Active)
 
 ### Phase 15: Model Registry Foundation + Persistence
 
@@ -159,10 +160,67 @@ Full details: [`.planning/milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
 
 - [ ] 18-03-PLAN.md — VER-04 PR → Vercel preview: /settings renders from committed catalog.json (no 500/empty/opencode/), auth-gate check, zero-hit exec|spawn|child_process grep gate
 
+🚧 **v1.4 Signals & Offerings (Phases 30-32) — IN PROGRESS (current focus)**
+
+**Milestone Goal:** Replace the firm's Word-document service catalogues with structured Practice Area → Domain → Offering data, and let partners record reusable Company/Persona buying signals linked to offerings — manual CRUD only, one practice area (GBS — Design, Build & Run) seeded with real data, the other five start empty.
+
+**Phase Numbering:** Restarts at 30 by explicit user choice — v1.4 does NOT continue from v1.3's Phase 18, and does NOT reset to 1. Phases 19-29 are deliberately skipped/unused. Sequencing follows spec Section 6: Phase 30 (shared data model + seed, no UI) → Phase 31 (Signals UI, ships first per "Signals first" priority) → Phase 32 (Offerings UI). Both Phase 31 and Phase 32 depend only on Phase 30 — Phase 32 does not strictly depend on Phase 31 (different UI surfaces) but is kept sequential in the roadmap.
+
+- [ ] **Phase 30: Shared Data Model + Seed** - All Offerings/Signals tables (practice_area, domain, offering, buyer_role, offering_buyer_role, trigger, company_signal, persona_signal, signal-offering link) plus the full GBS seed data set (3 domains, 11 offerings, 5 buyer roles, ~24 company signals, ~9 persona signals, representative links), the delete-guard business rule, and staff-auth-gated writes with created_by/updated_by. No UI in this phase — a backend-only phase is valid and expected here.
+- [ ] **Phase 31: Signals UI** - New `Manage > Reviews > Signals` menu item — Company Signals / Persona Signals tabs with filterable lists, create/edit forms (offering multi-select scoped to Practice Area + active status), and soft-archive.
+- [ ] **Phase 32: Offerings UI** - New `Manage > Reviews > Offerings` menu item — Service Portfolio hierarchy manager (Practice Area → Domain → Offering CRUD/reorder/archive), Offering × Trigger × Buyer Matrix, a shared Buyer Role lookup CRUD panel, and a read-only reverse-lookup of linked signals per offering.
+
+### Phase 30: Shared Data Model + Seed
+
+**Goal**: Every Offerings and Signals table exists with the correct shape (audit columns, status enums, join tables), the GBS practice area is fully seeded end-to-end (domains, offerings, triggers, ranked buyer roles, company signals, persona signals, and representative signal-offering links), the delete-guard business rule blocks destructive deletes at the query/service layer, and all writes reuse the existing staff-auth gate with `created_by`/`updated_by` recorded. This phase ships no UI — Phase 31 and Phase 32 build against this foundation.
+**Depends on**: Nothing new in-repo (builds on the existing Neon/Drizzle schema and `requireStaffAccess()` gate from v1.0); first phase of v1.4. Not dependent on v1.3 Phase 18 completing.
+**Requirements**: DATA-01, DATA-02, DATA-03, DATA-04, DATA-05, DATA-06, DATA-07, DATA-08, DATA-09, DATA-10
+**Success Criteria** (what must be TRUE):
+
+  1. Querying `practice_area`, `domain`, `offering`, `buyer_role`, `offering_buyer_role`, and `trigger` returns the seeded GBS data: 1 practice area with 3 domains (Design/Build/Run), 11 offerings distributed across those domains, 5 buyer roles, ranked buyer-role links per offering, and at least one trigger per offering — all with `created_at`/`updated_at`/`created_by`/`updated_by` populated and the spec'd `status` enums in place
+  2. Querying `company_signal` returns signals seeded across all 8 GBS categories (~24 signals) and querying `persona_signal` returns the seeded GBS persona signals (~9), each `persona_signal` row referencing a real `buyer_role` id (never null, never a placeholder)
+  3. Querying the signal-to-offering link table returns the representative subset from spec Section 7.6, and every returned link's offering shares the same `practice_area_id` as its signal (enforced at the application layer if not enforceable in the DB)
+  4. A script or direct query attempting to delete a `practice_area`, `domain`, `offering`, or `buyer_role` that has dependent records (offerings, triggers, buyer-role links, signals, signal-offering links) is rejected or requires explicit cascade confirmation — it never silently cascades
+  5. All CRUD writes to these tables go through the existing staff-auth-gated path (reusing `requireStaffAccess()`, no new role/approval system) and populate `created_by`/`updated_by`; there is no separate review/approval workflow
+
+**Plans**: TBD
+
+### Phase 31: Signals UI
+
+**Goal**: Staff can browse, filter, create, edit, and archive Company and Persona Signals from a new `Manage > Reviews > Signals` screen, with every signal optionally linked to offerings seeded in Phase 30.
+**Depends on**: Phase 30 (needs seeded `buyer_role` and `offering` data to populate pickers)
+**Requirements**: SIG-01, SIG-02, SIG-03, SIG-04, SIG-05, SIG-06, SIG-07, SIG-08, SIG-09
+**Success Criteria** (what must be TRUE):
+
+  1. `Manage > Reviews` shows a new "Signals" menu item, matching the existing visual/interaction pattern already used elsewhere under Reviews, that opens a two-tab screen — Company Signals and Persona Signals
+  2. Each tab's list can be filtered by Practice Area, Category (populated from distinct existing values), Status, and free-text search over name/description, and displays the spec'd columns (Company Signals: Name, Category, Practice Area, Linked Offerings count/expandable, Status, Last updated; Persona Signals: same plus Buyer Role)
+  3. Staff can create and edit a Company Signal (Name, Practice Area, autocomplete Category, Description, multi-select Linked Offerings, Status) and a Persona Signal (same fields plus a required Buyer Role select with an inline shortcut into the Buyer Role lookup panel so a partner isn't blocked if the role doesn't exist yet)
+  4. A signal's row-level "archive" action sets `status = retired` and the row remains visible in the list (never a hard delete)
+  5. The Linked Offerings / offering pickers on both forms only ever show active offerings scoped to the signal's selected Practice Area — draft offerings never appear as pickable options
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 32: Offerings UI
+
+**Goal**: Staff can manage the full Service Portfolio hierarchy (Practice Area → Domain → Offering), edit each offering's triggers and ranked buyers via a matrix view, manage the shared Buyer Role lookup from one place, and see which signals currently reference each offering.
+**Depends on**: Phase 30 (needs the seeded/writable Offerings tables). Does not strictly depend on Phase 31 — different UI surfaces — but ships after it per the roadmap's stated sequencing.
+**Requirements**: OFR-01, OFR-02, OFR-03, OFR-04, OFR-05, OFR-06, OFR-07, OFR-08
+**Success Criteria** (what must be TRUE):
+
+  1. `Manage > Reviews` shows a new "Offerings" menu item that opens a two-tab screen — Service Portfolio and Offering × Trigger × Buyer Matrix
+  2. On the Service Portfolio tab, staff can create/edit/reorder/archive a Practice Area, Domain, and Offering, and the Offering edit form captures Name, Practice Area, optional Domain (filtered to the chosen Practice Area's domains), Offer Type, Description, Commercial Model Text, ranked Buyer Roles (multi-select), and Status
+  3. The Offering × Trigger × Buyer Matrix tab, filterable by Practice Area (defaulting to GBS), shows offerings grouped by Domain section headers (Design/Build/Run) with editable Trigger(s) (add/remove) and ranked Primary Buyer(s) per offering
+  4. A "Manage Buyer Roles" action opens a lookup CRUD panel (name + description; create/edit/archive) that is the single place buyer roles are managed, shared by both the Offerings and Signals screens
+  5. An Offering's detail view shows a read-only reverse-lookup list of Company/Persona Signals currently linked to it, and attempting to delete a Practice Area, Domain, Offering, or Buyer Role with dependent records surfaces a block/confirmation in the UI (consuming the Phase 30 delete guard)
+
+**Plans**: TBD
+**UI hint**: yes
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 30 → 31 → 32 (19-29 intentionally skipped — v1.4 phase numbering restarts at 30 by explicit user choice)
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|-----------------|--------|-----------|
@@ -183,8 +241,13 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 15. Model Registry Foundation + Persistence | v1.3 | 2/2 | Complete    | 2026-08-02 |
 | 16. Failover Orchestration | v1.3 | 4/4 | Complete    | 2026-08-02 |
 | 17. Settings UI + List Source | v1.3 | 3/3 | Complete    | 2026-08-02 |
-| 18. Verification Gate | v1.3 | 2/3 | In Progress|  |
+| 18. Verification Gate | v1.3 | 2/3 | In Progress (VER-04 pending) |  |
+| 30. Shared Data Model + Seed | v1.4 | 0/? | Not started | - |
+| 31. Signals UI | v1.4 | 0/? | Not started | - |
+| 32. Offerings UI | v1.4 | 0/? | Not started | - |
 
 ---
 
 *Roadmap for v1.3 created 2026-08-02. All 25 v1.3 requirements mapped across Phases 15-18 (build order A: model registry + persistence → B: failover orchestration → C: settings UI + list source → D: verification gate, per research SUMMARY.md Implications for Roadmap). Phase 15 carries the migration-apply-flow confirmation (`drizzle-kit push` vs generate+commit — the one MEDIUM research flag); Phase 16 carries the Pitfall-11 pre-flight note (verify ai@7.0.45 dist types before writing the failover loop). Full v1.2 detail archived in `.planning/milestones/v1.2-ROADMAP.md`.*
+
+*Roadmap for v1.4 created 2026-08-04. All 27 v1.4 requirements (DATA-01..10, SIG-01..09, OFR-01..08) mapped across Phases 30-32 with zero orphans — phase count, numbering (30-32, skipping 19-29), and sequencing (30 → 31 → 32) are explicit, non-negotiable user decisions, not derived. Phase 30 is intentionally a no-UI, backend-only phase (shared data model + GBS seed); Phase 31 (Signals UI) and Phase 32 (Offerings UI) both depend only on Phase 30 and are otherwise independent UI surfaces, kept sequential per the user's stated "Signals first" priority. Started before v1.3 fully closed (v1.3 Phase 18/VER-04 remains open, tracked separately in PROJECT.md Active). Source: `.planning/specs/v1.4-signals-offerings.md`.*

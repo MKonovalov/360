@@ -6,7 +6,7 @@ status: planning
 last_updated: "2026-08-04T10:34:22.068Z"
 last_activity: 2026-08-04
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,44 +17,40 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-08-02)
+See: .planning/PROJECT.md (updated 2026-08-04)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** Phase 18 — verification-gate
+**Current focus:** Phase 30 — Shared Data Model + Seed (v1.4 Signals & Offerings)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 30 — Shared Data Model + Seed (not started)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-08-04 — Milestone v1.4 started
+Status: Roadmap created, awaiting `/gsd-plan-phase 30`
+Last activity: 2026-08-04 — v1.4 ROADMAP.md created (Phases 30-32, 27/27 requirements mapped)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 60 (v1.0: 14 + v1.1: 27 + v1.2: 10)
+- Total plans completed: 60 (v1.0: 14 + v1.1: 27 + v1.2: 10); v1.3: 11 plans across Phases 15-17 (Phase 18 partial, 2/3)
 - Average duration: - min
-- Total execution time: - hours (v1.3 not started)
+- Total execution time: - hours (v1.4 not started)
 
-**By Phase (v1.3):**
+**By Phase (v1.4):**
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
-| 15-model-registry-foundation-persistence | 01 | 14min | 3 | 5 |
-| 15-model-registry-foundation-persistence | 02 | 10min | 3 | 5 |
+| 30-shared-data-model-seed | — | — | — | — |
+| 31-signals-ui | — | — | — | — |
+| 32-offerings-ui | — | — | — | — |
 
 **Recent Trend:**
 
-- Last 5 plans (v1.2): Phase 14 P01 (42min, 4 tasks, 6 files); Phase 13/12/11 plans 2-5min
-- Trend: N/A (new milestone)
+- Last 5 plans (v1.3): Phase 18 P02 (21min, 3 tasks, 3 files); Phase 18 P01 (3min); Phase 17 P01-03 (2-7min)
+- Trend: N/A (new milestone, phase numbering restarts at 30)
 
 *Updated after each plan completion*
-| Phase 17-settings-ui-list-source P01 | 2min | 2 tasks | 7 files |
-| Phase 17-settings-ui-list-source P02 | 6min | 3 tasks | 4 files |
-| Phase 17-settings-ui-list-source P03 | 7min | 2 tasks | 2 files |
-| Phase 18-verification-gate P01 | 3min | 3 tasks | 4 files |
-| Phase 18 P02 | 21min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -63,44 +59,27 @@ Last activity: 2026-08-04 — Milestone v1.4 started
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- **Roadmap (v1.3): Phase structure follows research SUMMARY "Implications for Roadmap"** — Phase 15 (A) Model Registry Foundation + Persistence (REG-01..05 + CAT-01..04) → Phase 16 (B) Failover Orchestration (FAL-01..05) → Phase 17 (C) Settings UI + List Source (SET-01..07) → Phase 18 (D) Verification Gate (VER-01..04). Sequential numbering continues from v1.2's Phase 14.
-- **Roadmap (v1.3): Locked design decisions (research resolved — do NOT re-litigate)** — raw provider model IDs stored (`claude-sonnet-4-6`, never `anthropic/...`); failover triggers on ANY retryable provider/model error (non-failover = validation/output/schema/auth-401-403); catalog = committed JSON snapshot from `opencode models` dev-time script (no DB table, no runtime opencode); chain = primary + 1 fallback (60s budget, ~35s/~20s per-attempt timeouts); `fallback_models` typed `text[]`; output/schema errors fail loud, no fallback.
-- **Roadmap (v1.3): Requirement count is 25, not 24** — SET-01..07 (7) + REG-01..05 (5) + CAT-01..04 (4) + FAL-01..05 (5) + VER-01..04 (4) = 25. All 25 mapped, no orphans, no phase with zero requirements.
-- **Roadmap (v1.3): Phase 15 carries the migration-apply-flow confirmation** — `drizzle/meta/_journal.json` has zero entries (MEDIUM research flag): confirm `drizzle-kit push` vs generate+commit before adding `user_model_settings`.
-- **Roadmap (v1.3): Pitfall-11 pre-flight note goes into the Phase 16 plan** — verify `generateText` model option, exported error classes, and `anthropic('id')` behavior against installed `ai@7.0.45`/`@ai-sdk/anthropic@4.0.26` dist types BEFORE writing the failover loop (v1.1-proven mitigation).
-- **Roadmap (v1.3): Allowlist curation is standing maintenance** — only `claude-sonnet-4-6` is roster-verified (2026-08-01); Phase 15 re-verifies any curated additions via `GET /v1/models`.
-- [Phase 15]: D-06 intent reading: NO version column on user_model_settings (atomic upsert prevents lost updates); createdAt ships per repo convention (every table has it)
-- [Phase 15]: fallbackModels comment cites company.techStack (schema.ts:61) as the text[] precedent — 'first text[] column' claim is factually wrong per research
-- [Phase 15]: Allowlist ships ['claude-sonnet-4-6'] only — live GET /v1/models 2026-08-02 verified sonnet-4-6, undated haiku-4-5 ABSENT (only dated -20251001 exists); D-02 gate defers haiku-4-5, no invented/dated IDs — Roster re-verify executed as Task 1 of plan 15-02; research finding confirmed at execution time
-- [Phase 15]: Catalog snapshot at src/lib/models/catalog.json (D-08 discretion) co-located with typed accessor; repo-root scripts/ holds the child_process script (Pitfall 4 — keeps src/ exec-free for the Phase 18 grep gate) — CAT-02 gate re-verified 0 hits after all files landed
-- [Phase 17]: getActiveNavKey matches /settings with an exact-match-only branch (no startsWith('/settings/')) — /settings is a leaf page with no detail routes; pins the sibling-prefix guard and threat T-17-02, locked by a /settings-archive boundary Vitest case
-- [Phase 17]: Settings sidebar item is badge-free — SidebarMenuBadge + dot block is Reviews-only; getNavTooltipLabel reviews special-case branch untouched
-- [Phase 17]: D-01 verdict 2026-08-02: undated claude-haiku-4-5 still absent on live GET /v1/models -> ANTHROPIC_ALLOWLIST stays sonnet-only (D-02), no dated/invented IDs; verdict recorded in 17-02-SUMMARY
-- [Phase 17]: saveSettingsAction never returns stale_primary/stale_fallback - a dropped-from-roster id fails the server-computed servable-set check (allowlist intersect snapshot) and surfaces as invalid_model (T-17-06); client-side staleness gate (plan 17-03 Task 2) is the primary D-10/D-11 mechanism
-- [Phase 17]: Empty fallback rows are dropped before sending to the action — an in-progress row is not a model selection; sending it verbatim would trip invalid_model (SET-04 'empty fallback list is saveable' honored)
-- [Phase 17]: Stale option labels fall back to the raw id in the client — no snapshot access by design (client-bundle rule), matching getModelDisplayName's D-06 fallback rule
-- [Phase 17]: Sonnet-only branch keeps stale saved fallbacks removable (Rule 2 fix) — otherwise a stale fallback blocks Save forever with no row to clear it (D-10/D-11 must-have truth)
-- [Phase ?]: Phase 18 P01: Real-snapshot catalog test (import catalogJson) is the ONE deliberate exception to the fixture-decoupling convention — drift-guarded by its assertion, not the model count
-- [Phase ?]: Phase 18 P01: SC-3 forced-fail clause recorded as satisfied-by-extension via runAgent.test.ts RetryError-404 + exhaustion tests (D-18-02) — zero prod code changes, Vitest mocks are the reproducible forced-fail proof
-- [Phase ?]: Phase 18 P01: Checklist count corrected to 13 items (not 12); catalog.test.ts corrected to 9 tests (not 11) — carried verbatim into 18-VER-01-MATRIX.md
-- [Phase 18]: Postgres assertion targets model_used/model_chain columns only (Pitfall 5) — usedFallback is response-only (route.ts:111), never queried as a DB column
-- [Phase 18]: SC-3 forced-fail clause recorded as satisfied-by-extension via runAgent.test.ts RetryError-404 + exhaustion tests (D-18-02) — no production fail hook added, zero src/ changes
+- **Roadmap (v1.4): Phase count, numbers, and sequencing are explicit user decisions, not derived** — exactly 3 phases, numbered 30/31/32 (skipping 19-29 by explicit choice, not continuing from v1.3's Phase 18 and not resetting to 1). Phase 30 (shared data model + GBS seed, no UI) → Phase 31 (Signals UI) → Phase 32 (Offerings UI), per spec Section 6's recommended sequencing.
+- **Roadmap (v1.4): 27/27 requirements mapped, zero orphans** — DATA-01..10 (10) → Phase 30, SIG-01..09 (9) → Phase 31, OFR-01..08 (8) → Phase 32.
+- **Roadmap (v1.4): Phase 30 is intentionally a no-UI, backend-only phase** — this is expected and correct, not a coverage gap. Phase 31 and Phase 32 both depend only on Phase 30 (need seeded `buyer_role`/`offering` data); Phase 32 does not strictly depend on Phase 31 (different UI surfaces) but stays sequential in the roadmap per the "Signals first" priority.
+- **Roadmap (v1.4): sourced from a fully pre-authored external spec** (`.planning/specs/v1.4-signals-offerings.md`) — data model, business rules, UI, seed data, and sequencing were already decided before this cycle; research was skipped for this milestone (see REQUIREMENTS.md header).
+- [Phase ?]: v1.4 started before v1.3 closed; v1.3 Phase 18 (VER-04) left unexecuted, phase dirs 15-18 cleared from disk (not archived) to make room for v1.4 numbering — recoverable via git history since `commit_docs: true`.
 
 ### Pending Todos
 
-None yet.
+None yet — Phase 30 not yet planned.
 
 ### Blockers/Concerns
 
-- **Migration apply flow (Phase 15 gate):** confirm `drizzle-kit push` vs generate+commit before touching schema.ts — `_journal.json` is empty (MEDIUM research flag).
-- **Allowlist curation:** only `claude-sonnet-4-6` currently roster-verified — Phase 15 must re-verify any curated additions before they appear in the pickers.
-- **60s ceiling is a hard wall:** chain budget (attempts × per-attempt timeout + SDK retry backoff ≤ 60s) must land in Phase 16 and be proven in Phase 18 — `maxDuration` stays at Hobby's 60, never raised.
-- **Settings-never-consumed risk (Pitfall 10):** the milestone's core acceptance test is change settings → Analyze → `agent_run.model_used` matches — must land as a Phase 18 UAT line, not assumed.
-- Carried from v1.1/v1.2: persona-side Arcpedia content gap (seed data); 3 VERIFICATION.md files still `human_needed`; "any authenticated Clerk user = staff" model has no role system (acceptable per PROJECT.md scope).
+- **v1.3 Phase 18/VER-04 remains open** (Vercel preview + `/settings` render + `exec|spawn|child_process` grep gate) — carried in PROJECT.md Active, not part of v1.4's roadmap, but not yet closed either.
+- **No numeric pricing field on `offering`** — `commercial_model_text` (free text, mechanism only) per spec Section 8; do not invent/infer a price figure from seed data during Phase 30 seeding.
+- **GBS/Technology offering-name boundary is unresolved** — "Automation & AI Portfolio Governance & Benefit Realisation" exists in both catalogues with overlapping meaning; v1.4 seeds it once under GBS only. Resolve the boundary before any future practice-area seeding (OFR-SEED-01, deferred).
+- **Category taxonomy is free text, not an enum** — do not hardcode the 8 GBS company-signal categories or 5 persona-signal categories as a fixed enum in Phase 30's schema; other practice areas will need different categories (spec Section 8).
+- Carried from v1.1/v1.2/v1.3: persona-side Arcpedia content gap (seed data); 3 VERIFICATION.md files still `human_needed`; "any authenticated Clerk user = staff" model has no role system (acceptable per PROJECT.md scope).
 
 ## Deferred Items
 
-Items acknowledged and carried forward from v1.1/v1.2 milestone close, still open:
+Items acknowledged and carried forward, still open:
 
 | Category | Item | Status |
 |----------|------|--------|
@@ -109,13 +88,19 @@ Items acknowledged and carried forward from v1.1/v1.2 milestone close, still ope
 | uat_gap | 02-HUMAN-UAT.md | partial — 4 pending scenarios |
 | uat_gap | 04-HUMAN-UAT.md | partial — 1 pending scenario (Persona-side Arcpedia content gap) |
 | verification_gap | 01/02/03/04-VERIFICATION.md | human_needed |
+| verification_gap | v1.3 Phase 18 VER-04 (Vercel preview + grep gate) | unexecuted, left open when v1.4 started |
+| future_requirement | HYP-01 Hypotheses feature | deferred past v1.4 (spec Section 1) |
+| future_requirement | SIG-CAT-01 promote signal category to lookup table | deferred until a 2nd practice area is seeded (spec Section 8) |
+| future_requirement | SIG-CO-01 dual-persona co-occurrence scoring | deferred to Hypotheses milestone (spec Section 8) |
+| future_requirement | OFR-PRICE-01 numeric pricing fields | deferred pending firm confirmation (spec Section 8) |
+| future_requirement | OFR-SEED-01 seed remaining 5 practice areas | blocked on GBS/Technology naming-boundary resolution (spec Section 8) |
 
 ## Session Continuity
 
-Last session: 2026-08-02T16:01:31.850Z
-Stopped at: Phase 18 context gathered
+Last session: 2026-08-04T10:34:22.068Z
+Stopped at: v1.4 ROADMAP.md + STATE.md created, REQUIREMENTS.md traceability confirmed
 Resume file: None
 
 ## Operator Next Steps
 
-- Plan Phase 15 with `/gsd-plan-phase 15` (Model Registry Foundation + Persistence — confirm the migration apply flow first)
+- Plan Phase 30 with `/gsd-plan-phase 30` (Shared Data Model + Seed — no UI, first phase of v1.4)
