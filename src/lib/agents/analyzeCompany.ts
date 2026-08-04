@@ -11,7 +11,7 @@ import { resolveModelChain, classifyModelError } from './modelConfig';
 // D-20-01/02: provider identity for the chain-aware gate is catalog-derived —
 // static, env-free imports (modelConfig.ts Pattern 2); constraint 11 untouched,
 // the catalog is NOT a provider SDK.
-import { getProviderForModelId } from '@/lib/models/catalog';
+import { getProviderForModelId, type ModelProviderId } from '@/lib/models/catalog';
 import catalogJson from '@/lib/models/catalog.json';
 import type { CompanyInput, DerivedEvidenceAppendix, LiveSignalInput, ProposalSignal, RunOutput } from './types';
 
@@ -45,20 +45,25 @@ export type AnalyzeResult =
       message?: string; // D-20-10: structured reason for billing / rate_limited
     };
 
-// D-20-01/02: provider → env key for the chain-aware gate. Pure env.ts reads,
-// no provider SDK interaction (research FAL-04). Returns the MISSING key name
-// (e.g. 'OPENROUTER_API_KEY' or 'ANTHROPIC_API_KEY') or null when every
-// provider in the chain is set. Unknown ids (null provider) are skipped — the
-// union servable gate upstream (resolveModelChain) already excludes
-// non-servable ids.
+// D-20-01/02 + D-25-05: provider → env key for the chain-aware gate. Pure
+// env.ts reads, no provider SDK interaction (research FAL-04). Returns the
+// MISSING key name (e.g. 'OPENROUTER_API_KEY' or 'ANTHROPIC_API_KEY') or null
+// when every provider in the chain is set. All 4 logical providers are gated —
+// the dual snapshot providerIDs ('opencode' + 'opencode-go') collapse to
+// logical 'opencode' via SNAPSHOT_PROVIDER_IDS, so the dual-id→single-key
+// mapping (OPENCODE_API_KEY) is free, no special-casing. Unknown ids (null
+// provider) are skipped — the union servable gate upstream (resolveModelChain)
+// already excludes non-servable ids.
 export function missingProviderKey(modelChain: string[]): string | null {
   const providers = new Set(
     modelChain
       .map((id) => getProviderForModelId(catalogJson, id))
-      .filter((p): p is 'anthropic' | 'openrouter' => p !== null),
+      .filter((p): p is ModelProviderId => p !== null),
   );
   if (providers.has('anthropic') && !env.ANTHROPIC_API_KEY) return 'ANTHROPIC_API_KEY';
   if (providers.has('openrouter') && !env.OPENROUTER_API_KEY) return 'OPENROUTER_API_KEY';
+  if (providers.has('nousresearch') && !env.NOUSRESEARCH_API_KEY) return 'NOUSRESEARCH_API_KEY';
+  if (providers.has('opencode') && !env.OPENCODE_API_KEY) return 'OPENCODE_API_KEY';
   return null;
 }
 
