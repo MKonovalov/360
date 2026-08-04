@@ -183,7 +183,19 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
   3. Nous `family` derives from the id prefix (`nousresearch/hermes-4-*` → `hermes`); the snapshot regenerates and commits with the new `nousresearch` rows + refreshed Go roster (17 → 25 live rows).
   4. Zen/Go rosters roster-verify per the D-02 doctrine; the Zen-wins dual-listed-id dedup is expressed once (refresh script or `getServableIdsForProvider`) and survives regeneration — no id's endpoint flips between refreshes.
 
-**Plans**: TBD
+**Plans**: 4 plans
+**Wave 1**
+
+- [ ] 24-01-PLAN.md — Snapshot restructure + consumer migration: grouped `{ generatedAt, providers }` shape, `getAllModels()` helper, fixture migration + hermes re-value (green at the atomic D-24-04 change)
+- [ ] 24-02-PLAN.md — Script extension: `fetchNousRoster` / `deriveNousFamily` / `verifyZenGoRosters` + grouped write; pre-flight `opencode upgrade` checkpoint (Go drift landmine)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 24-03-PLAN.md — Regenerate + re-lock canaries: `npm run models:fetch` after CLI upgrade, commit regenerated snapshot, re-lock COUNT-STABILITY/NO-FLIP to ACTUAL numbers, flip `nousresearch = []` boundary canary (D-24-11)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 24-04-PLAN.md — Full Nous canary group (D-24-12): 292 rows, hermes pins servable, pricing ×1e6, family derived, ~latest self-exclusion
 
 ### Phase 25: Run Path / modelFactory Seam
 
