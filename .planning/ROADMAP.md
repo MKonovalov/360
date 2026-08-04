@@ -213,7 +213,13 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
   4. `shouldAdvance` failover semantics extend to 4 providers — cross-provider 429 advances, same-provider never-advance preserved (OpenCode Zen↔Go is SAME-provider, one key), 402 billing stays never-eligible.
   5. `model_used`/`model_chain` record the served provider accurately for all 4 providers (OpenCode rows by bare id; provider derivation via the priority-ordered registry); the three new instances start with `supportsStructuredOutputs` false (safe `json_object` fallback + client-side validation) until a live key-backed probe.
 
-**Plans**: TBD
+**Plans**: 4 plans
+**Wave 1**
+
+- [ ] 25-01-PLAN.md — modelFactory seam (RUN-01/02/06): install @ai-sdk/openai-compatible, 5 module-scope instances (nousresearch/opencode-zen/opencode-go + anthropicZen/Go), 4-provider instantiateModel dispatch + minimax collision canary, supportsStructuredOutputs false-start
+- [ ] 25-02-PLAN.md — Chain-aware env gate (RUN-03): missingProviderKey widened to 4 guards naming NOUSRESEARCH_API_KEY / OPENCODE_API_KEY; opencode-only chain runs with only OPENCODE set
+- [ ] 25-03-PLAN.md — shouldAdvance 16-cell matrix (RUN-04, verify-only): data-driven 4×4 matrix + Zen↔Go same-provider canary; modelConfig.ts byte-identical
+- [ ] 25-04-PLAN.md — RUN-05 loop-level audit: runAgent.test.ts mock extension + opencode/nousresearch 429 hop tests + bare-id audit + 6/6 identity smoke; runAgent.ts untouched
 
 ### Phase 26: Settings UI
 
