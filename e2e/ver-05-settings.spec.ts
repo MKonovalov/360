@@ -329,3 +329,79 @@ test('VER-05: reset-hint + trigger badge accuracy for the claude-sonnet-4-6 coll
   const badge = page.getByLabel('Primary model').locator('[data-slot="badge"]');
   await expect(badge).toHaveText('Anthropic');
 });
+
+test('VER-05: OpenCode Zen/Go endpoint captions in primary + fallback pickers + saved-chain recap (closes 26-HUMAN-UAT item 2)', async ({
+  page,
+}) => {
+  await page.goto('/settings');
+  await expect(page.getByText(SETTINGS_HEADING)).toBeVisible();
+  await clearFallbacks(page);
+  await setProvider(page, 'OpenCode', 'OpenCode');
+
+  const primaryTrigger = page.getByLabel('Primary model');
+  const searchInput = page.getByPlaceholder('Search models…');
+
+  // --- 'big-pickle' is a real Zen-endpoint servable id — its option row
+  // carries the 'Zen' caption in the provider-scoped primary picker.
+  await primaryTrigger.click();
+  await searchInput.fill('big-pickle');
+  const zenOption = page.getByRole('option').filter({ hasText: 'Big Pickle' });
+  await expect(zenOption).toContainText('Zen');
+
+  // --- 'hy3' is a real Go-EXCLUSIVE servable id (opencode-go only, no Zen
+  // mirror) — same caption slot, same primary picker, reads 'Go'.
+  await searchInput.fill('');
+  await searchInput.fill('hy3');
+  const goOption = page.getByRole('option').filter({ hasText: 'Hy3' });
+  await expect(goOption).toContainText('Go');
+
+  // Select 'big-pickle' as primary.
+  await searchInput.fill('big-pickle');
+  await page.getByRole('option').filter({ hasText: 'Big Pickle' }).click();
+  await expect(primaryTrigger).toContainText('Big Pickle');
+
+  // --- Open the union fallback picker (grouped, spans all 4 providers) and
+  // confirm 'hy3''s 'Go' caption reappears in the SAME slot there too —
+  // scope by the OpenCode provider badge since 'hy3' also substring-matches
+  // unrelated openrouter rows (e.g. tencent/hy3-preview) in the wider union.
+  await page.getByRole('button', { name: 'Add fallback' }).click();
+  const fallbackTrigger = page.getByLabel('Fallback model 1');
+  await fallbackTrigger.click();
+  const fallbackSearch = page.getByPlaceholder('Search models…');
+  await fallbackSearch.fill('hy3');
+  const fallbackGoOption = page
+    .getByRole('option')
+    .filter({ hasText: 'Hy3' })
+    .filter({ has: page.locator('[data-slot="badge"]').filter({ hasText: 'OpenCode' }) });
+  await expect(fallbackGoOption).toContainText('Go');
+  await fallbackGoOption.click();
+  await expect(fallbackTrigger).toContainText('Hy3');
+
+  // --- Save a chain spanning both endpoints; the recap must show both.
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  const recap = page.getByText(/Saved chain:/);
+  await expect(recap).toBeVisible();
+  await expect(recap).toContainText('Zen');
+  await expect(recap).toContainText('Go');
+});
+
+test('VER-05: NousResearch Hermes capability + cost captions (SET-04)', async ({ page }) => {
+  await page.goto('/settings');
+  await expect(page.getByText(SETTINGS_HEADING)).toBeVisible();
+  await clearFallbacks(page);
+  await setProvider(page, 'NousResearch', 'NousResearch');
+
+  // NousResearch's servable set is the curated 2-row Hermes-4 allowlist
+  // (70b default + 405b). The default's own row is excluded from its picker
+  // (optionsForSlot dup-chain prevention) and renders as a pinned/disabled
+  // row that skips captions by design (pinnedSelection) — opening the picker
+  // surfaces the OTHER hermes row with its full caption instead, proving the
+  // same rowCaption/cost-caption composition for a real hermes id.
+  const primaryTrigger = page.getByLabel('Primary model');
+  await primaryTrigger.click();
+  const hermesRow = page.getByRole('option').filter({ hasText: /Hermes/ }).first();
+  await expect(hermesRow).toContainText('chat/reasoning-tuned');
+  // Pattern match, never a hard-coded dollar figure — the exact price can
+  // drift with a catalog refresh (npm run models:fetch).
+  await expect(hermesRow).toContainText(/\$[\d.]+ \/ \$[\d.]+ per MTok/);
+});
