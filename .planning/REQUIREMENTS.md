@@ -35,7 +35,7 @@ Requirements for milestone v1.5. Each maps to a roadmap phase.
 
 ### Settings UI
 
-- [ ] **SET-01**: AI Provider selector renders 4 always-valued entries (Anthropic, OpenRouter, NousResearch, OpenCode) in `SERVABLE_PROVIDERS` order
+- [x] **SET-01**: AI Provider selector renders 4 always-valued entries (Anthropic, OpenRouter, NousResearch, OpenCode) in `SERVABLE_PROVIDERS` order
 - [x] **SET-02**: Selecting a provider refreshes the Primary model picker from that provider's servable source — opencode (49 rows incl. Claude rows), nousresearch (Hermes pair), anthropic (1), openrouter (336)
 - [x] **SET-03**: OpenCode rows render a `· Zen` / `· Go` endpoint caption (new derived `endpoint` field set at trim time from the matched row's providerID + `endpointLabel()` helper) in the same caption slot as suffix labels, in BOTH the provider-scoped primary and union fallback pickers
 - [x] **SET-04**: NousResearch Hermes rows render honest capability captions (chat/reasoning-tuned caveat, mirroring the `:free` fail-loud pattern) with per-MTok cost captions converted from the API's per-token pricing
@@ -44,11 +44,11 @@ Requirements for milestone v1.5. Each maps to a roadmap phase.
 
 ### Verification Gate
 
-- [ ] **VER-01**: Vitest collision matrix widened to 4 providers — same-name ids map to the correct provider (`claude-sonnet-4-6` → anthropic NOT opencode; `nousresearch/hermes-4-70b` → nousresearch NOT openrouter; opencode dual-listed ids resolve once, no endpoint flip), 4-provider 429 hop semantics
-- [ ] **VER-02**: End-to-end UAT — save a NousResearch or OpenCode primary → Analyze on a company → `agent_run.model_used` matches the saved id
-- [ ] **VER-03**: OpenCode-only chain runs with only `OPENCODE_API_KEY` set (no Anthropic/Nous key); NousResearch chain runs with only `NOUSRESEARCH_API_KEY`
-- [ ] **VER-04**: Security-matrix grep extended — `NOUSRESEARCH`/`OPENCODE` absent from client components / Server Action returns / no `NEXT_PUBLIC_*` leakage; `SERVER_COMPONENT` exemption set covers `modelFactory.ts`'s explicit `process.env.*` reads; non-vacuous canary stays green
-- [ ] **VER-05**: Live-browser UAT — 4-entry provider selector, Zen/Go endpoint captions, Hermes capability captions, badge disambiguation across 4 providers; live key-backed `json_schema` probe gates the `supportsStructuredOutputs` flip (RUN-06)
+- [x] **VER-01**: Vitest collision matrix widened to 4 providers — same-name ids map to the correct provider (`claude-sonnet-4-6` → anthropic NOT opencode; `nousresearch/hermes-4-70b` → nousresearch NOT openrouter; opencode dual-listed ids resolve once, no endpoint flip), 4-provider 429 hop semantics
+- [ ] **VER-02**: End-to-end UAT — save a NousResearch or OpenCode primary → Analyze on a company → `agent_run.model_used` matches the saved id — structurally proven, live round trip blocked on NousResearch/OpenCode account credit top-up (see `27-HUMAN-UAT.md`)
+- [ ] **VER-03**: OpenCode-only chain runs with only `OPENCODE_API_KEY` set (no Anthropic/Nous key); NousResearch chain runs with only `NOUSRESEARCH_API_KEY` — isolation mechanics fully proven, round trip blocked on the same account-credit condition as VER-02
+- [x] **VER-04**: Security-matrix grep extended — `NOUSRESEARCH`/`OPENCODE` absent from client components / Server Action returns / no `NEXT_PUBLIC_*` leakage; `SERVER_COMPONENT` exemption set covers `modelFactory.ts`'s explicit `process.env.*` reads; non-vacuous canary stays green
+- [x] **VER-05**: Live-browser UAT — 4-entry provider selector, Zen/Go endpoint captions, Hermes capability captions, badge disambiguation across 4 providers; live key-backed `json_schema` probe gates the `supportsStructuredOutputs` flip (RUN-06)
 
 ## v2 Requirements
 
@@ -97,14 +97,14 @@ Deferred to future releases. Tracked but not in the current roadmap.
 | RUN-04 | 25 | Complete |
 | RUN-05 | 25 | Complete |
 | RUN-06 | 25 | Complete |
-| SET-01 | 26 | Pending |
+| SET-01 | 26 | Complete |
 | SET-02 | 26 | Complete |
 | SET-03 | 26 | Complete |
 | SET-04 | 26 | Complete |
 | SET-05 | 26 | Complete |
 | SET-06 | 26 | Complete |
-| VER-01 | 27 | Pending |
-| VER-02 | 27 | Pending |
-| VER-03 | 27 | Pending |
-| VER-04 | 27 | Pending |
-| VER-05 | 27 | Pending |
+| VER-01 | 27 | Complete |
+| VER-02 | 27 | Pending — blocked on operator credit top-up, see 27-HUMAN-UAT.md |
+| VER-03 | 27 | Pending — blocked on operator credit top-up, see 27-HUMAN-UAT.md |
+| VER-04 | 27 | Complete |
+| VER-05 | 27 | Complete |

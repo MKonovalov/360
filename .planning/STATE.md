@@ -227,6 +227,16 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 | tech_debt | CAT-03 `opencodeSlugToModelId` has no production consumer (tested only) | open — and MUST NOT be generalized to OpenRouter ids (PITFALLS 1) |
 | tech_debt | Stale root docs (README/CLAUDE.md still describe pre-Next.js stack) | open |
 
+Items acknowledged and deferred at v1.5 milestone close on 2026-08-04:
+
+| Category | Item | Status |
+|----------|------|--------|
+| uat_gap | 23-HUMAN-UAT.md | partial — 2 pending scenarios |
+| uat_gap | 27-HUMAN-UAT.md | partial — 3 pending scenarios (NousResearch/OpenCode credit top-ups + OpenCode schema-mismatch follow-up) |
+| verification_gap | 23-VERIFICATION.md | human_needed |
+| verification_gap | 26-VERIFICATION.md | human_needed (stale — 26-HUMAN-UAT.md's items were resolved by Plan 27-06, but 26-VERIFICATION.md's own status field was never re-run to confirm; low-risk staleness, not a re-opened gap) |
+| verification_gap | 27-VERIFICATION.md | human_needed — VER-02/VER-03 live round trip blocked on NousResearch/OpenCode account credit top-ups, same class of gap as v1.4's OpenRouter finding |
+
 ## Session Continuity
 
 Last session: 2026-08-04T19:50:45.987Z
