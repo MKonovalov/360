@@ -100,7 +100,7 @@ Full details: [`.planning/milestones/v1.4-ROADMAP.md`](milestones/v1.4-ROADMAP.m
 - [x] **Phase 24: Refresh Script + Catalog Data** - Data phase: anonymous `GET https://inference-api.nousresearch.com/v1/models` fetch source (HTTP 200, 292 rows), per-token → per-MTok pricing conversion (×1e6), `supported_parameters` → `structuredOutputs` live join (throws-not-degrades), family derived from id prefix, snapshot regenerated and committed with `nousresearch` rows + refreshed Go roster (17 → 25 live rows); Zen/Go roster-verify per D-02 doctrine with the Zen-wins dedup expressed once (completed 2026-08-04)
 - [x] **Phase 25: Run Path / modelFactory Seam** - Instantiation seam: three module-scope `createOpenAICompatible` instances (nousresearch / opencode-zen / opencode-go) with EXPLICIT `apiKey`, zen-vs-go dispatch by the matched row's `api.url`, 19 Claude rows via `createAnthropic({ baseURL, apiKey })` override, chain-aware env gate naming the new keys, `shouldAdvance` 4-provider semantics (Zen↔Go same-provider), provider-accurate `model_used`/`model_chain` audit, and `supportsStructuredOutputs` false-start on the new instances (completed 2026-08-04)
 - [x] **Phase 26: Settings UI** - 4-provider selector: always-valued AI Provider entries in `SERVABLE_PROVIDERS` order, provider-scoped Primary refresh, `· Zen` / `· Go` endpoint captions on OpenCode rows (primary + union pickers), honest Hermes capability captions with converted per-MTok costs, provider badges disambiguating same-name models across 4 providers, and 4-provider union grouping + save/staleness verification (completed 2026-08-04)
-- [ ] **Phase 27: Verification Gate** - Proof: widened 4-provider collision matrix + 16-cell 429 hop semantics, end-to-end NousResearch/OpenCode primary → Analyze → `model_used` UAT, single-key chain proofs (OpenCode-only / NousResearch-only), security-matrix grep over the new keys (SERVER_COMPONENT exemption set covers `modelFactory.ts`), and live-browser UAT + live key-backed `json_schema` probe gating the `supportsStructuredOutputs` flip
+- [x] **Phase 27: Verification Gate** - Proof: widened 4-provider collision matrix + 16-cell 429 hop semantics, end-to-end NousResearch/OpenCode primary → Analyze → `model_used` UAT, single-key chain proofs (OpenCode-only / NousResearch-only), security-matrix grep over the new keys (SERVER_COMPONENT exemption set covers `modelFactory.ts`), and live-browser UAT + live key-backed `json_schema` probe gating the `supportsStructuredOutputs` flip (completed 2026-08-04)
 
 </details>
 
@@ -137,7 +137,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 24. Refresh Script + Catalog Data | v1.5 | 4/4 | Complete    | 2026-08-04 |
 | 25. Run Path / modelFactory Seam | v1.5 | 4/4 | Complete    | 2026-08-04 |
 | 26. Settings UI | v1.5 | 2/2 | Complete    | 2026-08-04 |
-| 27. Verification Gate | v1.5 | 5/6 | In Progress|  |
+| 27. Verification Gate | v1.5 | 6/6 | Complete   | 2026-08-04 |
 
 ---
 
@@ -274,4 +274,4 @@ Plans:
 
 **Wave 3** *(blocked on Wave 1 + Wave 2 completion)*
 
-- [ ] 27-06-PLAN.md — VER-01 audit + 27-VERIFICATION.md + 26-HUMAN-UAT.md closure
+- [x] 27-06-PLAN.md — VER-01 audit + 27-VERIFICATION.md + 26-HUMAN-UAT.md closure
