@@ -36,11 +36,11 @@ Requirements for milestone v1.5. Each maps to a roadmap phase.
 ### Settings UI
 
 - [ ] **SET-01**: AI Provider selector renders 4 always-valued entries (Anthropic, OpenRouter, NousResearch, OpenCode) in `SERVABLE_PROVIDERS` order
-- [ ] **SET-02**: Selecting a provider refreshes the Primary model picker from that provider's servable source — opencode (49 rows incl. Claude rows), nousresearch (Hermes pair), anthropic (1), openrouter (336)
-- [ ] **SET-03**: OpenCode rows render a `· Zen` / `· Go` endpoint caption (new derived `endpoint` field set at trim time from the matched row's providerID + `endpointLabel()` helper) in the same caption slot as suffix labels, in BOTH the provider-scoped primary and union fallback pickers
-- [ ] **SET-04**: NousResearch Hermes rows render honest capability captions (chat/reasoning-tuned caveat, mirroring the `:free` fail-loud pattern) with per-MTok cost captions converted from the API's per-token pricing
-- [ ] **SET-05**: Provider badges on picker rows + saved chain entries cover all 4 providers and disambiguate same-name models (hermes-4-70b via nousresearch vs openrouter; claude rows via opencode vs anthropic)
-- [ ] **SET-06**: Union fallback pickers group by all 4 providers with correct badges; save/staleness verified end-to-end against 4-provider chains
+- [x] **SET-02**: Selecting a provider refreshes the Primary model picker from that provider's servable source — opencode (49 rows incl. Claude rows), nousresearch (Hermes pair), anthropic (1), openrouter (336)
+- [x] **SET-03**: OpenCode rows render a `· Zen` / `· Go` endpoint caption (new derived `endpoint` field set at trim time from the matched row's providerID + `endpointLabel()` helper) in the same caption slot as suffix labels, in BOTH the provider-scoped primary and union fallback pickers
+- [x] **SET-04**: NousResearch Hermes rows render honest capability captions (chat/reasoning-tuned caveat, mirroring the `:free` fail-loud pattern) with per-MTok cost captions converted from the API's per-token pricing
+- [x] **SET-05**: Provider badges on picker rows + saved chain entries cover all 4 providers and disambiguate same-name models (hermes-4-70b via nousresearch vs openrouter; claude rows via opencode vs anthropic)
+- [x] **SET-06**: Union fallback pickers group by all 4 providers with correct badges; save/staleness verified end-to-end against 4-provider chains
 
 ### Verification Gate
 
@@ -98,11 +98,11 @@ Deferred to future releases. Tracked but not in the current roadmap.
 | RUN-05 | 25 | Complete |
 | RUN-06 | 25 | Complete |
 | SET-01 | 26 | Pending |
-| SET-02 | 26 | Pending |
-| SET-03 | 26 | Pending |
-| SET-04 | 26 | Pending |
-| SET-05 | 26 | Pending |
-| SET-06 | 26 | Pending |
+| SET-02 | 26 | Complete |
+| SET-03 | 26 | Complete |
+| SET-04 | 26 | Complete |
+| SET-05 | 26 | Complete |
+| SET-06 | 26 | Complete |
 | VER-01 | 27 | Pending |
 | VER-02 | 27 | Pending |
 | VER-03 | 27 | Pending |
