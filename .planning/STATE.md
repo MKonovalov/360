@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Additional AI Providers
 status: executing
-last_updated: "2026-08-04T08:59:59.761Z"
+last_updated: "2026-08-04T09:17:09.678Z"
 last_activity: 2026-08-04
 progress:
   total_phases: 5
@@ -175,6 +175,7 @@ VER-02/VER-05 requirement status: harness + test account (the operator prerequis
 - [Phase 24]: 24-01: Grouped snapshot keyed by the snapshot's own providerID string values (D-24-05) — opencode and opencode-go stay SEPARATE groups (never merged); the registry's logical-provider mapping (SNAPSHOT_PROVIDER_IDS) is unchanged; keys sorted alphabetically for diff stability
 - [Phase 24]: 24-01: getAllModels() is the single flattening owner of the restructure — getModelDisplayName, dedupeProviderRows, and modelFactory's openrouter row lookup route through it; registry gates/precedence/union/dedup byte-identical (D-24-05, git-diff-verified 3 intended hunks)
 - [Phase 24]: 24-01: Hermes nousresearch fixture rows re-valued to live-verified data (2026-08-04): 0.05/0.2 and 0.09/0.37 per-MTok, context 131072, structuredOutputs false (hermes advertises response_format, not structured_outputs — Pitfall 5); openrouter mirror rows keep 0.2/0.6 and 0.8/1.2
+- [Phase ?]: Go roster drift escalation (Plan 24-02 Task 2, Landmine 1) — user chose OPTION 1 (wait)
 
 ### Pending Todos
 
@@ -190,6 +191,7 @@ None yet.
 - Carried from v1.1/v1.2: persona-side Arcpedia content gap (seed data); 3 VERIFICATION.md files still `human_needed`; "any authenticated Clerk user = staff" model has no role system (acceptable per PROJECT.md scope).
 - OPENROUTER_API_KEY is UNCREDITED (limit: null, is_free_tier: true) — the VER-02 live analyze e2e (22-05) returns 402 and cannot produce its billing-success evidence (201 + modelUsed read-back) until credits are topped up; gates VER-02 requirement + plan 22-07 proof recording; re-run npx playwright test e2e/ver-02-analyze.spec.ts after top-up
 - Strict D-24-07 Go roster drift BLOCKS Plan 24-03 regeneration: opencode CLI upgraded to 1.18.12 (npm latest, verified no newer stable) + models --refresh still yields 18 opencode-go rows vs 25 live. Drift captured (exit 1, no write): Live-only ids (7) minimax-m2.5, kimi-k2.5, glm-5, qwen3.5-plus, mimo-v2-pro, mimo-v2-omni, hy3-preview; CLI-only (0). Root cause registry-side (models.dev lags live by hy3-preview; CLI filters 6 more). D-24-07 NOT relaxed. Options: (1) wait for newer release/registry update then re-run Task 2 checkpoint, (2) deliberate strictness revisit (user decision at discuss-phase, never silent), (3) accept blocked refresh. See 24-02-SUMMARY.md Escalation.
+- Go roster drift (Plan 24-02 Task 2, Landmine 1): opencode CLI at latest stable 1.18.12, models.dev still lags live by 7 Go ids (minimax-m2.5, kimi-k2.5, glm-5, qwen3.5-plus, mimo-v2-pro, mimo-v2-omni, hy3-preview). User chose WAIT — D-24-07 strictness intact; Plan 03 regeneration blocked by design until a future opencode/models.dev release closes the gap; re-run the 24-02 Task 2 checkpoint later
 
 ## Deferred Items
 
@@ -207,9 +209,9 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-04T08:59:59.712Z
+Last session: 2026-08-04T09:15:01.033Z
 Stopped at: Escalation checkpoint — Plan 24-02 Task 2: Go drift persists post-upgrade (CLI 1.18.12, go=18 vs live 25); D-24-07 not relaxed; awaiting user decision (see STATE.md Blockers)
-Resume file: 24-02-SUMMARY.md
+Resume file: None
 
 ## Operator Next Steps
 
