@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Additional AI Providers
 status: executing
-last_updated: "2026-08-04T09:42:39.205Z"
+last_updated: "2026-08-04T09:55:14.496Z"
 last_activity: 2026-08-04
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 8
-  completed_plans: 6
+  completed_plans: 7
   percent: 20
 ---
 
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 ## Current Position
 
 Phase: 24 (refresh-script-catalog-data) — EXECUTING
-Plan: 2 of 4
+Plan: 4 of 4
 Status: Ready to execute
 Last activity: 2026-08-04
 
@@ -77,6 +77,7 @@ Last activity: 2026-08-04
 | Phase 23 P03 | 1 min | 2 tasks | 1 files |
 | Phase 23 P04 | 3min | 3 tasks | 3 files |
 | Phase 24 P01 | 1h43m | 3 tasks | 4 files |
+| Phase 24-refresh-script-catalog-data P03 | 20min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -177,6 +178,7 @@ VER-02/VER-05 requirement status: harness + test account (the operator prerequis
 - [Phase 24]: 24-01: Hermes nousresearch fixture rows re-valued to live-verified data (2026-08-04): 0.05/0.2 and 0.09/0.37 per-MTok, context 131072, structuredOutputs false (hermes advertises response_format, not structured_outputs — Pitfall 5); openrouter mirror rows keep 0.2/0.6 and 0.8/1.2
 - [Phase ?]: Go roster drift escalation (Plan 24-02 Task 2, Landmine 1) — user chose OPTION 1 (wait)
 - [Phase 24-02]: D-24-07 AMENDED (deliberate strictness revisit, user-approved 2026-08-04): Go drift persists post-CLI-upgrade (opencode 1.18.12 = npm latest, 18 opencode-go rows vs 25 live — models.dev lags by hy3-preview + 6 CLI-filtered ids), so the escalation options were presented and the user chose the deliberate revisit. Implemented as a pinned GO_KNOWN_LIVE_ONLY_IDS exception (commit 444bb9ed): the Go compare accepts ONLY the 7 known live-only ids (minimax-m2.5, kimi-k2.5, glm-5, qwen3.5-plus, mimo-v2-pro, mimo-v2-omni, hy3-preview); ANY NEW live-only id or ANY CLI-only id still aborts; ZEN STAYS FULLY STRICT; accepted drift is logged to stderr every run (never silent). npm run models:fetch now exits 0 (regenerated snapshot restored — Plan 03 owns the commit). — The strict D-24-07 check cannot pass with any available CLI (registry-side gap); the user's explicit sign-off is the documented, non-silent exception the research Landmine 1 escalation branch requires. The exception is acceptance-only — the snapshot's opencode-go group still holds the 18 CLI rows until a future release closes the gap (then the pinned set becomes inert and can be deleted).
+- [Phase 24-refresh-script-catalog-data]: D-24-11 deliberate re-lock APPROVED by blocking human checkpoint (2026-08-04): canaries re-locked to the ACTUAL regenerated snapshot in the same commit as the snapshot (56d9fdaa) — COUNT-STABILITY 40 {compat 23, anthropic 17}, NO-FLIP pool 66 (dual 12 unchanged, go-exclusive 6 +qwen3.8-max), boundary canary = hermes pins; opencode-go ships 18 rows (accepted D-24-07 drift — models.dev lags live Go by 7); all CAT-01..04 marked complete
 
 ### Pending Todos
 
@@ -209,9 +211,9 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-04T09:42:39.198Z
+Last session: 2026-08-04T09:55:14.488Z
 Stopped at: Plan 24-02 RESOLVED — D-24-07 amendment (user-approved pinned GO_KNOWN_LIVE_ONLY_IDS exception, commit 444bb9ed); Go drift blocker resolved; Plan 03 regeneration unblocked
-Resume file: 24-02-SUMMARY.md
+Resume file: Completed 24-03-PLAN.md (snapshot regenerated + canaries re-locked, human-approved)
 
 ## Operator Next Steps
 

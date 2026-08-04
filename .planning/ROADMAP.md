@@ -134,7 +134,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 21. Settings UI | v1.4 | 7/7 | Complete    | 2026-08-03 |
 | 22. Verification Gate | v1.4 | 7/7 | Complete    | 2026-08-03 |
 | 23. Provider Registry + Servable Sources | v1.5 | 4/4 | Complete    | 2026-08-03 |
-| 24. Refresh Script + Catalog Data | v1.5 | 1/4 | In Progress|  |
+| 24. Refresh Script + Catalog Data | v1.5 | 3/4 | In Progress|  |
 | 25. Run Path / modelFactory Seam | v1.5 | 0/0 | Not started | - |
 | 26. Settings UI | v1.5 | 0/0 | Not started | - |
 | 27. Verification Gate | v1.5 | 0/0 | Not started | - |
@@ -190,11 +190,11 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 24-02-PLAN.md — Script extension: `fetchNousRoster` / `deriveNousFamily` / `verifyZenGoRosters` + grouped write; pre-flight `opencode upgrade` checkpoint (Go drift landmine)
+- [x] 24-02-PLAN.md — Script extension: `fetchNousRoster` / `deriveNousFamily` / `verifyZenGoRosters` + grouped write; pre-flight `opencode upgrade` checkpoint (Go drift landmine)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 24-03-PLAN.md — Regenerate + re-lock canaries: `npm run models:fetch` after CLI upgrade, commit regenerated snapshot, re-lock COUNT-STABILITY/NO-FLIP to ACTUAL numbers, flip `nousresearch = []` boundary canary (D-24-11)
+- [x] 24-03-PLAN.md — Regenerate + re-lock canaries: `npm run models:fetch` after CLI upgrade, commit regenerated snapshot, re-lock COUNT-STABILITY/NO-FLIP to ACTUAL numbers, flip `nousresearch = []` boundary canary (D-24-11)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
