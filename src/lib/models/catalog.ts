@@ -1,7 +1,21 @@
 import catalogJson from './catalog.json';
 
-export type CatalogModel = (typeof catalogJson)['models'][number];
-export type ModelCatalog = { generatedAt: string; models: CatalogModel[] };
+// D-24-03: the snapshot is grouped { generatedAt, providers: { <providerID>: [...] } }
+// instead of the flat { generatedAt, models: [...] } — CatalogModel is derived through
+// the providers record (grouping key = the row's own providerID string, D-24-05).
+export type CatalogModel = (typeof catalogJson)['providers'] extends Record<string, infer R>
+  ? R extends readonly (infer M)[]
+    ? M
+    : never
+  : never;
+export type ModelCatalog = { generatedAt: string; providers: Record<string, CatalogModel[]> };
+
+// D-24-04: the single flattening owner of the restructure — every consumer compiles
+// unchanged through this helper; never hand-roll Object.values(providers).flat() in
+// a consumer (research Don't-Hand-Roll).
+export function getAllModels(catalog: ModelCatalog): CatalogModel[] {
+  return Object.values(catalog.providers).flat();
+}
 
 // D-02/D-03: THE GATE — hand-curated, roster-verified raw provider IDs.
 // Roster re-verify (GET /v1/models) executed 2026-08-02 (D-01): claude-sonnet-4-6
@@ -28,7 +42,7 @@ export const FAST_MODEL_ID = 'claude-sonnet-4-6';
 // for the same id; names agree so the first match is safe). Falls back to the
 // raw id when the model is absent from the snapshot (D-06 fallback rule).
 export function getModelDisplayName(id: string): string {
-  return catalogJson.models.find((m) => m.id === id)?.name ?? id;
+  return getAllModels(catalogJson).find((m) => m.id === id)?.name ?? id;
 }
 
 // Pitfall 1: provider-aware slug→raw-ID mapping. Filter by prefix BEFORE
@@ -115,7 +129,7 @@ export const PROVIDER_PRECEDENCE: readonly ModelProviderId[] = ['anthropic', 'no
 // snapshot providerID in SNAPSHOT_PROVIDER_IDS wins (Zen over Go).
 export function dedupeProviderRows(catalog: ModelCatalog, provider: ModelProviderId): CatalogModel[] {
   const ids = SNAPSHOT_PROVIDER_IDS[provider];
-  const rows = catalog.models.filter((m) => ids.includes(m.providerID));
+  const rows = getAllModels(catalog).filter((m) => ids.includes(m.providerID));
   const seen = new Set<string>();
   return rows.filter((m) => (seen.has(m.id) ? false : (seen.add(m.id), true)));
 }

@@ -21,185 +21,207 @@ import type { ModelCatalog } from './catalog';
 // CAT-03 pure unit coverage (D-16): zero mocks, zero live calls. The fixture
 // is inline and deliberately decoupled from the committed catalog.json — these
 // tests pin the filter/slug semantics, not a snapshot that drifts on refresh.
-// The opencode dual row for claude-sonnet-4-6 sits FIRST in the array (opencode
-// sorts first in the real snapshot) — this proves the provider-scoped find in
-// getProviderForModelId beats a naive first-match find (Anti-Pattern 1).
+// The fixture ships in the Phase 24 grouped shape (D-24-03):
+// providers: { opencode, anthropic, openrouter, nousresearch, 'opencode-go' } —
+// grouping key is each row's own providerID (D-24-05). The opencode group sits
+// FIRST, so the claude-sonnet-4-6 opencode dual row flattens first — proving
+// the provider-scoped find in getProviderForModelId beats a naive first-match
+// find (Anti-Pattern 1).
 // Phase 23 additions (D-23-07/D-23-09): the hermes pair exists as BOTH
 // nousresearch (allowlisted) and openrouter (mirror) rows so the precedence
 // canary is non-vacuous; deepseek-v4-flash exists as BOTH opencode (Zen) and
 // opencode-go (Go) rows so the Zen-wins dedup canary is non-vacuous; hy3 is
 // opencode-go-only (survives dedup, keeps the Go url).
+// Phase 24 (D-24-12): the hermes nousresearch rows carry LIVE-VERIFIED values
+// (verified 2026-08-04 against the Nous inference API): costs 0.05/0.2 and
+// 0.09/0.37 per-MTok (×1e6), context 131072, structuredOutputs false (hermes
+// advertises response_format, not structured_outputs — Pitfall 5). The
+// openrouter mirror rows keep their verified 0.2/0.6 and 0.8/1.2 costs.
 const fixture: ModelCatalog = {
   generatedAt: '2026-08-02T00:00:00.000Z',
-  models: [
-    {
-      id: 'claude-sonnet-4-6',
-      providerID: 'opencode',
-      name: 'Claude Sonnet 4.6 (gateway)',
-      family: 'claude-sonnet',
-      status: 'active',
-      api: { npm: '@ai-sdk/openai-compatible', url: 'https://opencode.ai/zen/v1' },
-      cost: { input: 0, output: 0 },
-      limit: { context: 200000, output: 32000 },
-      structuredOutputs: true,
-    },
-    {
-      id: 'claude-sonnet-4-6',
-      providerID: 'anthropic',
-      name: 'Claude Sonnet 4.6',
-      family: 'claude-sonnet',
-      status: 'active',
-      api: { npm: '@ai-sdk/anthropic', url: '' },
-      cost: { input: 3, output: 15 },
-      limit: { context: 1000000, output: 128000 },
-      structuredOutputs: true,
-    },
-    {
-      id: 'claude-sonnet-4-5-20250929',
-      providerID: 'anthropic',
-      name: 'Claude Sonnet 4.5 (dated)',
-      family: 'claude-sonnet',
-      status: 'deprecated',
-      api: { npm: '@ai-sdk/anthropic', url: '' },
-      cost: { input: 3, output: 15 },
-      limit: { context: 1000000, output: 128000 },
-      structuredOutputs: true,
-    },
-    {
-      id: 'claude-haiku-4-5-20251001',
-      providerID: 'anthropic',
-      name: 'Claude Haiku 4.5 (dated)',
-      family: 'claude-haiku',
-      status: 'active',
-      api: { npm: '@ai-sdk/anthropic', url: '' },
-      cost: { input: 0.8, output: 4 },
-      limit: { context: 200000, output: 64000 },
-      structuredOutputs: true,
-    },
-    {
-      id: 'big-pickle',
-      providerID: 'opencode',
-      name: 'Big Pickle',
-      family: 'big-pickle',
-      status: 'active',
-      api: { npm: '@ai-sdk/openai-compatible', url: 'https://opencode.ai/zen/v1' },
-      cost: { input: 0, output: 0 },
-      limit: { context: 200000, output: 32000 },
-      structuredOutputs: true,
-    },
-    {
-      id: 'anthropic/claude-sonnet-4.6',
-      providerID: 'openrouter',
-      name: 'Claude Sonnet 4.6',
-      family: 'claude-sonnet',
-      status: 'active',
-      api: { npm: '@openrouter/ai-sdk-provider', url: '' },
-      cost: { input: 3, output: 15 },
-      limit: { context: 1000000, output: 128000 },
-      structuredOutputs: true,
-    },
-    {
-      id: 'openai/gpt-oss-20b:free',
-      providerID: 'openrouter',
-      name: 'GPT-OSS 20B (free)',
-      family: 'gpt-oss',
-      status: 'deprecated',
-      api: { npm: '@openrouter/ai-sdk-provider', url: '' },
-      cost: { input: 0, output: 0 },
-      limit: { context: 128000, output: 32000 },
-      structuredOutputs: true,
-    },
-    // D-23-07: the nousresearch allowlisted pin + its openrouter MIRROR row —
-    // mirrors present so the precedence canary is non-vacuous (nousresearch
-    // must outrank openrouter for the hermes pair). structuredOutputs mirrors
-    // the committed snapshot's real openrouter rows (false, verified 2026-08-04).
-    {
-      id: 'nousresearch/hermes-4-70b',
-      providerID: 'nousresearch',
-      name: 'Hermes 4 70B',
-      family: 'hermes',
-      status: 'active',
-      api: {
-        npm: '@ai-sdk/openai-compatible',
-        url: 'https://inference-api.nousresearch.com/v1',
+  providers: {
+    opencode: [
+      {
+        id: 'claude-sonnet-4-6',
+        providerID: 'opencode',
+        name: 'Claude Sonnet 4.6 (gateway)',
+        family: 'claude-sonnet',
+        status: 'active',
+        api: { npm: '@ai-sdk/openai-compatible', url: 'https://opencode.ai/zen/v1' },
+        cost: { input: 0, output: 0 },
+        limit: { context: 200000, output: 32000 },
+        structuredOutputs: true,
       },
-      cost: { input: 0.0000016, output: 0.000008 },
-      limit: { context: 200000, output: 32000 },
-      structuredOutputs: true,
-    },
-    {
-      id: 'nousresearch/hermes-4-70b',
-      providerID: 'openrouter',
-      name: 'Hermes 4 70B',
-      family: 'hermes',
-      status: 'active',
-      api: { npm: '@openrouter/ai-sdk-provider', url: '' },
-      cost: { input: 0.2, output: 0.6 },
-      limit: { context: 200000, output: 32000 },
-      structuredOutputs: false,
-    },
-    {
-      id: 'nousresearch/hermes-4-405b',
-      providerID: 'nousresearch',
-      name: 'Hermes 4 405B',
-      family: 'hermes',
-      status: 'active',
-      api: {
-        npm: '@ai-sdk/openai-compatible',
-        url: 'https://inference-api.nousresearch.com/v1',
+      {
+        id: 'big-pickle',
+        providerID: 'opencode',
+        name: 'Big Pickle',
+        family: 'big-pickle',
+        status: 'active',
+        api: { npm: '@ai-sdk/openai-compatible', url: 'https://opencode.ai/zen/v1' },
+        cost: { input: 0, output: 0 },
+        limit: { context: 200000, output: 32000 },
+        structuredOutputs: true,
       },
-      cost: { input: 0.000004, output: 0.00002 },
-      limit: { context: 400000, output: 64000 },
-      structuredOutputs: true,
-    },
-    {
-      id: 'nousresearch/hermes-4-405b',
-      providerID: 'openrouter',
-      name: 'Hermes 4 405B',
-      family: 'hermes',
-      status: 'active',
-      api: { npm: '@openrouter/ai-sdk-provider', url: '' },
-      cost: { input: 0.8, output: 1.2 },
-      limit: { context: 400000, output: 64000 },
-      structuredOutputs: false,
-    },
-    // D-23-08/D-23-09: the dual-listed pair — Zen row must win dedup.
-    // structuredOutputs mirrors the committed snapshot's real rows (verified
-    // 2026-08-04: Zen true, Go true).
-    {
-      id: 'deepseek-v4-flash',
-      providerID: 'opencode',
-      name: 'DeepSeek V4 Flash',
-      family: 'deepseek',
-      status: 'active',
-      api: { npm: '@ai-sdk/openai-compatible', url: 'https://opencode.ai/zen/v1' },
-      cost: { input: 0, output: 0 },
-      limit: { context: 200000, output: 32000 },
-      structuredOutputs: true,
-    },
-    {
-      id: 'deepseek-v4-flash',
-      providerID: 'opencode-go',
-      name: 'DeepSeek V4 Flash',
-      family: 'deepseek',
-      status: 'active',
-      api: { npm: '@ai-sdk/openai-compatible', url: 'https://opencode.ai/zen/go/v1' },
-      cost: { input: 0, output: 0 },
-      limit: { context: 200000, output: 32000 },
-      structuredOutputs: true,
-    },
-    {
-      id: 'hy3',
-      providerID: 'opencode-go',
-      name: 'Hy3',
-      family: 'hy3',
-      status: 'active',
-      api: { npm: '@ai-sdk/openai-compatible', url: 'https://opencode.ai/zen/go/v1' },
-      cost: { input: 0, output: 0 },
-      limit: { context: 200000, output: 32000 },
-      structuredOutputs: true,
-    },
-  ],
+      // D-23-08/D-23-09: the dual-listed pair — Zen row must win dedup.
+      // structuredOutputs mirrors the committed snapshot's real rows (verified
+      // 2026-08-04: Zen true, Go true).
+      {
+        id: 'deepseek-v4-flash',
+        providerID: 'opencode',
+        name: 'DeepSeek V4 Flash',
+        family: 'deepseek',
+        status: 'active',
+        api: { npm: '@ai-sdk/openai-compatible', url: 'https://opencode.ai/zen/v1' },
+        cost: { input: 0, output: 0 },
+        limit: { context: 200000, output: 32000 },
+        structuredOutputs: true,
+      },
+    ],
+    anthropic: [
+      {
+        id: 'claude-sonnet-4-6',
+        providerID: 'anthropic',
+        name: 'Claude Sonnet 4.6',
+        family: 'claude-sonnet',
+        status: 'active',
+        api: { npm: '@ai-sdk/anthropic', url: '' },
+        cost: { input: 3, output: 15 },
+        limit: { context: 1000000, output: 128000 },
+        structuredOutputs: true,
+      },
+      {
+        id: 'claude-sonnet-4-5-20250929',
+        providerID: 'anthropic',
+        name: 'Claude Sonnet 4.5 (dated)',
+        family: 'claude-sonnet',
+        status: 'deprecated',
+        api: { npm: '@ai-sdk/anthropic', url: '' },
+        cost: { input: 3, output: 15 },
+        limit: { context: 1000000, output: 128000 },
+        structuredOutputs: true,
+      },
+      {
+        id: 'claude-haiku-4-5-20251001',
+        providerID: 'anthropic',
+        name: 'Claude Haiku 4.5 (dated)',
+        family: 'claude-haiku',
+        status: 'active',
+        api: { npm: '@ai-sdk/anthropic', url: '' },
+        cost: { input: 0.8, output: 4 },
+        limit: { context: 200000, output: 64000 },
+        structuredOutputs: true,
+      },
+    ],
+    openrouter: [
+      {
+        id: 'anthropic/claude-sonnet-4.6',
+        providerID: 'openrouter',
+        name: 'Claude Sonnet 4.6',
+        family: 'claude-sonnet',
+        status: 'active',
+        api: { npm: '@openrouter/ai-sdk-provider', url: '' },
+        cost: { input: 3, output: 15 },
+        limit: { context: 1000000, output: 128000 },
+        structuredOutputs: true,
+      },
+      {
+        id: 'openai/gpt-oss-20b:free',
+        providerID: 'openrouter',
+        name: 'GPT-OSS 20B (free)',
+        family: 'gpt-oss',
+        status: 'deprecated',
+        api: { npm: '@openrouter/ai-sdk-provider', url: '' },
+        cost: { input: 0, output: 0 },
+        limit: { context: 128000, output: 32000 },
+        structuredOutputs: true,
+      },
+      // D-23-07: the openrouter MIRROR rows — structuredOutputs mirrors the
+      // committed snapshot's real openrouter rows (false, verified 2026-08-04);
+      // costs stay 0.2/0.6 and 0.8/1.2 (verified mirroring 2026-08-04).
+      {
+        id: 'nousresearch/hermes-4-70b',
+        providerID: 'openrouter',
+        name: 'Hermes 4 70B',
+        family: 'hermes',
+        status: 'active',
+        api: { npm: '@openrouter/ai-sdk-provider', url: '' },
+        cost: { input: 0.2, output: 0.6 },
+        limit: { context: 200000, output: 32000 },
+        structuredOutputs: false,
+      },
+      {
+        id: 'nousresearch/hermes-4-405b',
+        providerID: 'openrouter',
+        name: 'Hermes 4 405B',
+        family: 'hermes',
+        status: 'active',
+        api: { npm: '@openrouter/ai-sdk-provider', url: '' },
+        cost: { input: 0.8, output: 1.2 },
+        limit: { context: 400000, output: 64000 },
+        structuredOutputs: false,
+      },
+    ],
+    nousresearch: [
+      // D-23-07: the nousresearch allowlisted pins — live-verified values
+      // (2026-08-04): costs 0.05/0.2 per-MTok (×1e6 of per-token pricing),
+      // context 131072, structuredOutputs false (hermes advertises
+      // response_format, NOT structured_outputs — Pitfall 5). family 'hermes'
+      // + api mapping already match live.
+      {
+        id: 'nousresearch/hermes-4-70b',
+        providerID: 'nousresearch',
+        name: 'Hermes 4 70B',
+        family: 'hermes',
+        status: 'active',
+        api: {
+          npm: '@ai-sdk/openai-compatible',
+          url: 'https://inference-api.nousresearch.com/v1',
+        },
+        cost: { input: 0.05, output: 0.2 },
+        limit: { context: 131072, output: 32000 },
+        structuredOutputs: false,
+      },
+      {
+        id: 'nousresearch/hermes-4-405b',
+        providerID: 'nousresearch',
+        name: 'Hermes 4 405B',
+        family: 'hermes',
+        status: 'active',
+        api: {
+          npm: '@ai-sdk/openai-compatible',
+          url: 'https://inference-api.nousresearch.com/v1',
+        },
+        cost: { input: 0.09, output: 0.37 },
+        limit: { context: 131072, output: 64000 },
+        structuredOutputs: false,
+      },
+    ],
+    'opencode-go': [
+      {
+        id: 'deepseek-v4-flash',
+        providerID: 'opencode-go',
+        name: 'DeepSeek V4 Flash',
+        family: 'deepseek',
+        status: 'active',
+        api: { npm: '@ai-sdk/openai-compatible', url: 'https://opencode.ai/zen/go/v1' },
+        cost: { input: 0, output: 0 },
+        limit: { context: 200000, output: 32000 },
+        structuredOutputs: true,
+      },
+      {
+        id: 'hy3',
+        providerID: 'opencode-go',
+        name: 'Hy3',
+        family: 'hy3',
+        status: 'active',
+        api: { npm: '@ai-sdk/openai-compatible', url: 'https://opencode.ai/zen/go/v1' },
+        cost: { input: 0, output: 0 },
+        limit: { context: 200000, output: 32000 },
+        structuredOutputs: true,
+      },
+    ],
+  },
 };
 
 describe('opencodeSlugToModelId', () => {

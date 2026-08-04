@@ -1,7 +1,7 @@
 import { anthropic } from '@ai-sdk/anthropic';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import type { LanguageModel } from 'ai';
-import { FAST_MODEL_ID, getProviderForModelId, type ModelProviderId } from '@/lib/models/catalog';
+import { FAST_MODEL_ID, getProviderForModelId, getAllModels, type ModelProviderId } from '@/lib/models/catalog';
 import catalogJson from '@/lib/models/catalog.json';
 
 // Module-singleton (sanity-client pattern, ARCHITECTURE.md l.181). The
@@ -63,7 +63,7 @@ export function instantiateModel(id: string): LanguageModel {
     // row for 54 of the 75 non-strict models) and a bare find would read the
     // inert kilo/vercel flag (structuredOutputs: true) and silently skip the
     // D-08 opt-out. Only the openrouter row's flag is authoritative.
-    const row = catalogJson.models.find(
+    const row = getAllModels(catalogJson).find(
       (m) => m.id === id && m.providerID === 'openrouter',
     );
     // D-08: only opt out of strict for models whose snapshot flag says the
