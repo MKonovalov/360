@@ -14,19 +14,23 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 
 **v1.1 Start Page + Import + Analytic Agent** — 5 phases, 27 plans, 32 tasks, 31/31 requirements validated. Delivered: stacked full-width list/detail layout on both explorers, Start Page dashboard, shared ExplorerMenu, CSV import with partial-commit validation + rollback, Apollo.io/Prospeo enrichment with provenance, and the web-search Analytic Agent with a human-reviewed proposal queue + Langfuse tracing.
 
-## Current Milestone: v1.3 AI Model Settings
+## Current Milestone: v1.4 Signals & Offerings
 
-**Goal:** Give each staff user a Settings surface to manage the AI models used by AI agents — a primary model plus an ordered fallback chain — with the available-models list sourced live from the local opencode installation, and the Analytic Agent consuming the config with error-driven failover.
+**Goal:** Replace the firm's Word-document service catalogues with structured Practice Area → Domain → Offering data, and let partners record reusable Company/Persona buying signals linked to offerings — manual CRUD only (no automated signal detection), one practice area (GBS — Design, Build & Run) seeded with real data, the other five start empty.
 
 **Target features:**
-- New "Settings" menu item (in the shared ExplorerMenu / sidebar chrome)
-- Settings page: per-user primary AI model + ordered fallback models (OMO-style)
-- Available-models list fetched live from opencode (the `/models` source)
-- Per-user persistence (Clerk user keyed)
-- Analytic Agent reads the config; on a provider/model failure it retries down the fallback chain
-- General agent model registry — the Analytic Agent is the first consumer, future agents read the same config
+- Offerings feature: `practice_area` → `domain` → `offering` hierarchy, `buyer_role` lookup (shared with Signals), `offering_buyer_role` ranked join, `trigger` (1-to-many per offering)
+- Signals feature: `company_signal` and `persona_signal`, each practice-area-scoped with free-text/autocomplete `category`, linked to zero-or-more offerings via `signal_offering_link` (or two non-polymorphic join tables, per existing ORM conventions)
+- New `Manage > Reviews > Signals` menu item — two tabs (Company Signals, Persona Signals), filterable list + create/edit forms
+- New `Manage > Reviews > Offerings` menu item — two tabs (Service Portfolio hierarchy manager, Offering × Trigger × Buyer Matrix) + a Buyer Role lookup CRUD panel
+- GBS seed data: 3 domains, 11 offerings with triggers/buyers, 5 buyer roles, ~24 company signals, ~9 persona signals, representative signal-to-offering links
+- Full spec: `.planning/specs/v1.4-signals-offerings.md`
 
-**Next milestone after v1.3:** not yet scoped. See "Future Candidates (Beyond v1.2)".
+**Sequencing (per spec Section 6):** Phase 30 (shared data model + GBS seed, no UI) → Phase 31 (Signals UI) → Phase 32 (Offerings UI). Phase numbers restart at 30 by explicit user choice (v1.3 occupied 15–18).
+
+**Note on v1.3:** v1.3 AI Model Settings was still mid-flight (Phase 18/Verification Gate, plan 18-03/VER-04 unexecuted — Vercel preview + grep-gate check) when v1.4 started. Its phase directories (`15`–`18`) were cleared from disk (recoverable via git history, not archived — v1.3 was never closed via `/gsd-complete-milestone`) to make room for v1.4's phase numbering. VER-04 remains outstanding; see Active requirements below.
+
+**Next milestone after v1.4:** Hypotheses feature (consumes Signals + Offerings) — explicitly out of scope for v1.4. See "Future Candidates (Beyond v1.2)".
 
 ## Requirements
 
@@ -71,7 +75,8 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 ### Active
 
 - [ ] Persona 360 "Related Knowledge" showing real Arcpedia articles end-to-end — code path proven identical to the working Company path, but the current seed Persona dataset has no name that matches real Arcpedia content; needs either updated seed data or acceptance of the gap (see `04-HUMAN-UAT.md`)
-- [ ] v1.3 AI Model Settings: final verification gate (Phase 18) — settings UI + per-user primary/fallback AI models and failover are built; the end-to-end settings→Analyze→`model_used` proof lands in VER-01..04 — see Current Milestone
+- [ ] v1.3 AI Model Settings VER-04 (Vercel preview + `/settings` render + `exec|spawn|child_process` grep gate) — left unexecuted when v1.4 started; settings UI, model registry, and failover (SET/REG/CAT/FAL) are otherwise built and validated
+- [ ] v1.4 Signals & Offerings — see Current Milestone; REQ-IDs land in REQUIREMENTS.md
 
 ### Out of Scope
 
@@ -82,6 +87,11 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 - CRM sync / automated outreach triggers — the pipeline's action stage (prioritized list → outreach → CRM sync) comes after scoring exists
 - Multi-user roles/permissions — any authenticated staff user sees everything for now (matches existing app's current auth model)
 - Existing short-link staff tool — being retired soon; not actively extended or migrated as part of this build
+- Hypotheses feature (consumes Signals + Offerings) — explicitly deferred past v1.4 per spec Section 1
+- Outreach/LTS integration and automated signal detection (scraping LinkedIn/news) — v1.4 Signals is manual CRUD only, a partner records what they've observed
+- Numeric pricing field on `offering` — 5 of 6 catalogues explicitly defer pricing; `commercial_model_text` (free text, mechanism not figure) only, per spec Section 8
+- Dual-persona co-occurrence scoring on `persona_signal` — belongs to the future Hypotheses milestone, noted in spec so the schema doesn't need a breaking change later
+- Seeding practice areas beyond GBS — Technology/other 5 catalogues need the GBS/Technology offering-name boundary resolved first (spec Section 8)
 
 ## Current State
 
@@ -130,6 +140,7 @@ Not yet scoped. Carried forward from v1.1's deferred list, still relevant after 
 - Full pipeline vision beyond milestone 1: a prioritized target list, outreach triggers pushed to sales, and CRM/export sync. Milestone 1 stops at the browsing/overview experience — the UI shell working end-to-end against seed data is the milestone-1 definition of done.
 - **Arcpedia** (`/Users/mkonovalov/Projects/arcpedia`, live at arcpedia.arclumen.de) is an existing, actively-built internal wiki ("a wiki for the agent age" — Next.js + Cloudflare Workers, Clerk-authenticated, LLM-powered ingest/query). It exposes a public (no-auth *at the application level*) REST read surface: `GET /api/wiki/search?q=`, `GET /api/wiki/browse?q=&scope=&tag=&page=`, `POST /api/wiki/dataview` (query by frontmatter), plus a session-gated `POST /api/query` (LLM-synthesized answers over the corpus) and an MCP server at `/api/mcp`. In production, the domain also sits behind a Cloudflare Zero Trust Access gate at the edge (see Key Decisions) — a Service Token is required regardless of the app-level "public" designation. ArcLumen 360 v1.0 reads from `/api/wiki/search` to surface related knowledge articles on Company/Persona 360 views — no write-back. Beyond v1.0, the user's stated future direction includes AI-drafted, tailored outreach content (e.g. persona-specific LinkedIn DMs, ARCP-03) — not in scope now, but worth keeping the data model open to it.
 - Codebase size at v1.2 ship: ~13,600 LOC across `src/**/*.{ts,tsx}` (up from ~13,100 at v1.1, ~3,840 at v1.0). The Vitest suite now locks 30 pure-function contracts across 5 modules (`getActiveNavKey` 11, `getUserDisplayName`/`getUserInitials` 8, `getNavTooltipLabel`/`getCollapseToggleLabel` 7, WCAG `contrastRatio`/`compositeAlpha`/`relativeLuminance` 4, plus the v1.1 dedup/columnMapping/partitionRows/mergePlan/analyzeCompany cases) — `npm test` runs 245 tests (243 passed / 2 skipped). Live-browser verification is now automated via Playwright MCP (the Phase-5-pattern 12-cell matrix + interactions), complementing the v1.1 manual UAT + live build/tsc checks.
+- **ArcLumen Partners' service portfolio taxonomy** (informs v1.4): Portfolio → Practice Area → Domain → Offering → Engagement, six practice areas total, each documented in a Word-doc catalogue with per-offering Entry Trigger + Primary Buyer fields. v1.4 seeds one practice area — GBS — Design, Build & Run — from `ArcLumen_GBS_DesignBuildRun_Catalogue_1.docx` and `ArcLumen360_Buying_Signal_Reference_GBS.docx` (both authored firm IP, not in this repo). Full data model/UI/seed-data spec: `.planning/specs/v1.4-signals-offerings.md`.
 
 ## Constraints
 
@@ -165,6 +176,10 @@ Not yet scoped. Carried forward from v1.1's deferred list, still relevant after 
 | Live computed-style audit resolves Chromium's `lab()`/`oklab()` serialization via offscreen-canvas sRGB | Modern Chromium serializes computed colors in CSS Color 4; ratios must be computed on sRGB values | Done — Phase 14 |
 | Exa divergence review uses the dated FEATURES.md fallback, not a live sample | dashboard.exa.ai sits behind Exa's own auth — not bypassed by design (T-14-03); fallback explicitly dated | Done — Phase 14 |
 | Post-close: collapse state persisted via server-read `sidebar_state` cookie → `defaultOpen` | The vendored provider only writes the cookie, never reads it on mount — route-group navigation remounts the shell and silently re-expanded a collapsed rail | Done — 2026-08-02 |
+| v1.4 started before v1.3 closed; v1.3 Phase 18 (VER-04) left unexecuted, phase dirs 15–18 cleared (not archived) | User explicitly chose to proceed rather than finish v1.3 first; docs are `commit_docs: true` so recoverable via git history even though not archived | Done — 2026-08-04 |
+| v1.4 phase numbering restarts at 30 (skips 19–29) | Explicit user choice, not workflow default (continue-from-18 or reset-to-1) | Done — 2026-08-04 |
+| v1.4 data model + business rules sourced from an external written spec (`.planning/specs/v1.4-signals-offerings.md`), not in-app domain research | Spec was fully pre-authored (entities, business rules, UI, seed data, sequencing) by the user before this milestone cycle started — research would duplicate already-decided design | Done — 2026-08-04 |
+| Signals/Offerings sequencing: Phase 30 data model + seed (no UI) → 31 Signals UI → 32 Offerings UI | Spec's own recommended sequencing (Section 6) — resolves the "Signals first" ask against Signals' hard dependency on `buyer_role` (an Offerings-feature lookup) by seeding data before either UI ships | Done — 2026-08-04 |
 
 ## Evolution
 
@@ -184,4 +199,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-02 — v1.3 Phase 17 (Settings UI + List Source) complete*
+*Last updated: 2026-08-04 — v1.4 Signals & Offerings started (v1.3 Phase 18/VER-04 left open)*

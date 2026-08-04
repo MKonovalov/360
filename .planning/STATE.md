@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.3
-milestone_name: AI Model Settings
-status: executing
-last_updated: "2026-08-02T16:04:12.486Z"
-last_activity: 2026-08-02
+milestone: v1.4
+milestone_name: Signals & Offerings
+status: planning
+last_updated: "2026-08-04T10:34:22.068Z"
+last_activity: 2026-08-04
 progress:
-  total_phases: 4
-  completed_phases: 3
-  total_plans: 12
-  completed_plans: 11
-  percent: 75
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -24,12 +24,10 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 
 ## Current Position
 
-Phase: 18 (verification-gate) — EXECUTING
-Plan: 3 of 3
-Status: Ready to execute
-Last activity: 2026-08-02
-
-Progress: [█████████░] 92%
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-08-04 — Milestone v1.4 started
 
 ## Performance Metrics
 
