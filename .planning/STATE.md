@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Additional AI Providers
 status: executing
-last_updated: "2026-08-04T11:27:02.950Z"
-last_activity: 2026-08-04 -- Phase 25 planning complete
+last_updated: "2026-08-04T11:38:19.945Z"
+last_activity: 2026-08-04
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 12
-  completed_plans: 8
-  percent: 40
+  completed_plans: 9
+  percent: 75
 ---
 
 # Project State
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-02)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** Phase 24 complete — next up Phase 25 (Run Path / modelFactory Seam)
+**Current focus:** Phase 25 — run-path-modelfactory-seam
 
 ## Current Position
 
-Phase: 24 (complete)
-Plan: Not started
+Phase: 25 (run-path-modelfactory-seam) — EXECUTING
+Plan: 2 of 4
 Status: Ready to execute
-Last activity: 2026-08-04 -- Phase 25 planning complete
+Last activity: 2026-08-04
 Next up: Phase 25 — Run Path / modelFactory Seam (CONTEXT not yet gathered)
 
 ## Performance Metrics
@@ -80,6 +80,7 @@ Next up: Phase 25 — Run Path / modelFactory Seam (CONTEXT not yet gathered)
 | Phase 24 P01 | 1h43m | 3 tasks | 4 files |
 | Phase 24-refresh-script-catalog-data P03 | 20min | 3 tasks | 2 files |
 | Phase 24-refresh-script-catalog-data P04 | 5min | 1 tasks | 1 files |
+| Phase 25-run-path-modelfactory-seam P01 | 4min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -182,6 +183,10 @@ VER-02/VER-05 requirement status: harness + test account (the operator prerequis
 - [Phase 24-02]: D-24-07 AMENDED (deliberate strictness revisit, user-approved 2026-08-04): Go drift persists post-CLI-upgrade (opencode 1.18.12 = npm latest, 18 opencode-go rows vs 25 live — models.dev lags by hy3-preview + 6 CLI-filtered ids), so the escalation options were presented and the user chose the deliberate revisit. Implemented as a pinned GO_KNOWN_LIVE_ONLY_IDS exception (commit 444bb9ed): the Go compare accepts ONLY the 7 known live-only ids (minimax-m2.5, kimi-k2.5, glm-5, qwen3.5-plus, mimo-v2-pro, mimo-v2-omni, hy3-preview); ANY NEW live-only id or ANY CLI-only id still aborts; ZEN STAYS FULLY STRICT; accepted drift is logged to stderr every run (never silent). npm run models:fetch now exits 0 (regenerated snapshot restored — Plan 03 owns the commit). — The strict D-24-07 check cannot pass with any available CLI (registry-side gap); the user's explicit sign-off is the documented, non-silent exception the research Landmine 1 escalation branch requires. The exception is acceptance-only — the snapshot's opencode-go group still holds the 18 CLI rows until a future release closes the gap (then the pinned set becomes inert and can be deleted).
 - [Phase 24-refresh-script-catalog-data]: D-24-11 deliberate re-lock APPROVED by blocking human checkpoint (2026-08-04): canaries re-locked to the ACTUAL regenerated snapshot in the same commit as the snapshot (56d9fdaa) — COUNT-STABILITY 40 {compat 23, anthropic 17}, NO-FLIP pool 66 (dual 12 unchanged, go-exclusive 6 +qwen3.8-max), boundary canary = hermes pins; opencode-go ships 18 rows (accepted D-24-07 drift — models.dev lags live Go by 7); all CAT-01..04 marked complete
 - [Phase 24]: D-24-12 full Nous canary group shipped (commit 80d06ee8): 292 rows + api mapping, hermes pins through the gate, x1e6 pricing (0.05/0.2, 0.09/0.37 @ 131072 ctx), structuredOutputs non-vacuous (hermes false, 214/78), family + qwen/qwen3.8-max counter-example, 11 ~latest self-excluded, fixture facts; counts re-locked from actual snapshot with re-lock-date comment (D-24-11)
+- [Phase 25-run-path-modelfactory-seam]: 25-01: npm install recorded ^3.0.22 in package.json (not the plan's literal ^3.0.20) — standard npm caret resolution; ^3.0.22 ⊆ ^3.0.20, both resolve to the research-verified 3.0.22
+- [Phase 25-run-path-modelfactory-seam]: 25-01: constructorCalls capture arrays typed precisely (OpenAICompatibleOptions[]/AnthropicOptions[]) instead of the plan's unknown[] — RUN-06 tests read opts.supportsStructuredOutputs without casts
+- [Phase 25-run-path-modelfactory-seam]: 25-01: RUN-02 dispatch tests are RESULT-SHAPE assertions on marker'd callable returns (never mock.calls history) — order-independent under parallel/random test order, immune to beforeEach's vi.clearAllMocks
+- [Phase 25-run-path-modelfactory-seam]: 25-01: TDD split per plan — Tasks 1+2 are test-only RED tasks whose shared GREEN lands in Task 3; RED 42152c6e + RED 2c624ac5 strictly precede GREEN 970112d9 (TDD gate satisfied)
 
 ### Pending Todos
 
@@ -214,9 +219,9 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-04T10:58:18.892Z
-Stopped at: Phase 25 context gathered
-Resume file: .planning/phases/25-run-path-modelfactory-seam/25-CONTEXT.md
+Last session: 2026-08-04T11:38:19.935Z
+Stopped at: Completed 25-01-PLAN.md
+Resume file: None
 
 ## Operator Next Steps
 
