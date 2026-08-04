@@ -136,7 +136,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 23. Provider Registry + Servable Sources | v1.5 | 4/4 | Complete    | 2026-08-03 |
 | 24. Refresh Script + Catalog Data | v1.5 | 4/4 | Complete    | 2026-08-04 |
 | 25. Run Path / modelFactory Seam | v1.5 | 4/4 | Complete    | 2026-08-04 |
-| 26. Settings UI | v1.5 | 0/0 | Not started | - |
+| 26. Settings UI | v1.5 | 0/2 | Not started | - |
 | 27. Verification Gate | v1.5 | 0/0 | Not started | - |
 
 ---
@@ -234,7 +234,12 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
   4. NousResearch Hermes rows render honest capability captions (chat/reasoning-tuned caveat, mirroring the `:free` fail-loud pattern) with per-MTok cost captions converted from the API's per-token pricing.
   5. Provider badges cover all 4 providers and disambiguate same-name models (hermes-4-70b via nousresearch vs openrouter; claude rows via opencode vs anthropic); union fallback pickers group by all 4 providers with correct badges; save + staleness verified end-to-end against 4-provider chains.
 
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 26-01-PLAN.md — Wave 1: model-picker-logic.ts endpoint/Hermes/badge-resolution logic + tests (contract), page.tsx endpoint derivation
+- [ ] 26-02-PLAN.md — Wave 2: model-picker.tsx caption rendering, model-settings-form.tsx badge fix + recap caption + corrected reset hint
+
 **UI hint**: yes
 
 ### Phase 27: Verification Gate
