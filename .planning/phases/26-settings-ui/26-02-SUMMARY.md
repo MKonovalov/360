@@ -108,3 +108,12 @@ None - no external service configuration required.
 ---
 *Phase: 26-settings-ui*
 *Completed: 2026-08-04*
+
+## Self-Check: PASSED
+
+- FOUND: src/components/settings/model-picker.tsx
+- FOUND: src/components/settings/model-settings-form.tsx
+- FOUND: .planning/phases/26-settings-ui/26-02-SUMMARY.md
+- FOUND commit: 152ffc78 (Task 1)
+- FOUND commit: 2446e7b0 (Task 2)
+- FOUND commit: f9724b40 (SUMMARY)
