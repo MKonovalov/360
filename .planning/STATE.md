@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Additional AI Providers
 status: executing
-last_updated: "2026-08-04T12:23:12.021Z"
+last_updated: "2026-08-04T12:34:27.592Z"
 last_activity: 2026-08-04
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 12
-  completed_plans: 10
+  completed_plans: 11
   percent: 40
 ---
 
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-08-02)
 ## Current Position
 
 Phase: 25 (run-path-modelfactory-seam) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
 Last activity: 2026-08-04
 Next up: Phase 25 — Run Path / modelFactory Seam (CONTEXT not yet gathered)
@@ -82,6 +82,7 @@ Next up: Phase 25 — Run Path / modelFactory Seam (CONTEXT not yet gathered)
 | Phase 24-refresh-script-catalog-data P04 | 5min | 1 tasks | 1 files |
 | Phase 25-run-path-modelfactory-seam P01 | 4min | 3 tasks | 4 files |
 | Phase 25-run-path-modelfactory-seam P02 | 3min | 2 tasks | 2 files |
+| Phase 25-run-path-modelfactory-seam P03 | 2min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -189,6 +190,9 @@ VER-02/VER-05 requirement status: harness + test account (the operator prerequis
 - [Phase 25-run-path-modelfactory-seam]: 25-01: RUN-02 dispatch tests are RESULT-SHAPE assertions on marker'd callable returns (never mock.calls history) — order-independent under parallel/random test order, immune to beforeEach's vi.clearAllMocks
 - [Phase 25-run-path-modelfactory-seam]: 25-01: TDD split per plan — Tasks 1+2 are test-only RED tasks whose shared GREEN lands in Task 3; RED 42152c6e + RED 2c624ac5 strictly precede GREEN 970112d9 (TDD gate satisfied)
 - [Phase 25-run-path-modelfactory-seam]: 25-02: D-25-05 executed with zero special-casing — getProviderForModelId already collapses opencode + opencode-go snapshot ids to logical 'opencode' via SNAPSHOT_PROVIDER_IDS, so the dual-id→single-key mapping (OPENCODE_API_KEY) is free; 4 guards in first-hit-wins order (anthropic/openrouter/nousresearch/opencode); type predicate widened to ModelProviderId — no literal-union drift between the gate and the registry (T-25-07)
+- [Phase 25-run-path-modelfactory-seam]: RUN-04 delivered verify-only: the 4-cell shouldAdvance matrix widened to a data-driven 16-cell matrix over SERVABLE_PROVIDERS (4 same-provider false + 12 cross-provider true) + Zen↔Go same-provider collision canary (logical 'opencode' collapse, SNAPSHOT_PROVIDER_IDS); modelConfig.ts byte-identical — git-diff proven (D-25-04)
+- [Phase 25-run-path-modelfactory-seam]: Non-429 eligible loop widened to the FULL nested SERVABLE_PROVIDERS set (plan's first-listed option, not the 'at minimum' pairs) — same loop shape as the 16-cell matrix, provably provider-agnostic across all 4 providers
+- [Phase 25-run-path-modelfactory-seam]: Never-eligible billing loop + original null-identity assertions kept byte-identical; only the plan-optional nousresearch null fail-closed case added — no shouldAdvance('billing', ...) assertion (402 property lives at the isFailoverEligible loop gate)
 
 ### Pending Todos
 
@@ -221,7 +225,7 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-04T12:23:12.013Z
+Last session: 2026-08-04T12:34:27.586Z
 Stopped at: Completed 25-02-PLAN.md
 Resume file: None
 

@@ -29,7 +29,7 @@ Requirements for milestone v1.5. Each maps to a roadmap phase.
 - [x] **RUN-01**: `modelFactory` gains three module-scope `createOpenAICompatible` instances — `nousresearch` (baseURL `https://inference-api.nousresearch.com/v1`, key `NOUSRESEARCH_API_KEY`), `opencode-zen` (`https://opencode.ai/zen/v1`, key `OPENCODE_API_KEY`), `opencode-go` (`https://opencode.ai/zen/go/v1`, same key) — with `apiKey` passed EXPLICITLY (no SDK env auto-load); constraint 11 (modelFactory = only SDK-importing module) holds
 - [x] **RUN-02**: `instantiateModel` dispatches OpenCode rows to the zen-vs-go instance by the matched row's `api.url` (Anti-Pattern 1 scoped-row find); the 19 Claude rows instantiate via the already-installed `@ai-sdk/anthropic` with a `createAnthropic({ baseURL: 'https://opencode.ai/zen/v1', apiKey })` override — zero new packages beyond openai-compatible
 - [x] **RUN-03**: Chain-aware env gate names the new keys — a resolved chain containing a nousresearch model requires `NOUSRESEARCH_API_KEY`; an opencode model requires `OPENCODE_API_KEY` (all-or-nothing, `missingProviderKey` names the exact key)
-- [ ] **RUN-04**: `shouldAdvance` failover semantics extend to 4 providers — cross-provider 429 advances, same-provider never-advance preserved; OpenCode Zen↔Go is SAME-provider (one key, never advances on 429); 402 billing stays never-eligible
+- [x] **RUN-04**: `shouldAdvance` failover semantics extend to 4 providers — cross-provider 429 advances, same-provider never-advance preserved; OpenCode Zen↔Go is SAME-provider (one key, never advances on 429); 402 billing stays never-eligible
 - [ ] **RUN-05**: `model_used`/`model_chain` audit records the served provider accurately for all 4 providers (OpenCode rows recorded by their bare id; provider derivation via the priority-ordered registry)
 - [x] **RUN-06**: `supportsStructuredOutputs` starts FALSE on the new instances (safe `json_object` fallback + client-side validation) until a live key-backed probe proves `json_schema` acceptance at Zen/Go/Nous; per-provider flip only after verification
 
@@ -94,7 +94,7 @@ Deferred to future releases. Tracked but not in the current roadmap.
 | RUN-01 | 25 | Complete |
 | RUN-02 | 25 | Complete |
 | RUN-03 | 25 | Complete |
-| RUN-04 | 25 | Pending |
+| RUN-04 | 25 | Complete |
 | RUN-05 | 25 | Pending |
 | RUN-06 | 25 | Complete |
 | SET-01 | 26 | Pending |

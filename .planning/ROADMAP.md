@@ -135,7 +135,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 22. Verification Gate | v1.4 | 7/7 | Complete    | 2026-08-03 |
 | 23. Provider Registry + Servable Sources | v1.5 | 4/4 | Complete    | 2026-08-03 |
 | 24. Refresh Script + Catalog Data | v1.5 | 4/4 | Complete    | 2026-08-04 |
-| 25. Run Path / modelFactory Seam | v1.5 | 2/4 | In Progress|  |
+| 25. Run Path / modelFactory Seam | v1.5 | 3/4 | In Progress|  |
 | 26. Settings UI | v1.5 | 0/0 | Not started | - |
 | 27. Verification Gate | v1.5 | 0/0 | Not started | - |
 
@@ -218,7 +218,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 - [x] 25-01-PLAN.md — modelFactory seam (RUN-01/02/06): install @ai-sdk/openai-compatible, 5 module-scope instances (nousresearch/opencode-zen/opencode-go + anthropicZen/Go), 4-provider instantiateModel dispatch + minimax collision canary, supportsStructuredOutputs false-start
 - [x] 25-02-PLAN.md — Chain-aware env gate (RUN-03): missingProviderKey widened to 4 guards naming NOUSRESEARCH_API_KEY / OPENCODE_API_KEY; opencode-only chain runs with only OPENCODE set
-- [ ] 25-03-PLAN.md — shouldAdvance 16-cell matrix (RUN-04, verify-only): data-driven 4×4 matrix + Zen↔Go same-provider canary; modelConfig.ts byte-identical
+- [x] 25-03-PLAN.md — shouldAdvance 16-cell matrix (RUN-04, verify-only): data-driven 4×4 matrix + Zen↔Go same-provider canary; modelConfig.ts byte-identical
 - [ ] 25-04-PLAN.md — RUN-05 loop-level audit: runAgent.test.ts mock extension + opencode/nousresearch 429 hop tests + bare-id audit + 6/6 identity smoke; runAgent.ts untouched
 
 ### Phase 26: Settings UI
