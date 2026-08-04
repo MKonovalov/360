@@ -363,22 +363,13 @@ vi.mock('@ai-sdk/openai-compatible', () => ({
 
 **If this table is empty:** N/A — 3 assumptions flagged, all low-risk.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Instance naming for the openai-compatible pair**
-   - What we know: D-25-01 mandates `anthropicZen`/`anthropicGo`; CONTEXT discretion allows `openaiCompatibleZen`/`openaiCompatibleGo` or similar, mirroring the convention.
-   - What's unclear: Exact names — planner's call, low risk.
-   - Recommendation: `openaiCompatibleZen` / `openaiCompatibleGo` (explicit, mirrors the anthropic pair) and `nousresearch` for the Nous instance (matches the provider id, like the openrouter precedent).
+All three questions were resolved during Phase 25 planning (2026-08-04); the plans implement the recommendations below. No open decisions remain for executors.
 
-2. **Dispatch helper vs inline find**
-   - What we know: D-25-02 allows either `getAllModels(catalogJson).find(...)` inline or a helper; Anti-Pattern 1 scoped-row find is mandatory.
-   - What's unclear: Whether to extract a small `findOpencodeRow(id)` helper for testability.
-   - Recommendation: Extract a tiny helper if it aids the collision-canary tests; inline is fine for a single call site. Planner's call.
-
-3. **ModelProviderId import in analyzeCompany.ts**
-   - What we know: The widened type predicate needs `ModelProviderId`; analyzeCompany.ts currently imports `getProviderForModelId` from catalog (l.14) — adding the type import is a one-line change; catalog is not an SDK (constraint 11 intact).
-   - What's unclear: None — mechanical.
-   - Recommendation: `import { getProviderForModelId, type ModelProviderId } from '@/lib/models/catalog';`
+1. **Instance naming for the openai-compatible pair** — RESOLVED: `openaiCompatibleZen` / `openaiCompatibleGo` (explicit, mirrors the anthropic pair) and `nousresearch` for the Nous instance (matches the provider id, like the openrouter precedent). Locked in plan 25-01 Task 3 (modelFactory.ts instance declarations).
+2. **Dispatch helper vs inline find** — RESOLVED: inline `getAllModels(catalogJson).find(...)` at the single call site (Anti-Pattern 1 scoped-row find on providerID 'opencode'/'opencode-go'), no extracted helper — the collision-canary tests assert behavior through the public `instantiateModel` result shape instead of a helper seam. Locked in plan 25-01 Task 3 (dispatch branch) + Task 2 (canary tests).
+3. **ModelProviderId import in analyzeCompany.ts** — RESOLVED: `import { getProviderForModelId, type ModelProviderId } from '@/lib/models/catalog';` — one-line change; catalog is not an SDK (constraint 11 intact). Locked in plan 25-02 Task 2 (missingProviderKey widening).
 
 ## Environment Availability
 
