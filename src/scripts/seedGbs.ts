@@ -283,7 +283,7 @@ const SIGNAL_OFFERING_LINKS: {
   { signalType: 'persona', signalName: 'Role appeared concurrently with an announced deal or named program (tenure irrelevant)', offeringName: 'Carve-out / Integration Support' },
 ];
 
-async function main() {
+export async function seedGbs() {
   const { db } = await import('../lib/db');
   const {
     practiceArea,
@@ -471,7 +471,14 @@ async function main() {
   );
 }
 
-main().then(() => process.exit(0)).catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exit(1);
-});
+// Auto-run only when executed directly (npm run seed:gbs). The integration
+// test imports this module and calls seedGbs() itself; an unconditional
+// process.exit would kill the vitest runner (vitest sets VITEST=true).
+if (process.env.VITEST !== 'true') {
+  seedGbs()
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error(error instanceof Error ? error.message : error);
+      process.exit(1);
+    });
+}
