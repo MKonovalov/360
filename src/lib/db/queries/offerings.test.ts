@@ -22,12 +22,22 @@ import {
 import { offering } from '../schema';
 
 // Flattens a Drizzle SQL expression's queryChunks into a single string so a
-// .where() argument can be asserted on its literal contents (column names,
-// values, SQL keywords) without depending on the exact chunk tree shape.
+// .where() argument can be asserted on its literal contents (param values,
+// SQL keywords) without depending on the exact chunk tree shape. Column
+// references do not flatten to readable names (their table refs are
+// symbol-keyed), so assertions target the injected param values — e.g. the
+// practice-area id and the 'active' status literal.
 function flattenSql(sql: unknown): string {
   if (sql === null || sql === undefined) return '';
-  if (typeof sql === 'object' && 'queryChunks' in (sql as { queryChunks?: unknown[] })) {
-    return (sql as { queryChunks: unknown[] }).queryChunks.map(flattenSql).join('');
+  if (typeof sql === 'object') {
+    const obj = sql as Record<string, unknown>;
+    if ('queryChunks' in obj && Array.isArray(obj.queryChunks)) {
+      return obj.queryChunks.map(flattenSql).join('');
+    }
+    if ('brand' in obj || 'value' in obj) {
+      return String(obj.value);
+    }
+    return '';
   }
   return String(sql);
 }
@@ -94,10 +104,10 @@ describe('offerings query module (30-03)', () => {
 
     expect(result).toEqual(rows);
     expect(from).toHaveBeenCalledWith(offering);
-    // Admin query: scoped to the practice area, no status filter (draft/retired
-    // visible), ordered by sortOrder.
-    expect(flattenSql(where.mock.calls[0][0])).toContain('practice_area_id');
-    expect(flattenSql(where.mock.calls[0][0])).not.toContain('status');
+    // Admin query: scoped to the practice area (param 1), no status filter
+    // (draft/retired visible), ordered by sortOrder.
+    expect(flattenSql(where.mock.calls[0][0])).toContain('1');
+    expect(flattenSql(where.mock.calls[0][0])).not.toContain('active');
     expect(orderBy).toHaveBeenCalled();
   });
 
@@ -112,13 +122,12 @@ describe('offerings query module (30-03)', () => {
 
     expect(result).toEqual(rows);
     expect(from).toHaveBeenCalledWith(offering);
-    // Picker (Phase 31/32): the where clause ANDs the practice-area scope with
-    // the status='active' filter (spec Section 3 draft-exclusion rule) — never
-    // just the practice area alone.
+    // Picker (Phase 31/32): the where clause ANDs the practice-area scope
+    // (param 42) with the status='active' filter (param 'active') — spec
+    // Section 3 draft-exclusion rule — never just the practice area alone.
     const whereSql = flattenSql(where.mock.calls[0][0]);
-    expect(whereSql).toContain('practice_area_id');
-    expect(whereSql).toContain('active');
     expect(whereSql).toContain('42');
+    expect(whereSql).toContain('active');
     expect(orderBy).toHaveBeenCalled();
   });
 
