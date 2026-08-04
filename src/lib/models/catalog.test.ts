@@ -508,6 +508,77 @@ describe('NO-FLIP (D-23-09 / D-24-11 re-lock): Zen/Go dedup determinism + snapsh
   });
 });
 
+describe('NOUSRESEARCH (D-24-12): committed snapshot + fixture dual-canary — 292-row roster, hermes pins through the gate, ×1e6 pricing, derived family, ~latest self-exclusion', () => {
+  // D-24-11 doctrine: counts are EXPLICIT constants re-locked from the ACTUAL
+  // regenerated snapshot (committed 2026-08-04, Plan 03, commit 56d9fdaa —
+  // generatedAt 2026-08-04T09:44:37.964Z), never derived from the snapshot
+  // inside the test (that would defeat the canary's purpose).
+  const NOUS_COUNT = 292;
+  const LATEST_ALIAS_COUNT = 11;
+
+  it('CAT-01: the nousresearch group ships 292 rows, every row providerID === "nousresearch", and the hermes-4-70b pin maps to the mandated api (url + npm)', () => {
+    const rows = catalogJson.providers.nousresearch;
+    expect(rows).toHaveLength(NOUS_COUNT);
+    expect(rows.every((m) => m.providerID === 'nousresearch')).toBe(true);
+    const hermes70 = rows.find((m) => m.id === 'nousresearch/hermes-4-70b');
+    expect(hermes70?.api.url).toBe('https://inference-api.nousresearch.com/v1');
+    expect(hermes70?.api.npm).toBe('@ai-sdk/openai-compatible');
+  });
+
+  it('D-23-05/D-24-12: the hermes pins resolve through the servable gate — dual-canary redundancy with the flipped boundary canary is intentional', () => {
+    expect(getServableIdsForProvider(catalogJson, 'nousresearch')).toEqual([
+      'nousresearch/hermes-4-70b',
+      'nousresearch/hermes-4-405b',
+    ]);
+  });
+
+  it('CAT-02/Pitfall 2: pricing ×1e6 — hermes pins 0.05/0.2 and 0.09/0.37 per-MTok with context 131072 (live-verified 2026-08-04)', () => {
+    const rows = catalogJson.providers.nousresearch;
+    const hermes70 = rows.find((m) => m.id === 'nousresearch/hermes-4-70b');
+    const hermes405 = rows.find((m) => m.id === 'nousresearch/hermes-4-405b');
+    expect(hermes70?.cost).toEqual({ input: 0.05, output: 0.2 });
+    expect(hermes405?.cost).toEqual({ input: 0.09, output: 0.37 });
+    expect(hermes70?.limit.context).toBe(131072);
+    expect(hermes405?.limit.context).toBe(131072);
+  });
+
+  it('CAT-02/Pitfall 5: structuredOutputs live join — hermes pins false (response_format, not structured_outputs) and the group is non-vacuous (214 true / 78 false at re-lock)', () => {
+    const rows = catalogJson.providers.nousresearch;
+    const hermes70 = rows.find((m) => m.id === 'nousresearch/hermes-4-70b');
+    const hermes405 = rows.find((m) => m.id === 'nousresearch/hermes-4-405b');
+    expect(hermes70?.structuredOutputs).toBe(false);
+    expect(hermes405?.structuredOutputs).toBe(false);
+    expect(rows.some((m) => m.structuredOutputs === true)).toBe(true);
+    expect(rows.some((m) => m.structuredOutputs === false)).toBe(true);
+  });
+
+  it('CAT-03: family derived from the id prefix — hermes pins → "hermes"; counter-example qwen/qwen3.8-max → "qwen3.8" (first dash-token of the model part)', () => {
+    const rows = catalogJson.providers.nousresearch;
+    expect(rows.find((m) => m.id === 'nousresearch/hermes-4-70b')?.family).toBe('hermes');
+    expect(rows.find((m) => m.id === 'nousresearch/hermes-4-405b')?.family).toBe('hermes');
+    expect(rows.find((m) => m.id === 'qwen/qwen3.8-max')?.family).toBe('qwen3.8');
+  });
+
+  it('D-24-08/12: exactly 11 ~latest alias rows ship verbatim and their ids are self-excluded from servable (the allowlist pins concrete ids — D-23-05/D-07 "never ~ in pins")', () => {
+    const rows = catalogJson.providers.nousresearch;
+    const latestIds = rows.filter((m) => /^~/.test(m.id)).map((m) => m.id);
+    expect(latestIds).toHaveLength(LATEST_ALIAS_COUNT);
+    const servable = getServableIdsForProvider(catalogJson, 'nousresearch');
+    expect(latestIds.filter((id) => servable.includes(id))).toEqual([]);
+  });
+
+  it('fixture dual-canary: the fixture hermes-4-70b row carries the live-verified facts (cost 0.05/0.2, structuredOutputs false, family hermes) and the pins resolve through the gate (redundant with REG-04 — the D-24-12 group states the facts REG-04 does not)', () => {
+    const hermes70 = fixture.providers.nousresearch.find((m) => m.id === 'nousresearch/hermes-4-70b');
+    expect(hermes70?.cost).toEqual({ input: 0.05, output: 0.2 });
+    expect(hermes70?.structuredOutputs).toBe(false);
+    expect(hermes70?.family).toBe('hermes');
+    expect(getServableIdsForProvider(fixture, 'nousresearch')).toEqual([
+      'nousresearch/hermes-4-70b',
+      'nousresearch/hermes-4-405b',
+    ]);
+  });
+});
+
 describe('ANTHROPIC_ALLOWLIST', () => {
   it('contains only roster-verified undated raw IDs per the D-02 gate (sonnet-only — 2026-08-02 re-verify: undated haiku-4-5 still absent)', () => {
     expect(ANTHROPIC_ALLOWLIST).toEqual(['claude-sonnet-4-6']);
