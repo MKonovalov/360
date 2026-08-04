@@ -15,8 +15,20 @@ const mocks = vi.hoisted(() => ({
   // every stub id resolves 'anthropic' (preserves all existing same-provider
   // tests); slashed ids (real OpenRouter slugs) and 'm2' resolve 'openrouter'
   // for the cross-provider cases.
+  // Phase 25 (RUN-05): 'm3' and 'm5' BOTH resolve logical 'opencode' — two
+  // distinct opencode model ids (a Zen snapshot row and a Go snapshot row)
+  // whose from/to identity both collapse to 'opencode' via the registry's
+  // SNAPSHOT_PROVIDER_IDS mapping (D-25-04); 'm4' resolves 'nousresearch'.
   getProviderForModelId: vi.fn((_catalog: unknown, id: string) =>
-    id.includes('/') || id === 'm2' ? 'openrouter' : 'anthropic',
+    id.includes('/') || id === 'm2'
+      ? 'openrouter'
+      : id === 'm3'
+        ? 'opencode'
+        : id === 'm4'
+          ? 'nousresearch'
+          : id === 'm5'
+            ? 'opencode'
+            : 'anthropic',
   ),
 }));
 
@@ -314,6 +326,51 @@ describe('runAgent failover loop (FAL-03/04)', () => {
 
     expect(mocks.generateText).toHaveBeenCalledTimes(2);
     expect(result).toEqual({ ...resolvedRun, modelUsed: 'm1', usedFallback: true });
+  });
+
+  it('429 advances anthropic → opencode — new-provider cross-provider hop serves the fallback (RUN-05)', async () => {
+    mocks.generateText.mockRejectedValueOnce(apiErr(429)).mockResolvedValueOnce(resolvedRun);
+
+    const result = await runAgent({ company, liveSignals: [], models: ['m1', 'm3'] });
+
+    expect(mocks.generateText).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({ ...resolvedRun, modelUsed: 'm3', usedFallback: true });
+  });
+
+  it('429 advances nousresearch → anthropic — new-provider cross-provider hop serves the fallback (RUN-05)', async () => {
+    mocks.generateText.mockRejectedValueOnce(apiErr(429)).mockResolvedValueOnce(resolvedRun);
+
+    const result = await runAgent({ company, liveSignals: [], models: ['m4', 'm1'] });
+
+    expect(mocks.generateText).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({ ...resolvedRun, modelUsed: 'm1', usedFallback: true });
+  });
+
+  // RUN-05 Zen↔Go canary: 'm3' and 'm5' are two distinct opencode model ids (a
+  // Zen row and a Go row) whose from/to identity BOTH collapse to logical
+  // 'opencode' via getProviderForModelId (SNAPSHOT_PROVIDER_IDS.opencode =
+  // ['opencode', 'opencode-go']) — same logical provider, one shared
+  // OPENCODE_API_KEY — so a 429 never advances (D-25-04/RUN-04).
+  it('Zen↔Go same-provider 429 never advances — single attempt, throws (RUN-05)', async () => {
+    mocks.generateText.mockRejectedValueOnce(apiErr(429));
+
+    await expect(
+      runAgent({ company, liveSignals: [], models: ['m3', 'm5'] }),
+    ).rejects.toThrow();
+    expect(mocks.generateText).toHaveBeenCalledTimes(1);
+  });
+
+  // RUN-05 bare-id audit: modelIdOf (runAgent.ts l.35-37) returns .modelId
+  // verbatim for object-form models, and string-form stubs pass through as-is
+  // — the served opencode model id lands in model_used with NO prefix surgery
+  // and NO endpoint label (mirrors the FAL-05 verbatim-slug assertion).
+  it('modelUsed records the served opencode model id bare — no prefix surgery, no endpoint label (RUN-05)', async () => {
+    mocks.generateText.mockRejectedValueOnce(apiErr(429)).mockResolvedValueOnce(resolvedRun);
+
+    const result = await runAgent({ company, liveSignals: [], models: ['m1', 'm3'] });
+
+    expect(mocks.generateText).toHaveBeenCalledTimes(2);
+    expect(result.modelUsed).toBe('m3');
   });
 
   it('402 billing never advances even cross-provider — throws on the primary (FAL-02)', async () => {
