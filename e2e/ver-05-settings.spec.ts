@@ -45,7 +45,7 @@ const SETTINGS_HEADING = 'AI Model Configuration';
 // draft state, so flipping to a known target first normalizes the baseline.
 async function setProvider(
   page: Page,
-  target: 'Anthropic' | 'OpenRouter',
+  target: 'Anthropic' | 'OpenRouter' | 'NousResearch' | 'OpenCode',
   named: string,
 ): Promise<void> {
   await page.getByLabel('AI provider').click();
@@ -255,4 +255,223 @@ test('VER-05: IN-02 stale-primary badge guess observed (observation)', async ({ 
   // green behavior this spec proves in SET-05) — the stale-id guess is a
   // documented limitation observable only by corrupting a saved id, out of
   // reach through the UI. Nothing to assert beyond the page mounting.
+});
+
+// --- Phase 27 (VER-05): extended coverage closing 26-HUMAN-UAT.md's 4 pending
+// items (D-27-09/10) — the 4-provider selector, Zen/Go + Hermes captions,
+// badge disambiguation, and the CR-01 save-race regression, exercised live
+// through Plan 27-04's fixed Save lifecycle.
+
+test('VER-05: full 4-provider selector -> picker -> save round trip (closes 26-HUMAN-UAT item 1)', async ({
+  page,
+}) => {
+  await page.goto('/settings');
+  await expect(page.getByText(SETTINGS_HEADING)).toBeVisible();
+  await clearFallbacks(page);
+
+  // Switch through all 4 SERVABLE_PROVIDERS entries in order, asserting each
+  // switch lands the dropdown on the right label (setProvider's own
+  // assertion) and the Primary picker re-renders with SOME resolved model
+  // (a visible provider badge on the trigger — the provider-scoped default or
+  // a kept-if-valid id, never a blank trigger). Badge-vs-dropdown MATCHING is
+  // deliberately not asserted here — the claude-sonnet-4-6 collision (proven
+  // separately below) means a badge can legitimately diverge from the
+  // dropdown's own selection when a higher-precedence provider still serves
+  // the same id.
+  const providersToCheck: Array<'Anthropic' | 'OpenRouter' | 'NousResearch' | 'OpenCode'> = [
+    'Anthropic',
+    'OpenRouter',
+    'NousResearch',
+    'OpenCode',
+  ];
+  const primaryBadge = page.getByLabel('Primary model').locator('[data-slot="badge"]');
+  for (const target of providersToCheck) {
+    await setProvider(page, target, target);
+    await expect(primaryBadge).toBeVisible();
+    const badgeText = await primaryBadge.innerText();
+    expect(badgeText.trim().length).toBeGreaterThan(0);
+  }
+
+  // Ends on OpenCode — save and confirm the round trip persisted.
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(page.getByText('Saved.')).toBeVisible();
+});
+
+test('VER-05: reset-hint + trigger badge accuracy for the claude-sonnet-4-6 collision (closes 26-HUMAN-UAT items 3+4a)', async ({
+  page,
+}) => {
+  await page.goto('/settings');
+  await expect(page.getByText(SETTINGS_HEADING)).toBeVisible();
+  await clearFallbacks(page);
+
+  // Anthropic's servable set is the sonnet-only single-row allowlist — any
+  // switch here keep-if-valid-fails unless the draft is already exactly
+  // claude-sonnet-4-6, so this deterministically lands the primary on the
+  // Anthropic default regardless of whatever a prior test left staged.
+  await setProvider(page, 'Anthropic', 'Anthropic');
+  await expect(page.getByLabel('Primary model')).toContainText('Claude Sonnet 4.6');
+
+  // claude-sonnet-4-6 is ALSO npm-gated servable under opencode (same raw id)
+  // — switching there passes keep-if-valid (the id IS opencode-servable), but
+  // PROVIDER_PRECEDENCE always resolves it back to anthropic (regression
+  // lock), so BOTH the reset-hint and badge-collision scenarios fire on this
+  // single switch (26-VERIFICATION.md human_verification items 3 and 4a).
+  await setProvider(page, 'OpenCode', 'OpenCode');
+
+  const hint = page.getByText(/stays routed through Anthropic/);
+  await expect(hint).toBeVisible();
+  await expect(hint).toContainText(
+    "Claude Sonnet 4.6 stays routed through Anthropic — OpenCode's copy isn't used while a higher-priority provider serves the same id.",
+  );
+
+  // The trigger badge must read the TRUE resolved provider, never the raw
+  // dropdown value — the D-26-11 resolveBadgeProvider fix under live test.
+  const badge = page.getByLabel('Primary model').locator('[data-slot="badge"]');
+  await expect(badge).toHaveText('Anthropic');
+});
+
+test('VER-05: OpenCode Zen/Go endpoint captions in primary + fallback pickers + saved-chain recap (closes 26-HUMAN-UAT item 2)', async ({
+  page,
+}) => {
+  await page.goto('/settings');
+  await expect(page.getByText(SETTINGS_HEADING)).toBeVisible();
+  await clearFallbacks(page);
+  await setProvider(page, 'OpenCode', 'OpenCode');
+
+  const primaryTrigger = page.getByLabel('Primary model');
+  const searchInput = page.getByPlaceholder('Search models…');
+
+  // --- 'big-pickle' is a real Zen-endpoint servable id — its option row
+  // carries the 'Zen' caption in the provider-scoped primary picker.
+  await primaryTrigger.click();
+  await searchInput.fill('big-pickle');
+  const zenOption = page.getByRole('option').filter({ hasText: 'Big Pickle' });
+  await expect(zenOption).toContainText('Zen');
+
+  // --- 'hy3' is a real Go-EXCLUSIVE servable id (opencode-go only, no Zen
+  // mirror) — same caption slot, same primary picker, reads 'Go'.
+  await searchInput.fill('');
+  await searchInput.fill('hy3');
+  const goOption = page.getByRole('option').filter({ hasText: 'Hy3' });
+  await expect(goOption).toContainText('Go');
+
+  // Select 'big-pickle' as primary.
+  await searchInput.fill('big-pickle');
+  await page.getByRole('option').filter({ hasText: 'Big Pickle' }).click();
+  await expect(primaryTrigger).toContainText('Big Pickle');
+
+  // --- Open the union fallback picker (grouped, spans all 4 providers) and
+  // confirm 'hy3''s 'Go' caption reappears in the SAME slot there too —
+  // scope by the OpenCode provider badge since 'hy3' also substring-matches
+  // unrelated openrouter rows (e.g. tencent/hy3-preview) in the wider union.
+  await page.getByRole('button', { name: 'Add fallback' }).click();
+  const fallbackTrigger = page.getByLabel('Fallback model 1');
+  await fallbackTrigger.click();
+  const fallbackSearch = page.getByPlaceholder('Search models…');
+  await fallbackSearch.fill('hy3');
+  const fallbackGoOption = page
+    .getByRole('option')
+    .filter({ hasText: 'Hy3' })
+    .filter({ has: page.locator('[data-slot="badge"]').filter({ hasText: 'OpenCode' }) });
+  await expect(fallbackGoOption).toContainText('Go');
+  await fallbackGoOption.click();
+  await expect(fallbackTrigger).toContainText('Hy3');
+
+  // --- Save a chain spanning both endpoints; the recap must show both.
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  const recap = page.getByText(/Saved chain:/);
+  await expect(recap).toBeVisible();
+  await expect(recap).toContainText('Zen');
+  await expect(recap).toContainText('Go');
+});
+
+test('VER-05: NousResearch Hermes capability + cost captions (SET-04)', async ({ page }) => {
+  await page.goto('/settings');
+  await expect(page.getByText(SETTINGS_HEADING)).toBeVisible();
+  await clearFallbacks(page);
+  await setProvider(page, 'NousResearch', 'NousResearch');
+
+  // NousResearch's servable set is the curated 2-row Hermes-4 allowlist
+  // (70b default + 405b). The default's own row is excluded from its picker
+  // (optionsForSlot dup-chain prevention) and renders as a pinned/disabled
+  // row that skips captions by design (pinnedSelection) — opening the picker
+  // surfaces the OTHER hermes row with its full caption instead, proving the
+  // same rowCaption/cost-caption composition for a real hermes id.
+  const primaryTrigger = page.getByLabel('Primary model');
+  await primaryTrigger.click();
+  const hermesRow = page.getByRole('option').filter({ hasText: /Hermes/ }).first();
+  await expect(hermesRow).toContainText('chat/reasoning-tuned');
+  // Pattern match, never a hard-coded dollar figure — the exact price can
+  // drift with a catalog refresh (npm run models:fetch).
+  await expect(hermesRow).toContainText(/\$[\d.]+ \/ \$[\d.]+ per MTok/);
+});
+
+test('VER-05: hermes-4-70b trigger badge accuracy under OpenRouter (closes 26-HUMAN-UAT item 4b)', async ({
+  page,
+}) => {
+  await page.goto('/settings');
+  await expect(page.getByText(SETTINGS_HEADING)).toBeVisible();
+  await clearFallbacks(page);
+
+  // Land the draft on the NousResearch hermes-4-70b default primary.
+  await setProvider(page, 'NousResearch', 'NousResearch');
+  await expect(page.getByLabel('Primary model')).toContainText('Hermes 4 70B');
+
+  // nousresearch/hermes-4-70b is ALSO an active OpenRouter mirror row with the
+  // IDENTICAL id string — switching the dropdown to OpenRouter passes
+  // keep-if-valid (the id IS openrouter-servable) and preserves it verbatim,
+  // but D-23-07's PROVIDER_PRECEDENCE (nousresearch outranks openrouter)
+  // always resolves it back to nousresearch, so the badge must never flip.
+  await setProvider(page, 'OpenRouter', 'OpenRouter');
+  await expect(page.getByLabel('Primary model')).toContainText('Hermes 4 70B');
+  const badge = page.getByLabel('Primary model').locator('[data-slot="badge"]');
+  await expect(badge).toHaveText('NousResearch');
+});
+
+test('VER-05: CR-01 mid-save-edit no longer shows a false Saved. confirmation', async ({ page }) => {
+  await page.goto('/settings');
+  await expect(page.getByText(SETTINGS_HEADING)).toBeVisible();
+  await clearFallbacks(page);
+  await setProvider(page, 'OpenCode', 'OpenCode');
+
+  const primaryTrigger = page.getByLabel('Primary model');
+  const searchInput = page.getByPlaceholder('Search models…');
+
+  // Playwright cannot literally suspend a real network request mid-flight to
+  // reproduce the exact race Plan 27-04 fixed (a local dev server typically
+  // resolves saveSettingsAction faster than a second Playwright action can
+  // dispatch) — this is the plan-sanctioned browser-level approximation:
+  // saving twice in a row, editing the draft between each save, and asserting
+  // the now-STALE "Saved." confirmation disappears the instant the draft
+  // diverges from lastSaved — synchronously with the edit, before any new
+  // save request is even sent. This proves the CR-01 render-gate
+  // (draft-equals-lastSaved) transitions correctly on each edit.
+
+  // --- Save #1: primary = big-pickle -----------------------------------------
+  await primaryTrigger.click();
+  await searchInput.fill('big-pickle');
+  await page.getByRole('option').filter({ hasText: 'Big Pickle' }).click();
+  await expect(primaryTrigger).toContainText('Big Pickle');
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(page.getByText('Saved.')).toBeVisible();
+  await expect(page.getByText(/Saved chain:/)).toContainText('Big Pickle');
+
+  // --- Edit WITHOUT saving: the gate must hide the now-stale "Saved."
+  // confirmation immediately — this is the exact draft-equals-lastSaved check
+  // CR-01 added, closing the false-positive window a stale async resolution
+  // for an in-flight save could otherwise exploit.
+  await primaryTrigger.click();
+  await searchInput.fill('hy3');
+  await page.getByRole('option').filter({ hasText: 'Hy3' }).click();
+  await expect(primaryTrigger).toContainText('Hy3');
+  await expect(page.getByText('Saved.')).not.toBeVisible();
+  await expect(page.getByText(/Saved chain:/)).not.toBeVisible();
+
+  // --- Save #2: primary = hy3 — the fresh confirmation must name the CURRENT
+  // draft, never the value from save #1 that was in flight moments ago.
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(page.getByText('Saved.')).toBeVisible();
+  const recap = page.getByText(/Saved chain:/);
+  await expect(recap).toContainText('Hy3');
+  await expect(recap).not.toContainText('Big Pickle');
 });
