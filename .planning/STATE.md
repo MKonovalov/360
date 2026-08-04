@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Additional AI Providers
 status: executing
-last_updated: "2026-08-04T02:25:06.549Z"
+last_updated: "2026-08-04T08:59:59.761Z"
 last_activity: 2026-08-04
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 8
-  completed_plans: 5
-  percent: 63
+  completed_plans: 6
+  percent: 20
 ---
 
 # Project State
@@ -189,6 +189,7 @@ None yet.
 - **60s ceiling is still a hard wall** — OpenRouter proxy latency + SDK retry pile-up must stay under the existing 54s loop clamp (FAL-04 budget); `maxDuration` stays at Hobby's 60.
 - Carried from v1.1/v1.2: persona-side Arcpedia content gap (seed data); 3 VERIFICATION.md files still `human_needed`; "any authenticated Clerk user = staff" model has no role system (acceptable per PROJECT.md scope).
 - OPENROUTER_API_KEY is UNCREDITED (limit: null, is_free_tier: true) — the VER-02 live analyze e2e (22-05) returns 402 and cannot produce its billing-success evidence (201 + modelUsed read-back) until credits are topped up; gates VER-02 requirement + plan 22-07 proof recording; re-run npx playwright test e2e/ver-02-analyze.spec.ts after top-up
+- Strict D-24-07 Go roster drift BLOCKS Plan 24-03 regeneration: opencode CLI upgraded to 1.18.12 (npm latest, verified no newer stable) + models --refresh still yields 18 opencode-go rows vs 25 live. Drift captured (exit 1, no write): Live-only ids (7) minimax-m2.5, kimi-k2.5, glm-5, qwen3.5-plus, mimo-v2-pro, mimo-v2-omni, hy3-preview; CLI-only (0). Root cause registry-side (models.dev lags live by hy3-preview; CLI filters 6 more). D-24-07 NOT relaxed. Options: (1) wait for newer release/registry update then re-run Task 2 checkpoint, (2) deliberate strictness revisit (user decision at discuss-phase, never silent), (3) accept blocked refresh. See 24-02-SUMMARY.md Escalation.
 
 ## Deferred Items
 
@@ -206,9 +207,9 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 
 ## Session Continuity
 
-Last session: 2026-08-04T02:25:06.542Z
-Stopped at: None
-Resume file: Completed 24-01-PLAN.md
+Last session: 2026-08-04T08:59:59.712Z
+Stopped at: Escalation checkpoint — Plan 24-02 Task 2: Go drift persists post-upgrade (CLI 1.18.12, go=18 vs live 25); D-24-07 not relaxed; awaiting user decision (see STATE.md Blockers)
+Resume file: 24-02-SUMMARY.md
 
 ## Operator Next Steps
 
