@@ -183,7 +183,22 @@ Full details: [`.planning/milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
   4. A script or direct query attempting to delete a `practice_area`, `domain`, `offering`, or `buyer_role` that has dependent records (offerings, triggers, buyer-role links, signals, signal-offering links) is rejected or requires explicit cascade confirmation — it never silently cascades
   5. All CRUD writes to these tables go through the existing staff-auth-gated path (reusing `requireStaffAccess()`, no new role/approval system) and populate `created_by`/`updated_by`; there is no separate review/approval workflow
 
-**Plans**: TBD
+**Plans**: 6 plans
+Plans:
+**Wave 1**
+
+- [ ] 30-01-PLAN.md — Schema foundation: 9 new tables + 3 enums in schema.ts + [BLOCKING] npm run db:push (DATA-01, DATA-02)
+
+**Wave 2** *(blocked on Wave 1 completion, parallel with each other)*
+
+- [ ] 30-02-PLAN.md — practiceAreas.ts + domains.ts + buyerRoles.ts query modules + delete-guards (DATA-01, DATA-09, DATA-10)
+- [ ] 30-03-PLAN.md — offerings.ts query module (CRUD, active/all picker split, offering_buyer_role/trigger helpers, delete-guard) (DATA-01, DATA-09, DATA-10)
+- [ ] 30-04-PLAN.md — companySignals.ts + personaSignals.ts query modules (DATA-02, DATA-09)
+- [ ] 30-05-PLAN.md — signalOfferingLinks.ts query module with cross-practice-area guard (DATA-02, DATA-09)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 30-06-PLAN.md — GBS seed script (seedGbs.ts) — full spec Section 7 dataset + live row-count verification (DATA-03, DATA-04, DATA-05, DATA-06, DATA-07, DATA-08, DATA-09)
 
 ### Phase 31: Signals UI
 
