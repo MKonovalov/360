@@ -155,7 +155,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 26. Settings UI | v1.5 | 0/0 | Not started | - |
 | 27. Verification Gate | v1.5 | 0/0 | Not started | - |
 | 28. Shared Data Model + Seed | v1.6 | 0/6 | Planned (queued) | - |
-| 29. Signals UI | v1.6 | 0/0 | Not started (queued) | - |
+| 29. Signals UI | v1.6 | 0/8 | Planned (queued) | - |
 | 30. Offerings UI | v1.6 | 0/0 | Not started (queued) | - |
 
 ---
@@ -313,7 +313,30 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
   4. A signal's row-level "archive" action sets `status = retired` and the row remains visible in the list (never a hard delete)
   5. The Linked Offerings / offering pickers on both forms only ever show active offerings scoped to the signal's selected Practice Area — draft offerings never appear as pickable options
 
-**Plans**: TBD
+**Plans**: 8 plans
+**Wave 1**
+
+- [ ] 29-01-PLAN.md — Sidebar nav wiring: NavKey/getActiveNavKey extended, Signals item added to the Manage group (SIG-01)
+- [ ] 29-02-PLAN.md — Filter params module: parseSignalFilters (SIG-03 parsing half)
+- [ ] 29-03-PLAN.md — Server Actions layer (TDD): create/update/archive x Company/Persona Signal + Linked Offerings sync (SIG-06/07/08/09)
+
+**Wave 2** *(blocked on Wave 1 completion, parallel with each other)*
+
+- [ ] 29-04-PLAN.md — Linked Offerings picker + SignalForm (Sheet CRUD, both entity kinds) (SIG-06/07/09)
+- [ ] 29-05-PLAN.md — ArchiveSignalDialog + SignalFilters bar (SIG-03/08)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 29-06-PLAN.md — SignalTable: columns per entity kind, row actions, Linked Offerings disclosure (SIG-04/05)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 29-07-PLAN.md — SignalsTabs shell + /signals server page: fetch orchestration, filtering, wiring (SIG-02/03/06/07)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 29-08-PLAN.md — Manual QA checkpoint: two-tab layout, table columns, Sheet form UX (SIG-02/04/05/06/07)
+
 **UI hint**: yes
 
 ### Phase 30: Offerings UI (v1.6, queued)
