@@ -154,6 +154,7 @@ Beyond the fixed template sections, this phase's concrete build list (for the pl
 
 ## Row Anatomy / Layout Notes (non-template, executor-facing)
 
+- **Visual anchor:** The Service Portfolio hierarchy list is the primary focal point on load; the Matrix table is the secondary tab.
 - **Page shell:** `<div className="flex flex-col gap-12 p-8">` wrapping `<h1>Offerings</h1>` + `Tabs` — exact reuse of `signals/page.tsx`'s wrapper, byte-identical to Phase 29.
 - **"Manage Buyer Roles" button placement:** rendered on BOTH tabs (Service Portfolio and Matrix), top-right of the tab content area, `variant="outline"` (not the primary CTA — it opens a lookup Sheet, not a create form for THIS tab's primary entity) — per D-05.
 
@@ -178,7 +179,7 @@ Beyond the fixed template sections, this phase's concrete build list (for the pl
 ### Buyer Role lookup panel (D-05)
 
 - **Surface:** `Sheet` (`side="right"`, default `sm:max-w-sm` — a simple name+description list, does not need the wide variant).
-- **Row anatomy:** name (Body, 14/600 — the one place `font-semibold` is used at body size, to visually anchor each role as a distinct list item) → description (Label, 12/400, `text-slate-500`) → trailing `Edit` (`variant="ghost" size="icon"`, pencil icon) → `Delete` (`variant="ghost" size="icon"`, trash icon, red on hover) → dependents-gated confirmation per D-10.
+- **Row anatomy:** name (Body, 14/600 — the one place `font-semibold` is used at body size, to visually anchor each role as a distinct list item) → description (Label, 12/400, `text-slate-500`) → trailing `Edit` (`variant="ghost" size="icon"`, pencil icon, `aria-label="Edit {role name}"`) → `Delete` (`variant="ghost" size="icon"`, trash icon, red on hover, `aria-label="Delete {role name}"`) → dependents-gated confirmation per D-10.
 - **Create:** a "New Buyer Role" button at the top of the panel opens a nested small form (inline expansion at the top of the list, or a second small `Sheet`/`Dialog` layered on top — Claude's Discretion left open in `30-CONTEXT.md`; **decided here: inline expansion** — a `name` + `description` `Input`/`Textarea` pair that slides open above the list when "New Buyer Role" is clicked, avoiding Sheet-over-Sheet stacking).
 
 ### Delete-guard dialog (D-10)
@@ -199,11 +200,11 @@ No new shadcn installs and no third-party registries are declared or used this p
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved 2026-08-05
