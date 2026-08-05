@@ -195,6 +195,7 @@ VER-02/VER-05 requirement status: harness + test account (the operator prerequis
 - [Phase 28 (queued)]: New query modules will be named `companySignals.ts`/`personaSignals.ts`, never `signals.ts` — that name is already taken by the unrelated core `signal` (buying-signal) entity's query module
 - [Phase 28 (queued)]: No `db.transaction()` anywhere in this phase's plan — `neon-http` driver has zero transaction support; seed script and delete-guards use sequential dependency-ordered operations instead
 - [Phase 28 (queued)]: A first execution attempt of the queued Phase 28's schema+push plan (then numbered 30-01) was run in a git worktree that mistakenly branched from this branch's OLDER tip (`1fd116ee`, predating 235 commits of subsequent work) — the resulting `worktree-agent-a332a750f9e7bd06d` branch/worktree was discarded, not merged; Phase 28 has not actually been executed against this branch yet
+- [Phase 29 (queued)]: 29-01 executed 2026-08-05 — Signals sidebar nav item wired (NavKey widened with `'signals'`, `getActiveNavKey` `/signals` prefix-match + `/signals-archive` boundary guard, 16-case Vitest suite green, Manage group renders Radar-icon Signals item linking to `/signals`). SIG-01 satisfied. The `/signals` route itself lands in 29-07; the nav item 404s until then. NOTE: v1.5 (Phase 25) tracking above is UNCHANGED — gsd-sdk `state.advance-plan` operates on the active milestone and was not used; only ROADMAP.md Phase 29 progress (1/8, In Progress) was updated.
 
 ### Pending Todos
 
