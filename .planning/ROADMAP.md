@@ -155,7 +155,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 26. Settings UI | v1.5 | 0/0 | Not started | - |
 | 27. Verification Gate | v1.5 | 0/0 | Not started | - |
 | 28. Shared Data Model + Seed | v1.6 | 0/6 | Planned (queued) | - |
-| 29. Signals UI | v1.6 | 2/8 | In Progress|  |
+| 29. Signals UI | v1.6 | 3/8 | In Progress|  |
 | 30. Offerings UI | v1.6 | 0/0 | Not started (queued) | - |
 
 ---
@@ -318,7 +318,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 - [x] 29-01-PLAN.md — Sidebar nav wiring: NavKey/getActiveNavKey extended, Signals item added to the Manage group (SIG-01)
 - [x] 29-02-PLAN.md — Filter params module: parseSignalFilters (SIG-03 parsing half)
-- [ ] 29-03-PLAN.md — Server Actions layer (TDD): create/update/archive x Company/Persona Signal + Linked Offerings sync (SIG-06/07/08/09)
+- [x] 29-03-PLAN.md — Server Actions layer (TDD): create/update/archive x Company/Persona Signal + Linked Offerings sync (SIG-06/07/08/09)
 
 **Wave 2** *(blocked on Wave 1 completion, parallel with each other)*
 
