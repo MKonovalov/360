@@ -253,7 +253,39 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
   4. NousResearch Hermes rows render honest capability captions (chat/reasoning-tuned caveat, mirroring the `:free` fail-loud pattern) with per-MTok cost captions converted from the API's per-token pricing.
   5. Provider badges cover all 4 providers and disambiguate same-name models (hermes-4-70b via nousresearch vs openrouter; claude rows via opencode vs anthropic); union fallback pickers group by all 4 providers with correct badges; save + staleness verified end-to-end against 4-provider chains.
 
-**Plans**: TBD
+**Plans**: 11 plans
+**Wave 1**
+
+- [ ] 30-01-PLAN.md — Query-layer reorder/delete helpers + Offerings sidebar nav wiring (OFR-01, OFR-03)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 30-02-PLAN.md — Server Actions: Practice Area + Domain CRUD/archive/delete/reorder + Buyer Role CRUD (OFR-03, OFR-06, OFR-08)
+
+**Wave 3** *(blocked on Wave 2 completion, parallel with each other)*
+
+- [ ] 30-03-PLAN.md — Server Actions: Offering + Trigger CRUD, ranked Buyer Role diff-and-sync, immediate-persist action (OFR-03, OFR-04, OFR-05, OFR-08)
+- [ ] 30-04-PLAN.md — PracticeAreaForm + DomainForm Sheet CRUD components (OFR-03)
+
+**Wave 4** *(blocked on Wave 3 completion, parallel with each other)*
+
+- [ ] 30-05-PLAN.md — RankedBuyerRolesPicker + OfferingForm (8 fields + reverse-lookup) (OFR-04, OFR-07)
+- [ ] 30-06-PLAN.md — TriggerEditor + ArchiveEntityDialog + DeleteGuardDialog (OFR-03, OFR-05, OFR-08)
+
+**Wave 5** *(blocked on Wave 4 completion, parallel with each other)*
+
+- [ ] 30-07-PLAN.md — BuyerRolePanel lookup CRUD Sheet (OFR-06, OFR-08)
+- [ ] 30-08-PLAN.md — ServicePortfolio hierarchy manager (OFR-03, OFR-08)
+- [ ] 30-09-PLAN.md — OfferingsFilters + OfferingsMatrix (OFR-05)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 30-10-PLAN.md — OfferingsTabs shell + /offerings server page (OFR-01, OFR-02, OFR-06, OFR-07)
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 30-11-PLAN.md — Manual QA checkpoint: live UAT sweep of OFR-01..OFR-08 against GBS seed data
+
 **UI hint**: yes
 
 ### Phase 27: Verification Gate
