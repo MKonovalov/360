@@ -5,7 +5,9 @@
 - ✅ **v1.0 MVP** — Phases 1-4 (shipped 2026-07-24)
 - ✅ **v1.1 Start Page + Import + Analytic Agent** — Phases 5-9 (shipped 2026-08-01)
 - ✅ **v1.2 Exa-Style Left Panel** — Phases 10-14 (shipped 2026-08-02)
-- 🚧 **v1.3 AI Model Settings** — Phases 15-18 (in progress)
+- ✅ **v1.3 AI Model Settings** — Phases 15-18 (shipped 2026-08-02)
+- ✅ **v1.4 Multi-Provider AI Model Configuration** — Phases 19-22 (shipped 2026-08-03)
+- ✅ **v1.5 Additional AI Providers** — Phases 23-27 (shipped 2026-08-04)
 
 ## Phases
 
@@ -55,7 +57,8 @@ Full details: [`.planning/milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
 
 </details>
 
-🚧 **v1.3 AI Model Settings (Phases 15-18) — IN PROGRESS**
+<details>
+<summary>✅ v1.3 AI Model Settings (Phases 15-18) — SHIPPED 2026-08-02</summary>
 
 **Milestone Goal:** Give each staff user a Settings surface to manage the AI models used by AI agents — a primary model plus an ordered fallback chain — with the available-models list sourced live from the local opencode installation, and the Analytic Agent consuming the config with error-driven failover.
 
@@ -66,103 +69,47 @@ Full details: [`.planning/milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
 - [x] **Phase 17: Settings UI + List Source** - `settings` NavKey + Manage-group sidebar item, `/settings` page + client form + zod-validated Server Action, runnable-only (allowlist ∩ snapshot) model pickers with ordered reorderable fallbacks (completed 2026-08-02)
 - [x] **Phase 18: Verification Gate** - Vitest failover/catalog/chain matrices, live-browser settings→Analyze→`model_used` UAT, Vercel-preview no-opencode check, and the "looks done but isn't" checklist (completed 2026-08-02)
 
-### Phase 15: Model Registry Foundation + Persistence
+Full details: [`.planning/milestones/v1.3-ROADMAP.md`](milestones/v1.3-ROADMAP.md)
 
-**Goal**: Per-user AI model preferences persist durably — one row per Clerk user storing raw provider IDs via atomic full-value upsert — agent runs gain durable "which model served" audit columns, and a committed, filtered model catalog gives the app its servable-models source with zero runtime opencode dependency.
-**Depends on**: Phase 14 (v1.2 — shipped 2026-08-02); first phase of v1.3
-**Requirements**: REG-01, REG-02, REG-03, REG-04, REG-05, CAT-01, CAT-02, CAT-03, CAT-04
-**Success Criteria** (what must be TRUE):
+</details>
 
-  1. Each staff user's AI model configuration persists in Postgres as exactly one row keyed by Clerk `userId`, created/updated by atomic full-value upsert — no read-modify-write, so concurrent saves can never lose a half-merged chain
-  2. Saved model values are raw provider IDs (`claude-sonnet-4-6`, never `anthropic/...`), primary as text and fallbacks as an ordered `text[]` — DB values are directly consumable by the provider SDK
-  3. Every agent run records which model actually served (`model_used`) and the resolved chain (`model_chain`) as durable `agent_run` columns — "which model ran" is answerable from the DB alone, not only from Langfuse
-  4. A staff user with no saved settings row still gets the existing `claude-sonnet-4-6` default behavior — a missing row never blocks or changes a run
-  5. The app ships a committed catalog snapshot (generated dev-time by `scripts/refresh-model-catalog.ts` → `opencode models`), pure functions filter it to servable Anthropic-allowlisted models and map opencode slugs to raw provider IDs, and the catalog reads server-side with no request-time opencode dependency
+<details>
+<summary>✅ v1.4 Multi-Provider AI Model Configuration (Phases 19-22) — SHIPPED 2026-08-03</summary>
 
-**Plans**: 2 plansPlans:
+**Milestone Goal:** Add an AI Provider selector to Settings above the Primary model — Anthropic (existing) plus OpenRouter (new) — so the Primary model picker refreshes from the selected provider's servable source, and the Analytic Agent can resolve and run model chains whose entries (primary and fallbacks) come from either provider.
 
-- [x] 15-01-PLAN.md — DB foundation: user_model_settings table + agent_run audit columns + userModelSettings query module + schema push + integration tests
-- [x] 15-02-PLAN.md — Catalog: refresh-model-catalog script + models:fetch + committed snapshot + pure allowlist/slug filter functions + tests
+**Phase Numbering:** Continues from v1.3 (which ended at Phase 18) — v1.4 starts at Phase 19.
 
-### Phase 16: Failover Orchestration
+- [x] **Phase 19: Provider Registry + Servable Model Source** - Two-provider foundation: catalog registry with per-provider servable rules (OpenRouter full catalog incl. labeled `~latest`/`:free`; Anthropic sonnet-only allowlist), provider-derived-from-catalog lookup + collision canary, `modelFactory` provider-aware instantiation seam, `@openrouter/ai-sdk-provider@^3.0.0` + `OPENROUTER_API_KEY` env gate, and union-wide save validation (completed 2026-08-02)
+- [x] **Phase 20: Cross-Provider Run Path** - Provider-aware classifier (`billing` class for 402, 502/503 model-availability semantics), hop-aware 429 policy with 4-cell matrix, chain-aware env gate, and provider-accurate `model_used`/`model_chain` audit for cross-provider chains (completed 2026-08-02)
+- [x] **Phase 21: Settings UI** - AI Provider selector above Primary, provider-scoped Primary picker with keep-if-valid → default reset, union-grouped fallback pickers with Command search + provider badges, `~latest`/`:free` labels, union-wide staleness gate; gap closure 21-06/21-07: trigger-name/check-state fix (CR-01), empty-list explanation (WR-02), stale feedback reset (WR-01) (completed 2026-08-03)
+- [x] **Phase 22: Verification Gate** - Vitest collision/429-hop/error matrices, end-to-end OpenRouter-primary Analyze → `model_used` UAT, OpenRouter-only chain proof, security-matrix grep, live-browser provider-switch/picker UAT (completed 2026-08-03)
 
-**Goal**: The Analytic Agent consumes each user's saved model chain (resolved once at run start) and retries down it on provider/model failures within the 60s Vercel ceiling, failing loud — never a silent model switch — when the chain is exhausted or the error is not model-related.
-**Depends on**: Phase 15
-**Requirements**: FAL-01, FAL-02, FAL-03, FAL-04, FAL-05
-**Success Criteria** (what must be TRUE):
+Full details: [`.planning/milestones/v1.4-ROADMAP.md`](milestones/v1.4-ROADMAP.md)
 
-  1. An Analyze run resolves the user's model chain once at entry (snapshot-at-entry) — settings edited mid-run never change the in-flight run's chain or its audit row
-  2. A pure error classifier (RetryError-unwrap-first) distinguishes failover-eligible errors (connection errors, `NoSuchModelError`, 404 model-not-found, retryable `APICallError`) from non-failover errors (validation, output/schema, auth 401/403) — only eligible errors advance to the next model; non-eligible errors fail loud after a single attempt
-  3. The chain is bounded to primary + 1 fallback with per-attempt timeouts (~35s primary / ~20s fallback) so every run completes under the 60s Vercel ceiling; a chain-exhausted run returns the existing structured failure (502 + trace link), never a 504
-  4. The run's `agent_run` row records the model that actually served and the attempted chain, staff can see when a fallback ran (Analyze response carries `modelUsed`; review/run history shows the producing model), and the Langfuse trace shows per-attempt spans with `ai.model.id`
+</details>
 
-**Plans**: 4 plansPlans:
-**Wave 1**
+<details>
+<summary>✅ v1.5 Additional AI Providers (Phases 23-27) — SHIPPED 2026-08-04</summary>
 
-- [x] 16-01-PLAN.md — Pure failover foundation: classifyModelError + isFailoverEligible + resolveModelChain (modelConfig.ts) + FAST_MODEL_ID/getModelDisplayName catalog additions
+**Milestone Goal:** Extend the multi-provider AI model configuration from two providers (Anthropic + OpenRouter) to four — adding NousResearch (direct inference API) and OpenCode (Zen + Go endpoints under one provider) — so the Settings AI Provider selector and the cross-provider run path cover all four providers.
 
-**Wave 2** *(blocked on Wave 1 completion)*
+**Phase Numbering:** Continues from v1.4 (which ended at Phase 22) — v1.5 starts at Phase 23.
 
-- [x] 16-02-PLAN.md — runAgent failover chain loop: LanguageModel[] iteration, per-attempt { totalMs } budgets, eligibility gate, modelUsed/usedFallback return
-- [x] 16-04-PLAN.md — AnalyzeRunStatus strip: rate_limited ERROR_COPY row + success-after-fallback note (D-04/D-06)
+- [x] **Phase 23: Provider Registry + Servable Sources** - 4-provider registry foundation: `SERVABLE_PROVIDERS` grows to 4 with a registry-driven `providerName()` map, priority-ordered `getProviderForModelId` (explicit precedence anthropic → openrouter → nousresearch → opencode; regression lock: `claude-sonnet-4-6` → anthropic), OpenCode as ONE provider spanning `opencode` + `opencode-go` rows with Zen-wins dual-listed-id dedup + no-flip canary, curated `nousresearch/*` allowlist (Hermes-4 pair), `PROVIDER_DEFAULT_MODELS` for the new providers, `NOUSRESEARCH_API_KEY` + `OPENCODE_API_KEY` declared optional server-only, and union-wide save validation covering all 4 providers (completed 2026-08-03)
+- [x] **Phase 24: Refresh Script + Catalog Data** - Data phase: anonymous `GET https://inference-api.nousresearch.com/v1/models` fetch source (HTTP 200, 292 rows), per-token → per-MTok pricing conversion (×1e6), `supported_parameters` → `structuredOutputs` live join (throws-not-degrades), family derived from id prefix, snapshot regenerated and committed with `nousresearch` rows + refreshed Go roster (17 → 25 live rows); Zen/Go roster-verify per D-02 doctrine with the Zen-wins dedup expressed once (completed 2026-08-04)
+- [x] **Phase 25: Run Path / modelFactory Seam** - Instantiation seam: three module-scope `createOpenAICompatible` instances (nousresearch / opencode-zen / opencode-go) with EXPLICIT `apiKey`, zen-vs-go dispatch by the matched row's `api.url`, 19 Claude rows via `createAnthropic({ baseURL, apiKey })` override, chain-aware env gate naming the new keys, `shouldAdvance` 4-provider semantics (Zen↔Go same-provider), provider-accurate `model_used`/`model_chain` audit, and `supportsStructuredOutputs` false-start on the new instances (completed 2026-08-04)
+- [x] **Phase 26: Settings UI** - 4-provider selector: always-valued AI Provider entries in `SERVABLE_PROVIDERS` order, provider-scoped Primary refresh, `· Zen` / `· Go` endpoint captions on OpenCode rows (primary + union pickers), honest Hermes capability captions with converted per-MTok costs, provider badges disambiguating same-name models across 4 providers, and 4-provider union grouping + save/staleness verification (completed 2026-08-04)
+- [x] **Phase 27: Verification Gate** - Proof: widened 4-provider collision matrix + 16-cell 429 hop semantics, end-to-end NousResearch/OpenCode primary → Analyze → `model_used` UAT, single-key chain proofs (OpenCode-only / NousResearch-only), security-matrix grep over the new keys (SERVER_COMPONENT exemption set covers `modelFactory.ts`), and live-browser UAT + live key-backed `json_schema` probe gating the `supportsStructuredOutputs` flip (completed 2026-08-04). VER-02/VER-03's live round-trip proof carried forward as known debt — blocked on NousResearch/OpenCode account credit top-up, see `27-HUMAN-UAT.md`
 
-**Wave 3** *(blocked on Wave 2 completion)*
+Full details: [`.planning/milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md)
 
-- [x] 16-03-PLAN.md — analyzeCompany userId threading + snapshot-at-entry resolution + rate_limited reason; route userId capture, rate_limited 502, createRun model fields, flat 201 response
-
-### Phase 17: Settings UI + List Source
-
-**Goal**: Staff can open a Settings page from the shared navigation, see their current AI model configuration, and set/reorder a primary + ordered fallback chain — choosing only from models the app can actually run — with immediate, validated persistence.
-**Depends on**: Phase 15 (decoupled from Phase 16 via the DB — can proceed in parallel)
-**Requirements**: SET-01, SET-02, SET-03, SET-04, SET-05, SET-06, SET-07
-**Success Criteria** (what must be TRUE):
-
-  1. Staff can open a Settings page from a new "Settings" menu item in both the shared ExplorerMenu and the sidebar nav (Manage group, next to Reviews) — `NavKey` union grows `'settings'`
-  2. The Settings page shows the staff member's current configuration — primary model + ordered fallback list, with a clear empty state when none is saved
-  3. Staff can set their primary model from the runnable (Anthropic-allowlisted) list, add up to 2 ordered fallbacks, and remove or reorder fallbacks — an empty fallback list is allowed (primary-only runs)
-  4. Saving persists immediately via a Server Action (gated by `requireStaffAccess()`, zod-validated against the catalog) and the form reflects the saved state after reload
-  5. The model pickers show only models the app can actually run — the allowlist ∩ committed snapshot, never the raw opencode catalog rows — so no pick can save a model that 404s on the next run
-
-**Plans**: 3 plans
-**UI hint**: yesPlans:
-**Wave 1**
-
-- [x] 17-01-PLAN.md — Nav wiring: 'settings' NavKey + tooltip map + sidebar Manage-group item + ExplorerMenu entries (SET-01)
-- [x] 17-02-PLAN.md — D-01 roster re-verify + saveSettingsAction Server Action with security matrix tests (SET-06/SET-07)
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 17-03-PLAN.md — /settings server page + model-settings-form client form (pickers, fallback reorder, save lifecycle) (SET-02..06)
-
-### Phase 18: Verification Gate
-
-**Goal**: The milestone's correctness claims are proven — Vitest matrices lock the failover taxonomy and catalog/chain logic, live-browser UAT proves the settings→Analyze→audit loop end-to-end, and a Vercel preview proves the model list renders with no local opencode.
-**Depends on**: Phases 15, 16, 17
-**Requirements**: VER-01, VER-02, VER-03, VER-04
-**Success Criteria** (what must be TRUE):
-
-  1. Vitest matrices prove the failover taxonomy — 401/403 and output/schema errors do NOT advance the chain, retryable connection/model-not-found errors (incl. a RetryError-wrapped 404) DO, and a fully-failed chain exhausts to the last model (fallback attempted, then the last error rethrown)
-  2. Vitest locks the catalog filter (allowlist ∩ snapshot → servable provider IDs, no `opencode/` or dated-ID leakage) and the model-chain resolution (default, partial, and full chains)
-  3. Live-browser UAT proves the end-to-end flow: Settings → pick primary + fallback → save → run Analyze → `agent_run.model_used` reflects the chosen model, and a forced-fail primary shows the fallback serving and recorded
-  4. A deployed Vercel preview loads the Settings model list without any local opencode — the committed snapshot renders (no 500, no empty list), and grep confirms zero `exec|spawn|child_process` in `src/`
-
-**Plans**: 3 plansPlans:
-**Wave 1**
-
-- [x] 18-01-PLAN.md — VER-01/02 Vitest matrices: 4 loop-level failover tests + real-snapshot catalog + partial-chain resolve tests + 18-VER-01-MATRIX.md (13-item checklist map)
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 18-02-PLAN.md — VER-03 live-browser UAT (settings → Analyze → model_used) with human-verify checkpoint; absorbs 16-HUMAN-UAT + 17-03 items; 18-UAT.md + 18-VERIFICATION.md (SC-3 satisfied-by-extension)
-
-**Wave 3** *(blocked on Wave 2 completion)*
-
-- [x] 18-03-PLAN.md — VER-04 PR → Vercel preview: /settings renders from committed catalog.json (no 500/empty/opencode/), auth-gate check, zero-hit exec|spawn|child_process grep gate
+</details>
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 27
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|-----------------|--------|-----------|
@@ -183,8 +130,20 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 15. Model Registry Foundation + Persistence | v1.3 | 2/2 | Complete    | 2026-08-02 |
 | 16. Failover Orchestration | v1.3 | 4/4 | Complete    | 2026-08-02 |
 | 17. Settings UI + List Source | v1.3 | 3/3 | Complete    | 2026-08-02 |
-| 18. Verification Gate | v1.3 | 3/3 | Complete   | 2026-08-02 |
+| 18. Verification Gate | v1.3 | 3/3 | Complete    | 2026-08-02 |
+| 19. Provider Registry + Servable Model Source | v1.4 | 5/5 | Complete    | 2026-08-02 |
+| 20. Cross-Provider Run Path | v1.4 | 4/4 | Complete    | 2026-08-02 |
+| 21. Settings UI | v1.4 | 7/7 | Complete    | 2026-08-03 |
+| 22. Verification Gate | v1.4 | 7/7 | Complete    | 2026-08-03 |
+| 23. Provider Registry + Servable Sources | v1.5 | 4/4 | Complete    | 2026-08-03 |
+| 24. Refresh Script + Catalog Data | v1.5 | 4/4 | Complete    | 2026-08-04 |
+| 25. Run Path / modelFactory Seam | v1.5 | 4/4 | Complete    | 2026-08-04 |
+| 26. Settings UI | v1.5 | 2/2 | Complete    | 2026-08-04 |
+| 27. Verification Gate | v1.5 | 6/6 | Complete    | 2026-08-04 |
 
 ---
 
-*Roadmap for v1.3 created 2026-08-02. All 25 v1.3 requirements mapped across Phases 15-18 (build order A: model registry + persistence → B: failover orchestration → C: settings UI + list source → D: verification gate, per research SUMMARY.md Implications for Roadmap). Phase 15 carries the migration-apply-flow confirmation (`drizzle-kit push` vs generate+commit — the one MEDIUM research flag); Phase 16 carries the Pitfall-11 pre-flight note (verify ai@7.0.45 dist types before writing the failover loop). Full v1.2 detail archived in `.planning/milestones/v1.2-ROADMAP.md`.*
+*Roadmap for v1.4 created 2026-08-02 and shipped 2026-08-03; full v1.4 detail archived in `.planning/milestones/v1.4-ROADMAP.md`. All 25 v1.4 requirements mapped across Phases 19-22 (build order A: provider registry + servable model source → B: cross-provider run path → C: settings UI → D: verification gate, per research SUMMARY.md Implications for Roadmap — verified and refined against the research skeleton). Locked product decisions honored: `~latest`/`:free` INCLUDED + labeled (overrides PITFALLS 2/4 exclusion); hop-aware 429 advance (FAL-03); OpenRouter default = pinned concrete slug chosen in planning (SET-03); picker grouping + Command search both in P1 (SET-06); provider derived from catalog, no schema change (REG-05).*
+
+*Roadmap for v1.5 created 2026-08-03 and shipped 2026-08-04; full v1.5 detail archived in `.planning/milestones/v1.5-ROADMAP.md`. All 28 v1.5 requirements mapped across Phases 23-27 (build order A: provider registry + servable sources → B: refresh script + catalog data → C: run path / modelFactory seam → D: settings UI → E: verification gate, per research SUMMARY.md Implications for Roadmap — the v1.4 19→20→21→22 shape, one phase shorter: no classifier work, the 402/429 semantics are unchanged for these providers). Phase ordering rationale (locked): registry/canary first (the priority-order `getProviderForModelId` change is a PREREQUISITE for every other provider-resolution consumer), then the committed snapshot data (consumed by the run path), then the instantiation seam, then UI + verification. Locked product decisions honored (do NOT re-litigate): OpenCode = ONE provider, servable gate = 49 rows (30 chat-completions + 19 Claude via `createAnthropic({ baseURL })`); GPT-5 (Responses API) + Gemini rows deferred to v2; 2 new env keys (`NOUSRESEARCH_API_KEY` + `OPENCODE_API_KEY`, one OpenCode key shared Zen+Go); Zen-wins dual-listed-id dedup (12 dual-listed ids; 5 Go-exclusive ids keep Go rows); NousResearch = curated `nousresearch/*` allowlist (Hermes-4 pair) over the anonymous 292-row roster; `getProviderForModelId` explicit precedence (anthropic → openrouter → nousresearch-over-openrouter → opencode; `claude-sonnet-4-6` MUST keep resolving to anthropic — regression lock); `supportsStructuredOutputs` starts false on new instances until a live key-backed probe; constraint 11 (modelFactory is the ONLY SDK-importing module); no schema change — provider identity derived from catalog.*
+

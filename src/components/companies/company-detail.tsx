@@ -70,7 +70,8 @@ export async function CompanyDetail({ id }: { id: number }) {
           recordId={company.id}
           canEnrich={Boolean(company.domain && env.APOLLO_API_KEY && env.ENRICHMENT_REVIEW_SECRET)}
           disabledReason={!company.domain ? 'Add a domain first' : 'Company enrichment is not configured'}
-          canAnalyze={Boolean(env.ANTHROPIC_API_KEY && env.FIRECRAWL_API_KEY)}
+          // FAL-04: gate on any provider key — the precise chain-aware check lives server-side (missingProviderKey)
+          canAnalyze={Boolean((env.ANTHROPIC_API_KEY || env.OPENROUTER_API_KEY) && env.FIRECRAWL_API_KEY)}
           analyzeDisabledReason="Agent not configured"
         />
         <ExplorerCloseButton />
