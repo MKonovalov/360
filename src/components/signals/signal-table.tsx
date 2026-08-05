@@ -10,6 +10,11 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { dateFormatter } from '@/components/explorer/explorer-format';
 import { humanizeEnum } from '@/components/explorer/explorer-format';
 
@@ -47,6 +52,39 @@ function formatUpdatedAt(value: Date | string | null | undefined): string {
   if (!value) return '—';
   const date = typeof value === 'string' ? new Date(value) : value;
   return dateFormatter.format(date);
+}
+
+function LinkedOfferingsCell({
+  linkedIds,
+  offeringNamesById,
+}: {
+  linkedIds: number[];
+  offeringNamesById: Record<number, string>;
+}) {
+  const count = linkedIds.length;
+
+  if (count === 0) {
+    return <span className="text-sm text-muted-foreground">0</span>;
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Badge variant="outline" className="cursor-pointer">
+          {count}
+        </Badge>
+      </PopoverTrigger>
+      <PopoverContent className="w-72">
+        <ul className="space-y-1">
+          {linkedIds.map((id) => (
+            <li key={id} className="text-sm text-foreground">
+              {offeringNamesById[id] ?? `#${id}`}
+            </li>
+          ))}
+        </ul>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 export function SignalTable({
@@ -140,9 +178,10 @@ export function SignalTable({
                   {resolveName(row.practiceAreaId, practiceAreas)}
                 </TableCell>
                 <TableCell>
-                  <span className="text-sm text-muted-foreground">
-                    {linkedIds.length}
-                  </span>
+                  <LinkedOfferingsCell
+                    linkedIds={linkedIds}
+                    offeringNamesById={offeringNamesById}
+                  />
                 </TableCell>
                 <TableCell>
                   <Badge variant={isRetired ? 'secondary' : 'outline'}>
