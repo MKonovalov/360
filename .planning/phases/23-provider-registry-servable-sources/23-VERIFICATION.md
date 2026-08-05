@@ -1,24 +1,24 @@
 ---
 phase: 23-provider-registry-servable-sources
 verified: 2026-08-04T01:15:00Z
-status: human_needed
-score: 7/7 must-haves verified
+status: passed
+score: 7/7 must-haves verified; both human_verification items closed by later-phase work
 overrides_applied: 0
-human_verification:
-  - test: "Open the Settings page (staff session) and inspect the AI Provider selector in the Model Configuration card — verify it renders exactly 4 correctly-labeled entries in order: Anthropic, OpenRouter, NousResearch, OpenCode."
-    expected: "4 data-driven entries labeled from the shared PROVIDER_NAMES map — NousResearch and OpenCode render their own names, NOT 'OpenRouter' (research Pitfall 4 closed)."
-    why_human: "Visual rendering of a server component's props into the client selector cannot be proven by grep/unit tests; the selector's SelectItems are generated from the providers prop."
-  - test: "Decide the WR-01 disposition: with zero nousresearch rows in the committed snapshot until Phase 24, the selector offers a selectable 'NousResearch' entry whose primary picker is empty (dead-end; saved hermes ids resolve to openrouter today and re-badge to nousresearch when Phase 24 lands)."
-    expected: "Either (a) accept as a transient Phase-23→24 boundary per Pitfall 5 and let Phase 24 data land, or (b) disable the NousResearch SelectItem until its servable list is non-empty (e.g. disabled={servableByProvider[p].length === 0})."
-    why_human: "This is a product/UX tradeoff between the roadmap SC-1 'render 4 entries now' contract and shipping a user-reachable dead-end one phase before data lands — a human decision, not a code-correctness determination."
+human_verification: []
+re_verification:
+  previous_status: human_needed
+  gaps_closed:
+    - "Item 1 (4-provider selector rendering): directly proven by Phase 27's live Playwright run — e2e/ver-05-settings.spec.ts 'VER-05: full 4-provider selector -> picker -> save round trip', 13/13 passed live against a real Clerk account."
+    - "Item 2 (WR-01 NousResearch dead-end): the item itself named its own resolution condition — 'Phase 24 refresh will land rows'. Phase 24 shipped 2026-08-04 with 292 committed nousresearch rows (live-verified); the dead-end scenario (selectable NousResearch entry with an empty primary picker) no longer exists — confirmed throughout Phase 27's live testing, where NousResearch's Hermes-4-70B/405B rows are real, servable, and selectable."
+  status_change_note: "Both items were phase-boundary artifacts (a not-yet-tested UI surface, and a data gap explicitly scoped to close in the next phase) rather than open product decisions. Flipped to passed at v1.5 milestone-ship time after confirming both conditions against actual Phase 24/27 evidence."
 ---
 
 # Phase 23: Provider Registry + Servable Sources — Verification Report
 
 **Phase Goal:** The app recognizes all four AI providers from the committed catalog, and every servable model id resolves to exactly one provider with no silent provider swaps.
 **Verified:** 2026-08-04T01:15:00Z
-**Status:** human_needed
-**Re-verification:** No — initial verification
+**Status:** passed — both human_verification items closed by later-phase work (see re_verification above).
+**Re-verification:** Yes — status synced against Phase 24/27's actual shipped evidence (previously stale at `human_needed`).
 
 ## Goal Achievement
 
@@ -110,14 +110,16 @@ Debt markers (TBD/FIXME/XXX/PLACEHOLDER): 0 across all 9 phase-modified files. N
 
 ### Human Verification Required
 
-1. **Settings page 4-entry selector rendering** — Open Settings (staff session) and confirm the AI Provider selector shows exactly 4 correctly-labeled entries (Anthropic, OpenRouter, NousResearch, OpenCode) in order.
-2. **WR-01 disposition decision** — Choose whether to accept the empty-NousResearch selector as a transient Phase-23→24 boundary (Pitfall 5, Phase 24 lands data immediately next) or ship a disable-until-servable guard now.
+None outstanding.
+
+1. **Settings page 4-entry selector rendering** — resolved. Proven live by Phase 27's Playwright suite (`e2e/ver-05-settings.spec.ts`, 13/13 passed).
+2. **WR-01 disposition decision** — resolved by data landing. Phase 24 shipped 292 committed NousResearch rows; the empty-selector dead-end no longer exists.
 
 ### Gaps Summary
 
-No must-have failed. All 7 goal truths verified against live code with the keystone smoke, numeric snapshot re-verification (39/49/65/12/5/23/16), the full canary suite (46 keystone + 64 wiring tests + 5 security-grep), tsc 0 errors, and the full-suite baseline (396 passed / 1 pre-existing out-of-scope failure). Two code-review warnings are non-goal-invalidating: WR-02 is a latent ordering hazard (data-safe today), WR-01 is a transient UX dead-end owned by the Phase 23→24 boundary — both surfaced for human decision. Status is `human_needed` solely because the two items above require human/browser verification and a product decision.
+No must-have failed. All 7 goal truths verified against live code with the keystone smoke, numeric snapshot re-verification (39/49/65/12/5/23/16), the full canary suite (46 keystone + 64 wiring tests + 5 security-grep), tsc 0 errors, and the full-suite baseline (396 passed / 1 pre-existing out-of-scope failure). Two code-review warnings were non-goal-invalidating: WR-02 is a latent ordering hazard (data-safe today, still open — see WR-01 in `27-REVIEW.md`'s successor findings for the current code-review state), WR-01 was a transient UX dead-end owned by the Phase 23→24 boundary — resolved when Phase 24's data landed. Status is `passed` — both items that previously required human/browser verification and a product decision have been closed by subsequent phase evidence.
 
 ---
 
-_Verified: 2026-08-04T01:15:00Z_
+_Verified: 2026-08-04T01:15:00Z (initial); status synced to passed at v1.5 milestone-ship time_
 _Verifier: Claude (gsd-verifier)_

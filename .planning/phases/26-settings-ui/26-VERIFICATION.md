@@ -1,30 +1,23 @@
 ---
 phase: 26-settings-ui
 verified: 2026-08-04T17:51:58Z
-status: human_needed
-score: 5/5 roadmap success criteria verified in code + tests (6/6 SET-0X requirements have code evidence); 4 manual/live-browser checks outstanding
+status: passed
+score: 5/5 roadmap success criteria verified in code + tests (6/6 SET-0X requirements have code evidence); all 4 human_verification items closed by Phase 27's live Playwright pass
 overrides_applied: 0
-human_verification:
-  - test: "Full 4-provider Select → Picker → Save round trip in the live browser: open Settings, switch the AI Provider dropdown through all 4 entries (Anthropic, OpenRouter, NousResearch, OpenCode), confirm the Primary picker refreshes its option set each time, save a 4-provider-spanning chain, reload and confirm persistence."
-    expected: "Selector shows exactly 4 entries in SERVABLE_PROVIDERS order; Primary picker options change per provider; save succeeds and survives reload."
-    why_human: "Component rendering is not unit-tested per this project's established convention (model-picker-logic.ts is the tested surface; .tsx files are wiring-only) — this is the first live exercise of the full 4-provider round trip in one flow."
-  - test: "OpenCode Zen/Go caption rendering in the actual Combobox UI, both picker and saved-chain recap."
-    expected: "Picking an OpenCode row in the primary picker shows '· Zen' or '· Go' correctly ordered with any suffix label; the same caption reappears in the saved-chain recap after Save."
-    why_human: "Visual/interactive caption composition — code path is unit-tested (rowCaption, endpointLabel) but the actual rendered DOM has not been visually confirmed."
-  - test: "Reset-hint copy accuracy for the claude-sonnet-4-6 collision case: set primary to claude-sonnet-4-6 under Anthropic, switch the AI Provider dropdown to OpenCode."
-    expected: "Hint reads 'Claude Sonnet 4.6 stays routed through Anthropic — OpenCode's copy isn't used while a higher-priority provider serves the same id.' (not a false 'now serves via OpenCode' claim)."
-    why_human: "Requires triggering the exact keep-if-valid provider-switch scenario in the live form; the template string is unit-testable in isolation but the live handleProviderChange wiring has not been exercised."
-  - test: "Trigger badge accuracy for both verified real collision ids: (a) select claude-sonnet-4-6 as primary while the AI Provider dropdown is set to OpenCode; (b) select nousresearch/hermes-4-70b as primary while the dropdown is set to OpenRouter."
-    expected: "(a) closed trigger badge reads 'Anthropic', not 'OpenCode'. (b) closed trigger badge reads 'NousResearch', not 'OpenRouter'."
-    why_human: "Visual confirmation that the D-26-11 resolveBadgeProvider fix renders correctly in the live Combobox trigger, not just passes its unit test."
+human_verification: []
+re_verification:
+  previous_status: human_needed
+  gaps_closed:
+    - "All 4 human_verification items below closed by Plan 27-05's extended e2e/ver-05-settings.spec.ts, proven live (13/13 passed, 29.8s, real Clerk account) — see 26-HUMAN-UAT.md for the exact test-name -> item mapping and .planning/phases/27-verification-gate/27-VERIFICATION.md for the full evidence record."
+  status_change_note: "This status field was left stale at human_needed after Plan 27-06 closed 26-HUMAN-UAT.md's items (status: resolved, 2026-08-04T21:41:22Z) — the underlying evidence existed but this file's frontmatter was never re-run to match. Flipped to passed at v1.5 milestone-ship time after confirming 26-HUMAN-UAT.md's resolution against the actual passing test names."
 ---
 
 # Phase 26: Settings UI Verification Report
 
 **Phase Goal:** Staff can see and configure all four providers in the Settings AI Model Configuration card with honest captions and unambiguous badges.
 **Verified:** 2026-08-04T17:51:58Z
-**Status:** human_needed
-**Re-verification:** No — initial verification
+**Status:** passed — all 4 human_verification items closed by Phase 27's live Playwright run (13/13 passed). See `26-HUMAN-UAT.md` for the exact test-name → item mapping.
+**Re-verification:** Yes — status field synced with 26-HUMAN-UAT.md's already-resolved state (previously stale at `human_needed`).
 
 ## Goal Achievement
 
@@ -110,12 +103,12 @@ None of these findings block any of the 5 roadmap Success Criteria as literally 
 
 ### Human Verification Required
 
-See YAML frontmatter `human_verification:` block — 4 items, all harvested from this phase's own plans/validation contract (`workflow.human_verify_mode: end-of-phase`), none yet executed (no `26-HUMAN-UAT.md` exists):
+None outstanding. All 4 items closed by Plan 27-05's extended `e2e/ver-05-settings.spec.ts`, proven live (13/13 passed, 29.8s, real Clerk account) — see `26-HUMAN-UAT.md` for the exact test-name → item mapping:
 
-1. Full 4-provider Select → Picker → Save round trip in the live browser (SET-01/02/06).
-2. OpenCode Zen/Go caption rendering in the live Combobox + saved-chain recap (SET-03).
-3. Reset-hint copy accuracy for the claude-sonnet-4-6 collision case (SET-05/D-26-09).
-4. Trigger badge accuracy for both verified collision ids (SET-05/D-26-11).
+1. Full 4-provider Select → Picker → Save round trip in the live browser (SET-01/02/06). — resolved
+2. OpenCode Zen/Go caption rendering in the live Combobox + saved-chain recap (SET-03). — resolved
+3. Reset-hint copy accuracy for the claude-sonnet-4-6 collision case (SET-05/D-26-09). — resolved
+4. Trigger badge accuracy for both verified collision ids (SET-05/D-26-11). — resolved
 
 ### Gaps Summary
 
@@ -126,9 +119,9 @@ Two items merit developer attention, both explicitly non-blocking per this proje
 - **SET-01 REQUIREMENTS.md bookkeeping**: the requirement is functionally satisfied (implemented in phase 23, still correct after phase 26), but the traceability table's status column was never updated from "Pending" to "Complete." Recommend a documentation-only fix (flip the checkbox/table row) rather than a code change.
 - **CR-01/CR-02 save-flow correctness bugs** (from `26-REVIEW.md`, reproduced above): advisory per the code-review gate, but both degrade trust in the Save action specifically, which is central to "staff can... configure... providers." Recommend scheduling a fast-follow fix before or alongside Phase 27.
 
-Status is `human_needed` because 4 manual/live-browser checks are explicitly deferred-but-outstanding for this phase (per the phase's own `human_verify_mode: end-of-phase` design) and no sign-off record exists yet — not because any automated/code-verifiable truth failed.
+Status is `passed` — the 4 manual/live-browser checks deferred at this phase's own close (per `human_verify_mode: end-of-phase`) were subsequently closed by Phase 27's live Playwright run, recorded in `26-HUMAN-UAT.md`.
 
 ---
 
-_Verified: 2026-08-04T17:51:58Z_
+_Verified: 2026-08-04T17:51:58Z (initial); status synced to passed at v1.5 milestone-ship time after confirming 26-HUMAN-UAT.md's resolution_
 _Verifier: Claude (gsd-verifier)_
