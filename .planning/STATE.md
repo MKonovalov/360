@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Additional AI Providers
-status: Awaiting next milestone
-last_updated: "2026-08-04T22:28:22.144Z"
-last_activity: 2026-08-04 — Milestone v1.5 completed and archived
+status: "v1.4+v1.5 shipped — PR #2"
+last_updated: "2026-08-05T00:27:22.189Z"
+last_activity: 2026-08-05
 progress:
   total_phases: 5
   completed_phases: 5
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 Phase: Milestone v1.5 complete
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-08-04 — Milestone v1.5 completed and archived
+Status: v1.4+v1.5 shipped — PR #2
+Last activity: 2026-08-05
 
 ## Performance Metrics
 
