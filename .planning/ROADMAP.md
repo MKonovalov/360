@@ -155,7 +155,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 26. Settings UI | v1.5 | 0/0 | Not started | - |
 | 27. Verification Gate | v1.5 | 0/0 | Not started | - |
 | 28. Shared Data Model + Seed | v1.6 | 0/6 | Planned (queued) | - |
-| 29. Signals UI | v1.6 | 3/8 | In Progress|  |
+| 29. Signals UI | v1.6 | 4/8 | In Progress|  |
 | 30. Offerings UI | v1.6 | 0/0 | Not started (queued) | - |
 
 ---
@@ -322,7 +322,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 **Wave 2** *(blocked on Wave 1 completion, parallel with each other)*
 
-- [ ] 29-04-PLAN.md — Linked Offerings picker + SignalForm (Sheet CRUD, both entity kinds) (SIG-06/07/09)
+- [x] 29-04-PLAN.md — Linked Offerings picker + SignalForm (Sheet CRUD, both entity kinds) (SIG-06/07/09)
 - [ ] 29-05-PLAN.md — ArchiveSignalDialog + SignalFilters bar (SIG-03/08)
 
 **Wave 3** *(blocked on Wave 2 completion)*
