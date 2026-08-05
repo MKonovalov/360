@@ -47,4 +47,5 @@ blocked: 2
   severity: major
   test: 3
   artifacts: ["src/lib/agents/modelFactory.ts (openaiCompatibleGo instance)", "src/lib/agents/runAgent.ts:74 (Output.object call site)", "src/lib/models/catalog.json ('hy3' servable row, opencode-go)"]
-  missing: ["A decision on how to handle 'hy3': remove from the servable catalog, or accept as a documented per-model limitation with no code change"]
+  missing: []
+  disposition: "ACCEPTED — no code change. User decided 2026-08-05T00:15:36Z to leave 'hy3' servable and document the limitation rather than remove it from the catalog or investigate a workaround. Staff selecting 'hy3' will see Analyze fail every time (fails loud, class 'input', never silently misroutes) until OpenCode's Go backend adds response_format support for this model."
