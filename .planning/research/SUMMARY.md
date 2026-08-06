@@ -1,84 +1,167 @@
 # Project Research Summary
 
 **Project:** ArcLumen 360
-**Domain:** Adding two AI providers — NOUSRESEARCH (direct inference API, `https://inference-api.nousresearch.com/v1`) and OPENCODE (one provider spanning Zen `https://opencode.ai/zen/v1` + Go `https://opencode.ai/zen/go/v1`, single shared key) — to the validated two-provider (Anthropic + OpenRouter) setup from v1.4.
-**Milestone:** v1.5 (continues from v1.4's Phase 22)
-**Researched:** 2026-08-03
-**Confidence:** HIGH — every claim verified against the live anonymous rosters (all three `/v1/models` endpoints curl'd, HTTP 200 no auth), the packed `@ai-sdk/openai-compatible@3.0.20` / `@ai-sdk/openai@4.0.27` / `@ai-sdk/anthropic@4.0.27` dist sources, npm registry metadata, OpenCode's official Zen docs, and direct reads of this repo's `modelFactory.ts`, `catalog.ts`, `catalog.json`, `env.ts`, `refresh-model-catalog.ts`.
+**Domain:** Internal, source-grounded Company and Persona buying-signal analysis with human review
+**Milestone:** v1.7 Agent Constructor & Buying Signal Analysis
+**Researched:** 2026-08-06
+**Confidence:** MEDIUM-HIGH
 
 ## Executive Summary
 
-The v1.5 addition is **one new runtime dependency — `@ai-sdk/openai-compatible@3.0.20` — instantiated three times** (nousresearch, opencode-zen, opencode-go). All three endpoints are OpenAI-compatible; no dedicated Nous/OpenCode SDK exists or is needed. `@ai-sdk/anthropic@4.0.27` (already installed) can optionally serve the 19 OpenCode Claude rows via Zen's `/v1/messages` using a `baseURL` override (`createAnthropic({ baseURL: 'https://opencode.ai/zen/v1', apiKey: process.env.OPENCODE_API_KEY })`) — zero new packages. New env keys `NOUSRESEARCH_API_KEY` + `OPENCODE_API_KEY` (one key shared by Zen + Go, verified) are **not auto-loaded by any SDK** (verified in the dist: the openai-compatible provider builds `Authorization: Bearer ${apiKey}` only from the passed option), so both must be passed explicitly at instance construction. `supportsStructuredOutputs` on these instances should start **false** (the safe `json_object` fallback — verified dist behavior — until a live key-backed probe proves `json_schema` acceptance).
+ArcLumen 360 v1.7 is a constrained internal decision-support workflow, not autonomous enrichment: staff run one of two reusable GBS Buying Signal Analysis templates against an existing Company or Persona, inspect immutable source-backed findings, then make exactly one confirm-or-dismiss decision for the completed run. Experts build this as a durable execution ledger with immutable input/template/taxonomy snapshots, normalized findings and citations, and an approval-gated read model. A model may propose; it must never directly write live Signals, signal-offering links, or record-level candidate offerings.
 
-Three findings reshape the plan beyond "just add packages":
+Reuse the existing Next.js, AI SDK 7, Firecrawl, Langfuse, Neon/Drizzle, Clerk, and `modelFactory` seams. Keep provider SDKs isolated behind the existing factory and public-web access isolated behind the existing Firecrawl tool. Introduce application-owned template, executor, lifecycle, result/finding/source, and run-review contracts instead of bending the Company-only `agent_run` and per-signal `signal_proposal` tables into a shape they cannot safely represent. Confirmed candidate offerings must be computed exclusively from run-level confirmed state in a dedicated query, with provenance returned alongside each offering.
 
-1. **The opencode `api.npm` split kills the "one package covers everything" assumption for the full roster.** Of the 77 opencode rows, only **30 speak Chat Completions** (20 zen + 10 go — servable by the single openai-compatible package). The other 47 do not: 23 GPT-5 rows need `/v1/responses` (`@ai-sdk/openai`), 19 Claude rows need `/v1/messages` (`@ai-sdk/anthropic`), 5 Gemini rows need `/v1/models/gemini-*` (`@ai-sdk/google`) — OpenCode's own docs table says exactly this, and Zen **proxies** upstream protocols, it does not convert them. Recommend gating the OpenCode provider to chat-completions rows (30) with the Claude extension as the cheap zero-new-package middle ground; defer the Responses (GPT) and Gemini protocols entirely.
-2. **A `getProviderForModelId` regression trap (verified in `catalog.json`).** Every id dual-listed between opencode and another provider sorts its `opencode` row FIRST (`claude-sonnet-4-6` at index 11 `opencode` vs 92 `anthropic`). Today the canary's `find()` is scoped to `('anthropic','openrouter')`, so the anthropic default resolves correctly; the moment 'opencode' enters that scope with the same first-match `find()`, `claude-sonnet-4-6` silently re-resolves to **opencode** — breaking the FAST_MODEL_ID default, `model_used` audit, and the anthropic run path. The registry must become **priority-ordered** (anthropic → openrouter → opencode → nousresearch), and the existing collision-canary tests (`claude-sonnet-5` → anthropic) are the regression lock.
-3. **All three `/v1/models` rosters are anonymous (HTTP 200, no key).** The Nous roster (292 rows) is the rich new source — `pricing` in **per-token** units (×1e6 to match the snapshot's per-M `cost` convention, else costs render 6 orders of magnitude off), `context_length`, and `supported_parameters` (214/292 advertise `structured_outputs` → a live join for the `structuredOutputs` flag, same doctrine as the existing OpenRouter join). The Zen/Go rosters are lean id lists (60 / **25** live vs 17 in the snapshot → regenerate). Both enable roster-verify per the D-02 doctrine.
+The principal implementation risk is execution durability: persisting a queued row does not create a worker. The current request-bound agent has a 54-second budget within Vercel's 60-second cap. Before the roadmap promises detached, navigable-away, retryable runs, it must select and validate a Vercel-compatible durable executor/queue; neither `after()`, a Server Action, an in-process promise, nor database polling supplies that guarantee. Other non-negotiable safeguards are snapshotting before execution, claim-to-evidence persistence, terminal/idempotent review decisions, tool/spend limits, redaction/retention controls, and evaluation fixtures for groundedness and indirect prompt injection.
 
 ## Key Findings
 
-### Recommended Stack (from STACK.md — HIGH, live-verified)
+### Recommended Stack
 
-- `@ai-sdk/openai-compatible@3.0.20` (npm `latest`; deps `@ai-sdk/provider@4.0.4` + `@ai-sdk/provider-utils@5.0.18`; peer `zod ^3.25.76 || ^4.1.8` — all satisfied by the installed `ai@7.0.48` tree + `zod@4.4.3`). `createOpenAICompatible({ name (required), apiKey, baseURL })` returns a **callable provider** `(id) => LanguageModel` — the identical call shape `anthropic(id)` already uses. Three module-scope instances in `modelFactory.ts`: `nousresearch` (baseURL `https://inference-api.nousresearch.com/v1`, key `NOUSRESEARCH_API_KEY`), `opencode-zen` (baseURL `https://opencode.ai/zen/v1`, key `OPENCODE_API_KEY`), `opencode-go` (baseURL `https://opencode.ai/zen/go/v1`, same key). Names differ because `name` becomes the `provider` metadata key.
-- `@ai-sdk/anthropic@4.0.27` (already installed `^4.0.26`) — optional Claude-row extension via `createAnthropic({ baseURL, apiKey })` (verified in dist: `baseURL` option with `ANTHROPIC_BASE_URL` env fallback, `apiKey` with `ANTHROPIC_API_KEY` fallback).
-- **Not** `@ai-sdk/openai` (Responses API only — 23 GPT rows, defer; its default model call is the Responses API, verified) and **not** `@ai-sdk/google` (5 Gemini rows, unverified URL shape).
-- New env keys: `NOUSRESEARCH_API_KEY` + `OPENCODE_API_KEY`, both `z.string().optional()` in `env.ts` (D-11 degrade-gracefully), `.env.example`, Vercel env, named by the Phase-20 chain-aware gate.
-- Refresh script: new `fetchNousRoster()` (anonymous GET; `cost = pricing × 1e6` per-token→per-M; live `supported_parameters` join for `structuredOutputs`); Zen/Go roster-verify optional; regenerate snapshot (Go 17 → 25 rows).
+No new AI, web-search, ORM, citation, or agent-framework package is warranted for v1.7. The product should be built as typed application contracts over the current stack, with normalized Neon records as the product audit source and Langfuse retained for trace/cost observability.
 
-### Architecture Approach (from STACK.md — HIGH)
+**Core technologies:**
+- **Next.js App Router 16.2.11:** authenticated management, detail, run, history, and review surfaces; execute server work in Node rather than Edge.
+- **Vercel AI SDK 7 + Zod 4:** provider-neutral tool-loop execution and versioned runtime validation of template inputs, results, findings, and citations.
+- **Existing `modelFactory` and four-provider catalog:** the sole provider-SDK boundary; snapshot the resolved model chain at start and actual model at completion.
+- **Firecrawl 4.32:** the sole public-web research tool; reuse its normalized `{ url, title, snippet }` results and do not add Exa.
+- **Neon Postgres + Drizzle:** durable, queryable templates → runs → results/findings/sources → one run decision, with transactions, FKs, state guards, and history/aggregation indexes.
+- **Langfuse:** traces, cost, and operational diagnostics only; retain trace ID/URL on the run but never make it the evidence store.
+- **Clerk `requireStaffAccess()`:** mandatory server-side authorization for every template, run, history, and decision endpoint.
 
-Integrates with the v1.4 seams, no schema change:
-1. `catalog.ts` — `ModelProviderId` grows to `'anthropic' | 'openrouter' | 'nousresearch' | 'opencode'` (both `opencode` and `opencode-go` snapshot providerIDs map to the single `'opencode'` registry id); `PROVIDER_GATES`/`SERVABLE_PROVIDERS`/`PROVIDER_DEFAULT_MODELS` extended; **`getProviderForModelId` becomes priority-ordered** (explicit precedence iteration, not an extended first-match find); nousresearch id space (`vendor/model`, `~latest` aliases) can overlap openrouter ids — the canary handles it.
-2. `modelFactory.ts` — three new module-scope `createOpenAICompatible` instances with explicit `apiKey`; `instantiateModel` dispatches opencode rows to the zen vs go instance by the row's `api.url` (Anti-Pattern 1 scoped-row find, same as openrouter today); constraint 11 (only module importing SDKs) stays intact.
-3. D-08 note — the per-model `structuredOutputs: { strict: false }` option has **no per-model equivalent** in openai-compatible; its knob is provider-level `supportsStructuredOutputs` (default false → schema dropped to `json_object` + warning, verified dist l.525/557). The app's `Output.object` (runAgent.ts:74) still works via JSON mode + client-side validation — the safe starting default until live verification.
+### Expected Features
 
-### Critical Pitfalls (from STACK.md — HIGH)
+The minimum useful flow is: an applicable Company or Persona template is selected from the target record; its resolved instruction and active-signal checklist are previewed; the user selects effort and starts exactly one run; durable status/history and a source-backed result packet are available after navigation or reload; then a partner confirms or dismisses the entire completed run. Only confirmation exposes candidate offerings on the record.
 
-1. **Canary regression trap (CRITICAL):** dual-listed ids sort opencode-first in `catalog.json`; naive scope extension of `getProviderForModelId` re-resolves `claude-sonnet-4-6` (anthropic default) → opencode. Must be priority-ordered + canary tests extended.
-2. **Nous pricing unit mismatch:** Nous `pricing` is per-token (`0.0000016`) vs the snapshot's dollars-per-1M — verbatim mapping renders $0.0000016 where $1.60 belongs. ×1e6 in the refresh script.
-3. **No env auto-load in openai-compatible:** both new keys must be passed as explicit `apiKey` at construction; an unset key → request goes out unauthenticated → 401 at request time (unreachable once the chain-aware gate names the keys).
-4. **`~latest` aliases exist on the Nous roster (11 rows)** — pass verbatim (D-04), same trap as v1.4's `~` research; label rather than strip.
-5. **Structured-output support at Zen/Go is unverified** (snapshot's all-true is the script default for non-openrouter rows; lean rosters can't confirm) — start `supportsStructuredOutputs` false, flip per instance only after a live key-backed probe.
+**Must have (table stakes):**
+- Two reusable, target-kind-compatible templates and a small `Manage > Reviews > Agents` lifecycle surface.
+- Resolved pre-run preview, active-signal checklist snapshot, explicit effort selection, and a durable run lifecycle including safe failure states.
+- Immutable completed-result packet: normalized findings, navigable citations/excerpts, resolved inputs, timing, model/trace provenance, and history.
+- One terminal, attributable, idempotent Confirm or Dismiss action per completed run; dismiss has no live-record side effect.
+- Confirmed-only candidate-offering projection and protected access across all workflow surfaces.
+
+**Should have (differentiators):**
+- Active-signal-derived Company/Persona checklists make the analysis specific to ArcLumen's maintained taxonomy.
+- Shared constructor primitives with target-specific contracts preserve repeatability without run-time prompt editing.
+- Decision-linked history and offering provenance let staff reconstruct why a candidate is visible.
+
+**Defer (v2+):** Persona Discovery; bulk, scheduled, or automatic reruns; ad-hoc prompts; provider controls in the run flow; per-finding curation; hypotheses; outreach/CRM actions; scoring; and auto-confirmation or direct writes.
+
+### Architecture Approach
+
+Use a subject-neutral, snapshot-first pipeline: a staff-gated orchestration boundary validates the target/template pairing, snapshots subject/template/version/active signal schema/model chain, creates a queued run, dispatches an in-house executor, validates and persists immutable normalized artifacts, and creates exactly one review item only on successful completion. The executor owns no database or review writes. A run-level adapter reuses review conventions where safe but never calls the legacy per-proposal acceptance path, whose side effect writes live Company Signals.
+
+**Major components:**
+1. **Template registry and runtime schema derivation** — manages enabled Company/Persona templates and deterministically derives active-signal schemas, versioned/snapshotted per run.
+2. **Run ledger and provider-agnostic executor contract** — creates/claims/completes/fails durable runs and adapts the existing `runAgent`/`modelFactory`/Firecrawl path behind normalized input/output validators.
+3. **Result, finding, and source persistence** — keeps normalized immutable artifacts plus raw/audit snapshots, trace references, usage, and safe error envelopes.
+4. **Run-level review adapter** — creates one unique review record and atomically resolves `completed → confirmed|dismissed` with reviewer attribution and optional dismissal rationale.
+5. **Approved-only candidate-offering query** — joins only confirmed run findings through existing signal-offering links and returns provenance; it is the policy boundary, not a React filter.
+6. **Detail, Reviews, and management UI** — composes shared server read models for preview/run, status/history, review packets, approved candidates, and template administration.
+
+### Critical Pitfalls
+
+1. **Success-only persistence loses failed/gated runs** — create the queued ledger row before external work; persist guarded terminal states and sanitized errors even for provider, validation, timeout, and persistence failures.
+2. **A valid URL is not proof of a claim** — persist immutable source metadata/excerpts/hash and link each material finding to evidence IDs; evaluate support/recency/source quality rather than URL membership alone.
+3. **Legacy per-proposal review leaks unconfirmed output** — use a run-level state machine and conditional transaction; candidates and future consumers must predicate on confirmed parent-run state.
+4. **Web content can inject instructions** — treat sources as untrusted data; allowlist/validate/cap tools and content, strip active/suspicious markup, with no model access to writes, credentials, or arbitrary URLs.
+5. **Duplicate starts and retries waste money** — enforce server-held idempotency and one non-terminal run per template/subject, then persist bounded attempts, Firecrawl credits, model usage, budgets, rate limits, and a kill switch.
+6. **Persona research creates privacy/retention risk** — define disallowed claim categories, minimize/redact data before providers and telemetry, classify artifacts, and enforce retention/tombstone policy.
 
 ## Implications for Roadmap
 
-1. **Registry + servable sources (code phase, mirrors v1.4 Phase 19)** — `ModelProviderId` → 4, priority-ordered `getProviderForModelId`, gates/defaults extended, opencode chat-completions gate (30 rows) or Claude-extension variant, collision-canary tests extended. Addresses: STACK.md registry changes; avoids: the dual-listed-id regression trap.
-2. **Refresh script + catalog regeneration (data phase)** — `fetchNousRoster()` with ×1e6 cost mapping + live structured-output join, Zen/Go roster-verify, regenerate (Go 17 → 25), commit `nousresearch` rows. Addresses: rich Nous roster; avoids: pricing-unit bug + stale Go rows.
-3. **`modelFactory` seam (code phase, mirrors v1.4 Phase 20)** — three instances, zen-vs-go dispatch by `api.url`, optional `createAnthropic` baseURL instance for Claude rows, `supportsStructuredOutputs` verify-live-then-flip. Addresses: constraint-11 seam; env gate names the new keys.
-4. **Settings UI + verification gate (mirrors v1.4 Phases 21–22)** — 4-provider selector, e2e + security-grep extension (`SERVER_COMPONENT` exemption set covers `modelFactory.ts`'s explicit `process.env.*` reads).
+Based on the locked product direction, the roadmap should be ordered by trust boundary and dependency rather than by screen.
 
-**Phase ordering rationale:** registry/canary first (the priority-order change is a prerequisite for every other provider-resolution consumer), then snapshot data, then the instantiation seam, then UI + verification — the v1.4 19→20→21→22 shape, one phase shorter (no classifier work — the 402/429 semantics are unchanged for these providers).
+### Phase 1: Run Ledger, Template Versioning, and Evidence Contract
+**Rationale:** Every later feature depends on durable identifiers, immutable meaning, and source-grounded artifacts; starting with UI or the existing success-only run table would lock in unsafe semantics.
+**Delivers:** generalized template/run/result/source/finding schema and query contracts; lifecycle states; indexes/FKs; immutable template, signal-schema, subject-input, model-chain, policy, and output-schema snapshots; claim-to-evidence validation; privacy classification and retention fields.
+**Addresses:** reusable templates, audit-ready history, completed-result packet, active-signal snapshot.
+**Avoids:** missing failed runs, mutable historical meaning, citation-without-support, unsafe URL identity, and uncontrolled Persona data retention.
 
-**Research flags for phases:**
-- Registry phase: LOW risk — priority-order change is well-specified; extend existing canary tests.
-- Seam phase: needs a **live key-backed probe** of `json_schema` acceptance at Zen/Go (and per-model at Nous) before flipping `supportsStructuredOutputs`; Nous chat-completions billing verification may defer a live success assertion (v1.4's OpenRouter-credit pattern).
+### Phase 2: Subject-Neutral Agent Contract and Deterministic Schema Assembly
+**Rationale:** The executor must receive a validated, serializable snapshot before it can run safely for both Company and Persona; this separates domain semantics from provider mechanics.
+**Delivers:** Company/Persona active-signal schema builders; two built-in GBS templates; versioned Zod contracts; generic executor input/output interface; adaptation of `runAgent`, `modelFactory`, Firecrawl, server-derived citation derivation, and Langfuse without changing the provider boundary.
+**Addresses:** target-kind compatibility, resolved preview content, active-signal-derived checklist, provider-agnostic execution.
+**Avoids:** invented taxonomy, Company-only coupling, provider/client leakage into templates, and raw-model/trace-only persistence.
+
+### Phase 3: Durable Dispatch, Safe Execution, and Completion Gate
+**Rationale:** A persisted run needs a real execution/recovery mechanism before the UI can promise asynchronous navigation, polling, or retries.
+**Delivers:** validated durable executor/queue choice; create/claim/lease/recover/complete/fail workflow; idempotent start; active-run uniqueness; bounded tool/retry/time/cost controls; redacted telemetry; result validation/persistence; one pending review creation only after terminal successful completion.
+**Addresses:** on-demand asynchronous runs, clear lifecycle/failure states, durable history, safe cost/time effort execution.
+**Avoids:** request-bound pseudo-async work, permanent running rows, duplicate spend, prompt injection, runaway tool use, and telemetry data leakage.
+
+### Phase 4: Whole-Run Review and Confirmed-Only Projection
+**Rationale:** The commercial safety gate must exist below the UI before any record-level candidate-offering surface is introduced.
+**Delivers:** a discriminated run-review item in Reviews; guarded/idempotent confirm/dismiss transaction with attribution/checksum/rationale; dedicated `listApprovedCandidateOfferingsForSubject` query and provenance; legacy per-signal proposal behavior preserved.
+**Addresses:** one decision per completed run, decision-safe confirmation, dismiss-without-side-effects, confirmed-only candidate offerings.
+**Avoids:** partial approval, concurrent conflicting decisions, direct agent writes, and pending/dismissed/failed candidate leakage.
+
+### Phase 5: Company and Persona Preview, Run, History, and Result Flows
+**Rationale:** With durable execution and the policy gate established, both target experiences can be composed consistently from the same contracts.
+**Delivers:** contextual template entry points; immutable preview/effort/start flow; durable status refresh; history; run detail with sources/findings/provenance; confirmed candidate-offering panels for both Company and Persona.
+**Addresses:** the staff-visible end-to-end workflow and shared two-target experience.
+**Avoids:** launch without resolved preview, false certainty, result laundering, and client polling as source of truth.
+
+### Phase 6: Agent Management and End-to-End Evaluation Gate
+**Rationale:** Administration and proof belong after the core contracts and flows exist, so they validate real policy boundaries instead of mock behavior.
+**Delivers:** `Manage > Reviews > Agents` create/edit/enable/disable semantics that version rather than rewrite templates; lifecycle/recovery/concurrency tests; groundedness golden set; indirect prompt-injection fixtures; cost/credit reconciliation; redaction/retention checks; Company/Persona UAT.
+**Addresses:** template management, operational confidence, reviewable evidence, and policy verification.
+**Avoids:** mutable template history, unsupported AI accuracy language, silently weak citations, and untested review/security guarantees.
+
+### Phase Ordering Rationale
+
+- Phase 1 establishes the immutable data and audit boundary that every execution, review, and UI query depends on.
+- Phase 2 makes inputs/outputs trustworthy and reusable across Company and Persona without reopening provider or search choices.
+- Phase 3 is a hard prerequisite for the promised durable asynchronous user experience; its executor selection is an infrastructure validation, not a product-direction decision.
+- Phase 4 puts the confirmed-only business rule into transactional/query contracts before Phase 5 exposes candidates to users.
+- Phase 5 is then mostly shared UI composition, while Phase 6 locks behavior with operational, security, and human-oversight evidence.
+
+### Research Flags
+
+Phases likely needing deeper research during planning:
+- **Phase 1:** inspect live `agent_run`/foreign-key data to choose safe in-place migration versus generalized companion tables; define stable signal identity and archival semantics.
+- **Phase 3:** select and validate the Vercel-compatible durable executor/queue, including disconnect, timeout, retry, lease, cost, and recovery semantics. This is the sole material stack uncertainty.
+- **Phase 6:** design the evaluation corpus, evidence-retention/redaction tests, and adversarial web-content fixtures with product/privacy owners.
+
+Phases with standard patterns (skip research-phase unless implementation findings contradict this summary):
+- **Phase 2:** existing AI SDK, Zod, Firecrawl, `modelFactory`, citation derivation, and Langfuse seams are documented and already exercised by the app.
+- **Phase 4:** guarded conditional updates, transactions, idempotency, and approved-only relational queries are established Postgres/Drizzle patterns.
+- **Phase 5:** authenticated master-detail pages, Server Actions, history views, and bounded status polling/revalidation follow existing product patterns once contracts are available.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Packages/versions verified against npm registry + packed dist sources; env conventions verified from dist code (no auto-load) |
-| Features | MEDIUM-HIGH | OpenCode protocol split from official docs + snapshot `api.npm` (HIGH); Zen/Go structured-output support unverified (MEDIUM-LOW) |
-| Architecture | HIGH | Priority-order trap verified against `catalog.json` row indices; dispatch shapes verified in dist |
-| Pitfalls | HIGH | Unit-conversion, id-verbatim, canary-regression, env-auto-load traps all verified against live data or dist source |
+| Stack | HIGH | Current package versions, source seams, AI SDK/Firecrawl/Drizzle/Vercel documentation, and explicit exclusions were verified. |
+| Features | HIGH | The project record locks the workflow, review unit, candidate visibility rule, and out-of-scope boundaries; governance sources reinforce the safeguards. |
+| Architecture | MEDIUM-HIGH | Integration seams and desired invariants are clear; the migration shape and durable executor remain to be selected. |
+| Pitfalls | HIGH | Codebase gaps plus OWASP/NIST guidance identify concrete, testable failure modes and mitigations. |
 
-## Gaps to Address
+**Overall confidence:** MEDIUM-HIGH
 
-- Zen/Go (and per-model Nous) `json_schema` acceptance needs a real-key runtime probe before `supportsStructuredOutputs: true` — schedule with the billing-credit verification.
-- Go roster is 25 live vs 17 snapshot — regenerate timing belongs to the refresh-script phase.
-- OpenCode servable gate scope (30 chat-completions rows vs Claude extension via `createAnthropic`) is a product decision the research frames but does not make — flag for requirements.
+### Gaps to Address
+
+- **Durable execution platform:** decide and prove the executor/queue before committing to detached/retryable asynchronous behavior; otherwise explicitly retain the current request-bound ceiling and do not market it as durable async.
+- **Legacy data migration:** inventory production `agent_run`, `signal_proposal`, and foreign-key usage; choose an additive generalized schema or a fully backfilled migration without breaking historic analytic-agent records.
+- **Signal identity and retirement:** specify whether findings reference signal row IDs, stable keys, or both, and how later archival affects historical display versus approved aggregation.
+- **Review storage shape:** validate whether a discriminated extension of Reviews is safe; prefer a companion run-review table/read model if it risks legacy `acceptProposal` semantics.
+- **Privacy and retention policy:** obtain explicit approved/disallowed claim categories, artifact retention windows, telemetry redaction rules, and correction/tombstone handling before Persona runs are enabled.
 
 ## Sources
 
-- Live API (2026-08-03): `GET https://opencode.ai/zen/v1/models` (200 anonymous, 60 lean rows), `GET https://opencode.ai/zen/go/v1/models` (200 anonymous, **25** rows), `GET https://inference-api.nousresearch.com/v1/models` (200 anonymous, **292** rich rows: per-token `pricing`, `context_length`, `supported_parameters` 214/292 `structured_outputs`, `~latest` aliases) — HIGH
-- OpenCode docs `https://opencode.ai/docs/zen/` + `https://opencode.ai/docs/providers/` — per-model Endpoint + AI SDK Package table (`/v1/chat/completions` → `@ai-sdk/openai-compatible`, `/v1/responses` → `@ai-sdk/openai`, `/v1/messages` → `@ai-sdk/anthropic`, `/v1/models/gemini-*` → `@ai-sdk/google`); per-model `provider.npm` override guidance — HIGH
-- Docker Agent OpenCode Zen doc — Token Variable `OPENCODE_API_KEY`; "The same API key works for both OpenCode Go and OpenCode Zen" (Zen pay-per-use vs Go $10/mo) — MEDIUM-HIGH
-- Nous portal `https://portal.nousresearch.com/api-docs` + `/info` (API-key flow; "250 models via the Nous API … powered by OpenRouter"); Langertha metacpan + OmniRoute PR #2835 (`/v1/chat/completions` pattern) — MEDIUM-HIGH
-- npm registry: `@ai-sdk/openai-compatible` latest **3.0.20**, `@ai-sdk/openai` **4.0.27**, `@ai-sdk/anthropic` **4.0.27**, `@ai-sdk/google` **4.0.31**, `ai` **7.0.48** — HIGH
-- Packed dist sources: openai-compatible (no env auto-load l.1746-1749; `supportsStructuredOutputs` default false l.435; json_schema→json_object + warning l.525/557), `@ai-sdk/openai` (default = Responses API l.8303; `OPENAI_API_KEY` env default l.9483), `@ai-sdk/anthropic` (`createAnthropic` baseURL/apiKey options) — HIGH
-- Codebase reads: `modelFactory.ts`, `catalog.ts`, `catalog.json` (opencode 60 / opencode-go 17 rows; `api.npm` split 21/20/14/5 and 10/5/2; dual-listed ids opencode-first: `claude-sonnet-4-6` idx 11 vs 92), `env.ts`, `refresh-model-catalog.ts`, `runAgent.ts` (`Output.object` at l.74), `package.json` — HIGH
+### Primary (HIGH confidence)
+- `.planning/PROJECT.md` — v1.7 locked direction, target features, existing stack/seams, and explicit exclusions.
+- `.planning/research/STACK.md` — installed versions, provider/search/data/observability seams, and durable-execution constraint.
+- `.planning/research/FEATURES.md` — product boundary, table stakes, safeguards, feature dependencies, and deferred scope.
+- `.planning/research/ARCHITECTURE.md` — component boundaries, schema/query contracts, integration points, and dependency-respecting sequence.
+- `.planning/research/PITFALLS.md` — codebase-specific failure modes, prevention owners, and required verification.
+- Vercel AI SDK, Firecrawl, Drizzle, and Vercel Function duration documentation — structured-output/tool-loop, source retrieval, relational constraints, and route-duration facts.
+- OWASP GenAI guidance and NIST AI RMF / Generative AI Profile — prompt-injection controls, provenance, human oversight, retention, and evaluation principles.
+
+### Secondary (MEDIUM confidence)
+- OpenAI agent guardrail/approval guidance and AWS Well-Architected Agentic AI Lens — implementation-neutral human-review and durable decision-context patterns.
+- FTC AI claims guidance — conservative language and validation expectations; not a determination of ArcLumen's legal obligations.
 
 ---
-*Research completed: 2026-08-03*
-*Ready for roadmap: yes — pending one product decision (OpenCode servable gate scope) and one runtime verification item (structured-output support per endpoint)*
+*Research completed: 2026-08-06*
+*Ready for roadmap: yes — after the Phase 3 durable-executor research/approval gate is resolved.*
