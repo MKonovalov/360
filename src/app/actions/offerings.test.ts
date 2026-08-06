@@ -67,6 +67,7 @@ vi.mock('@/lib/db/queries/offerings', () => ({
 
 import { revalidatePath } from 'next/cache';
 import {
+  archiveOfferingAction,
   archivePracticeAreaAction,
   createDomainAction,
   createOfferingAction,
