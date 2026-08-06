@@ -156,7 +156,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 27. Verification Gate | v1.5 | 0/0 | Not started | - |
 | 28. Shared Data Model + Seed | v1.6 | 0/6 | Planned (queued) | - |
 | 29. Signals UI | v1.6 | 8/8 | Complete   | 2026-08-05 |
-| 30. Offerings UI | v1.6 | 8/11 | In Progress|  |
+| 30. Offerings UI | v1.6 | 9/11 | In Progress|  |
 
 ---
 
@@ -375,7 +375,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 - [x] 30-07-PLAN.md — BuyerRolePanel lookup CRUD Sheet (OFR-06, OFR-08)
 - [x] 30-08-PLAN.md — ServicePortfolio hierarchy manager (OFR-03, OFR-08)
-- [ ] 30-09-PLAN.md — OfferingsFilters + OfferingsMatrix (OFR-05)
+- [x] 30-09-PLAN.md — OfferingsFilters + OfferingsMatrix (OFR-05)
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
