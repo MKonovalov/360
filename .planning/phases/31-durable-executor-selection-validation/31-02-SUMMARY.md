@@ -72,7 +72,7 @@ Each task was committed atomically:
 1. **Task 1: Build staff-only create/status routes with safe dispatch failure** - `80ae6f8e` (feat)
 2. **Task 2: Implement and prove the thin deterministic workflow lifecycle** - `74bedf1f` (feat)
 
-**Plan metadata:** pending (created with final execution metadata)
+**Plan metadata:** `948d63e3` (docs: complete plan)
 
 ## Files Created/Modified
 
