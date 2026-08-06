@@ -110,9 +110,12 @@ describe('workflow proof Local World lifecycle', () => {
 
   it('reconciles diagnostic mismatch while preserving database lifecycle authority', async () => {
     const fixture = await createFixture();
+    const claimed = await queries.claimOrRecoverWorkflowProofRun(fixture.id);
+    expect(claimed?.status).toBe('running');
+    expect(claimed?.leaseToken).toBeTruthy();
     await dbModule.db
       .update(schema.workflowProofRun)
-      .set({ status: 'running', diagnosticWorkflowState: 'completed' })
+      .set({ diagnosticWorkflowState: 'completed' })
       .where(eq(schema.workflowProofRun.id, fixture.id));
 
     const result = await execute(fixture.id);
