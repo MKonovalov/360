@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Additional AI Providers
-status: "Phase 30 shipped — PR #3"
-last_updated: "2026-08-06T14:22:48.452Z"
-last_activity: 2026-08-06
+status: Awaiting next milestone
+last_updated: "2026-08-06T15:12:28.731Z"
+last_activity: 2026-08-06 — Milestone v1.6 completed and archived
 progress:
   total_phases: 5
   completed_phases: 5
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 ## Current Position
 
-Phase: v1.6 Signals & Offerings — Phases 29-30 executed and shipped via PR #3 (2026-08-06); Phase 28 planned. v1.5 complete.
+Phase: Milestone v1.6 complete
 Plan: —
-Status: Phase 28 shipped — merged via PR #3 (a7a33f96); Phase 29 shipped — PR #3; Phase 30 shipped — PR #3
-Last activity: 2026-08-06
+Status: Awaiting next milestone
+Last activity: 2026-08-06 — Milestone v1.6 completed and archived
 
 ## Performance Metrics
 
