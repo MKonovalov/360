@@ -10,12 +10,17 @@ import { buyerRole, offeringBuyerRole, personaSignal } from '../schema';
 
 export async function insertBuyerRole(input: {
   name: string;
+  // Optional description per OFR-06 — buyer roles are created with
+  // "name + description" (30-02). The column is already nullable in
+  // schema.ts; only this input type was too narrow.
+  description?: string;
   createdBy: string;
 }) {
   const [inserted] = await db
     .insert(buyerRole)
     .values({
       name: input.name,
+      description: input.description,
       createdBy: input.createdBy,
       // Insert-time convention: updatedBy starts equal to createdBy (T-30-03).
       updatedBy: input.createdBy,

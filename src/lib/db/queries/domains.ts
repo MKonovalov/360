@@ -43,6 +43,12 @@ export async function updateDomain(
   return updated;
 }
 
+// Reorder thin wrapper for the Phase 30 offerings UI — reuses updateDomain
+// so the updatedAt/updatedBy stamping convention stays in one place.
+export async function updateDomainSortOrder(id: number, sortOrder: number, updatedBy: string) {
+  return updateDomain(id, { sortOrder }, updatedBy);
+}
+
 export async function listDomainsForPracticeArea(practiceAreaId: number) {
   return db
     .select()

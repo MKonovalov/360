@@ -10,7 +10,11 @@ import { buyerRole, offering, offeringBuyerRole, signalOfferingLink, trigger } f
 
 export async function insertOffering(input: {
   practiceAreaId: number;
-  domainId?: number;
+  // domainId is nullable per OFR-04's "No domain" create flow — an offering
+  // links straight to its practice area when it has no domain-structured
+  // journey. The column is already nullable in schema.ts; only this input
+  // type was too narrow.
+  domainId?: number | null;
   name: string;
   offerType:
     | 'entry'
@@ -52,6 +56,12 @@ export async function updateOffering(
   return updated;
 }
 
+// Reorder thin wrapper for the Phase 30 offerings UI — reuses updateOffering
+// so the updatedAt/updatedBy stamping convention stays in one place.
+export async function updateOfferingSortOrder(id: number, sortOrder: number, updatedBy: string) {
+  return updateOffering(id, { sortOrder }, updatedBy);
+}
+
 // Admin screens (Phase 32) — every offering for the practice area regardless of
 // status (drafts and retired rows visible for management). Ordered by sortOrder.
 export async function listAllOfferingsForPracticeArea(practiceAreaId: number) {
@@ -90,6 +100,42 @@ export async function insertOfferingBuyerRole(input: {
   return inserted;
 }
 
+// Unconditional join-row delete (DATA-10 scope: offering_buyer_role rows are
+// never referenced by anything else, so a dependents guard would be a no-op) —
+// mirrors deleteSignalOfferingLink's shape in signalOfferingLinks.ts.
+export async function deleteOfferingBuyerRole(offeringId: number, buyerRoleId: number) {
+  await db
+    .delete(offeringBuyerRole)
+    .where(
+      and(
+        eq(offeringBuyerRole.offeringId, offeringId),
+        eq(offeringBuyerRole.buyerRoleId, buyerRoleId)
+      )
+    );
+}
+
+// Rank-only update on the join table for the Phase 30 matrix reorder UI —
+// mirrors updateOffering's set+stamp shape (Drizzle never auto-touches
+// updatedAt/updatedBy, Pitfall 3).
+export async function updateOfferingBuyerRoleRank(
+  offeringId: number,
+  buyerRoleId: number,
+  rank: number,
+  updatedBy: string
+) {
+  const [updated] = await db
+    .update(offeringBuyerRole)
+    .set({ rank, updatedAt: new Date(), updatedBy })
+    .where(
+      and(
+        eq(offeringBuyerRole.offeringId, offeringId),
+        eq(offeringBuyerRole.buyerRoleId, buyerRoleId)
+      )
+    )
+    .returning();
+  return updated;
+}
+
 // DATA-01: one 1-to-many Entry Trigger row per offering (modeled many even
 // though catalogues show one today — allows alternate phrasings later).
 export async function insertTrigger(input: {
@@ -115,6 +161,12 @@ export async function listTriggersForOffering(offeringId: number) {
     .from(trigger)
     .where(eq(trigger.offeringId, offeringId))
     .orderBy(trigger.sortOrder);
+}
+
+// Unconditional leaf-row delete (DATA-10 scope: trigger rows are never
+// referenced by anything else, so a dependents guard would be a no-op).
+export async function deleteTrigger(id: number) {
+  await db.delete(trigger).where(eq(trigger.id, id));
 }
 
 // Ranked buyer-role list for an offering's detail view: buyer_role.name inline,

@@ -47,6 +47,12 @@ export async function updatePracticeArea(
   return updated;
 }
 
+// Reorder thin wrapper for the Phase 30 offerings UI — reuses updatePracticeArea
+// so the updatedAt/updatedBy stamping convention stays in one place.
+export async function updatePracticeAreaSortOrder(id: number, sortOrder: number, updatedBy: string) {
+  return updatePracticeArea(id, { sortOrder }, updatedBy);
+}
+
 // Admin screens (Phase 32) — every practice area regardless of status.
 export async function listAllPracticeAreas() {
   return db.select().from(practiceArea).orderBy(practiceArea.sortOrder);
