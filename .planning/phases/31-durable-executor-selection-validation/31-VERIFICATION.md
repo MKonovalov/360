@@ -23,7 +23,34 @@ the authenticated smoke.
 | Missing workflow credential guard | `env -u TEST_DATABASE_URL npm run test:workflow` | Failed non-zero with `TEST_DATABASE_URL is required` as required | 31-02-SUMMARY.md |
 | TypeScript | `npx tsc --noEmit` | Passed on 2026-08-07 | Task 1 execution |
 | Production build | `npm run build` | Passed on 2026-08-07; generated Workflow routes present | Task 1 execution |
-| Authenticated deployed smoke | `npm run e2e -- e2e/workflow-proof-runs.spec.ts` | Not run: `E2E_BASE_URL` was not configured and `e2e/.clerk/user.json` was not present | Task 1 execution |
+| Authenticated preview/production smoke | `npm run e2e -- e2e/workflow-proof-runs.spec.ts` | Not run; local-only result is recorded below and does not satisfy deployment evidence | Task 2 pending |
+
+## Local Automation Evidence (Not Deployment Evidence)
+
+The exact smoke was run against localhost after generating the existing Clerk
+storage state through `e2e/auth.setup.ts`:
+
+```text
+env E2E_BASE_URL=http://localhost:3000 VERCEL_URL=http://localhost:3000 npm run e2e -- e2e/workflow-proof-runs.spec.ts
+3 passed (11.5s)
+```
+
+Observed latest local proof record (application database read-back):
+
+- Application run ID: `2`
+- Terminal status: `completed`
+- Failure reason: `null`
+- Workflow diagnostic run ID: present (value intentionally omitted from this local ledger)
+- Event actions: `queued → claimed → workflow_metadata_mismatch → workflow_metadata_reconciled → synthetic_attempt → synthetic_attempt → completed`
+- Synthetic attempts: `[1, 2]`
+- Diagnostic workflow state after completion: `running` (diagnostic metadata only; database status is `completed`)
+- Browser path: authenticated POST, immediate navigation to `/`, then authenticated GET polling
+- Provider/analysis activity: the smoke source calls only the synthetic proof POST/GET routes; no analysis/provider/Firecrawl route was invoked by this test
+
+The first localhost attempt without the temporary `VERCEL_URL` override failed
+honestly: Workflow logged `TypeError: Invalid URL`, the database status stayed
+`queued`, and Playwright timed out. This does not alter preview/production
+records.
 
 ## RUN-03 Evidence
 

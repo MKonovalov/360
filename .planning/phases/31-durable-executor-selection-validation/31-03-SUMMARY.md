@@ -80,9 +80,10 @@ None - Task 1 executed as written. The planned Task 2 checkpoint was reached and
 
 ## Issues Encountered
 
-- The current environment had no explicit `E2E_BASE_URL` and no `e2e/.clerk/user.json`, so `npm run e2e -- e2e/workflow-proof-runs.spec.ts` was not run. The test was listed successfully with `npm run e2e -- --list e2e/workflow-proof-runs.spec.ts`.
+- The initial run without a local Workflow base URL failed honestly: Workflow logged `TypeError: Invalid URL` and the proof remained `queued`. With process-only `E2E_BASE_URL=http://localhost:3000` and `VERCEL_URL=http://localhost:3000`, the exact smoke passed: 3 tests, 11.5s. The generated Clerk storage state was used by the existing setup.
 - `npx tsc --noEmit`, `npm run build`, and `git diff --check` passed. No deployed application ID, status, event sequence, Workflow diagnostic ID, URL, or production approval was observed.
 - Existing unrelated dirty/deleted files were preserved; `.planning/STATE.md` and `.planning/ROADMAP.md` were not modified.
+- Local read-back observed application run `2` as `completed`, with `queued → claimed → workflow_metadata_mismatch → workflow_metadata_reconciled → synthetic_attempt → synthetic_attempt → completed`; the Workflow diagnostic ID was present. This is local-only evidence and does not satisfy the deployment gate.
 
 ## User Setup Required
 
