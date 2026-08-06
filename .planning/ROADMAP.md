@@ -156,7 +156,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 27. Verification Gate | v1.5 | 0/0 | Not started | - |
 | 28. Shared Data Model + Seed | v1.6 | 0/6 | Planned (queued) | - |
 | 29. Signals UI | v1.6 | 8/8 | Complete   | 2026-08-05 |
-| 30. Offerings UI | v1.6 | 0/0 | Not started (queued) | - |
+| 30. Offerings UI | v1.6 | 1/11 | In Progress|  |
 
 ---
 
@@ -355,7 +355,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 **Plans**: 11 plans
 **Wave 1**
 
-- [ ] 30-01-PLAN.md — Query-layer reorder/delete helpers + Offerings sidebar nav wiring (OFR-01, OFR-03)
+- [x] 30-01-PLAN.md — Query-layer reorder/delete helpers + Offerings sidebar nav wiring (OFR-01, OFR-03)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
