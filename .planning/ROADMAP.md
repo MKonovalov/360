@@ -116,7 +116,7 @@ Full details: [`.planning/milestones/v1.4-ROADMAP.md`](milestones/v1.4-ROADMAP.m
 
 - [ ] **Phase 28: Shared Data Model + Seed** - All Offerings/Signals tables (practice_area, domain, offering, buyer_role, offering_buyer_role, trigger, company_signal, persona_signal, signal-offering link) plus the full GBS seed data set (3 domains, 11 offerings, 5 buyer roles, 27 company signals, 12 persona signals, 10 representative links), the delete-guard business rule, and staff-auth-gated writes with created_by/updated_by. No UI in this phase. Fully planned: CONTEXT/RESEARCH/PATTERNS/VALIDATION + 6 PLAN.md files, plan-checker PASSED (0 blockers).
 - [x] **Phase 29: Signals UI** - New `Manage > Reviews > Signals` menu item — Company Signals / Persona Signals tabs with filterable lists, create/edit forms, and soft-archive. (completed 2026-08-05)
-- [ ] **Phase 30: Offerings UI** - New `Manage > Reviews > Offerings` menu item — Service Portfolio hierarchy manager, Offering × Trigger × Buyer Matrix, a shared Buyer Role lookup CRUD panel, and a read-only reverse-lookup of linked signals per offering.
+- [x] **Phase 30: Offerings UI** - New `Manage > Reviews > Offerings` menu item — Service Portfolio hierarchy manager, Offering × Trigger × Buyer Matrix, a shared Buyer Role lookup CRUD panel, and a read-only reverse-lookup of linked signals per offering. (completed 2026-08-06)
 
 </details>
 
@@ -156,7 +156,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 27. Verification Gate | v1.5 | 0/0 | Not started | - |
 | 28. Shared Data Model + Seed | v1.6 | 0/6 | Planned (queued) | - |
 | 29. Signals UI | v1.6 | 8/8 | Complete   | 2026-08-05 |
-| 30. Offerings UI | v1.6 | 10/11 | In Progress|  |
+| 30. Offerings UI | v1.6 | 11/11 | Complete   | 2026-08-06 |
 
 ---
 
@@ -383,6 +383,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 30-11-PLAN.md — Manual QA checkpoint: live UAT sweep of OFR-01..OFR-08 against GBS seed data
+- [x] 30-11-PLAN.md — Manual QA checkpoint: live UAT sweep of OFR-01..OFR-08 against GBS seed data
 
 **UI hint**: yes

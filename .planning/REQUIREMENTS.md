@@ -147,14 +147,14 @@ Replacing the firm's Word-doc service catalogues with structured Practice Area �
 
 ### Offerings UI (Phase 30)
 
-- [ ] **OFR-01**: `Manage > Reviews` gains an "Offerings" menu item
-- [ ] **OFR-02**: The Offerings screen has two tabs — Service Portfolio and Offering × Trigger × Buyer Matrix
-- [ ] **OFR-03**: Service Portfolio tab is a hierarchical Practice Area → Domain → Offering manager with create/edit/reorder/archive at each level
-- [ ] **OFR-04**: The Offering edit form includes Name, Practice Area, Domain (optional, filtered to the chosen Practice Area's domains), Offer Type, Description, Commercial Model Text, ranked Buyer Roles (multi-select), Status
-- [ ] **OFR-05**: The Offering × Trigger × Buyer Matrix tab is a table filterable by Practice Area (defaults to GBS), rows grouped by Domain (Design/Build/Run section headers), with editable Trigger(s) (add/remove) and ranked Primary Buyer(s) columns
-- [ ] **OFR-06**: A "Manage Buyer Roles" action opens a lookup CRUD panel (name + description; create/edit/archive) — the single place buyer roles are managed, shared by both Offerings and Signals
-- [ ] **OFR-07**: An Offering's detail view shows a read-only reverse-lookup list of Company/Persona Signals currently linked to it (via the signal-offering link from DATA-02)
-- [ ] **OFR-08**: Attempting to delete a Practice Area, Domain, Offering, or Buyer Role with dependents surfaces a block/confirmation in the UI (consumes the DATA-10 guard)
+- [x] **OFR-01**: `Manage > Reviews` gains an "Offerings" menu item
+- [x] **OFR-02**: The Offerings screen has two tabs — Service Portfolio and Offering × Trigger × Buyer Matrix
+- [x] **OFR-03**: Service Portfolio tab is a hierarchical Practice Area → Domain → Offering manager with create/edit/reorder/archive at each level
+- [x] **OFR-04**: The Offering edit form includes Name, Practice Area, Domain (optional, filtered to the chosen Practice Area's domains), Offer Type, Description, Commercial Model Text, ranked Buyer Roles (multi-select), Status
+- [x] **OFR-05**: The Offering × Trigger × Buyer Matrix tab is a table filterable by Practice Area (defaults to GBS), rows grouped by Domain (Design/Build/Run section headers), with editable Trigger(s) (add/remove) and ranked Primary Buyer(s) columns
+- [x] **OFR-06**: A "Manage Buyer Roles" action opens a lookup CRUD panel (name + description; create/edit/archive) — the single place buyer roles are managed, shared by both Offerings and Signals
+- [x] **OFR-07**: An Offering's detail view shows a read-only reverse-lookup list of Company/Persona Signals currently linked to it (via the signal-offering link from DATA-02)
+- [x] **OFR-08**: Attempting to delete a Practice Area, Domain, Offering, or Buyer Role with dependents surfaces a block/confirmation in the UI (consumes the DATA-10 guard)
 
 ### v1.6 Future Requirements (deferred)
 
@@ -198,11 +198,11 @@ Replacing the firm's Word-doc service catalogues with structured Practice Area �
 | SIG-07 | 29 | Pending (queued) |
 | SIG-08 | 29 | Pending (queued) |
 | SIG-09 | 29 | Pending (queued) |
-| OFR-01 | 30 | Pending (queued) |
-| OFR-02 | 30 | Pending (queued) |
-| OFR-03 | 30 | Pending (queued) |
-| OFR-04 | 30 | Pending (queued) |
-| OFR-05 | 30 | Pending (queued) |
-| OFR-06 | 30 | Pending (queued) |
-| OFR-07 | 30 | Pending (queued) |
-| OFR-08 | 30 | Pending (queued) |
+| OFR-01 | 30 | Complete |
+| OFR-02 | 30 | Complete |
+| OFR-03 | 30 | Complete |
+| OFR-04 | 30 | Complete |
+| OFR-05 | 30 | Complete |
+| OFR-06 | 30 | Complete |
+| OFR-07 | 30 | Complete |
+| OFR-08 | 30 | Complete |
