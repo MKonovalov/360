@@ -156,7 +156,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 27. Verification Gate | v1.5 | 0/0 | Not started | - |
 | 28. Shared Data Model + Seed | v1.6 | 0/6 | Planned (queued) | - |
 | 29. Signals UI | v1.6 | 8/8 | Complete   | 2026-08-05 |
-| 30. Offerings UI | v1.6 | 5/11 | In Progress|  |
+| 30. Offerings UI | v1.6 | 6/11 | In Progress|  |
 
 ---
 
@@ -369,7 +369,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 **Wave 4** *(blocked on Wave 3 completion, parallel with each other)*
 
 - [x] 30-05-PLAN.md — RankedBuyerRolesPicker + OfferingForm (8 fields + reverse-lookup) (OFR-04, OFR-07)
-- [ ] 30-06-PLAN.md — TriggerEditor + ArchiveEntityDialog + DeleteGuardDialog (OFR-03, OFR-05, OFR-08)
+- [x] 30-06-PLAN.md — TriggerEditor + ArchiveEntityDialog + DeleteGuardDialog (OFR-03, OFR-05, OFR-08)
 
 **Wave 5** *(blocked on Wave 4 completion, parallel with each other)*
 
