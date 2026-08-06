@@ -1,197 +1,126 @@
-# Stack Research — v1.5 NOUSRESEARCH + OPENCODE AI Providers
+# Technology Stack — v1.7 Agent Constructor & Buying Signal Analysis
 
-**Domain:** Adding two AI providers to ArcLumen 360's existing two-provider (Anthropic + OpenRouter) setup: (1) Nous Research direct inference API (`https://inference-api.nousresearch.com/v1`), and (2) OpenCode as ONE provider spanning the Zen (`https://opencode.ai/zen/v1`) and Go (`https://opencode.ai/zen/go/v1`) endpoints with a single shared key. All three endpoints are OpenAI-compatible; the question is which AI SDK provider packages serve them, at what versions, with what env conventions, and how they slot into the existing `modelFactory` seam.
-**Researched:** 2026-08-03
-**Confidence:** HIGH — every claim verified against the live anonymous rosters (`curl` of all three `/v1/models` endpoints, HTTP 200 no auth), the packed `@ai-sdk/openai-compatible@3.0.20` / `@ai-sdk/openai@4.0.27` / `@ai-sdk/anthropic@4.0.27` dist sources, npm registry metadata, OpenCode's official Zen docs (the per-model SDK table), and direct reads of this repo's `modelFactory.ts`, `catalog.ts`, `env.ts`, `catalog.json`, and `refresh-model-catalog.ts`.
+**Project:** ArcLumen 360  
+**Researched:** 2026-08-06  
+**Scope:** Stack decisions only: provider-agnostic agent construction, durable run/result persistence, citations, and review reuse. No external Exa dependency.
 
-## Executive Answer
+## Recommendation
 
-**Three new runtime dependencies total, all OpenAI-compatible ecosystem packages — no dedicated Nous/OpenCode SDK exists, and none is needed.** The entire v1.5 addition is:
+**Reuse the installed AI, research, observability, relational, and auth stack. Add no AI-model, web-search, ORM, or citation package for v1.7.** Build the constructor as application-owned TypeScript contracts over the current `runAgent`/`modelFactory` seams, and persist its templates, runs, findings, citations, and one-run review decision in Neon through Drizzle.
 
-| Provider | Package to ADD | Version (npm `latest`, verified) | Instances needed | apiKey |
-|----------|----------------|----------------------------------|------------------|--------|
-| NOUSRESEARCH | `@ai-sdk/openai-compatible` | **3.0.20** | 1 (`createOpenAICompatible`, baseURL `https://inference-api.nousresearch.com/v1`) | `process.env.NOUSRESEARCH_API_KEY` (passed **explicitly** — this package has NO env auto-load) |
-| OPENCODE (Zen) | `@ai-sdk/openai-compatible` | **3.0.20** (same package) | 1 (`createOpenAICompatible`, baseURL `https://opencode.ai/zen/v1`, name `'opencode-zen'`) | `process.env.OPENCODE_API_KEY` (explicit) |
-| OPENCODE (Go) | `@ai-sdk/openai-compatible` | **3.0.20** (same package) | 1 (`createOpenAICompatible`, baseURL `https://opencode.ai/zen/go/v1`, name `'opencode-go'`) | `process.env.OPENCODE_API_KEY` (same key — **one shared key, verified**) |
+The existing AI SDK contract already supports the needed composition: `generateText` accepts tools plus `Output.object({ schema })`, and structured output is an additional tool-loop step, so the current `stopWhen` budget must reserve a final formatting step. Firecrawl's installed SDK provides the existing source of public-web results, including title and URL; retain the server-derived citation appendix rule rather than accepting model-recited citations. Langfuse remains the trace/cost system; Neon remains the durable product record.
 
-Optionally, if Claude-family rows enter the OpenCode servable set: **zero new packages** — `@ai-sdk/anthropic@4.0.27` is already installed, and `createAnthropic({ baseURL: 'https://opencode.ai/zen/v1', apiKey: process.env.OPENCODE_API_KEY })` serves the 19 Claude rows Zen/Go expose at `/v1/messages`. See "Stack Patterns by Variant" below for the full 77-row vs 30-row gate decision.
-
-**The "one OpenAI-compatible package covers both" intuition is HALF right and needs one correction:** one package (`@ai-sdk/openai-compatible`) covers both providers for every model that speaks Chat Completions — which is 30 of the 77 opencode rows (20 zen + 10 go). But OpenCode's *own* docs table (and the snapshot's per-row `api.npm` field) confirm the other 47 rows do NOT speak Chat Completions: GPT-5 family (23 rows) is served at `/v1/responses` (needs `@ai-sdk/openai`), Claude family (19 rows) at `/v1/messages` (needs `@ai-sdk/anthropic`), Gemini (5 rows) at `/v1/models/gemini-*` (needs `@ai-sdk/google`). Zen **proxies** upstream protocols, it does not convert them. So the honest options are: **gate to chat-completions rows only (1 package, 3 instances)**, or go full-fidelity (4 packages + per-model dispatch). The milestone's simplification intent + the app's own "one provider" framing point at the gate; the Claude extension is a cheap middle ground.
-
-**All three `/v1/models` rosters are ANONYMOUS (verified live, HTTP 200, no auth)**, which answers the open question in PROJECT.md: the refresh script can fetch the Nous roster and roster-verify Zen/Go without keys. The Nous roster is the rich source (292 rows: `pricing` in **per-token** units — must ×1e6 to match the snapshot's per-M convention — `context_length`, `supported_parameters`, `~latest` aliases, `vendor/model` ids). The Zen/Go rosters are lean id lists (60 / 25 rows live) — the `opencode models --verbose` CLI output remains the rich source for opencode rows; note the **Go roster is currently 25 live vs 17 in the snapshot → regenerate at milestone time**.
-
-**A `getProviderForModelId` regression trap (verified in `catalog.json`):** every id dual-listed between opencode and another provider has its `opencode` row FIRST in file order (`claude-sonnet-4-6` at index 11 `opencode` vs 92 `anthropic`). Today the canary's `find()` is scoped to `providerID === 'anthropic' || 'openrouter'` so `claude-sonnet-4-6` resolves to anthropic correctly. The moment 'opencode' enters that scope with the same first-match `find()`, `claude-sonnet-4-6` silently re-resolves to **opencode** — breaking the anthropic default path, `model_used` audit, and the FAST_MODEL_ID default. The v1.5 registry MUST become **priority-ordered** (explicit provider precedence anthropic → openrouter → opencode → nousresearch), not an extended first-match find.
+**Important boundary:** a Postgres row makes a run durable, but does not itself execute work after an HTTP response. The current company analysis is a single Vercel Route Handler with a 54-second internal budget below its 60-second `maxDuration`. Therefore v1.7 must either (a) define “asynchronous” as a client-pollable request that remains in the same invocation, retaining the present ceiling, or (b) select and validate a durable job/workflow executor in a dedicated phase before promising detached/retryable processing. Do **not** claim a Server Action, `after()`, or a database status row is a durable background worker.
 
 ## Recommended Stack
 
-### Core Technologies
+### Core Framework and AI Execution
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| `@ai-sdk/openai-compatible` | **3.0.20** (npm `latest`; deps `@ai-sdk/provider@4.0.4` + `@ai-sdk/provider-utils@5.0.18`; peer `zod ^3.25.76 \|\| ^4.1.8` — all satisfied by the installed `ai@7.0.48` tree + `zod@4.4.3`) | The single serving package for all three new endpoints | It is the AI SDK's official generic OpenAI-compatible provider — the exact package OpenCode's own docs prescribe for every `/v1/chat/completions` model (`@ai-sdk/openai-compatible`, per the Zen docs table), and the same package the opencode registry's `api.npm` field points at for the 30 chat-completions rows. `createOpenAICompatible({ name, apiKey, baseURL })` returns a **callable provider** `(id) => LanguageModel` — the identical call shape `anthropic(id)` already uses in `modelFactory`. **One package, three instances** (nousresearch / opencode-zen / opencode-go): `baseURL` is provider-level, so the two OpenCode endpoints need two instances (see Why-instance-count below). |
-| `@ai-sdk/anthropic` (ALREADY INSTALLED `^4.0.26`) | 4.0.27 (npm `latest`) | Optional: OpenCode Claude rows at `/v1/messages` | `createAnthropic({ baseURL: 'https://opencode.ai/zen/v1', apiKey: process.env.OPENCODE_API_KEY })` serves Claude-family models through Zen's Anthropic-Messages-protocol endpoint. Verified in the dist: `createAnthropic` accepts `baseURL` (falls back to `ANTHROPIC_BASE_URL` env, then the default API), `apiKey` (falls back to `ANTHROPIC_API_KEY` env). Zero new package — this is the cheapest extension if Claude rows are wanted under the OpenCode provider. |
-| `ai` (existing) | 7.0.48 (installed `^7.0.45`) | Unchanged generation contract | `generateText` / `Output.object` / tools / `isStepCount(12)` are provider-agnostic; `@ai-sdk/openai-compatible@3.0.20` targets the same `@ai-sdk/provider@4` interface `@openrouter/ai-sdk-provider@3.0.0` already uses. No runAgent/analyzeCompany signature change. |
-| Committed snapshot `catalog.json` | repo file (1131 models) | Servable-source of truth + `api.npm` protocol hint | Already carries the 60 `opencode` + 17 `opencode-go` rows with per-row `api.npm` (the per-model SDK hint), `api.url` (zen vs go endpoint), `cost`/`limit`. Needs: (a) a new `nousresearch` row set fetched from the anonymous Nous roster by the refresh script; (b) regeneration (Go is 25 live vs 17 snapshot). |
-| `NOUSRESEARCH_API_KEY` + `OPENCODE_API_KEY` env vars | server-only, non-`PUBLIC_` | New provider keys | Both declared `z.string().optional()` in `env.ts` (the D-11 degrade-gracefully pattern), added to `.env.example` + Vercel env, named by the chain-aware env gate (Phase 20 `missingProviderKey` pattern). **Neither is auto-loaded by any SDK** — `@ai-sdk/openai-compatible` has NO env-var fallback (verified: the `Authorization` header is built only from the passed `apiKey`, dist l.1749), so both must be passed explicitly at instance construction. |
+| Technology | Current version | Purpose in v1.7 | Why |
+|---|---:|---|---|
+| Next.js App Router | `16.2.11` | Template management pages, preview/run route, history and findings pages | Already hosts the authenticated product and Route Handlers. Keep server execution in Node, not Edge, because the installed providers, Firecrawl, and telemetry are server-side. |
+| `ai` (Vercel AI SDK) | `^7.0.45` (lockfile-resolved source currently uses AI SDK 7) | Provider-neutral execution, tool loop, typed result generation | Existing `runAgent` already uses `generateText`, `tool`, `isStepCount`, `Output.object`, timeouts, retries, and `LanguageModel`. A constructor must depend on this interface, not provider-specific SDKs. |
+| `zod` | `^4.4.3` | Template input/result/finding/citation schemas and runtime boundary validation | The application already validates agent output and Server Action input with Zod. Each template should own a versioned Zod result schema; persist a normalized projection, not unchecked model JSON. |
+| `@ai-sdk/anthropic`, `@openrouter/ai-sdk-provider`, `@ai-sdk/openai-compatible` | `^4.0.26`, `^3.0.0`, `^3.0.22` | Existing four-provider model catalog and fallback chain | Reuse only through `modelFactory.ts`. It is intentionally the only module importing provider SDKs; new agent templates receive resolved `LanguageModel`s, never API keys or provider clients. |
 
-### Supporting Libraries
+### Research, Evidence, and Observability
 
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| `@ai-sdk/openai` | **4.0.27** (npm `latest`) | ONLY if GPT-5 rows (23) enter the OpenCode servable set | The `/v1/responses` protocol needs this package's `createOpenAI(...).responses(id)` (its DEFAULT model call is the Responses API — verified mismatch-error message dist l.8303; `.chat(id)` for chat completions). **Defer**: Responses API has different streaming/usage/error semantics the app's Langfuse + 402/429 classification path hasn't been validated against, and it auto-loads `OPENAI_API_KEY` (an env name this app should NOT introduce). See What NOT to Use. |
-| `@ai-sdk/google` | 4.0.31 (npm `latest`) | ONLY if Gemini rows (5) enter the servable set | Zen serves Gemini at `/v1/models/gemini-*` (a Google-Generative-Language URL shape) — endpoint shape unverified against the live API, 5 rows only. **Do not include in the initial pass.** |
-| Vitest (installed, 4.1.10) | 4.1.10 | Pure-function tests | Extend the existing mock-free tests: `instantiateModel` dispatch for the 3 new instances (incl. the zen-vs-go instance pick), the priority-ordered `getProviderForModelId` canary cases (the existing `claude-sonnet-5` → anthropic test is the regression lock), and the new provider-default rows. |
+| Technology | Current version | Purpose in v1.7 | Why |
+|---|---:|---|---|
+| `firecrawl` | `^4.32.0` | Public-web search tool and citation-source material | `webSearchTool` already calls `Firecrawl.search(query, { limit: 5 })` and normalizes results to `{ url, title, snippet }`. Use that tool adapter for both Company and Persona analyses; do not add Exa or another search provider. |
+| Langfuse (`@langfuse/client`, `@langfuse/otel`, `@langfuse/vercel-ai-sdk`) | `^5.10.0`, `^5.10.0`, `^5.9.1` | Trace model/tool execution, costs, and human corrections | Existing explicit `initLangfuse()` plus AI SDK telemetry integration is provider-agnostic. Store `traceId`/`traceUrl` on each durable run; product review state remains in Postgres, with Langfuse as observability rather than the queue of record. |
+| Server-derived citation appendix | Existing app pattern | Citation retention and validation | `deriveEvidenceAppendix(run.steps)` currently derives evidence from actual tool results before the gate accepts output. Generalize this pattern to normalized `analysis_citation` rows (or an equivalent child relation), preserving URL, title, snippet, retention tag, and the finding linkage. |
 
-### Development Tools
+### Database and Durable Product State
 
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| `npm install @ai-sdk/openai-compatible@^3.0.20` | The one new runtime dependency | Pin `^3.0.20` (npm `latest`). No alpha/beta tags on this package. |
-| `scripts/refresh-model-catalog.ts` (extend) | Add the Nous roster fetch + Zen/Go roster-verify | New `fetchNousRoster()`: anonymous `GET https://inference-api.nousresearch.com/v1/models` (verified 200), map each row → `providerID: 'nousresearch'`, `id` verbatim (incl. `~latest` alias ids), `cost.input/output = pricing.prompt/completion × 1e6` (**Nous pricing is per-token**; the snapshot's `cost` is dollars-per-1M — a unit mismatch that would silently under-price by 6 orders of magnitude if unmapped), `limit.context = context_length`, `structuredOutputs` via live join on `supported_parameters.includes('structured_outputs')` (verified: 214 of 292 rows advertise it — same live-join doctrine as the existing OpenRouter fetch). Optionally add an anonymous Zen/Go roster-verify (id-existence check, D-02 doctrine) — the live `GET https://opencode.ai/zen/go/v1/models` currently returns 25 ids vs 17 snapshot rows. Throws-on-failure so the committed snapshot stays usable (existing T-19-06 pattern). |
+| Technology | Current version | Purpose in v1.7 | Why |
+|---|---:|---|---|
+| Neon Postgres + `@neondatabase/serverless` | `^1.1.0` | Durable templates, runs, findings, citations, review decision | This is the app's existing system of record; relational parents/children fit templates → runs → findings → citations → decision much better than an editorial CMS or model-output-only JSON. |
+| Drizzle ORM + Drizzle Kit | `^0.45.2`, `^0.31.10` | Typed schema, indexes, transactions, schema push | Existing schema is in `src/lib/db/schema.ts` and `drizzle-kit push` is the project migration path. Add enum-backed run/review status fields, foreign keys, and indexes at the schema layer. Use a transaction for the terminal write of a run plus its normalized children and proposal/review record. |
+| Existing `agent_run` / `signal_proposal` / `correction` pattern | Application code | Compatibility bridge to Reviews | Reuse its trace, model-chain, usage, evidence, and human-correction conventions, but do **not** overload it as the new universal schema: `agent_run.company_id` is mandatory and `signal_proposal` encodes one proposal accepted into a live `signal`. Add generic constructor-owned tables/contracts and adapt only the shared review semantics. |
+
+### Supporting Runtime Contracts (No New Package)
+
+| Contract | Existing seam | v1.7 use |
+|---|---|---|
+| Provider-neutral executor | `src/lib/agents/modelFactory.ts` → `instantiateChain()` | Constructor passes a resolved model chain into a generic executor; provider identity/fallback behavior stays unchanged. |
+| Current agent loop | `src/lib/agents/runAgent.ts` | Extract/generalize the company-specific prompt/schema/tool bundle into a template execution contract. Preserve its timeout/fallback constraints until a durable executor is selected. |
+| Company loading + active signals | `src/lib/agents/analyzeCompany.ts`, Signals data model | Derive the Company and Persona signal schemas from active Signal records at run start; persist the signal-schema/version snapshot on the run so later Signal edits do not reinterpret history. |
+| Auth | `requireStaffAccess()` | Gate template management, run creation, history, and whole-run approval/dismissal independently on every page, Route Handler, and Server Action. |
+| Existing reviews | `src/app/actions/reviews.ts`, `signal_proposal`, `correction` | Reuse status-guarded/idempotent resolution and structured correction concepts; introduce a run-level decision action instead of looping existing per-signal Accept/Reject actions. |
+
+## Exact Integration Seams
+
+### Existing seams to reuse
+
+1. **`src/lib/agents/modelFactory.ts`** — the only provider-SDK import boundary. New constructor code calls `instantiateChain(modelChain)`; it must not create Anthropic/OpenRouter/Nous/OpenCode clients.
+2. **`src/lib/agents/runAgent.ts`** — existing AI SDK tool-loop, structured-output, 54-second budget, fallback, and `modelUsed`/`modelChain` audit seam. Generalize its input/output dependencies, not its provider logic.
+3. **`src/lib/agents/tools.ts` → `webSearchTool`** — the sole public-web capability. Its Firecrawl results are the evidence source.
+4. **`src/lib/agents/analyzeCompany.ts`** — exemplifies model-chain snapshot-at-entry, server-derived evidence, output gate, and current active-signal load. Split its company-specific assembly from the generic reusable execution path.
+5. **`src/lib/telemetry/langfuse.ts`** — existing explicit initialization, trace URL lookup, and correction annotation mirror.
+6. **`src/lib/db/schema.ts` + `src/lib/db/queries/runs.ts`** — Neon/Drizzle persistence and the existing model/trace/usage audit fields.
+7. **`src/lib/db/schema.ts` → `signalProposal` / `correction`; `src/app/actions/reviews.ts`** — existing review state, idempotent resolution, correction reason, and `revalidatePath` patterns to adapt at run granularity.
+8. **`src/lib/auth/requireStaffAccess.ts`** — authorization boundary for all state-changing constructor endpoints.
+
+### Proposed seams to add
+
+| Proposed seam | Responsibility | Must connect to |
+|---|---|---|
+| `src/lib/agents/constructor/contracts.ts` | Versioned `AgentTemplate`, target input, normalized result/finding/citation, and review-decision Zod contracts | `runAgent` adapter; template registry; Drizzle persistence |
+| `src/lib/agents/constructor/registry.ts` | Named built-in Company/Persona Buying Signal templates and their active-Signal-derived schema builder | Signals query layer; prompt builder; contract version snapshot |
+| `src/lib/agents/constructor/execute.ts` | Generic orchestration: load target/signals, resolve model chain once, call current AI SDK loop/tools, derive citations, validate normalized result | `modelFactory`, `webSearchTool`, Langfuse, per-template contracts |
+| `src/lib/db/schema.ts` additions plus `src/lib/db/queries/agentConstructor.ts` | `agent_template`, `agent_analysis_run`, `agent_analysis_finding`, `agent_analysis_citation`, and a one-decision-per-run review record; status + terminal timestamps + indexes | Neon/Drizzle; run/history/review UI |
+| `src/app/api/agent-runs/[id]/*` or equivalent Route Handler boundary | Create/status/result endpoints used by preview-and-run and polling | `requireStaffAccess`, executor selection, persistence queries |
+| `src/app/actions/agent-reviews.ts` | Atomic approve/dismiss of one completed run, including structured correction/reason if dismissed | Generic run review tables; existing correction/Langfuse conventions |
+
+## Persisted-Async Execution Decision
+
+| Requirement interpretation | Stack outcome | Roadmap decision |
+|---|---|---|
+| UI starts a run and polls while the original Route Handler executes (bounded to the current 54s loop / Vercel 60s route cap) | **No dependency addition.** Persist `queued` then `running`/terminal state in Neon, but the request remains the worker. | Viable only if v1.7 explicitly accepts no detached retries and run duration stays under the existing cap. |
+| Run must survive client disconnects, retry after function failure, or exceed one Vercel invocation | **A durable execution platform is required; none exists in this repository.** | Research/select the Vercel-supported durable-workflow/job mechanism (or an approved queue worker) before implementation. Do not simulate it with `after()`, an in-process promise, or DB polling. |
+
+This is the only material stack uncertainty for v1.7. It is an execution-infrastructure decision, not an AI SDK or web-search decision.
+
+## Alternatives Considered
+
+| Category | Recommended | Alternative | Why Not |
+|---|---|---|---|
+| Web research | Existing Firecrawl tool | Exa | Explicitly excluded by milestone direction; Firecrawl is already installed, keyed, normalized, observable, and citation-gated. |
+| AI abstraction | Existing AI SDK 7 + `modelFactory` | Direct provider calls per template | Would bypass four-provider fallback, model preference, billing/rate-limit behavior, audit fields, and the single SDK-import boundary. |
+| Durable data | Neon + Drizzle normalized relations | Store raw result only in Langfuse or JSONB | Langfuse is observability, not product state; raw JSON alone prevents target/finding/citation/history queries and safe review semantics. JSONB remains appropriate for immutable raw output/evidence snapshots alongside normalized rows. |
+| Review model | New run-level adapter over existing review conventions | Reuse `signal_proposal` as-is | It is Company-only and maps each proposal to a live Signal. v1.7 needs Company **and** Persona findings plus a single whole-run decision. |
+| Async implementation | Make infrastructure choice explicit | Fire-and-forget promises, Server Actions, `after()` | They do not provide durable completion/retry semantics in a serverless invocation. |
+
+## Explicit Exclusions
+
+- **No Exa SDK/API/dependency** — v1.7 uses the installed Firecrawl web-search tool only.
+- **No new LLM provider SDK** — the four-provider registry and `modelFactory` remain the provider boundary.
+- **No LangChain, LlamaIndex, or agent-framework layer** — AI SDK 7 already supplies the required tool loop and structured output; an extra framework would duplicate state/telemetry and obscure the provider seam.
+- **No vector database/RAG stack** — this milestone analyzes a target against active relational Signals and live web sources; it does not retrieve an unbounded document corpus.
+- **No CMS or Sanity reintroduction** — templates/results are relational operational data.
+- **No external async queue selected by assumption** — a durable executor is a phase-specific research/approval gate if detached execution is required.
 
 ## Installation
 
 ```bash
-# Core — ONE new runtime dependency
-npm install @ai-sdk/openai-compatible@^3.0.20
+# v1.7 recommended AI/research/data stack addition
+# No package installation required.
 
-# .env.local / .env.example / Vercel env (both optional server-only keys)
-NOUSRESEARCH_API_KEY=...   # from https://portal.nousresearch.com/
-OPENCODE_API_KEY=...       # from https://opencode.ai/auth — ONE key shared by Zen + Go
+# Existing verification commands after schema and contract changes
+npm test
+npm run build
+npm run db:push
 ```
 
-## Integration with the Existing `modelFactory` Seam (constraint 11)
-
-`src/lib/agents/modelFactory.ts` is the ONLY module importing provider SDKs. The v1.5 extension adds three module-scope instances beside the existing `openrouter` singleton and extends the `instantiateModel` dispatch:
-
-```typescript
-// src/lib/agents/modelFactory.ts (additions)
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-// ...existing anthropic + createOpenRouter imports unchanged...
-
-// No env auto-load in this package — apiKey MUST be passed explicitly.
-// Unset key → no Authorization header → 401 at request time (the Phase 20
-// chain-aware gate names the key so this path is unreachable when configured).
-const nous = createOpenAICompatible({
-  name: 'nousresearch',
-  apiKey: process.env.NOUSRESEARCH_API_KEY,
-  baseURL: 'https://inference-api.nousresearch.com/v1',
-});
-const zen = createOpenAICompatible({
-  name: 'opencode-zen',
-  apiKey: process.env.OPENCODE_API_KEY,
-  baseURL: 'https://opencode.ai/zen/v1',
-});
-const go = createOpenAICompatible({
-  name: 'opencode-go',
-  apiKey: process.env.OPENCODE_API_KEY,
-  baseURL: 'https://opencode.ai/zen/go/v1',
-});
-
-// Optional extension — Claude rows at /v1/messages (package already installed):
-// const zenAnthropic = createAnthropic({
-//   baseURL: 'https://opencode.ai/zen/v1',
-//   apiKey: process.env.OPENCODE_API_KEY,
-// });
-
-export function instantiateModel(id: string): LanguageModel {
-  const provider = getProviderForModelId(catalogJson, id); // priority-ordered — see trap below
-  if (provider === 'anthropic') return anthropic(id);
-  if (provider === 'openrouter') { /* existing scoped-row find + D-08 opt-out */ }
-  if (provider === 'nousresearch') return nous(id);
-  if (provider === 'opencode') {
-    // Anti-Pattern 1 (same rule as openrouter): the row lookup MUST be scoped to
-    // the opencode/opencode-go rows — bare finds read dual-listed inert rows.
-    // Zen vs Go instance picked by the row's endpoint, NEVER by client input.
-    const row = catalogJson.models.find(
-      (m) => m.id === id && (m.providerID === 'opencode' || m.providerID === 'opencode-go'),
-    );
-    return row?.api.url?.includes('zen/go') ? go(id) : zen(id);
-  }
-  throw new Error(`unsupported provider for model ${id}`);
-}
-```
-
-**Registry changes in `src/lib/models/catalog.ts`:**
-- `ModelProviderId = 'anthropic' | 'openrouter' | 'nousresearch' | 'opencode'` — both `opencode` and `opencode-go` snapshot providerIDs map to the single `'opencode'` registry id (one provider spanning both endpoints, per the milestone).
-- `PROVIDER_GATES`: `nousresearch: {}` (full active roster) and `opencode: {}` unless a subset gate is desired (see Variants). Anthropic's sonnet-only allowlist unchanged.
-- `SERVABLE_PROVIDERS` grows to all four; `getUnionServableIds` unchanged (Set-deduped).
-- `PROVIDER_DEFAULT_MODELS` gains `nousresearch` + `opencode` defaults (pick roster-verified concrete ids, mirroring the D-07 doctrine).
-- **`getProviderForModelId` MUST become priority-ordered.** Verified in `catalog.json`: `claude-sonnet-4-6` has rows at index 11 (`opencode`) and 92 (`anthropic`); every dual-listed id sorts opencode-first. Extending the current first-match `find()` scope to include 'opencode' silently re-resolves the anthropic default → opencode. Replace the single find with an explicit precedence iteration (`['anthropic','openrouter','opencode','nousresearch'].find(p => row exists with providerID === p)`) and keep/extend the collision-canary tests (`claude-sonnet-5` → anthropic stays the lock). The nousresearch id space (`vendor/model`, OpenRouter-style, incl. `~latest` aliases) can overlap the openrouter id space — the canary scope + precedence handles it.
-- `structuredOutputs` D-08 note: the existing per-model `structuredOutputs: { strict: false }` option is an **openrouter/anthropic-package concept**. `@ai-sdk/openai-compatible` has no per-model equivalent — its knob is the PROVIDER-level `supportsStructuredOutputs` (default **false**, verified dist l.435). With false, schema requests downgrade to `response_format: { type: 'json_object' }` + a warning (verified l.525/557) — the app's `Output.object` in `runAgent.ts:74` still works (JSON mode + client-side parse/validate, same degradation path the app already handles for non-strict openrouter rows). Since the snapshot flags all opencode rows `structuredOutputs: true` (script default, NOT live-verified) and Zen/Go's lean rosters can't live-verify it, **start all three new instances with `supportsStructuredOutputs` unset (false)** and flip to `true` per instance only after a live key-backed verification proves `json_schema` acceptance — mirroring the v1.4 `:free`-model verify-first doctrine.
-
-**Env gate:** the Phase 20 chain-aware `missingProviderKey` logic extends to name `NOUSRESEARCH_API_KEY` / `OPENCODE_API_KEY`; `env.ts` declares both `z.string().optional()` (D-11 pattern — unset key degrades to `not_configured`, never crashes at import).
-
-## Stack Patterns by Variant
-
-**If the OpenCode servable gate is chat-completions-only (RECOMMENDED initial pass — matches the milestone's "one package covers both" intent):**
-- Use `@ai-sdk/openai-compatible` × 3 instances (nousresearch, opencode-zen, opencode-go) + the 30 opencode chat-completions rows (20 zen + 10 go) + the Nous roster.
-- Because: 1 new package, zero new protocol surfaces, `model_used`/`model_chain` and the 402/429 classifier are untouched, and the served models (deepseek-v4-flash, glm-5.2, kimi-k2.7, minimax-m3, qwen3.6, grok-4.5…) are exactly the cost-effective open-source tier. The dropped GPT-5/Claude/Gemini rows are largely reachable via the existing openrouter provider (`anthropic/claude-*`, GPT-5 via `openai/gpt-*` etc. — opencode∩openrouter = 0 so no id-collision loss, and the anthropic provider already serves `claude-sonnet-4-6`).
-- Gate in `PROVIDER_GATES.opencode = { allowlist: [...30 chat-completions ids] }` — or filter by `api.npm === '@ai-sdk/openai-compatible'` in the servable source (data-driven, survives regeneration).
-
-**If Claude coverage under OpenCode is wanted (cheap extension):**
-- Also add ONE `createAnthropic({ baseURL: 'https://opencode.ai/zen/v1', apiKey: process.env.OPENCODE_API_KEY })` instance and dispatch the 19 `api.npm === '@ai-sdk/anthropic'` opencode rows to it (`zenAnthropic(id)`).
-- Because: zero new packages (`@ai-sdk/anthropic@4.0.27` installed), 19 high-value rows (`claude-opus-5`, `claude-fable-5`, `claude-haiku-4-5`) that are opencode-exclusive in this snapshot, and the Anthropic protocol is already the app's most-tested path. Cost: `instantiateModel` gains a per-row protocol branch (`api.npm`), and `claude-opus-5`-class rows join the servable set under 'opencode' — the priority-ordered canary already handles the 10 dual-listed claude ids.
-
-**If full 77-row fidelity is wanted (NOT recommended):**
-- Add `@ai-sdk/openai@4.0.27` (`.responses(id)` for the 23 GPT rows) and `@ai-sdk/google@4.0.31` (5 Gemini rows, endpoint shape unverified) with per-row `api.npm` dispatch.
-- Because: 4 packages + 3 extra protocols (Responses streaming/usage semantics, Google URL shape) for 28 marginal rows, all reachable through the existing openrouter provider. This contradicts the milestone's own simplification framing.
-
-## Alternatives Considered
-
-| Recommended | Alternative | Why Not |
-|-------------|-------------|---------|
-| `@ai-sdk/openai-compatible@3.0.20` for Nous + OpenCode | A dedicated Nous/OpenCode SDK package | **None exists** — Nous is OpenAI-compatible (verified: `/v1/chat/completions` pattern in OmniRoute PR #2835, Hermes "any OpenAI-compatible endpoint" docs, Langertha `Role::OpenAICompatible`); Zen/Go are OpenAI-compatible. A custom wrapper would be redundant. |
-| Three `createOpenAICompatible` instances (nous / zen / go) | One instance + per-call `baseURL` | `baseURL` is provider-level in this package (dist: `new URL(baseURL + path)` from the instance config); the 2-endpoint OpenCode reality + the distinct key scopes force 3 instances. Names must differ (`nousresearch` / `opencode-zen` / `opencode-go`) because `name` is required and becomes the `provider` metadata key. |
-| Explicit `apiKey` at construction | Rely on SDK env auto-load | The package has NO env fallback (verified). Passing `process.env.NOUSRESEARCH_API_KEY` / `process.env.OPENCODE_API_KEY` at construction is the ONLY way to feed custom key names. Note the module-load-time capture: same lifecycle as the existing `anthropic`/`openrouter` singletons, and the Phase 20 gate makes the unset case unreachable. |
-| Priority-ordered `getProviderForModelId` | Extend the existing scoped `find()` with 'opencode'/'nousresearch' | Verified regression: opencode rows sort first for every dual-listed id (index 11 vs 92 for `claude-sonnet-4-6`), so a naive scope extension silently re-resolves the anthropic default and corrupts `model_used` audit. The explicit-precedence iteration is the only safe extension. |
-| `supportsStructuredOutputs` unset (false) initially | Set `true` to match the snapshot flag | Zen/Go structured-output support is UNVERIFIED (snapshot's all-true is the script's default for non-openrouter rows; lean rosters can't confirm). False degrades to `json_object` + the app's own validation — the safe default until a live key-backed check. Nous has a live signal (214/292 rows advertise it) but the flag is per-INSTANCE, not per-model. |
-
-## What NOT to Use
-
-| Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| `@ai-sdk/openai` in the initial pass | Its default model call is the **Responses API** (verified dist l.8303) — different streaming/usage/error semantics the Langfuse tracing + 402/429 classifier + 60s budget were never validated against; only the 23 GPT-5 rows need it. It also auto-loads `OPENAI_API_KEY`, an env name this app should not introduce. | `@ai-sdk/openai-compatible` chat completions (30 rows); `@ai-sdk/anthropic` for Claude rows; defer GPT rows. |
-| `@ai-sdk/google` in the initial pass | Zen's Gemini URL shape (`/v1/models/gemini-*`) is unverified, 5 rows only. | Skip; Gemini is reachable via openrouter (`google/…`) rows already in the union. |
-| `OPENAI_API_KEY` env var | Would collide with the auto-load defaults of any future `@ai-sdk/openai` instance and invites accidental use of unrelated OpenAI keys. | Keep the app's per-provider key names (`NOUSRESEARCH_API_KEY`, `OPENCODE_API_KEY`) and always pass `apiKey` explicitly. |
-| Per-request `createOpenAICompatible()` calls | Provider instances are stateless config; construction per request breaks the module-scope singleton pattern and the D-16 mock seam. | One module-scope instance per endpoint, like the existing `openrouter`. |
-| Rewriting/stripping opencode or nous ids at the seam | Raw ids pass verbatim is the D-04 invariant; Nous aliases (`~deepseek/deepseek-v4-flash-latest`) and opencode ids (`big-pickle`) are literal API ids — stripping `~` 404s (same trap as v1.4's `~` research). | Pass ids verbatim; label aliases in the picker like the existing `~latest`/`:free` treatment. |
-| Treating the opencode `api.npm` field as the *serving* SDK for every row | It's the opencode registry's per-model upstream-protocol hint — correct for dispatch, but it does NOT mean "install 4 packages"; chat-completions rows dominate and share one package. | Use `api.npm` as the dispatch key only when a row enters the servable set, per the Variants above. |
-| Mapping Nous `pricing` without a unit conversion | Nous prices are **per-token** (`0.0000016`); the snapshot's `cost` is dollars-per-1M — copying verbatim would show $0.0000016 where $1.60 belongs (6 orders of magnitude off, breaking the amber cost captions). | `cost.input = round(pricing.prompt * 1e6)`, `cost.output = round(pricing.completion * 1e6)`. |
-
-## Version Compatibility
-
-| Package | Compatible With | Notes |
-|---------|-----------------|-------|
-| `@ai-sdk/openai-compatible@3.0.20` | `ai@7.0.48` tree (`@ai-sdk/provider@4.0.4`, `@ai-sdk/provider-utils@5.0.18`) | Same provider-v4 interface `@openrouter/ai-sdk-provider@3.0.0` already uses; npm dedupes the shared provider packages. |
-| `@ai-sdk/openai-compatible@3.0.20` | `zod@4.4.3` (peer `^3.25.76 \|\| ^4.1.8`) | Satisfied. |
-| `@ai-sdk/openai-compatible@3.0.20` | Node 22.x (engines + Vercel pin) | Satisfied. |
-| `@ai-sdk/anthropic@4.0.27` (installed `^4.0.26`) | `createAnthropic({ baseURL, apiKey })` with Zen `/v1/messages` | Verified in dist: `baseURL` option (env fallback `ANTHROPIC_BASE_URL`), `apiKey` option (env fallback `ANTHROPIC_API_KEY`). |
-| All three new instances | `generateText` / `Output.object` / tools / `isStepCount` (ai@7) | Callable provider returns `LanguageModel` — identical shape to `anthropic(id)`; no `runAgent` signature change. |
-| All three new instances | `@langfuse/vercel-ai-sdk@5.9.1` | Provider-agnostic; usage included in `generateText` responses (non-streaming), `includeUsage: true` only matters for streaming. |
-
-## Vercel / Next.js Serverless Constraints
-
-1. **Node 22 satisfied** — all packages run under the existing Node serverless functions; no edge runtime.
-2. **60s `maxDuration` unchanged** — the three instances are plain fetch-based chat providers (same cost model as openrouter); the existing `LOOP_BUDGET_MS = 54_000` and per-attempt clamps hold.
-3. **Env plumbing** — add `NOUSRESEARCH_API_KEY` + `OPENCODE_API_KEY` (both optional server-only) to `env.ts`, `.env.example`, and Vercel project env. The security-grep gate's `SERVER_COMPONENT` exemption set (VER-04) must include `modelFactory.ts`'s new explicit `process.env.NOUSRESEARCH_API_KEY` / `process.env.OPENCODE_API_KEY` reads — the canary test already asserts that file is server-only, so the gate stays honest.
-4. **Naming collision with Langfuse/`provider` metadata** — the `name` option (`nousresearch`/`opencode-zen`/`opencode-go`) becomes the `provider: '<name>.chat'` key in AI SDK provider metadata; the `opencode` registry id and the `opencode-zen`/`opencode-go` instance names are deliberately distinct strings so Langfuse spans and error messages stay unambiguous.
+If the roadmap chooses true detached durable execution, its package/platform configuration is deliberately **not** specified here until that platform is approved and its current Vercel compatibility is verified.
 
 ## Sources
 
-- Live API — `GET https://opencode.ai/zen/v1/models` (HTTP 200 anonymous; 60 models, lean `{id, owned_by}` list shape) — HIGH, fetched 2026-08-03
-- Live API — `GET https://opencode.ai/zen/go/v1/models` (HTTP 200 anonymous; **25** models live vs 17 in the committed snapshot → regenerate) — HIGH, fetched 2026-08-03
-- Live API — `GET https://inference-api.nousresearch.com/v1/models` (HTTP 200 anonymous; **292** rows; rich shape: `id`/`canonical_slug`, `pricing` **per-token**, `context_length`, `supported_parameters` — 214/292 advertise `structured_outputs` — `~latest` aliases, `vendor/model` ids) — HIGH, fetched 2026-08-03
-- OpenCode official Zen docs — `https://opencode.ai/docs/zen/` (per-model Endpoint + AI SDK Package table: `/v1/chat/completions` → `@ai-sdk/openai-compatible`, `/v1/responses` → `@ai-sdk/openai`, `/v1/messages` → `@ai-sdk/anthropic`, `/v1/models/gemini-*` → `@ai-sdk/google`; roster at `GET …/zen/v1/models`; "use your own OpenAI or Anthropic API keys while still accessing other models in Zen") — HIGH
-- OpenCode providers doc — `https://opencode.ai/docs/providers/` ("use `@ai-sdk/openai-compatible` for OpenAI-compatible providers (for `/v1/chat/completions`). If your provider/model uses `/v1/responses`, use `@ai-sdk/openai`"; per-model `provider.npm` override for mixed setups) — HIGH
-- Docker Agent OpenCode Zen doc — `https://docs.docker.com/ai/docker-agent/providers/opencode-zen/` (**Token Variable `OPENCODE_API_KEY`**; "The same API key works for both OpenCode Go and OpenCode Zen — they are part of the same platform"; Zen pay-per-use vs Go $10/mo; Base URLs for both) — MEDIUM-HIGH (third-party but specific; key name + sharing claim)
-- Nous portal — `https://portal.nousresearch.com/api-docs` + `https://portal.nousresearch.com/info` ("250 models via the Nous API … powered by OpenRouter"; API-key flow) — MEDIUM-HIGH
-- OmniRoute PR #2835 — `https://github.com/diegosouzapw/OmniRoute/pull/2835` (Nous provider baseUrl `https://inference-api.nousresearch.com/v1` + `/chat/completions` path pattern) — MEDIUM
-- Langertha (metacpan) — `https://metacpan.org/pod/Langertha::Engine::NousResearch` ("Get your API key at https://portal.nousresearch.com/"; OpenAI-compatible role over `https://inference-api.nousresearch.com/v1`) — MEDIUM
-- npm registry — `@ai-sdk/openai-compatible` latest **3.0.20** (deps `@ai-sdk/provider@4.0.4`, `@ai-sdk/provider-utils@5.0.18`; peer `zod ^3.25.76 \|\| ^4.1.8`); `@ai-sdk/openai` latest **4.0.27**; `@ai-sdk/anthropic` latest **4.0.27**; `@ai-sdk/google` latest **4.0.31**; `ai` latest **7.0.48** — HIGH, fetched 2026-08-03
-- Packed dist sources — `@ai-sdk/openai-compatible@3.0.20/dist/index.js` (createOpenAICompatible: `name` required, `Authorization: Bearer ${apiKey}` only when passed — **no env auto-load**, l.1746-1749; `supportsStructuredOutputs` default **false**, l.435; json_schema dropped → `json_object` + warning when false, l.525/557; `strictJsonSchema` per-call option), `@ai-sdk/openai@4.0.27/dist/index.js` (loadApiKey defaults to `OPENAI_API_KEY`, l.9483-9487; default model = Responses API, mismatch error l.8303), `@ai-sdk/anthropic@4.0.27/dist/index.js` (createAnthropic `baseURL`/`apiKey` options with `ANTHROPIC_BASE_URL`/`ANTHROPIC_API_KEY` env fallbacks) — HIGH
-- Codebase reads — `src/lib/agents/modelFactory.ts` (the seam + `createOpenRouter({ compatibility: 'strict' })` + D-08 per-model opt-out), `src/lib/models/catalog.ts` (`ModelProviderId`, `PROVIDER_GATES`, `getProviderForModelId` scoped find), `catalog.json` (opencode 60 / opencode-go 17 rows; `api.npm` split 21/20/14/5 and 10/5/2; dual-listed ids sort opencode-first: `claude-sonnet-4-6` idx 11 vs 92), `src/lib/env.ts` (D-11 optional-key pattern), `scripts/refresh-model-catalog.ts` (snapshot generator + OpenRouter live-join pattern), `package.json` (ai@7.0.45 → 7.0.48 line, `@ai-sdk/anthropic@^4.0.26`) — HIGH
-
----
-*Stack research for: v1.5 Additional AI Providers (NOUSRESEARCH + OPENCODE)*
-*Researched: 2026-08-03*
+- Repository `package.json` — installed versions: Next `16.2.11`, `ai` `^7.0.45`, Firecrawl `^4.32.0`, Drizzle `^0.45.2`, Langfuse `5.10.x`, provider SDKs, Zod `^4.4.3`. **HIGH** (read 2026-08-06)
+- Repository `src/lib/agents/runAgent.ts`, `analyzeCompany.ts`, `tools.ts`, `modelFactory.ts`, `types.ts` — current AI/tool/fallback/evidence seams. **HIGH**
+- Repository `src/lib/db/schema.ts`, `src/lib/db/queries/runs.ts`, `src/app/actions/reviews.ts`, `src/lib/telemetry/langfuse.ts`, `src/lib/env.ts`, `next.config.ts`. **HIGH**
+- Vercel AI SDK docs: [structured output with tools](https://github.com/vercel/ai/blob/main/content/docs/03-ai-sdk-core/10-generating-structured-data.mdx), [tool calling plus structured outputs](https://github.com/vercel/ai/blob/main/content/docs/09-troubleshooting/14-tool-calling-with-structured-outputs.mdx), and current `generateText` retry/timeout implementation. `Output.object`, tools, and `stopWhen` are supported; structured output adds a tool-loop step. **HIGH** (Context7, 2026-08-06)
+- Firecrawl docs: [Node.js search quickstart](https://github.com/firecrawl/firecrawl-docs/blob/main/quickstarts/nodejs.mdx) and [v2 Search API schema](https://github.com/firecrawl/firecrawl-docs/blob/main/api-reference/v2-openapi.json). `search(query, { limit })` returns web results with title/URL; source fields support the existing normalizer. **HIGH** (Context7, 2026-08-06)
+- Drizzle docs: [indexes and constraints](https://github.com/drizzle-team/drizzle-orm-docs/blob/main/src/content/docs/pg/indexes-constraints.mdx) and [Postgres relations/index examples](https://github.com/drizzle-team/drizzle-orm-docs/blob/main/src/content/docs/pg/relations.mdx). Typed enum, FK, JSONB, timestamp, and index declarations are supported. **HIGH** (Context7, 2026-08-06)
+- Vercel docs: [function maxDuration](https://vercel.com/docs/functions/configuring-functions/duration). Route-level execution duration is configured with a named `maxDuration` export; current code reserves 54 seconds under an existing 60-second route cap. **HIGH** for route-duration fact; **MEDIUM** for a v1.7 durable-executor selection because no specific platform was approved in scope.
