@@ -27,10 +27,12 @@ export function ArchiveSignalDialog({
   signalKind,
   signalId,
   onArchived,
+  trigger,
 }: {
   signalKind: 'company' | 'persona';
   signalId: number;
   onArchived?: () => void;
+  trigger?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,9 +70,11 @@ export function ArchiveSignalDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          Archive
-        </Button>
+        {trigger ?? (
+          <Button variant="outline" size="sm">
+            Archive
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

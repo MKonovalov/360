@@ -15,6 +15,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { MoreVertical } from 'lucide-react';
 import { dateFormatter } from '@/components/explorer/explorer-format';
 import { humanizeEnum } from '@/components/explorer/explorer-format';
 
@@ -192,29 +199,50 @@ export function SignalTable({
                   {formatUpdatedAt(row.updatedAt)}
                 </TableCell>
                 <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <SignalForm
-                      signalKind={signalKind}
-                      mode="edit"
-                      signal={row}
-                      existingLinkedOfferingIds={linkedIds}
-                      practiceAreas={practiceAreas}
-                      buyerRoles={buyerRoles}
-                      categories={categories}
-                      activeOfferingsByPracticeAreaId={
-                        activeOfferingsByPracticeAreaId
-                      }
-                      trigger={
-                        <Button variant="outline" size="sm">
-                          Edit
-                        </Button>
-                      }
-                    />
-                    <ArchiveSignalDialog
-                      signalKind={signalKind}
-                      signalId={row.id}
-                    />
-                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-7"
+                        aria-label={`Actions for ${row.name}`}
+                      >
+                        <MoreVertical className="size-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <SignalForm
+                        signalKind={signalKind}
+                        mode="edit"
+                        signal={row}
+                        existingLinkedOfferingIds={linkedIds}
+                        practiceAreas={practiceAreas}
+                        buyerRoles={buyerRoles}
+                        categories={categories}
+                        activeOfferingsByPracticeAreaId={
+                          activeOfferingsByPracticeAreaId
+                        }
+                        trigger={
+                          <DropdownMenuItem
+                            onSelect={(e) => e.preventDefault()}
+                          >
+                            Edit
+                          </DropdownMenuItem>
+                        }
+                      />
+                      <ArchiveSignalDialog
+                        signalKind={signalKind}
+                        signalId={row.id}
+                        trigger={
+                          <DropdownMenuItem
+                            onSelect={(e) => e.preventDefault()}
+                          >
+                            Archive
+                          </DropdownMenuItem>
+                        }
+                      />
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
             );
