@@ -86,6 +86,7 @@ completed: 2026-08-06
 
 - Workflow run IDs and diagnostic states are persisted for observability only; they never promote themselves to application lifecycle truth.
 - Reconciliation is allowed exactly once. Known diagnostic states are repaired to the current database status; unknown states fail a nonterminal run safely.
+- Verification repair: the mismatch event is now appended only after the guarded one-attempt update wins, and contention is covered by a focused no-duplicate-event test.
 
 ## Deviations from Plan
 
@@ -99,7 +100,7 @@ None - plan executed exactly as written. Task 3 changes the remote database only
 ## Verification Evidence
 
 - `npm run test:workflow:config` — passed; isolated config resolved, with the warning above.
-- `npm test -- src/lib/db/queries/workflowProofRuns.test.ts` — passed, 8 tests.
+- `npm test -- src/lib/db/queries/workflowProofRuns.test.ts` — passed, 9 tests, including guarded reconciliation contention.
 - `env -u TEST_DATABASE_URL npm run test:workflow` — failed fast as required with `TEST_DATABASE_URL is required` and exit 1.
 - `npx tsc --noEmit` — passed.
 - `npm run build` — passed; generated Workflow routes were present under `/.well-known/workflow/`.
@@ -109,6 +110,11 @@ None - plan executed exactly as written. Task 3 changes the remote database only
 
 - Plan 31-02 can build the authorized start/status route and Workflow proof integration on the committed ledger/config foundation.
 - No database credential blocker or destructive drift was encountered.
+
+## Verification Repair
+
+- Removed duplicate JSON keys from `package.json` and regenerated `package-lock.json`; the only Workflow package specs are exact `workflow: 4.8.0` and `@workflow/vitest: 4.0.16`.
+- Moved `workflow_metadata_mismatch` event insertion after the conditional reconciliation-attempt update. A losing/replayed caller reloads the row without appending an audit event or changing lifecycle state.
 
 ## Self-Check: PASSED
 

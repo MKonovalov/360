@@ -204,15 +204,6 @@ export async function reconcileWorkflowProofRun(applicationRunId: number) {
   }
   if (current.reconciliationAttempts > 0) return current;
 
-  await appendEvent(
-    current.id,
-    'workflow_metadata_mismatch',
-    current.reconciliationAttempts + 1,
-    current.recoveryAttempts,
-    'workflow_metadata_mismatch',
-    current.workflowRunId ?? undefined,
-  );
-
   const [guarded] = await db
     .update(workflowProofRun)
     .set({ reconciliationAttempts: 1, updatedAt: new Date() })
@@ -220,11 +211,20 @@ export async function reconcileWorkflowProofRun(applicationRunId: number) {
     .returning();
   if (!guarded) return getWorkflowProofRun(applicationRunId);
 
+  await appendEvent(
+    guarded.id,
+    'workflow_metadata_mismatch',
+    guarded.reconciliationAttempts,
+    guarded.recoveryAttempts,
+    'workflow_metadata_mismatch',
+    guarded.workflowRunId ?? undefined,
+  );
+
   const safeDiagnosticStates = ['queued', 'running', 'completed', 'failed'];
-  if (safeDiagnosticStates.includes(current.diagnosticWorkflowState)) {
+  if (guarded.diagnosticWorkflowState && safeDiagnosticStates.includes(guarded.diagnosticWorkflowState)) {
     const [reconciled] = await db
       .update(workflowProofRun)
-      .set({ diagnosticWorkflowState: current.status, updatedAt: new Date() })
+      .set({ diagnosticWorkflowState: guarded.status, updatedAt: new Date() })
       .where(and(eq(workflowProofRun.id, applicationRunId), eq(workflowProofRun.reconciliationAttempts, 1)))
       .returning();
     if (!reconciled) return getWorkflowProofRun(applicationRunId);
@@ -232,7 +232,7 @@ export async function reconcileWorkflowProofRun(applicationRunId: number) {
     return reconciled;
   }
 
-  if (current.status === 'queued' || current.status === 'running') {
+  if (guarded.status === 'queued' || guarded.status === 'running') {
     const now = new Date();
     const [failed] = await db
       .update(workflowProofRun)
@@ -246,7 +246,7 @@ export async function reconcileWorkflowProofRun(applicationRunId: number) {
       .where(
         and(
           eq(workflowProofRun.id, applicationRunId),
-          eq(workflowProofRun.status, current.status),
+          eq(workflowProofRun.status, guarded.status),
           eq(workflowProofRun.reconciliationAttempts, 1),
         ),
       )

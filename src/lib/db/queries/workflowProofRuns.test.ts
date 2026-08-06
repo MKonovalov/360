@@ -38,6 +38,12 @@ function selectRows(...rows: readonly unknown[]) {
   return where;
 }
 
+function queueSelectRows(...rows: readonly unknown[]) {
+  const where = vi.fn().mockResolvedValue(rows);
+  mocks.db.select.mockImplementationOnce(() => ({ from: vi.fn().mockReturnValue({ where }) }));
+  return where;
+}
+
 function insertReturning(...rows: readonly unknown[]) {
   const returning = vi.fn().mockResolvedValue(rows);
   mocks.db.insert.mockReturnValue({
@@ -194,5 +200,25 @@ describe('workflow proof ledger guards', () => {
     selectRows(replay);
     expect(await reconcileWorkflowProofRun(14)).toEqual(replay);
     expect(mocks.db.insert).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not append a mismatch event when the one-attempt guard is already won', async () => {
+    const observed = {
+      id: 15,
+      status: 'running',
+      diagnosticWorkflowState: 'completed',
+      reconciliationAttempts: 0,
+      recoveryAttempts: 0,
+    };
+    const afterContention = { ...observed, reconciliationAttempts: 1 };
+    queueSelectRows(observed);
+    queueUpdateReturning();
+    queueSelectRows(afterContention);
+
+    const result = await reconcileWorkflowProofRun(15);
+
+    expect(result).toEqual(afterContention);
+    expect(mocks.db.insert).not.toHaveBeenCalled();
+    expect(mocks.db.update).toHaveBeenCalledTimes(1);
   });
 });
