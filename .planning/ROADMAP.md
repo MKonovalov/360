@@ -363,7 +363,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 **Wave 3** *(blocked on Wave 2 completion, parallel with each other)*
 
-- [ ] 30-03-PLAN.md — Server Actions: Offering + Trigger CRUD, ranked Buyer Role diff-and-sync, immediate-persist action (OFR-03, OFR-04, OFR-05, OFR-08)
+- [x] 30-03-PLAN.md — Server Actions: Offering + Trigger CRUD, ranked Buyer Role diff-and-sync, immediate-persist action (OFR-03, OFR-04, OFR-05, OFR-08)
 - [ ] 30-04-PLAN.md — PracticeAreaForm + DomainForm Sheet CRUD components (OFR-03)
 
 **Wave 4** *(blocked on Wave 3 completion, parallel with each other)*
