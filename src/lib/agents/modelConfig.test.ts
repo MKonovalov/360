@@ -8,7 +8,7 @@ import {
   LoadAPIKeyError,
 } from 'ai';
 import { classifyModelError, isFailoverEligible, resolveModelChain, shouldAdvance } from './modelConfig';
-import { FAST_MODEL_ID } from '@/lib/models/catalog';
+import { FAST_MODEL_ID, SERVABLE_PROVIDERS } from '@/lib/models/catalog';
 
 // FAL-02/FAL-03 pure unit coverage (D-16): zero mocks, zero live calls — real
 // constructed SDK error instances (verified constructor shapes, ai@7.0.45).
@@ -148,18 +148,39 @@ describe('classifyModelError', () => {
   });
 });
 
-describe('shouldAdvance — FAL-03 4-cell matrix (provider-keyed, D-20-07)', () => {
-  it('rate_limited never advances same-provider; advances cross-provider', () => {
-    expect(shouldAdvance('rate_limited', 'anthropic', 'anthropic')).toBe(false); // v1.3 verbatim
-    expect(shouldAdvance('rate_limited', 'openrouter', 'openrouter')).toBe(false); // v1.3 verbatim
-    expect(shouldAdvance('rate_limited', 'anthropic', 'openrouter')).toBe(true); // FAL-03
-    expect(shouldAdvance('rate_limited', 'openrouter', 'anthropic')).toBe(true); // FAL-03
+// RUN-04 (D-25-04): the FAL-03 4-cell matrix widens to a data-driven 16-cell
+// matrix over the 4-provider set (Anti-Pattern 3: data-driven loops, never a
+// 16-branch switch). shouldAdvance is provider-agnostic — the widening is pure
+// test coverage proving the predicate already treats every provider pair
+// correctly (verify-only contract: modelConfig.ts byte-identical).
+describe('shouldAdvance — 16-cell matrix (provider-keyed, D-20-07, widened to 4 providers, RUN-04)', () => {
+  // Exactly 4 same-provider false cells (anthropic, openrouter, nousresearch,
+  // opencode) and 12 cross-provider true cells. v1.3 same-provider never-advance
+  // (D-01/D-03) preserved verbatim; cross-provider 429 advance is the FAL-03
+  // hop-aware extension.
+  it('rate_limited advances ONLY on a cross-provider hop across all 4 providers', () => {
+    for (const from of SERVABLE_PROVIDERS) {
+      for (const to of SERVABLE_PROVIDERS) {
+        expect(shouldAdvance('rate_limited', from, to)).toBe(from !== to);
+      }
+    }
+  });
+
+  it('COLLISION CANARY: Zen↔Go is SAME-provider — a 429 between opencode models never advances (D-25-04)', () => {
+    // getProviderForModelId returns logical 'opencode' for BOTH 'opencode' and
+    // 'opencode-go' snapshot rows (SNAPSHOT_PROVIDER_IDS, catalog.ts l.108-113),
+    // so a Zen→Go 429 hop arrives here as from='opencode', to='opencode' and
+    // never advances — one shared OPENCODE_API_KEY (D-25-04, D-01/D-03).
+    expect(shouldAdvance('rate_limited', 'opencode', 'opencode')).toBe(false);
   });
 
   it('non-429 eligible classes advance regardless of provider (v1.3 preserved, not a relaxation)', () => {
     for (const cls of ['model_not_found', 'server_error', 'connection'] as const) {
-      expect(shouldAdvance(cls, 'anthropic', 'anthropic')).toBe(true);
-      expect(shouldAdvance(cls, 'openrouter', 'anthropic')).toBe(true);
+      for (const from of SERVABLE_PROVIDERS) {
+        for (const to of SERVABLE_PROVIDERS) {
+          expect(shouldAdvance(cls, from, to)).toBe(true);
+        }
+      }
     }
   });
 
@@ -172,6 +193,7 @@ describe('shouldAdvance — FAL-03 4-cell matrix (provider-keyed, D-20-07)', () 
   it('fail-closed null provider identity never advances a 429; non-429 unaffected', () => {
     expect(shouldAdvance('rate_limited', 'anthropic', null)).toBe(false); // catalog drift / last-model sentinel
     expect(shouldAdvance('rate_limited', null, 'openrouter')).toBe(false); // catalog drift / last-model sentinel
+    expect(shouldAdvance('rate_limited', 'nousresearch', null)).toBe(false); // RUN-04: nousresearch null identity fail-closes too
     expect(shouldAdvance('server_error', null, null)).toBe(true); // non-429 eligible unaffected by unknown identity
   });
 });

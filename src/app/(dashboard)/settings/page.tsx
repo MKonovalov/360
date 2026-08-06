@@ -62,6 +62,14 @@ export default async function SettingsPage() {
       providerID: provider,
       costInput: m?.cost?.input ?? 0,
       costOutput: m?.cost?.output ?? 0,
+      // SET-03: only the opencode LOGICAL provider carries a meaningful
+      // endpoint — an opencode-go matched row is 'go', any other opencode
+      // match is 'zen' (the Zen-wins dedup guarantees a dual-listed id's
+      // matched row is never 'opencode-go' unless it's Go-exclusive); every
+      // non-opencode provider is null. This single derivation point flows
+      // into BOTH servableByProvider and unionServableModels below, since
+      // both call this shared trimRow.
+      endpoint: provider === 'opencode' ? (m?.providerID === 'opencode-go' ? 'go' : 'zen') : null,
     };
   };
 

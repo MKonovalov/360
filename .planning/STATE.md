@@ -7,34 +7,33 @@ last_updated: "2026-08-06T14:22:48.452Z"
 last_activity: 2026-08-06
 progress:
   total_phases: 5
-  completed_phases: 2
-  total_plans: 12
-  completed_plans: 9
-  percent: 40
+  completed_phases: 5
+  total_plans: 20
+  completed_plans: 20
+  percent: 100
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-08-02)
+See: .planning/PROJECT.md (updated 2026-08-04)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** Phase 25 — run-path-modelfactory-seam
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Phase: 25 (run-path-modelfactory-seam) — EXECUTING
-Plan: 2 of 4
+Phase: v1.6 Signals & Offerings — Phases 29-30 executed and shipped via PR #3 (2026-08-06); Phase 28 planned. v1.5 complete.
+Plan: —
 Status: Phase 30 shipped — PR #3
 Last activity: 2026-08-06
-Next up: Phase 25 — Run Path / modelFactory Seam (CONTEXT not yet gathered)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 94 (v1.0: 14 + v1.1: 27 + v1.2: 10 + v1.3: 12)
+- Total plans completed: 106 (v1.0: 14 + v1.1: 27 + v1.2: 10 + v1.3: 12)
 - Average duration: - min
 - Total execution time: - hours (v1.4 not started)
 
@@ -81,6 +80,9 @@ Next up: Phase 25 — Run Path / modelFactory Seam (CONTEXT not yet gathered)
 | Phase 24-refresh-script-catalog-data P03 | 20min | 3 tasks | 2 files |
 | Phase 24-refresh-script-catalog-data P04 | 5min | 1 tasks | 1 files |
 | Phase 25-run-path-modelfactory-seam P01 | 4min | 3 tasks | 4 files |
+| Phase 25-run-path-modelfactory-seam P02 | 3min | 2 tasks | 2 files |
+| Phase 25-run-path-modelfactory-seam P03 | 2min | 2 tasks | 1 files |
+| Phase 25-run-path-modelfactory-seam P04 | 3min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -187,6 +189,12 @@ VER-02/VER-05 requirement status: harness + test account (the operator prerequis
 - [Phase 25-run-path-modelfactory-seam]: 25-01: constructorCalls capture arrays typed precisely (OpenAICompatibleOptions[]/AnthropicOptions[]) instead of the plan's unknown[] — RUN-06 tests read opts.supportsStructuredOutputs without casts
 - [Phase 25-run-path-modelfactory-seam]: 25-01: RUN-02 dispatch tests are RESULT-SHAPE assertions on marker'd callable returns (never mock.calls history) — order-independent under parallel/random test order, immune to beforeEach's vi.clearAllMocks
 - [Phase 25-run-path-modelfactory-seam]: 25-01: TDD split per plan — Tasks 1+2 are test-only RED tasks whose shared GREEN lands in Task 3; RED 42152c6e + RED 2c624ac5 strictly precede GREEN 970112d9 (TDD gate satisfied)
+- [Phase 25-run-path-modelfactory-seam]: 25-02: D-25-05 executed with zero special-casing — getProviderForModelId already collapses opencode + opencode-go snapshot ids to logical 'opencode' via SNAPSHOT_PROVIDER_IDS, so the dual-id→single-key mapping (OPENCODE_API_KEY) is free; 4 guards in first-hit-wins order (anthropic/openrouter/nousresearch/opencode); type predicate widened to ModelProviderId — no literal-union drift between the gate and the registry (T-25-07)
+- [Phase 25-run-path-modelfactory-seam]: RUN-04 delivered verify-only: the 4-cell shouldAdvance matrix widened to a data-driven 16-cell matrix over SERVABLE_PROVIDERS (4 same-provider false + 12 cross-provider true) + Zen↔Go same-provider collision canary (logical 'opencode' collapse, SNAPSHOT_PROVIDER_IDS); modelConfig.ts byte-identical — git-diff proven (D-25-04)
+- [Phase 25-run-path-modelfactory-seam]: Non-429 eligible loop widened to the FULL nested SERVABLE_PROVIDERS set (plan's first-listed option, not the 'at minimum' pairs) — same loop shape as the 16-cell matrix, provably provider-agnostic across all 4 providers
+- [Phase 25-run-path-modelfactory-seam]: Never-eligible billing loop + original null-identity assertions kept byte-identical; only the plan-optional nousresearch null fail-closed case added — no shouldAdvance('billing', ...) assertion (402 property lives at the isFailoverEligible loop gate)
+- [Phase 25-run-path-modelfactory-seam]: 25-04: RUN-05 delivered test-only at the loop level — 4 new runAgent hop tests (anthropic→opencode advance, nousresearch→anthropic advance, Zen↔Go same-provider never-advance canary, modelUsed bare-id audit) lock EXISTING loop behavior with ZERO production change; runAgent.ts/env.ts/catalog.ts/modelConfig.ts byte-identical (git-diff proven)
+- [Phase 25-run-path-modelfactory-seam]: 25-04: bare-id audit test titled with 'modelUsed' so the plan's -t "modelUsed" verify filter is non-vacuous — the FAL-05 template title it mirrors also lacks the word, so the filter would otherwise match zero tests; same assertion, same intent
 
 **v1.6 Signals & Offerings (queued, not yet started — see PROJECT.md "Queued Milestone"):**
 
@@ -262,14 +270,22 @@ Items acknowledged and carried forward from v1.3 milestone close, still open:
 | tech_debt | Stale root docs (README/CLAUDE.md still describe pre-Next.js stack) | open |
 | future_milestone | v1.6 Signals & Offerings — fully planned (27 reqs, Phases 28-30, Phase 28 plan-checker PASSED) | queued — starts after v1.5 ships, see PROJECT.md "Queued Milestone" |
 
+Items acknowledged and deferred at v1.5 milestone close on 2026-08-04:
+
+| Category | Item | Status |
+|----------|------|--------|
+| uat_gap | 23-HUMAN-UAT.md | partial — 2 pending scenarios |
+| uat_gap | 27-HUMAN-UAT.md | partial — 3 pending scenarios (NousResearch/OpenCode credit top-ups + OpenCode schema-mismatch follow-up) |
+| verification_gap | 23-VERIFICATION.md | human_needed |
+| verification_gap | 26-VERIFICATION.md | human_needed (stale — 26-HUMAN-UAT.md's items were resolved by Plan 27-06, but 26-VERIFICATION.md's own status field was never re-run to confirm; low-risk staleness, not a re-opened gap) |
+| verification_gap | 27-VERIFICATION.md | human_needed — VER-02/VER-03 live round trip blocked on NousResearch/OpenCode account credit top-ups, same class of gap as v1.4's OpenRouter finding |
+
 ## Session Continuity
 
-Last session: 2026-08-04T11:38:19.935Z
-Stopped at: Completed 25-01-PLAN.md
-Resume file: None
+Last session: 2026-08-04T19:50:45.987Z
+Stopped at: Phase 27 context gathered
+Resume file: .planning/phases/27-verification-gate/27-CONTEXT.md
 
 ## Operator Next Steps
 
-- Plan Phase 23 with /gsd-plan-phase 23
-- Vercel env: declare `NOUSRESEARCH_API_KEY` + `OPENCODE_API_KEY` (operator dashboard action, D-11-style human item) during Phase 23/25
-- Phase 27: live key-backed `json_schema` probe at Zen/Go/Nous gates the `supportsStructuredOutputs` flip (RUN-06) — schedule with billing-credit verification
+- Start the next milestone with /gsd-new-milestone

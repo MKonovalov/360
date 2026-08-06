@@ -26,8 +26,8 @@ import {
   isHighCost,
   pinnedSelection,
   providerName,
+  rowCaption,
   searchValue,
-  suffixLabel,
   triggerLabel,
 } from './model-picker-logic';
 import type { ServableModel } from './model-picker-logic';
@@ -169,9 +169,14 @@ export function ModelPicker({
                             </Badge>
                           ) : null}
                           {m.name}
-                          {suffixLabel(m.id) ? (
-                            <span className="text-[12px] font-normal leading-[1.4] text-slate-500"> {suffixLabel(m.id)}</span>
+                          {rowCaption(m) ? (
+                            <span className="text-[12px] font-normal leading-[1.4] text-slate-500"> · {rowCaption(m)}</span>
                           ) : null}
+                          {/* D-26-05 (corrected): cost caption stays unconditional — no
+                              suppression by providerID. Both native NousResearch rows
+                              and their OpenRouter mirror carry real, non-zero cost in
+                              the live snapshot; do not "fix" this into a suppression
+                              rule for either provider. */}
                           <span
                             className={cn(
                               'text-[12px] font-normal leading-[1.4]',
