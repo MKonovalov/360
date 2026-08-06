@@ -78,37 +78,37 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CON-01 | Unmapped | Pending |
-| CON-02 | Unmapped | Pending |
-| CON-03 | Unmapped | Pending |
-| CON-04 | Unmapped | Pending |
-| CON-05 | Unmapped | Pending |
-| RUN-01 | Unmapped | Pending |
-| RUN-02 | Unmapped | Pending |
-| RUN-03 | Unmapped | Pending |
-| RUN-04 | Unmapped | Pending |
-| RUN-05 | Unmapped | Pending |
-| RUN-06 | Unmapped | Pending |
-| EVD-01 | Unmapped | Pending |
-| EVD-02 | Unmapped | Pending |
-| EVD-03 | Unmapped | Pending |
-| EVD-04 | Unmapped | Pending |
-| EVD-05 | Unmapped | Pending |
-| REV-01 | Unmapped | Pending |
-| REV-02 | Unmapped | Pending |
-| REV-03 | Unmapped | Pending |
-| REV-04 | Unmapped | Pending |
-| REV-05 | Unmapped | Pending |
-| UX-01 | Unmapped | Pending |
-| UX-02 | Unmapped | Pending |
-| UX-03 | Unmapped | Pending |
-| VER-01 | Unmapped | Pending |
+| CON-01 | Phase 32 | Pending |
+| CON-02 | Phase 32 | Pending |
+| CON-03 | Phase 32 | Pending |
+| CON-04 | Phase 32 | Pending |
+| CON-05 | Phase 32 | Pending |
+| RUN-01 | Phase 32 | Pending |
+| RUN-02 | Phase 32 | Pending |
+| RUN-03 | Phase 31 | Pending |
+| RUN-04 | Phase 33 | Pending |
+| RUN-05 | Phase 32 | Pending |
+| RUN-06 | Phase 32 | Pending |
+| EVD-01 | Phase 33 | Pending |
+| EVD-02 | Phase 33 | Pending |
+| EVD-03 | Phase 33 | Pending |
+| EVD-04 | Phase 33 | Pending |
+| EVD-05 | Phase 33 | Pending |
+| REV-01 | Phase 34 | Pending |
+| REV-02 | Phase 34 | Pending |
+| REV-03 | Phase 34 | Pending |
+| REV-04 | Phase 34 | Pending |
+| REV-05 | Phase 34 | Pending |
+| UX-01 | Phase 35 | Pending |
+| UX-02 | Phase 35 | Pending |
+| UX-03 | Phase 36 | Pending |
+| VER-01 | Phase 36 | Pending |
 
 **Coverage:**
 - v1.7 requirements: 25 total
-- Mapped to phases: 0
-- Unmapped: 25 (roadmap pending)
+- Mapped to phases: 25
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-08-06*
-*Last updated: 2026-08-06 after v1.7 requirement approval*
+*Last updated: 2026-08-06 after v1.7 roadmap creation*
