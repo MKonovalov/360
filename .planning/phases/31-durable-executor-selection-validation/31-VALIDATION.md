@@ -20,7 +20,8 @@ created: 2026-08-06
 | **Framework** | Vitest 4.1.10 plus `@workflow/vitest@4.0.16` |
 | **Config file** | `vitest.workflow.config.ts` — Wave 0 adds the Workflow Local World plugin |
 | **Quick run command** | `npm test -- src/lib/db/queries/workflowProofRuns.test.ts` |
-| **Full suite command** | `npm test && npx vitest run --config vitest.workflow.config.ts && npm run build` |
+| **Required workflow command** | `TEST_DATABASE_URL="$TEST_DATABASE_URL" npm run test:workflow` — fails non-zero when `TEST_DATABASE_URL` is absent, then runs Local World |
+| **Final release-gate command** | `npm test && TEST_DATABASE_URL="$TEST_DATABASE_URL" npm run test:workflow && npm run build && npm run e2e -- e2e/workflow-proof-runs.spec.ts` |
 | **Estimated runtime** | ~90 seconds |
 
 ---
@@ -28,8 +29,9 @@ created: 2026-08-06
 ## Sampling Rate
 
 - **After every task commit:** Run `npm test -- src/lib/db/queries/workflowProofRuns.test.ts`
-- **After every plan wave:** Run `npx vitest run --config vitest.workflow.config.ts && npm run build`
-- **Before `/gsd-verify-work`:** Run `npm test && npx vitest run --config vitest.workflow.config.ts && npm run build`
+- **After Plan 31-01:** Run focused `npm run test:workflow:config`, then `npm test -- src/lib/db/queries/workflowProofRuns.test.ts` and `npm run db:push`.
+- **After Plan 31-02:** Run focused `npm test -- src/app/api/workflow-proof-runs/route.test.ts` and required `TEST_DATABASE_URL="$TEST_DATABASE_URL" npm run test:workflow`.
+- **Before `/gsd-verify-work`:** Run the final release gate above, then preview `vercel build && vercel deploy --prebuilt` and production `vercel build --prod && vercel deploy --prebuilt --prod` only after preview approval.
 - **Max feedback latency:** 90 seconds
 
 ---
@@ -38,10 +40,10 @@ created: 2026-08-06
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 31-01-01 | 01 | 1 | RUN-03 | T-31-01 | Workflow package/config routes are generated and proxy excludes `/.well-known/workflow/`. | build | `npm run build` | ❌ W0 | ⬜ pending |
+| 31-01-01 | 01 | 1 | RUN-03 | T-31-01 | Workflow package/config routes are configured and proxy excludes `/.well-known/workflow/`. | config | `npm run test:workflow:config` | ❌ W0 | ⬜ pending |
 | 31-01-02 | 01 | 1 | RUN-03 | T-31-02 | Application proof lifecycle transitions are conditional, idempotent, database-authoritative, and append audit events. | unit | `npm test -- src/lib/db/queries/workflowProofRuns.test.ts` | ❌ W0 | ⬜ pending |
-| 31-02-01 | 02 | 2 | RUN-03 | T-31-03 | Staff-gated start creates the application record first, persists workflow metadata, and returns only the application run ID. | route/integration | `npx vitest run --config vitest.workflow.config.ts` | ❌ W0 | ⬜ pending |
-| 31-02-02 | 02 | 2 | RUN-03 | T-31-04 | Workflow receives only the application ID; controlled failure retries once, expired claims recover once, and exhausted recovery fails safely. | workflow integration | `npx vitest run --config vitest.workflow.config.ts` | ❌ W0 | ⬜ pending |
+| 31-02-01 | 02 | 2 | RUN-03 | T-31-03 | Staff-gated start creates the application record first, persists workflow metadata, and returns only the application run ID. | route | `npm test -- src/app/api/workflow-proof-runs/route.test.ts` | ❌ W0 | ⬜ pending |
+| 31-02-02 | 02 | 2 | RUN-03 | T-31-04 | Workflow receives only the application ID; controlled failure retries once, expired claims recover once, and exhausted recovery fails safely. | required workflow integration | `TEST_DATABASE_URL="$TEST_DATABASE_URL" npm run test:workflow` | ❌ W0 | ⬜ pending |
 | 31-03-01 | 03 | 3 | RUN-03 | T-31-05 | Preview plus production smoke proves start, navigation/reload-safe status, and terminal database state without AI/web-research work. | deployed smoke | `npm run e2e` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
