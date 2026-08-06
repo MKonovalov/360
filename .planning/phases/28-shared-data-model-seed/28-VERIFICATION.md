@@ -1,16 +1,19 @@
 ---
 phase: 28-shared-data-model-seed
-verified: 2026-08-05T00:20:43Z
-status: human_needed
+verified: 2026-08-06T15:00:00Z
+status: passed
 score: 19/19 must-haves verified
 overrides_applied: 0
-human_verification:
-  - test: "Spot-check the Claude-authored offering description + commercial_model_text copy for several offerings (e.g. GBS Maturity & Readiness Assessment, Managed Procurement, Interim Management) against the team's actual service catalogue"
-    expected: "Copy reads as a faithful 1-2 sentence summary of each offering's stated entry trigger and buyer intent; no invented claims or numeric pricing figures"
-    why_human: "The catalogue .docx is not in the repo; fidelity to the business source can only be judged by someone who knows the catalogue. Treatment was pre-approved in CONTEXT.md ('write a reasonable one-line mechanism description per offering consistent with its offer_type rather than leaving it null'), and flagged plan-mandated for human review in 30-06-SUMMARY.md:89."
-  - test: "Review whether signal description = name verbatim (all 27 company + 12 persona signals) is acceptable, or whether distinct descriptions should be authored"
-    expected: "Acceptable for v1.4 schema (spec Section 7.4/7.5 supplies exactly ONE string per signal; schema requires NOT NULL name AND description) or a decision to enrich descriptions in a later phase"
-    why_human: "Writing distinct descriptions is business-content authorship requiring source material; programmatic verification can only confirm the redundancy exists (it does, deliberately)"
+re_verification:
+  previous_status: human_needed
+  previous_score: 19/19 must-haves verified
+  gaps_closed:
+    - "Item 1 (catalogue-copy fidelity) — OPERATOR ACCEPTED 2026-08-06: offering description/commercial_model_text copy faithful per the pre-approved CONTEXT.md treatment; no numeric pricing; ship as-is"
+    - "Item 2 (signal description = name verbatim) — OPERATOR ACCEPTED 2026-08-06: redundant descriptions acceptable for the schema (spec supplies one string per signal); enrichment deferred to a later phase"
+  gaps_remaining: []
+  regressions: []
+  status_change_note: "Both human verification items resolved by operator verdicts (accept/accept). Per the verifier decision tree ('passed is ONLY valid when the human verification section is empty'), the items were answered so the accurate status is now passed. Phase 28 work was executed under its pre-renumbering name (30-shared-data-model-seed) and shipped to main via PR #3 (a7a33f96)."
+human_verification: []
 ---
 
 # Phase 28: Shared Data Model + GBS Seed Verification Report

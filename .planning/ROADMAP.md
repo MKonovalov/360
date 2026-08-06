@@ -116,7 +116,7 @@ Full details: [`.planning/milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.m
 
 **Status:** v1.5 shipped 2026-08-04. Phase 29 (Signals UI) and Phase 30 (Offerings UI) executed and human-approved (2026-08-05/06); Phase 28 (Shared Data Model + Seed) remains planned — see PROJECT.md "Queued Milestone" and STATE.md Blockers.
 
-- [ ] **Phase 28: Shared Data Model + Seed** - All Offerings/Signals tables (practice_area, domain, offering, buyer_role, offering_buyer_role, trigger, company_signal, persona_signal, signal-offering link) plus the full GBS seed data set (3 domains, 11 offerings, 5 buyer roles, 27 company signals, 12 persona signals, 10 representative links), the delete-guard business rule, and staff-auth-gated writes with created_by/updated_by. No UI in this phase. Fully planned: CONTEXT/RESEARCH/PATTERNS/VALIDATION + 6 PLAN.md files, plan-checker PASSED (0 blockers).
+- [x] **Phase 28: Shared Data Model + Seed** - (completed 2026-08-06, shipped via PR #3) - All Offerings/Signals tables (practice_area, domain, offering, buyer_role, offering_buyer_role, trigger, company_signal, persona_signal, signal-offering link) plus the full GBS seed data set (3 domains, 11 offerings, 5 buyer roles, 27 company signals, 12 persona signals, 10 representative links), the delete-guard business rule, and staff-auth-gated writes with created_by/updated_by. No UI in this phase. Fully planned: CONTEXT/RESEARCH/PATTERNS/VALIDATION + 6 PLAN.md files, plan-checker PASSED (0 blockers).
 - [x] **Phase 29: Signals UI** - New `Manage > Reviews > Signals` menu item — Company Signals / Persona Signals tabs with filterable lists, create/edit forms, and soft-archive. (completed 2026-08-05)
 - [x] **Phase 30: Offerings UI** - New `Manage > Reviews > Offerings` menu item — Service Portfolio hierarchy manager, Offering × Trigger × Buyer Matrix, a shared Buyer Role lookup CRUD panel, and a read-only reverse-lookup of linked signals per offering. (completed 2026-08-06)
 
@@ -125,7 +125,7 @@ Full details: [`.planning/milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.m
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 27 → 28 → 29 → 30 (28-30 = v1.6 — Phase 28 planned, Phases 29-30 executed 2026-08-05/06)
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 27 → 28 → 29 → 30 (28-30 = v1.6 — all three executed; Phases 28-30 complete 2026-08-06, shipped via PR #3)
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|-----------------|--------|-----------|
@@ -156,7 +156,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 25. Run Path / modelFactory Seam | v1.5 | 4/4 | Complete    | 2026-08-04 |
 | 26. Settings UI | v1.5 | 2/2 | Complete    | 2026-08-04 |
 | 27. Verification Gate | v1.5 | 6/6 | Complete    | 2026-08-04 |
-| 28. Shared Data Model + Seed | v1.6 | 0/6 | Planned (queued) | - |
+| 28. Shared Data Model + Seed | v1.6 | 6/6 | Complete   | 2026-08-06 |
 | 29. Signals UI | v1.6 | 8/8 | Complete   | 2026-08-05 |
 | 30. Offerings UI | v1.6 | 11/11 | Complete   | 2026-08-06 |
 
@@ -289,18 +289,18 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 **Plans**: 6 plans (renamed from 30-0N to 28-0N at branch reconciliation 2026-08-04 — file contents unchanged otherwise; full spec at `.planning/specs/v1.4-signals-offerings.md`)
 **Wave 1**
 
-- [ ] 28-01-PLAN.md — Schema foundation: 9 new tables + 3 enums in schema.ts + [BLOCKING] npm run db:push (DATA-01, DATA-02)
+- [x] 28-01-PLAN.md — Schema foundation: 9 new tables + 3 enums in schema.ts + [BLOCKING] npm run db:push (DATA-01, DATA-02)
 
 **Wave 2** *(blocked on Wave 1 completion, parallel with each other)*
 
-- [ ] 28-02-PLAN.md — practiceAreas.ts + domains.ts + buyerRoles.ts query modules + delete-guards (DATA-01, DATA-09, DATA-10)
-- [ ] 28-03-PLAN.md — offerings.ts query module (CRUD, active/all picker split, offering_buyer_role/trigger helpers, delete-guard) (DATA-01, DATA-09, DATA-10)
-- [ ] 28-04-PLAN.md — companySignals.ts + personaSignals.ts query modules (DATA-02, DATA-09)
-- [ ] 28-05-PLAN.md — signalOfferingLinks.ts query module with cross-practice-area guard (DATA-02, DATA-09)
+- [x] 28-02-PLAN.md — practiceAreas.ts + domains.ts + buyerRoles.ts query modules + delete-guards (DATA-01, DATA-09, DATA-10)
+- [x] 28-03-PLAN.md — offerings.ts query module (CRUD, active/all picker split, offering_buyer_role/trigger helpers, delete-guard) (DATA-01, DATA-09, DATA-10)
+- [x] 28-04-PLAN.md — companySignals.ts + personaSignals.ts query modules (DATA-02, DATA-09)
+- [x] 28-05-PLAN.md — signalOfferingLinks.ts query module with cross-practice-area guard (DATA-02, DATA-09)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 28-06-PLAN.md — GBS seed script (seedGbs.ts) — full spec Section 7 dataset + live row-count verification (DATA-03, DATA-04, DATA-05, DATA-06, DATA-07, DATA-08, DATA-09)
+- [x] 28-06-PLAN.md — GBS seed script (seedGbs.ts) — full spec Section 7 dataset + live row-count verification (DATA-03, DATA-04, DATA-05, DATA-06, DATA-07, DATA-08, DATA-09)
 
 ### Phase 29: Signals UI (v1.6, queued)
 
