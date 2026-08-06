@@ -109,6 +109,7 @@ Each task was committed atomically:
 ## Issues Encountered
 
 - `TEST_DATABASE_URL` is not configured in this environment. `env -u TEST_DATABASE_URL npm run test:workflow` failed fast with the required `TEST_DATABASE_URL is required` message. A deliberately invalid local URL reached the Neon connection boundary and failed there; no integration pass is claimed.
+- The initial top-level integration-test credential guard prevented `vitest list --config vitest.workflow.config.ts` from loading the isolated config. The guard now runs in `beforeAll`; the package preflight remains the authoritative hard gate for `npm run test:workflow`, so valid-database runs remain mandatory and absent credentials remain non-zero.
 - Full `npm test` reported the known six unrelated live provider/structured-output failures, plus the intentional fail-fast workflow integration prerequisite; 607 other tests passed. No unrelated tests were changed.
 - Vitest emitted the existing ESM/CommonJS config-loader warning while focused tests passed.
 
@@ -124,6 +125,12 @@ TEST_DATABASE_URL="$TEST_DATABASE_URL" npm run test:workflow
 
 - Route and workflow implementation is committed and ready for Plan 31-03 preview/production smoke validation.
 - Live Local World evidence remains blocked only by the missing test database credential in this execution environment.
+
+## Repair Verification
+
+- `env -u TEST_DATABASE_URL npm run test:workflow:config` — passed and listed all five isolated workflow tests.
+- `env -u TEST_DATABASE_URL npm run test:workflow` — failed before Vitest with `TEST_DATABASE_URL is required`.
+- Route tests — 5 passed; query tests — 9 passed; `npx tsc --noEmit` — passed; `npm run build` — passed.
 
 ## Self-Check: PASSED
 

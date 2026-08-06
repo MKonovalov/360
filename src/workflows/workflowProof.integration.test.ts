@@ -3,7 +3,6 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
-if (!testDatabaseUrl) throw new Error('TEST_DATABASE_URL is required for workflow integration tests');
 
 describe('workflow proof Local World lifecycle', () => {
   let dbModule: typeof import('@/lib/db');
@@ -13,6 +12,7 @@ describe('workflow proof Local World lifecycle', () => {
   const applicationRunIds: number[] = [];
 
   beforeAll(async () => {
+    if (!testDatabaseUrl) throw new Error('TEST_DATABASE_URL is required for workflow integration tests');
     process.env.DATABASE_URL = testDatabaseUrl;
     process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = 'pk_test_placeholder';
     process.env.CLERK_SECRET_KEY = 'sk_test_placeholder';
