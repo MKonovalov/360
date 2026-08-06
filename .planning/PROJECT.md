@@ -8,6 +8,16 @@ ArcLumen 360 is an end-to-end demand generation pipeline for ArcLumen Partners, 
 
 Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds, replacing signal knowledge that today lives scattered across individual heads and inboxes.
 
+## Current Milestone: v1.7 Agent Constructor & Buying Signal Analysis
+
+**Goal:** Let staff run source-grounded, human-reviewed Company and Persona signal analyses through reusable agent templates.
+
+**Target features:**
+- Reusable agent template, asynchronous run, normalized result, and review-proposal primitives built on the existing reviews model where its schema fits.
+- GBS Company and Persona Buying Signal Analysis templates derived from active Signals, powered by the in-house research-agent stack behind a provider-agnostic execution contract.
+- Preview-and-run, history, findings, one-decision-per-run review, and confirmed-only candidate-offering views on Company and Persona records.
+- A small `Manage > Reviews > Agents` template-management surface.
+
 ## Milestone Status: v1.6 SHIPPED (2026-08-06)
 
 **v1.6 Signals & Offerings (SHIPPED 2026-08-06)** — 3 phases (28 Shared Data Model + Seed, 29 Signals UI, 30 Offerings UI), 25 plans, 27/27 requirements validated (DATA-01..10, SIG-01..09, OFR-01..08). Delivered: 9-table data model (offerings + signals + ranked buyer-role joins + trigger + polymorphic signal-offering link) with delete-guard `has_dependents` rule at query layer; full GBS seed (3 domains, 11 offerings, 5 buyer roles, 27 company + 12 persona signals, 10 links); /signals two-tab explorer with filters, CRUD forms, linked-offerings picker, soft archive; /offerings Service Portfolio 3-level hierarchy manager + Offering × Trigger × Buyer Matrix with inline trigger/rank editing; shared Buyer Role lookup CRUD panel; D-10 dependents-guarded deletes (near-black confirms); OFR-07 reverse-linked-signal names. Cross-phase integration audit passed (18/18 wired, 4/4 flows); human UAT approved (30-11). Merged to main via PR #3 (a7a33f96); archived to `.planning/milestones/v1.6-*`. Documented deferral: SIG-07 inline buyer-role shortcut (D-03) addressed by OFR-06 panel; pre-existing VER-03 live-API test baseline (Phase 22-04) not v1.6 scope.
@@ -22,15 +32,11 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 
 **v1.1 Start Page + Import + Analytic Agent** — 5 phases, 27 plans, 32 tasks, 31/31 requirements validated. Delivered: stacked full-width list/detail layout on both explorers, Start Page dashboard, shared ExplorerMenu, CSV import with partial-commit validation + rollback, Apollo.io/Prospeo enrichment with provenance, and the web-search Analytic Agent with a human-reviewed proposal queue + Langfuse tracing.
 
-## Next Milestone: Not Yet Scoped
+## Milestone Context
 
-v1.5 (Additional AI Providers) shipped 2026-08-04. v1.6 (Signals & Offerings) shipped 2026-08-06. No current milestone in progress.
+v1.7 begins after v1.6 Signals & Offerings shipped. It adds a reusable Agent Constructor and its first two GBS buying-signal analyses without extending into Persona Discovery, bulk/scheduled analysis, outreach, or Hypotheses.
 
-**Leading candidate:** Hypotheses feature — consumes Signals + Offerings to surface ranked buyer-role hypotheses per spec Section 1. Explicitly deferred past v1.6.
-
-**Also deferred from v1.6:** SIG-CAT-01 category lookup table; OFR-SEED-01 seed remaining 5 practice areas (blocked on GBS/Technology naming-boundary resolution).
-
-See Future Candidates below for the full list.
+**Locked direction:** Reuse the app's in-house AI + web-research capability behind a provider-agnostic constructor contract; adapt the existing reviews/proposals model where it supports shared proposal semantics; partners approve or dismiss one completed run as a whole.
 
 ## Requirements
 
@@ -82,6 +88,7 @@ See Future Candidates below for the full list.
 ### Active
 
 - [ ] Persona 360 "Related Knowledge" showing real Arcpedia articles end-to-end — code path proven identical to the working Company path, but the current seed Persona dataset has no name that matches real Arcpedia content; needs either updated seed data or acceptance of the gap (see `04-HUMAN-UAT.md`)
+- [ ] Staff can configure and run reusable, source-grounded Company and Persona Buying Signal Analysis templates, then review one complete analysis pass before its findings influence candidate offerings — v1.7
 
 ### Out of Scope
 
@@ -100,7 +107,7 @@ See Future Candidates below for the full list.
 
 ## Current State
 
-**Milestone v1.6 (Signals & Offerings) shipped 2026-08-06.** All 3 phases complete (28 Shared Data Model + Seed, 29 Signals UI, 30 Offerings UI — 25 plans), 27/27 requirements validated, milestone archived to .planning/milestones/v1.6-*. The firm's Word-doc service catalogues are replaced with structured Practice Area → Domain → Offering data seeded with real GBS content (3 domains, 11 offerings, 5 buyer roles, 27 company + 12 persona signals, 10 links); staff browse, filter, create, edit, and archive Company/Persona signals and manage the Service Portfolio + Offering × Trigger × Buyer Matrix, with a shared Buyer Role lookup panel and dependents-guarded deletes. Cross-phase integration audit passed (18/18 wiring, 4/4 E2E flows); human UAT approved (30-11). Next milestone: not yet scoped — Hypotheses feature (consumes Signals + Offerings) is the leading candidate.
+**Milestone v1.7 (Agent Constructor & Buying Signal Analysis) is defining requirements.** It follows v1.6's shipped Signals & Offerings foundation. It will give staff two reusable GBS templates — Company and Persona signal analyses — using existing in-house AI/web research behind a provider-agnostic contract. Every completed run stays behind the existing reviews/proposals model until a partner confirms or dismisses the whole run. Persona Discovery, bulk/scheduled re-analysis, outreach, and Hypotheses remain outside this milestone.
 
 **Milestone v1.5 (Additional AI Providers) shipped 2026-08-04.** All 5 phases complete (Phase 23 Provider Registry + Servable Sources, Phase 24 Refresh Script + Catalog Data, Phase 25 Run Path / modelFactory Seam, Phase 26 Settings UI, Phase 27 Verification Gate — 20 plans), 26/28 requirements validated, milestone archived to `.planning/milestones/v1.5-*`. NousResearch + OpenCode join Anthropic + OpenRouter as fully wired, servable AI providers. VER-02/VER-03's live round-trip evidence remains blocked on operator account-credit decisions for NousResearch and OpenCode (see `27-HUMAN-UAT.md`) — acknowledged and carried forward as known debt at close, matching v1.4's disposition of the identical OpenRouter billing gap. Next milestone: not yet scoped — see Future Candidates.
 
