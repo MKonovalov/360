@@ -35,9 +35,9 @@ import { practiceAreaStatusEnum } from '@/lib/db/schema';
 // Pitfall 3: sortOrder is NEVER accepted from client input — create actions
 // compute it server-side by counting existing sibling rows (T-30-02-03).
 // Archive for a practice area is a soft flip to 'draft' — practiceAreaStatusEnum
-// has only ['active','draft'] (schema.ts:305); a Domain has NO status column,
-// so there is deliberately NO archiveDomainAction — its only removal path is
-// the guarded delete.
+// has only ['active','draft'] (schema.ts:305). A Domain has NO status column,
+// so the Domain surface is create/update/delete/reorder only — its sole
+// removal path is the guarded delete (no archive action).
 
 export type OfferingsActionResult = { ok: true } | { ok: false; reason: string };
 
@@ -99,8 +99,9 @@ export async function archivePracticeAreaAction(id: number): Promise<OfferingsAc
 
   try {
     // Soft status flip to 'draft' — practiceAreaStatusEnum has only
-    // ['active','draft'] (schema.ts:305), there is no 'retired' state for a
-    // practice area. The row is hidden from active pickers but never deleted.
+    // ['active','draft'] (schema.ts:305), so 'draft' is the archive state for
+    // a practice area. The row is hidden from active pickers but never
+    // deleted.
     const updated = await updatePracticeArea(id, { status: 'draft' }, userId);
     if (!updated) return { ok: false, reason: 'not_found' };
     revalidatePath('/offerings');
