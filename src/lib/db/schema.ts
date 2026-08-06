@@ -294,3 +294,168 @@ export const userModelSettings = pgTable('user_model_settings', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+// DATA-01: shared 3-value lifecycle enum reused by offering / companySignal /
+// personaSignal. DRY — a single `catalog_status` Postgres type avoids three
+// same-value enums, matching the cross-table-reuse precedent of recordTypeEnum.
+export const catalogStatusEnum = pgEnum('catalog_status', ['active', 'draft', 'retired']);
+
+// DATA-01: practice_area has only 2 lifecycle states, so it needs its own enum
+// rather than borrowing catalog_status (which adds an unused 'retired').
+export const practiceAreaStatusEnum = pgEnum('practice_area_status', ['active', 'draft']);
+
+// DATA-01: exactly the 7 offer_type values tagged on the source catalogues —
+// do not invent new ones. Fixed-but-extensible, same pattern as signalTypeEnum.
+export const offerTypeEnum = pgEnum('offer_type', [
+  'entry',
+  'core',
+  'programme',
+  'retainer',
+  'on_request',
+  'operator_differentiator',
+  'productised',
+]);
+
+// DATA-01: top-level practice area (e.g. GBS — Design, Build & Run). short_code
+// is a unique human slug; status drives picker vs admin visibility downstream.
+export const practiceArea = pgTable('practice_area', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull().unique('practice_area_name_unique'),
+  shortCode: text('short_code').notNull().unique('practice_area_short_code_unique'),
+  sortOrder: integer('sort_order').notNull(),
+  description: text('description'),
+  status: practiceAreaStatusEnum('status').notNull().default('active'),
+  createdBy: text('created_by').notNull(), // Clerk userId — no FK (Clerk is external)
+  updatedBy: text('updated_by').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// DATA-01: sub-structure under a practice area (e.g. Design / Build / Run for
+// GBS). practice_area_id is required: every domain belongs to exactly one area.
+export const domain = pgTable('domain', {
+  id: serial('id').primaryKey(),
+  practiceAreaId: integer('practice_area_id').notNull().references(() => practiceArea.id),
+  name: text('name').notNull(),
+  sortOrder: integer('sort_order').notNull(),
+  createdBy: text('created_by').notNull(),
+  updatedBy: text('updated_by').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// DATA-01: the sellable offering. domain_id nullable — a practice area without
+// a domain-structured journey links its offerings straight to the area itself.
+export const offering = pgTable('offering', {
+  id: serial('id').primaryKey(),
+  practiceAreaId: integer('practice_area_id').notNull().references(() => practiceArea.id),
+  domainId: integer('domain_id').references(() => domain.id),
+  name: text('name').notNull(),
+  offerType: offerTypeEnum('offer_type').notNull(),
+  description: text('description').notNull(),
+  commercialModelText: text('commercial_model_text'),
+  sortOrder: integer('sort_order').notNull(),
+  status: catalogStatusEnum('status').notNull().default('active'),
+  createdBy: text('created_by').notNull(),
+  updatedBy: text('updated_by').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// DATA-01: reusable buyer-role lookup (e.g. "CFO", "Head of GBS") shared by
+// both Offerings and Signals — never per-offering free text.
+export const buyerRole = pgTable('buyer_role', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull().unique('buyer_role_name_unique'),
+  description: text('description'),
+  createdBy: text('created_by').notNull(),
+  updatedBy: text('updated_by').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// DATA-01: many-to-many Offering<->BuyerRole with rank preserving the
+// catalogue's primary/secondary buyer order. uniqueIndex prevents duplicate
+// buyer-role links on the same offering (same shape as signal's uniqueIndex).
+export const offeringBuyerRole = pgTable(
+  'offering_buyer_role',
+  {
+    id: serial('id').primaryKey(),
+    offeringId: integer('offering_id').notNull().references(() => offering.id),
+    buyerRoleId: integer('buyer_role_id').notNull().references(() => buyerRole.id),
+    rank: integer('rank').notNull(),
+    createdBy: text('created_by').notNull(),
+    updatedBy: text('updated_by').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    // DATA-01: one (offering, buyerRole) link maximum per offering.
+    uniqueIndex('offering_buyer_role_unique_idx').on(table.offeringId, table.buyerRoleId),
+  ]
+);
+
+// DATA-01: 1-to-many Entry Trigger sentences per offering (modeled many even
+// though catalogues show one today — allows alternate phrasings later).
+export const trigger = pgTable('trigger', {
+  id: serial('id').primaryKey(),
+  offeringId: integer('offering_id').notNull().references(() => offering.id),
+  triggerText: text('trigger_text').notNull(),
+  sortOrder: integer('sort_order').notNull(),
+  createdBy: text('created_by').notNull(),
+  updatedBy: text('updated_by').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// DATA-02: company-level buying signal from the signal catalogue. `category`
+// is free text (NOT an enum) — autocompleted from existing values downstream,
+// per spec (category taxonomy deliberately un-promoted to a lookup).
+export const companySignal = pgTable('company_signal', {
+  id: serial('id').primaryKey(),
+  practiceAreaId: integer('practice_area_id').notNull().references(() => practiceArea.id),
+  name: text('name').notNull(),
+  category: text('category').notNull(),
+  description: text('description').notNull(),
+  status: catalogStatusEnum('status').notNull().default('active'),
+  createdBy: text('created_by').notNull(),
+  updatedBy: text('updated_by').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// DATA-02: persona-level buying signal keyed to a buyer_role (reuses the shared
+// Offerings lookup — never free text). `category` is free text, same as company_signal.
+export const personaSignal = pgTable('persona_signal', {
+  id: serial('id').primaryKey(),
+  practiceAreaId: integer('practice_area_id').notNull().references(() => practiceArea.id),
+  buyerRoleId: integer('buyer_role_id').notNull().references(() => buyerRole.id),
+  name: text('name').notNull(),
+  category: text('category').notNull(),
+  description: text('description').notNull(),
+  status: catalogStatusEnum('status').notNull().default('active'),
+  createdBy: text('created_by').notNull(),
+  updatedBy: text('updated_by').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// DATA-02: many Signal<->Offering link with a nullable relevance note.
+// signal_signal_type reuses recordTypeEnum (Postgres type `record_type`,
+// 'company'|'persona') — the underlying CREATE TYPE must NOT be a new
+// `signal_type` enum, which is already taken at schema.ts:6 by the unrelated
+// buying-signal enum (D-07). Only the column name is `signal_type`; the PG
+// type is record_type. signalId is a bare integer (no FK) — polymorphic,
+// pointing at company_signal.id or persona_signal.id per signalType, same
+// pattern as recentlyViewed.recordId / importLog.recordId.
+export const signalOfferingLink = pgTable('signal_offering_link', {
+  id: serial('id').primaryKey(),
+  signalType: recordTypeEnum('signal_type').notNull(),
+  signalId: integer('signal_id').notNull(),
+  offeringId: integer('offering_id').notNull().references(() => offering.id),
+  relevanceNote: text('relevance_note'),
+  createdBy: text('created_by').notNull(),
+  updatedBy: text('updated_by').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});

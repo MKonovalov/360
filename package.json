@@ -11,6 +11,7 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "tsx src/scripts/seed.ts",
+    "seed:gbs": "tsx src/scripts/seedGbs.ts",
     "test": "vitest run",
     "e2e": "playwright test",
     "models:fetch": "tsx scripts/refresh-model-catalog.ts",
