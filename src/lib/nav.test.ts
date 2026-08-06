@@ -42,6 +42,14 @@ describe('getActiveNavKey', () => {
     expect(getActiveNavKey('/signals/1')).toBe('signals');
   });
 
+  it("returns 'offerings' for the offerings index", () => {
+    expect(getActiveNavKey('/offerings')).toBe('offerings');
+  });
+
+  it("returns 'offerings' for an offerings detail page", () => {
+    expect(getActiveNavKey('/offerings/42')).toBe('offerings');
+  });
+
   it("returns 'settings' for the settings index", () => {
     expect(getActiveNavKey('/settings')).toBe('settings');
   });
@@ -64,5 +72,9 @@ describe('getActiveNavKey', () => {
 
   it('returns null for a /signals sibling prefix (boundary guard)', () => {
     expect(getActiveNavKey('/signals-archive')).toBeNull();
+  });
+
+  it('returns null for a /offerings sibling prefix (boundary guard)', () => {
+    expect(getActiveNavKey('/offerings-archive')).toBeNull();
   });
 });
