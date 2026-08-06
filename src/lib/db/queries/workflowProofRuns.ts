@@ -59,6 +59,40 @@ export async function getWorkflowProofRun(applicationRunId: number) {
   return rows[0];
 }
 
+export async function listWorkflowProofRunEvents(applicationRunId: number) {
+  return db
+    .select()
+    .from(workflowProofRunEvent)
+    .where(eq(workflowProofRunEvent.workflowProofRunId, applicationRunId));
+}
+
+export async function recordWorkflowProofSyntheticAttempt(applicationRunId: number) {
+  const current = await getWorkflowProofRun(applicationRunId);
+  if (!current || current.status !== 'running') return current;
+
+  const controls = current.controls as { failFirstAttempt?: boolean; syntheticAttempts?: number };
+  const syntheticAttempts = (controls.syntheticAttempts ?? 0) + 1;
+  const [updated] = await db
+    .update(workflowProofRun)
+    .set({
+      controls: { ...controls, syntheticAttempts },
+      updatedAt: new Date(),
+    })
+    .where(and(eq(workflowProofRun.id, applicationRunId), eq(workflowProofRun.status, 'running')))
+    .returning();
+  if (!updated) return getWorkflowProofRun(applicationRunId);
+
+  await appendEvent(
+    updated.id,
+    'synthetic_attempt',
+    syntheticAttempts,
+    updated.recoveryAttempts,
+    undefined,
+    updated.workflowRunId ?? undefined,
+  );
+  return updated;
+}
+
 export async function attachWorkflowProofRunMetadata(
   applicationRunId: number,
   input: WorkflowProofDiagnosticInput,
