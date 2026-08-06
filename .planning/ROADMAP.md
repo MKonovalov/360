@@ -156,7 +156,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 27. Verification Gate | v1.5 | 0/0 | Not started | - |
 | 28. Shared Data Model + Seed | v1.6 | 0/6 | Planned (queued) | - |
 | 29. Signals UI | v1.6 | 8/8 | Complete   | 2026-08-05 |
-| 30. Offerings UI | v1.6 | 2/11 | In Progress|  |
+| 30. Offerings UI | v1.6 | 4/11 | In Progress|  |
 
 ---
 
@@ -364,7 +364,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 **Wave 3** *(blocked on Wave 2 completion, parallel with each other)*
 
 - [x] 30-03-PLAN.md — Server Actions: Offering + Trigger CRUD, ranked Buyer Role diff-and-sync, immediate-persist action (OFR-03, OFR-04, OFR-05, OFR-08)
-- [ ] 30-04-PLAN.md — PracticeAreaForm + DomainForm Sheet CRUD components (OFR-03)
+- [x] 30-04-PLAN.md — PracticeAreaForm + DomainForm Sheet CRUD components (OFR-03)
 
 **Wave 4** *(blocked on Wave 3 completion, parallel with each other)*
 
