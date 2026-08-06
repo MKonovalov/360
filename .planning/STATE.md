@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 Phase: v1.6 Signals & Offerings — Phases 29-30 executed and shipped via PR #3 (2026-08-06); Phase 28 planned. v1.5 complete.
 Plan: —
-Status: Phase 30 shipped — PR #3
+Status: Phase 29 shipped — merged via PR #3 (a7a33f96); Phase 30 shipped — PR #3
 Last activity: 2026-08-06
 
 ## Performance Metrics
