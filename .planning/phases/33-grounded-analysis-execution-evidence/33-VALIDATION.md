@@ -3,7 +3,7 @@ phase: 33-grounded-analysis-execution-evidence
 status: executed_blocked
 nyquist_compliant: true
 wave_0_complete: false
-final_gate: blocked_missing_TEST_DATABASE_URL
+final_gate: blocked_persistence_enum_cast_and_workflow_bundle
 live_smoke: deferred_policy_or_credentials_unavailable
 ---
 
@@ -128,3 +128,40 @@ No model, Firecrawl, database, deployed run, credential, raw prompt, private
 reasoning, PII, or unrestricted packet content was used or claimed. Live smoke
 must not be approved by this ledger until policy and credentials are separately
 available and the smoke is human-authorized and redacted.
+
+## Rerun Evidence — 2026-08-07
+
+`.env.local` was loaded through `dotenv` without printing values. The configured
+test URL was checked for presence and supplied only as command-scoped
+`DATABASE_URL` and `TEST_DATABASE_URL`; the production `DATABASE_URL` value was
+not used. The rerun reached the database and therefore replaces the former
+missing-environment blocker with the concrete failures below.
+
+| Order | Command/evidence | Result |
+|---|---|---|
+| 1 | Safe dotenv presence check | **PASS** — `TEST_DATABASE_URL` configured; value never printed |
+| 2 | `DATABASE_URL="$TEST_DATABASE_URL" TEST_DATABASE_URL="$TEST_DATABASE_URL" npm run db:push` | **PASS** — Neon schema pulled and changes applied |
+| 3 | `npm test -- src/lib/db/analysisResultsSchema.integration.test.ts` | **PASS** — 1 file / 1 test |
+| 4 | Pure packet/evidence/query suite | **PASS** — 3 files / 26 tests |
+| 5 | `npm test -- src/lib/db/queries/analysisResults.integration.test.ts` | **FAIL** — 0/2 passed; both fail before persistence because JSON text is inserted into the Postgres `analysis_evidence_status` enum without an explicit cast |
+| 6 | Guarded `npm run test:workflow` | **FAIL** — 1/13 passed, 12 timed out; generated Workflow bundle attempts to import `catalog.json` without a JSON import attribute, so Local World queue operations fail before assertions complete |
+| 7 | Scope audit | **PASS** — 257 tracked files, 0 findings |
+| 8 | Contract/evidence/adapter/telemetry focused suite | **PASS** — 11 files / 115 tests |
+| 9 | `npx tsc --noEmit` | **PASS** |
+| 10 | `npm run build` | **PASS** — production build completed |
+
+The persistence failure is a concrete application defect in the existing
+Plan 02 query boundary, not a database contamination or missing-seed result.
+The Workflow failure is a generated-bundle/runtime configuration limitation;
+the safe diagnostic is the missing JSON import attribute for `catalog.json`,
+not a provider call or policy approval. No failing assertion was bypassed and
+no fixture was manually inserted to force green.
+
+## Rerun Remediation Required
+
+This Plan 06 rerun does not modify application code. A follow-up scoped fix must
+make the packet CTE cast `status`/`confidence` JSON text to their declared
+Postgres enum types, then rerun schema and packet integration. Separately, the
+Workflow test bundle must load the model catalog with a runtime-compatible JSON
+import (or an equivalent non-JSON ESM boundary), then rerun all 13 Workflow
+tests. Until both reruns pass, the final gate remains blocked.

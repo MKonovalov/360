@@ -1,6 +1,6 @@
 ---
 phase: 33-grounded-analysis-execution-evidence
-status: blocked_database_gate
+status: blocked_persistence_and_workflow_gates
 verified: 2026-08-07
 requirements: [RUN-04, EVD-01, EVD-02, EVD-03, EVD-04, EVD-05]
 live_smoke: deferred
@@ -13,10 +13,11 @@ live_smoke_reason: policy_or_credentials_unavailable
 
 **Automated contract/scope/build evidence: passed.**
 
-**Database-backed final gate: blocked by the mandatory missing
-`TEST_DATABASE_URL` prerequisite.** The guard failed closed before `db:push`,
-packet persistence integration, or Workflow integration could run. This ledger
-does not mark database-backed evidence as passed.
+**Database-backed final gate: reached the test database but remains blocked by
+two concrete failures.** Schema metadata passed; packet persistence integration
+failed on a Postgres enum cast; Workflow integration failed in the generated
+bundle before assertions completed. This ledger does not mark those gates as
+passed.
 
 **Live provider smoke: explicitly deferred** with reason
 `policy_or_credentials_unavailable`. The policy record remains deferred and
@@ -26,12 +27,12 @@ execution-disabled; no live provider or Firecrawl claim is made.
 
 | Requirement | Evidence | Status |
 |---|---|---|
-| RUN-04 | `GroundedExecutionAdapter`/existing modelFactory and Firecrawl seam are covered by the focused adapter/agent tests; `scripts/phase33-scope-audit.ts` scanned 257 tracked files and reported 0 forbidden provider/package, legacy-write, later-phase, direct-write, or private-reasoning findings. | **PASS — mocked/static**; live execution deferred |
-| EVD-01 | Grounded contract, result, adapter, telemetry, and pure persistence-query tests passed; immutable packet schema/persistence integration was not run. | **PARTIAL — DB gate blocked** |
+| RUN-04 | `GroundedExecutionAdapter`/existing modelFactory and Firecrawl seam are covered by the focused adapter/agent tests; `scripts/phase33-scope-audit.ts` scanned 257 tracked files and reported 0 forbidden provider/package, legacy-write, later-phase, direct-write, or private-reasoning findings. Workflow integration remains blocked by the generated catalog JSON import. | **PARTIAL — mocked/static pass; Workflow blocked** |
+| EVD-01 | Grounded contract, result, adapter, telemetry, pure persistence-query, and schema metadata tests passed; both packet persistence integration cases failed before insert because enum text was not explicitly cast. | **PARTIAL — persistence defect** |
 | EVD-02 | Contract/evidence tests passed, including checklist snapshot identity and closed status/confidence behavior. | **PASS — automated contract** |
-| EVD-03 | Evidence normalization/retrieval tests passed; canonical source/link database integration was not run. | **PARTIAL — DB gate blocked** |
+| EVD-03 | Evidence normalization/retrieval tests passed; canonical source/link integration is blocked by the same packet CTE enum-cast failure. | **PARTIAL — persistence defect** |
 | EVD-04 | Adversarial evidence and adapter tests passed for unsafe/unsupported/duplicate/unlinked/missing-support paths. | **PASS — automated adversarial** |
-| EVD-05 | Persona fail-closed and telemetry redaction tests passed; retention/database evidence was not run. | **PARTIAL — DB gate blocked** |
+| EVD-05 | Persona fail-closed and telemetry redaction tests passed; Persona retention integration failed before insert on the same enum-cast failure. | **PARTIAL — persistence defect** |
 
 ## Automated Evidence
 
@@ -57,18 +58,19 @@ test configuration was changed.
 
 ## Guarded Database and Workflow Evidence
 
-The exact final gate's required environment guard was run with no
-`TEST_DATABASE_URL` present:
+The rerun loaded `.env.local` safely and confirmed `TEST_DATABASE_URL` was
+configured without printing its value. It assigned that value only to
+command-scoped `DATABASE_URL` and `TEST_DATABASE_URL`; the production
+`DATABASE_URL` value was not used.
 
-```text
-TEST_DATABASE_URL is required for Phase 33 final evidence
-```
+- `db:push`: **PASS** — Neon schema pulled and changes applied.
+- `analysisResultsSchema.integration.test.ts`: **PASS** — 1 file / 1 test.
+- `analysisResults.integration.test.ts`: **FAIL** — 0/2; both fail before insert because JSON-derived `status` text is not explicitly cast to the `analysis_evidence_status` enum.
+- `test:workflow`: **FAIL** — 1/13 passed, 12 timed out after the generated bundle failed to import `catalog.json` without a JSON import attribute.
 
-The guarded persistence and Workflow commands likewise failed fast with their
-safe prerequisite messages. `db:push`, Neon schema checks, packet atomicity/
-replay/retention integration, and Workflow integration were therefore **not
-run** and are not represented as passing evidence. No database URL was
-assigned, logged, or inferred.
+No failing assertion was bypassed and no manual database fixture was inserted to
+force green. The database URL was never logged, committed, or copied into this
+ledger.
 
 ## Concrete Scope Audit
 
@@ -116,3 +118,39 @@ provider dependency, or chain-of-thought persistence was added by Plan 06.
 - Resolve the existing Vitest include mismatch if the literal
   `npm test -- scripts/phase33-scope-audit.test.ts` path must become directly
   runnable; Plan 06 did not alter shared test configuration.
+
+## Rerun Diagnostics — 2026-08-07
+
+### Packet persistence integration — blocked
+
+`db:push` and the schema metadata test passed. Both real Neon packet tests
+failed at `persistAnalysisPacket` before any packet could be committed.
+Postgres reported that `analysis_finding.status` received `text` while the
+column is the `analysis_evidence_status` enum; the CTE also supplies JSON text
+for `confidence`. No assertion was weakened and no manual fixture row was
+inserted.
+
+Required follow-up: cast the JSON-derived text expressions to the declared enum
+types in the packet CTE, then rerun the schema, pure packet, and both real Neon
+integration cases. This is outside the Plan 06 evidence-only change set.
+
+### Workflow integration — blocked
+
+The guarded Workflow command reached the Local World runner and ran 13 tests:
+1 passed and 12 timed out. All failing tests shared the safe runtime
+diagnostic that the generated Workflow bundle imports `catalog.json` without a
+JSON import attribute. Queue operations therefore failed before the
+database-authoritative lifecycle assertions completed. No provider or
+Firecrawl request was made.
+
+Required follow-up: make the Workflow bundle's catalog JSON loading compatible
+with the Node runtime, or replace it with an equivalent safe module boundary,
+then rerun all Workflow tests. This is outside the Plan 06 evidence-only change
+set.
+
+## Rerun Verdict
+
+The former missing-environment blocker is closed: the test database was reached
+and schema evidence passed. The final Phase 33 gate remains **BLOCKED**, not
+green, until the packet enum-cast defect and Workflow bundle import defect are
+fixed and their complete integration suites pass.
