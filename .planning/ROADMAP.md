@@ -129,7 +129,7 @@ Full details: [`.planning/milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.m
 
 **Phase Numbering:** Continues directly from v1.6's Phase 30. Phase 31 is a mandatory durable-executor selection and validation gate; no later phase may promise detached asynchronous execution until it passes.
 
-- [ ] **Phase 31: Durable Executor Selection & Validation** - Select and prove a Vercel-compatible executor can independently claim, complete, recover, or safely fail a durable run.
+- [x] **Phase 31: Durable Executor Selection & Validation** - Select and prove a Vercel-compatible executor can independently claim, complete, recover, or safely fail a durable run.
 - [ ] **Phase 32: Template, Snapshot & Run Ledger** - Establish two compatible GBS templates and the immutable run ledger that records intent, lifecycle, limits, and safe audit outcomes.
 - [ ] **Phase 33: Grounded Analysis Execution & Evidence** - Execute snapshotted runs through the existing modelFactory and Firecrawl seam, persisting safe, source-grounded findings.
 - [ ] **Phase 34: Whole-Run Review & Confirmed Candidates** - Apply one idempotent decision per completed run and expose only confirmed, provenance-backed candidate offerings.
@@ -173,7 +173,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 28. Shared Data Model + Seed | v1.6 | 6/6 | Complete   | 2026-08-06 |
 | 29. Signals UI | v1.6 | 8/8 | Complete   | 2026-08-05 |
 | 30. Offerings UI | v1.6 | 11/11 | Complete   | 2026-08-06 |
-| 31. Durable Executor Selection & Validation | v1.7 | 0/TBD | Not started | - |
+| 31. Durable Executor Selection & Validation | v1.7 | 3/3 | Complete | 2026-08-07 |
 | 32. Template, Snapshot & Run Ledger | v1.7 | 0/TBD | Not started | - |
 | 33. Grounded Analysis Execution & Evidence | v1.7 | 0/TBD | Not started | - |
 | 34. Whole-Run Review & Confirmed Candidates | v1.7 | 0/TBD | Not started | - |
