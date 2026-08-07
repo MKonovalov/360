@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Agent Constructor & Buying Signal Analysis
-status: blocked
-last_updated: "2026-08-07T19:08:20.759Z"
-last_activity: 2026-08-07 -- Phase 33 final gate recorded with database evidence blocked
+status: executing
+last_updated: "2026-08-07T22:42:55.317Z"
+last_activity: 2026-08-07
 progress:
   total_phases: 14
   completed_phases: 2
-  total_plans: 14
-  completed_plans: 10
+  total_plans: 19
+  completed_plans: 12
   percent: 14
 ---
 
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-06)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** Phase 33 — Grounded Analysis Execution & Evidence
+**Current focus:** Phase 34 — Whole-Run Review & Confirmed Candidates
 
 ## Current Position
 
-Phase: 33 of 36 (Grounded Analysis Execution & Evidence)
-Plan: 06
-Status: Blocked on TEST_DATABASE_URL; live smoke deferred
-Last activity: 2026-08-07 -- Phase 33 final gate recorded with database evidence blocked
+Phase: 34 of 36 (Whole-Run Review & Confirmed Candidates)
+Plan: 2 of 4
+Status: Ready to execute
+Last activity: 2026-08-07
 
-Progress: [███████░░░] 71%
+Progress: [███████░░░] 67%
 
 ## Performance Metrics
 
@@ -55,6 +55,7 @@ Progress: [███████░░░] 71%
 | Phase 33 P04 | ~1h | 2 tasks | 7 files |
 | Phase 33 P05 | ~1h | 3 tasks | 4 files |
 | Phase 33 P06 | 25m | 2 tasks | 4 files |
+| Phase 34-whole-run-review-confirmed-candidates P01 | 45m | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -75,6 +76,11 @@ Progress: [███████░░░] 71%
 - [Phase 33]: Every durable packet step reloads the scalar run ID rather than trusting Workflow metadata.
 - [Phase 33]: Final database evidence remains blocked until TEST_DATABASE_URL is supplied; persistence and Workflow integration are not claimed as passed.
 - [Phase 33]: Live provider smoke is deferred with reason policy_or_credentials_unavailable while policy remains deferred and execution-disabled.
+- [Phase 32]: Final gate passed against TEST_DATABASE_URL; the seed and ledger integration files require serial Vitest execution to preserve exact-two fixture assertions.
+- [Phase 32]: The analysis-run create route and Workflow preserve the phase32_noop policy and do not invoke Phase 33 grounded execution during the constructor/no-op gate.
+- [Phase 34-whole-run-review-confirmed-candidates]: One immutable, packet-bound whole-run decision per analysis run/result: unique analysis_run_id and result_id, closed confirmed|dismissed enum, non-null decided_by/decided_at/packet_hash.
+- [Phase 34-whole-run-review-confirmed-candidates]: Actor identity, decision timestamp, and packet hash are server-result fields; reconciliation/decision inputs accept only a positive run ID plus the closed decision (T-34-02).
+- [Phase 34-whole-run-review-confirmed-candidates]: Candidate eligibility is strong/weak only with persisted source linkage; active display status and historical link identity are distinct fields (D-34-03/D-34-04).
 
 ### Pending Todos
 
@@ -85,8 +91,7 @@ None.
 - Phase 31 executor selection and deployed proof are complete; detached execution may now proceed through the planned ledger gates.
 - Phase 32 planning must inventory legacy `agent_run`/proposal/review relations before selecting additive migration details.
 - Persona enablement needs explicit privacy, redaction, classification, and retention policy values before Phase 33 implementation.
-- state.advance-plan could not parse the pre-existing STATE.md Current Plan/Total Plans fields; plan metadata and roadmap progress were updated, but the SDK could not advance the plan counter.
-- state.advance-plan could not parse the pre-existing STATE.md Current Plan/Total Plans fields; plan execution completed and roadmap progress was updated.
+- Phase 32's original parallel seed/ledger command exposed a shared disposable-database fixture race; validation now serializes those two files without weakening assertions.
 
 ## Deferred Items
 
@@ -97,6 +102,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-08-07T19:08:20.759Z
-Stopped at: Completed 33-06-PLAN.md; database-backed final gate blocked
+Last session: 2026-08-07T22:42:55.311Z
+Stopped at: Completed 32-05-PLAN.md; Phase 32 final gate passed
 Resume file: None

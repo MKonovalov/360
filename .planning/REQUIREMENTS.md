@@ -33,9 +33,9 @@
 
 ### Review and Candidate Offerings
 
-- [ ] **REV-01**: Every successfully completed v1.7 analysis creates exactly one run-level review item in the shared Reviews experience.
-- [ ] **REV-02**: A staff reviewer can Confirm or Dismiss the entire run exactly once; the terminal decision is attributable, idempotent, and preserves the review packet.
-- [ ] **REV-03**: Confirming or dismissing a run never writes live Signals or signal-offering links.
+- [x] **REV-01**: Every successfully completed v1.7 analysis creates exactly one run-level review item in the shared Reviews experience.
+- [x] **REV-02**: A staff reviewer can Confirm or Dismiss the entire run exactly once; the terminal decision is attributable, idempotent, and preserves the review packet.
+- [x] **REV-03**: Confirming or dismissing a run never writes live Signals or signal-offering links.
 - [ ] **REV-04**: Company and Persona candidate-offering views derive only from Confirmed runs through existing signal-offering links and include run/finding/source provenance.
 - [ ] **REV-05**: Pending, failed, cancelled, and dismissed runs can never appear in candidate-offering aggregation.
 
@@ -94,9 +94,9 @@
 | EVD-03 | Phase 33 | Complete |
 | EVD-04 | Phase 33 | Complete |
 | EVD-05 | Phase 33 | Complete |
-| REV-01 | Phase 34 | Pending |
-| REV-02 | Phase 34 | Pending |
-| REV-03 | Phase 34 | Pending |
+| REV-01 | Phase 34 | Complete |
+| REV-02 | Phase 34 | Complete |
+| REV-03 | Phase 34 | Complete |
 | REV-04 | Phase 34 | Pending |
 | REV-05 | Phase 34 | Pending |
 | UX-01 | Phase 35 | Pending |
