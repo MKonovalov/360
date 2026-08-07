@@ -147,6 +147,13 @@ describe('GroundedExecutionAdapter', () => {
     });
     const unsafe = await adapter.execute(input);
     expect(unsafe).toMatchObject({ ok: false, failureReason: 'unsafe_research_content' });
+
+    mocks.runAgent.mockResolvedValueOnce({
+      ...validRun,
+      steps: [{ toolResults: [{ toolName: 'webSearch', output: [{ url: 'https://example.com', title: 'x', snippet: 'x'.repeat(2_001) }] }] }],
+    });
+    const overBound = await adapter.execute(input);
+    expect(overBound).toMatchObject({ ok: false, failureReason: 'invalid_tool_policy' });
   });
 
   it('bounds search input and rejects prompt-injection queries or malformed results', async () => {

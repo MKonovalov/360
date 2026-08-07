@@ -80,18 +80,25 @@ function buildGroundedPrompt(input: GroundedExecutionInput): string {
   ].join('\n');
 }
 
-function safeToolResults(steps: readonly StepLike[]): readonly SafeToolItem[] {
+function safeToolResults(
+  steps: readonly StepLike[],
+  limits: Readonly<{ maxSources: number; maxSourceBytes: number; maxExcerptBytes: number }>,
+): readonly SafeToolItem[] {
   const items: SafeToolItem[] = [];
+  let sourceBytes = 0;
   for (const step of steps) {
     for (const result of step.toolResults ?? []) {
       if (result.toolName !== 'webSearch' || !Array.isArray(result.output)) continue;
       for (const item of result.output) {
         const parsed = safeToolItemSchema.safeParse(item);
         if (!parsed.success) throw new Error('invalid_tool_policy');
+        if (parsed.data.snippet.length > limits.maxExcerptBytes) throw new Error('invalid_tool_policy');
         if (/(?:ignore\s+(?:all\s+)?previous|system\s+message|private\s+reasoning|api[_ -]?key|database_url|clerk[_ -]?session)/i.test(`${parsed.data.title}\n${parsed.data.snippet}`)) {
           throw new Error('unsafe_research_content');
         }
         items.push(parsed.data);
+        sourceBytes += Buffer.byteLength(`${parsed.data.title}\n${parsed.data.snippet}`, 'utf8');
+        if (items.length > limits.maxSources || sourceBytes > limits.maxSourceBytes) throw new Error('invalid_tool_policy');
       }
     }
   }
@@ -132,7 +139,8 @@ export class GroundedExecutionAdapter {
     }
 
     try {
-      const models = this.dependencies.instantiateChain([...parsed.modelChain]);
+      const modelIds = parsed.modelChain.slice(0, policy.limits.maxAttempts);
+      const models = this.dependencies.instantiateChain(modelIds);
       const run = await this.dependencies.runAgent({
         company: { id: parsed.subjectId, name: parsed.subjectDisplayName },
         liveSignals: parsed.checklistSignalIds.map((signalType) => ({ signalType: String(signalType) })),
@@ -146,7 +154,7 @@ export class GroundedExecutionAdapter {
         },
       });
       const output = groundedModelOutputSchema.parse(run.output);
-      const toolResults = safeToolResults(run.steps);
+      const toolResults = safeToolResults(run.steps, policy.limits);
       return {
         ok: true,
         output,
