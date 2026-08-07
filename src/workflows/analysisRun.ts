@@ -15,14 +15,9 @@ const WORKFLOW_ACTOR_ID = 'workflow-executor';
 
 type TerminalStatus = 'completed' | 'failed' | 'cancelled';
 
-export type AnalysisRunResult = {
-  readonly applicationRunId: number;
-  readonly terminalStatus: TerminalStatus;
-};
+export type AnalysisRunResult = { readonly applicationRunId: number; readonly terminalStatus: TerminalStatus };
 
-type ExecutionStepResult =
-  | { readonly ok: true; readonly execution: Extract<GroundedExecutionResult, { ok: true }> }
-  | { readonly ok: false; readonly safeReason: 'execution_failed' | 'timed_out' };
+type ExecutionStepResult = { readonly ok: true; readonly execution: Extract<GroundedExecutionResult, { ok: true }> } | { readonly ok: false; readonly safeReason: 'execution_failed' | 'timed_out' };
 
 export async function analysisRun(applicationRunId: number): Promise<AnalysisRunResult> {
   'use workflow';
