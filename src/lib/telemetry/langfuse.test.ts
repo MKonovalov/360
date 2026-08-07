@@ -1,10 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test';
 process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ??= 'pk_test_placeholder';
 process.env.CLERK_SECRET_KEY ??= 'sk_test_placeholder';
 
-import { buildPhase33TelemetryMetadata } from './langfuse';
+let buildPhase33TelemetryMetadata: typeof import('./langfuse').buildPhase33TelemetryMetadata;
+
+beforeAll(async () => {
+  ({ buildPhase33TelemetryMetadata } = await import('./langfuse'));
+});
 
 describe('Phase 33 Langfuse metadata', () => {
   it('keeps only allowlisted identifiers and bounded counts', () => {
