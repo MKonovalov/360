@@ -25,11 +25,11 @@
 
 ### Evidence and Findings
 
-- [ ] **EVD-01**: Each completed run stores immutable normalized narrative, findings, raw audit output, model/trace provenance, and run timing.
-- [ ] **EVD-02**: Each finding maps to the run's snapshotted signal identity and exposes strong, weak, no-evidence, or inconclusive status with confidence.
-- [ ] **EVD-03**: Every material finding references persisted, navigable source evidence with title, canonical URL, retrieved time, and supporting excerpt.
-- [ ] **EVD-04**: The system rejects unsupported, unsafe, duplicated, or unlinked evidence rather than treating a URL alone as proof.
-- [ ] **EVD-05**: Persona inputs, output, sources, and telemetry follow a minimum-data, redaction, classification, and retention policy.
+- [x] **EVD-01**: Each completed run stores immutable normalized narrative, findings, raw audit output, model/trace provenance, and run timing.
+- [x] **EVD-02**: Each finding maps to the run's snapshotted signal identity and exposes strong, weak, no-evidence, or inconclusive status with confidence.
+- [x] **EVD-03**: Every material finding references persisted, navigable source evidence with title, canonical URL, retrieved time, and supporting excerpt.
+- [x] **EVD-04**: The system rejects unsupported, unsafe, duplicated, or unlinked evidence rather than treating a URL alone as proof.
+- [x] **EVD-05**: Persona inputs, output, sources, and telemetry follow a minimum-data, redaction, classification, and retention policy.
 
 ### Review and Candidate Offerings
 
@@ -89,11 +89,11 @@
 | RUN-04 | Phase 33 | Pending |
 | RUN-05 | Phase 32 | Pending |
 | RUN-06 | Phase 32 | Pending |
-| EVD-01 | Phase 33 | Pending |
-| EVD-02 | Phase 33 | Pending |
-| EVD-03 | Phase 33 | Pending |
-| EVD-04 | Phase 33 | Pending |
-| EVD-05 | Phase 33 | Pending |
+| EVD-01 | Phase 33 | Complete |
+| EVD-02 | Phase 33 | Complete |
+| EVD-03 | Phase 33 | Complete |
+| EVD-04 | Phase 33 | Complete |
+| EVD-05 | Phase 33 | Complete |
 | REV-01 | Phase 34 | Pending |
 | REV-02 | Phase 34 | Pending |
 | REV-03 | Phase 34 | Pending |

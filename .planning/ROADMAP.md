@@ -175,7 +175,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 30. Offerings UI | v1.6 | 11/11 | Complete   | 2026-08-06 |
 | 31. Durable Executor Selection & Validation | v1.7 | 3/3 | Complete | 2026-08-07 |
 | 32. Template, Snapshot & Run Ledger | v1.7 | 0/TBD | Not started | - |
-| 33. Grounded Analysis Execution & Evidence | v1.7 | 0/TBD | Not started | - |
+| 33. Grounded Analysis Execution & Evidence | v1.7 | 2/6 | In Progress|  |
 | 34. Whole-Run Review & Confirmed Candidates | v1.7 | 0/TBD | Not started | - |
 | 35. Company & Persona Analysis Experiences | v1.7 | 0/TBD | Not started | - |
 | 36. Agent Management & End-to-End Verification | v1.7 | 0/TBD | Not started | - |
@@ -275,7 +275,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
   4. NousResearch Hermes rows render honest capability captions (chat/reasoning-tuned caveat, mirroring the `:free` fail-loud pattern) with per-MTok cost captions converted from the API's per-token pricing.
   5. Provider badges cover all 4 providers and disambiguate same-name models (hermes-4-70b via nousresearch vs openrouter; claude rows via opencode vs anthropic); union fallback pickers group by all 4 providers with correct badges; save + staleness verified end-to-end against 4-provider chains.
 
-**Plans**: TBD
 **UI hint**: yes
 
 ### Phase 27: Verification Gate
@@ -441,7 +440,27 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
   3. Every material finding identifies a snapshotted signal and its confidence/evidence status and links to persisted, navigable sources with title, canonical URL, retrieval time, and excerpt.
   4. Unsupported, unsafe, duplicate, or unlinked evidence is rejected rather than displayed as proof.
   5. Persona inputs, results, sources, and telemetry honor the minimum-data, redaction, classification, and retention policy.
-**Plans**: TBD
+**Plans**: 6 plans
+**Wave 0**
+
+- [x] 33-01-PLAN.md — Policy checkpoint and strict grounded execution/Persona contracts (RUN-04, EVD-01..05)
+
+**Wave 1** *(blocked on Wave 0 completion; parallel with each other)*
+
+- [x] 33-02-PLAN.md — Additive immutable packet/finding/source/link schema and Neon-http-safe persistence (EVD-01..05)
+- [ ] 33-03-PLAN.md — Canonical evidence normalization and fail-closed packet validation (EVD-01..05)
+
+**Wave 2** *(blocked on Wave 1 contract/evidence completion)*
+
+- [ ] 33-04-PLAN.md — Provider-neutral modelFactory/Firecrawl adapter and bounded tool seam (RUN-04, EVD-01..05)
+
+**Wave 3** *(blocked on Waves 1-2 completion)*
+
+- [ ] 33-05-PLAN.md — Durable workflow integration, persistence-before-completion, replay safety, and Langfuse redaction (RUN-04, EVD-01..05)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 33-06-PLAN.md — Final automated gate, scope audit, and approved/deferred live smoke evidence (RUN-04, EVD-01..05)
 
 ### Phase 34: Whole-Run Review & Confirmed Candidates
 **Goal**: Staff can make one safe decision for a completed analysis, and only confirmed evidence can influence candidate offerings.
