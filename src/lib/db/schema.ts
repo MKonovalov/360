@@ -459,3 +459,51 @@ export const signalOfferingLink = pgTable('signal_offering_link', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+export const workflowProofStatusEnum = pgEnum('workflow_proof_status', [
+  'queued',
+  'running',
+  'completed',
+  'failed',
+]);
+
+// Phase 31 synthetic executor proof. This ledger is intentionally separate from
+// agent_run: executor diagnostics can be replayed, but they never become the
+// product lifecycle source of truth.
+export const workflowProofRun = pgTable('workflow_proof_run', {
+  id: serial('id').primaryKey(),
+  proofKind: text('proof_kind').notNull().default('synthetic'),
+  controls: jsonb('controls').notNull().default({}),
+  snapshot: jsonb('snapshot').notNull().default({}),
+  status: workflowProofStatusEnum('status').notNull().default('queued'),
+  leaseExpiresAt: timestamp('lease_expires_at'),
+  leaseToken: text('lease_token'),
+  recoveryAttempts: integer('recovery_attempts').notNull().default(0),
+  reconciliationAttempts: integer('reconciliation_attempts').notNull().default(0),
+  workflowRunId: text('workflow_run_id'),
+  diagnosticWorkflowState: text('diagnostic_workflow_state'),
+  diagnosticErrorCode: text('diagnostic_error_code'),
+  diagnosticErrorMessage: text('diagnostic_error_message'),
+  failureReason: text('failure_reason'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  completedAt: timestamp('completed_at'),
+});
+
+export const workflowProofRunEvent = pgTable(
+  'workflow_proof_run_event',
+  {
+    id: serial('id').primaryKey(),
+    workflowProofRunId: integer('workflow_proof_run_id')
+      .notNull()
+      .references(() => workflowProofRun.id),
+    eventKey: text('event_key').notNull().unique('workflow_proof_run_event_key_unique'),
+    action: text('action').notNull(),
+    attempt: integer('attempt').notNull().default(0),
+    recoveryAttempt: integer('recovery_attempt').notNull().default(0),
+    reason: text('reason'),
+    workflowRunId: text('workflow_run_id'),
+    metadata: jsonb('metadata'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  }
+);

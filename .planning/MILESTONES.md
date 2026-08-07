@@ -1,5 +1,24 @@
 # Milestones
 
+## v1.6 Signals & Offerings (Shipped: 2026-08-06)
+
+**Phases completed:** 3 phases, 25 plans, 8 requirements → 27/27 satisfied
+
+**Key accomplishments:**
+
+- 9-table data model (offerings + signals + ranked buyer-role joins + trigger + polymorphic signal-offering link) live in Neon with delete-guard `has_dependents` rule at the query layer, all writes staff-auth-gated with created_by/updated_by.
+- Full GBS seed verified live: 1 practice area, 3 domains (Design/Build/Run), 11 offerings, 5 buyer roles (CFO/COO/Head of GBS/Transformation Sponsor/CIO), 11 triggers, 27 company + 12 persona signals, 10 signal-offering links.
+- /signals two-tab explorer (Company Signals / Persona Signals) with Practice Area/Category/Status/search filters, create/edit forms, active-only PA-scoped linked-offerings picker, and soft archive (status=retired).
+- /offerings Service Portfolio — 3-level hierarchical PA → Domain → Offering manager with create/edit/reorder/archive/guarded-delete row actions.
+- /offerings Offering × Trigger × Buyer Matrix — GBS-default filter, Domain-grouped rows, inline trigger add/remove and ranked Primary Buyer editing that persists without opening the Offering Sheet.
+- Shared Buyer Role lookup CRUD panel on both Offerings tabs, D-10 dependents-guarded deletes (near-black confirms, red reserved for row-level Delete triggers), and OFR-07 read-only reverse-lookup of linked signal names.
+- Human UAT approved (30-11, 2026-08-06): all 8 OFR checks passed live against GBS seed data; zero issues, zero rework.
+- Cross-phase integration audit passed (v1.6-MILESTONE-AUDIT.md): 27/27 requirements, 18/18 wiring connections, 4/4 E2E flows; 6 non-critical tech-debt items documented.
+
+---
+
+---
+
 ## v1.5 Additional AI Providers (Shipped: 2026-08-04)
 
 **Phases completed:** 5 phases, 20 plans, 43 tasks
