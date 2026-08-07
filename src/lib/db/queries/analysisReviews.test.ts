@@ -74,7 +74,7 @@ describe('reconcileCompletedRunForReview', () => {
     expect(sqlText).toContain('INSERT INTO analysis_run_event');
     expect(sqlText).toContain("'completed'");
     expect(sqlText).toContain("'system'");
-    expect(sqlText).toContain("'analysis-review-reconciler'");
+    expect(sqlText).toContain('analysis-review-reconciler');
     expect(sqlText).toContain(':completed->pending_review:0');
   });
 
@@ -212,7 +212,8 @@ describe('decideAnalysisRun', () => {
     expect(sqlText).toContain('INSERT INTO analysis_run_event');
     expect(sqlText).toContain("'staff'");
     expect(sqlText).toContain(ACTOR);
-    expect(sqlText).toContain(':pending_review->confirmed:');
+    expect(sqlText).toContain("':pending_review->', confirmed::text, ':'");
+    expect(sqlText).toContain('current_run.attempt');
   });
 
   it('returns the original winner with replayed true when the run was already decided', async () => {
