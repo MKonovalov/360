@@ -83,6 +83,13 @@ metrics:
 - **Files modified:** `src/lib/analysis/execution.ts`, `src/lib/analysis/execution.test.ts`
 - **Commit:** `9f8e97b0`
 
+**2. [Rule 3 - Blocking issue] Kept the snapshot model-chain extension local to Plan 04**
+- **Found during:** Final scope self-check
+- **Issue:** The adapter input needed the immutable model-chain field, but adding it to the Plan 01-owned contract would violate same-wave file ownership.
+- **Fix:** Extended the validated execution input schema inside the adapter instead of modifying `groundedContracts.ts`.
+- **Files modified:** `src/lib/analysis/execution.ts`
+- **Commit:** `3365477b`
+
 ## Auth Gates
 
 None.
@@ -102,7 +109,7 @@ None. The deferred policy is an intentional fail-closed state, not a placeholder
 ## Self-Check: PASSED
 
 - All seven Plan 04 source/test files and this summary exist.
-- Task commits are present: `940e9976`, `d8bd22e9`, `01c82d49`, `9f8e97b0`.
+- Task commits are present: `940e9976`, `d8bd22e9`, `01c82d49`, `9f8e97b0`, `3365477b`.
 - Focused mocked tests and TypeScript diagnostics passed.
 - No Exa import, new provider SDK, package change, persistence call, or live credential/network call was introduced.
 
