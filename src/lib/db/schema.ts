@@ -1,4 +1,14 @@
-import { pgTable, pgEnum, serial, text, integer, boolean, date, timestamp, unique, uniqueIndex, jsonb } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { pgTable, pgEnum, serial, text, integer, boolean, date, timestamp, unique, uniqueIndex, index, jsonb } from 'drizzle-orm/pg-core';
+import {
+  ANALYSIS_RUN_STATUSES,
+  PHASE32_NOOP_POLICY,
+  STANDARD_EXECUTION_BUDGET,
+  analysisTargetTypes,
+  supportedEfforts,
+  type AnalysisEffort,
+  type ReadonlyAnalysisSnapshot,
+} from '../analysis/contracts';
 
 // D-07: fixed-but-extensible enum, seeded with the 4 known signal types.
 // Adding a 5th type is a `drizzle-kit generate` migration (ALTER TYPE ... ADD VALUE),
@@ -506,4 +516,263 @@ export const workflowProofRunEvent = pgTable(
     metadata: jsonb('metadata'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   }
+);
+
+export const analysisTargetTypeEnum = pgEnum('analysis_target_type', analysisTargetTypes);
+export const analysisEffortEnum = pgEnum('analysis_effort', supportedEfforts);
+export const analysisRunStatusEnum = pgEnum('analysis_run_status', ANALYSIS_RUN_STATUSES);
+export const analysisActorKindEnum = pgEnum('analysis_actor_kind', [
+  'staff',
+  'workflow',
+  'system',
+]);
+export const analysisEvidenceStatusEnum = pgEnum('analysis_evidence_status', [
+  'strong',
+  'weak',
+  'no_evidence',
+  'inconclusive',
+]);
+export const analysisConfidenceEnum = pgEnum('analysis_confidence', ['low', 'medium', 'high']);
+export const analysisSourceClassificationEnum = pgEnum('analysis_source_classification', [
+  'public_biz',
+  'personal_data',
+  'restricted',
+]);
+export const analysisSupportRoleEnum = pgEnum('analysis_support_role', ['primary', 'corroborating']);
+export const analysisRetentionStatusEnum = pgEnum('analysis_retention_status', [
+  'retained',
+  'tombstoned',
+]);
+
+export const analysisTemplate = pgTable(
+  'analysis_template',
+  {
+    id: serial('id').primaryKey(),
+    key: text('key').notNull().unique('analysis_template_key_unique'),
+    name: text('name').notNull(),
+    targetType: analysisTargetTypeEnum('target_type').notNull(),
+    status: catalogStatusEnum('status').notNull().default('active'),
+    createdBy: text('created_by').notNull(),
+    updatedBy: text('updated_by').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [index('analysis_template_target_status_idx').on(table.targetType, table.status)]
+);
+
+export const analysisTemplateVersion = pgTable(
+  'analysis_template_version',
+  {
+    id: serial('id').primaryKey(),
+    templateId: integer('template_id').notNull().references(() => analysisTemplate.id),
+    version: integer('version').notNull(),
+    instruction: text('instruction').notNull(),
+    supportedEfforts: jsonb('supported_efforts')
+      .$type<readonly AnalysisEffort[]>()
+      .notNull()
+      .default(supportedEfforts),
+    defaultEffort: analysisEffortEnum('default_effort').notNull().default('standard'),
+    futureBudget: jsonb('future_budget')
+      .$type<typeof STANDARD_EXECUTION_BUDGET>()
+      .notNull()
+      .default(STANDARD_EXECUTION_BUDGET),
+    createdBy: text('created_by').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('analysis_template_version_template_version_idx').on(
+      table.templateId,
+      table.version
+    ),
+  ]
+);
+
+export const analysisRun = pgTable(
+  'analysis_run',
+  {
+    id: serial('id').primaryKey(),
+    templateId: integer('template_id').notNull().references(() => analysisTemplate.id),
+    templateVersionId: integer('template_version_id')
+      .notNull()
+      .references(() => analysisTemplateVersion.id),
+    subjectType: analysisTargetTypeEnum('subject_type').notNull(),
+    subjectId: integer('subject_id').notNull(),
+    practiceAreaId: integer('practice_area_id').notNull().references(() => practiceArea.id),
+    status: analysisRunStatusEnum('status').notNull().default('queued'),
+    attempt: integer('attempt').notNull().default(0),
+    maxAttempts: integer('max_attempts').notNull().default(STANDARD_EXECUTION_BUDGET.maxAttempts),
+    createdBy: text('created_by').notNull(),
+    templateSnapshot: jsonb('template_snapshot')
+      .$type<ReadonlyAnalysisSnapshot['template']>()
+      .notNull(),
+    subjectSnapshot: jsonb('subject_snapshot')
+      .$type<ReadonlyAnalysisSnapshot['subject']>()
+      .notNull(),
+    checklistSnapshot: jsonb('checklist_snapshot')
+      .$type<ReadonlyAnalysisSnapshot['checklist']>()
+      .notNull(),
+    executionSnapshot: jsonb('execution_snapshot')
+      .$type<ReadonlyAnalysisSnapshot['execution']>()
+      .notNull(),
+    policySnapshot: jsonb('policy_snapshot')
+      .$type<ReadonlyAnalysisSnapshot['policy']>()
+      .notNull()
+      .default(PHASE32_NOOP_POLICY),
+    safeReason: text('safe_reason'),
+    startedAt: timestamp('started_at'),
+    completedAt: timestamp('completed_at'),
+    terminalAt: timestamp('terminal_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('analysis_run_active_subject_template_idx')
+      .on(table.subjectType, table.subjectId, table.templateId)
+      .where(sql`${table.status} IN ('queued', 'running', 'pending_review')`),
+    index('analysis_run_subject_history_idx').on(
+      table.subjectType,
+      table.subjectId,
+      table.createdAt
+    ),
+    index('analysis_run_template_version_idx').on(table.templateVersionId),
+  ]
+);
+
+export const analysisRunEvent = pgTable(
+  'analysis_run_event',
+  {
+    id: serial('id').primaryKey(),
+    analysisRunId: integer('analysis_run_id').notNull().references(() => analysisRun.id),
+    eventKey: text('event_key').notNull().unique('analysis_run_event_key_unique'),
+    fromStatus: analysisRunStatusEnum('from_status'),
+    toStatus: analysisRunStatusEnum('to_status').notNull(),
+    actorKind: analysisActorKindEnum('actor_kind').notNull(),
+    actorId: text('actor_id').notNull(),
+    safeReason: text('safe_reason'),
+    attempt: integer('attempt').notNull().default(0),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [index('analysis_run_event_run_created_idx').on(table.analysisRunId, table.createdAt)]
+);
+
+export const analysisRunResult = pgTable(
+  'analysis_run_result',
+  {
+    id: serial('id').primaryKey(),
+    analysisRunId: integer('analysis_run_id').notNull().references(() => analysisRun.id),
+    schemaVersion: integer('schema_version').notNull().default(1),
+    targetType: analysisTargetTypeEnum('target_type').notNull(),
+    narrative: text('narrative').notNull(),
+    rawAudit: jsonb('raw_audit').notNull(),
+    modelId: text('model_id'),
+    modelChain: jsonb('model_chain').notNull(),
+    traceId: text('trace_id'),
+    traceUrl: text('trace_url'),
+    startedAt: timestamp('started_at').notNull(),
+    completedAt: timestamp('completed_at').notNull(),
+    durationMs: integer('duration_ms').notNull(),
+    findingCount: integer('finding_count').notNull(),
+    sourceCount: integer('source_count').notNull(),
+    linkCount: integer('link_count').notNull(),
+    packetHash: text('packet_hash').notNull(),
+    policyVersion: text('policy_version'),
+    classification: analysisSourceClassificationEnum('classification'),
+    expiresAt: timestamp('expires_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    unique('analysis_run_result_analysis_run_id_unique').on(table.analysisRunId),
+    unique('analysis_run_result_packet_hash_unique').on(table.packetHash),
+    index('analysis_run_result_run_idx').on(table.analysisRunId),
+  ]
+);
+
+export const analysisFinding = pgTable(
+  'analysis_finding',
+  {
+    id: serial('id').primaryKey(),
+    resultId: integer('result_id').notNull().references(() => analysisRunResult.id),
+    analysisRunId: integer('analysis_run_id').notNull().references(() => analysisRun.id),
+    findingId: text('finding_id').notNull(),
+    signalId: integer('signal_id').notNull(),
+    signalName: text('signal_name').notNull(),
+    signalCategory: text('signal_category').notNull(),
+    buyerRoleId: integer('buyer_role_id'),
+    status: analysisEvidenceStatusEnum('status').notNull(),
+    confidence: analysisConfidenceEnum('confidence').notNull(),
+    claim: text('claim').notNull(),
+    reasoningSummary: text('reasoning_summary'),
+    policyVersion: text('policy_version'),
+    classification: analysisSourceClassificationEnum('classification'),
+    expiresAt: timestamp('expires_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    unique('analysis_finding_result_finding_unique').on(table.resultId, table.findingId),
+    index('analysis_finding_result_idx').on(table.resultId),
+    index('analysis_finding_signal_idx').on(table.signalId),
+  ]
+);
+
+export const analysisSource = pgTable(
+  'analysis_source',
+  {
+    id: serial('id').primaryKey(),
+    resultId: integer('result_id').notNull().references(() => analysisRunResult.id),
+    sourceId: text('source_id').notNull(),
+    canonicalUrl: text('canonical_url').notNull(),
+    title: text('title').notNull(),
+    retrievedAt: timestamp('retrieved_at').notNull(),
+    excerpt: text('excerpt').notNull(),
+    contentHash: text('content_hash').notNull(),
+    classification: analysisSourceClassificationEnum('classification').notNull(),
+    providerName: text('provider_name'),
+    providerVersion: text('provider_version'),
+    policyVersion: text('policy_version'),
+    expiresAt: timestamp('expires_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    unique('analysis_source_result_canonical_url_unique').on(table.resultId, table.canonicalUrl),
+    unique('analysis_source_result_source_id_unique').on(table.resultId, table.sourceId),
+    index('analysis_source_result_idx').on(table.resultId),
+  ]
+);
+
+export const analysisFindingSource = pgTable(
+  'analysis_finding_source',
+  {
+    id: serial('id').primaryKey(),
+    resultId: integer('result_id').notNull().references(() => analysisRunResult.id),
+    findingId: integer('finding_id').notNull().references(() => analysisFinding.id),
+    sourceId: integer('source_id').notNull().references(() => analysisSource.id),
+    locator: text('locator'),
+    supportRole: analysisSupportRoleEnum('support_role').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    unique('analysis_finding_source_finding_source_unique').on(table.findingId, table.sourceId),
+    index('analysis_finding_source_result_idx').on(table.resultId),
+    index('analysis_finding_source_finding_idx').on(table.findingId),
+    index('analysis_finding_source_source_idx').on(table.sourceId),
+  ]
+);
+
+export const analysisResultRetention = pgTable(
+  'analysis_result_retention',
+  {
+    id: serial('id').primaryKey(),
+    resultId: integer('result_id').notNull().references(() => analysisRunResult.id),
+    policyVersion: text('policy_version').notNull(),
+    classification: analysisSourceClassificationEnum('classification').notNull(),
+    expiresAt: timestamp('expires_at').notNull(),
+    status: analysisRetentionStatusEnum('status').notNull().default('retained'),
+    tombstonedAt: timestamp('tombstoned_at'),
+    tombstoneReason: text('tombstone_reason'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    unique('analysis_result_retention_result_id_unique').on(table.resultId),
+    index('analysis_result_retention_visibility_idx').on(table.status, table.expiresAt),
+  ]
 );
