@@ -146,6 +146,12 @@ describe('runAgent (09-01-01)', () => {
     await runAgent({ company, liveSignals: [] });
     expect(mocks.initLangfuse).not.toHaveBeenCalled();
   });
+
+  it('accepts an injected grounded prompt without changing the provider loop', async () => {
+    await runAgent({ company, liveSignals: [], prompt: 'safe grounded prompt' });
+
+    expect(mocks.generateText.mock.calls[0][0].prompt).toBe('safe grounded prompt');
+  });
 });
 
 describe('runAgent failover loop (FAL-03/04)', () => {
