@@ -175,7 +175,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 30. Offerings UI | v1.6 | 11/11 | Complete   | 2026-08-06 |
 | 31. Durable Executor Selection & Validation | v1.7 | 3/3 | Complete | 2026-08-07 |
 | 32. Template, Snapshot & Run Ledger | v1.7 | 0/TBD | Not started | - |
-| 33. Grounded Analysis Execution & Evidence | v1.7 | 2/6 | In Progress|  |
+| 33. Grounded Analysis Execution & Evidence | v1.7 | 3/6 | In Progress|  |
 | 34. Whole-Run Review & Confirmed Candidates | v1.7 | 0/TBD | Not started | - |
 | 35. Company & Persona Analysis Experiences | v1.7 | 0/TBD | Not started | - |
 | 36. Agent Management & End-to-End Verification | v1.7 | 0/TBD | Not started | - |
@@ -448,7 +448,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 **Wave 1** *(blocked on Wave 0 completion; parallel with each other)*
 
 - [x] 33-02-PLAN.md — Additive immutable packet/finding/source/link schema and Neon-http-safe persistence (EVD-01..05)
-- [ ] 33-03-PLAN.md — Canonical evidence normalization and fail-closed packet validation (EVD-01..05)
+- [x] 33-03-PLAN.md — Canonical evidence normalization and fail-closed packet validation (EVD-01..05)
 
 **Wave 2** *(blocked on Wave 1 contract/evidence completion)*
 

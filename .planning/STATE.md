@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Agent Constructor & Buying Signal Analysis
 status: planning
-last_updated: "2026-08-07T18:17:55.416Z"
+last_updated: "2026-08-07T18:28:51.144Z"
 last_activity: 2026-08-07 -- Phase 31 execution and deployed verification complete
 progress:
   total_phases: 14
   completed_phases: 1
   total_plans: 14
-  completed_plans: 6
+  completed_plans: 7
   percent: 7
 ---
 
@@ -29,7 +29,7 @@ Plan: —
 Status: Ready to plan
 Last activity: 2026-08-07 -- Phase 31 execution and deployed verification complete
 
-Progress: [████░░░░░░] 43%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
@@ -51,6 +51,7 @@ Progress: [████░░░░░░] 43%
 - Trend: Stable
 
 | Phase 33 P2 | ~1h | 3 tasks | 5 files |
+| Phase 33 P03 | ~45m | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -63,6 +64,8 @@ Progress: [████░░░░░░] 43%
 - [Phase 33]: Packet header is unique by analysis_run_id; replay returns the existing row and conflicting packet hashes fail closed.
 - [Phase 33]: Neon-http packet persistence uses one data-modifying CTE; interactive db.transaction callbacks remain unsupported.
 - [Phase 33]: Persona retention uses a mutable tombstone relation for visibility while immutable packet contents have no update/delete path.
+- [Phase 33]: Evidence sources require explicit Firecrawl provenance and bounded public-web content before normalization.
+- [Phase 33]: Finding identity and buyer-role data are copied only from immutable checklist snapshots; citations require exact canonical URL/content-hash support.
 
 ### Pending Todos
 
@@ -84,6 +87,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-08-07T18:17:39.095Z
-Stopped at: Phase 31 context gathered
+Last session: 2026-08-07T18:28:51.138Z
+Stopped at: Completed 33-03-PLAN.md
 Resume file: None
