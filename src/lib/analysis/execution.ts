@@ -24,6 +24,10 @@ const groundedModelOutputSchema = z
   })
   .strict();
 
+const executionInputSchema = groundedExecutionInputSchema.extend({
+  modelChain: z.array(z.string().trim().min(1).max(120).regex(/^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/)).min(1).max(8),
+});
+
 const safeToolItemSchema = z
   .object({
     url: z.string().url().max(2_048),
@@ -125,7 +129,7 @@ export class GroundedExecutionAdapter {
 
   async execute(input: unknown): Promise<GroundedExecutionResult> {
     const startedAt = Date.now();
-    const parsed = groundedExecutionInputSchema.parse(input);
+    const parsed = executionInputSchema.parse(input);
     const policy = phase33PolicySnapshotSchema.parse(parsed.policy);
     if (policy.mode === 'phase33_policy_deferred') {
       return {
