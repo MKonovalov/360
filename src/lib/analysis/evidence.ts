@@ -68,7 +68,9 @@ function isPrivateIpv4(hostname: string): boolean {
     (first === 169 && second === 254) ||
     (first === 172 && second >= 16 && second <= 31) ||
     (first === 192 && (second === 0 || second === 168)) ||
+    (first === 192 && second === 0) ||
     (first === 198 && (second === 18 || second === 19)) ||
+    (first === 198 && second === 51) ||
     (first === 203 && second === 0) ||
     first >= 224
   );
@@ -117,6 +119,9 @@ export function canonicalizeEvidenceUrl(value: string): string {
   try {
     const url = new URL(value);
     if (url.protocol !== 'https:' || url.username !== '' || url.password !== '' || url.hash !== '') {
+      fail('unsupported_source');
+    }
+    if (/(?:database_url|api[_-]?key|token|secret|clerk|session)/i.test(url.toString())) {
       fail('unsupported_source');
     }
     if (isPrivateHost(url.hostname)) fail('unsupported_source');

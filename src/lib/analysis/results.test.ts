@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createHash } from 'node:crypto';
 
 import { normalizeAnalysisPacket, type AnalysisPacketInput } from './results';
 
@@ -28,6 +29,7 @@ const sourceResult = {
   content: 'The company announced a transformation program. Further details follow.',
   retrievedAt: '2026-08-07T12:00:00.000Z',
 } as const;
+const sourceContentHash = createHash('sha256').update(sourceResult.content, 'utf8').digest('hex');
 
 const baseInput = {
   checklistSnapshot,
@@ -66,7 +68,7 @@ describe('normalized analysis packets', () => {
   it('maps findings to immutable checklist identity and exact server source support', () => {
     const source = normalizeAnalysisPacket({
       ...baseInput,
-      citations: [{ ...baseInput.citations[0], contentHash: 'a'.repeat(64) }],
+      citations: [{ ...baseInput.citations[0], contentHash: sourceContentHash }],
     });
 
     expect(source.findings[0]).toMatchObject({
@@ -89,13 +91,27 @@ describe('normalized analysis packets', () => {
     ['private reasoning', { privateReasoning: 'hidden chain-of-thought' }],
     ['raw prompt', { prompt: 'system instructions' }],
   ] as const)('rejects %s with a safe reason', (_label, change) => {
-    const candidate = { ...baseInput, citations: [{ ...baseInput.citations[0], contentHash: 'a'.repeat(64) }] };
-    if ('signalId' in change) candidate.findings = [{ ...candidate.findings[0], signalId: change.signalId }];
-    if ('citationUrl' in change) candidate.citations = [{ ...candidate.citations[0], url: change.citationUrl }];
-    if ('contentHash' in change) candidate.citations = [{ ...candidate.citations[0], contentHash: change.contentHash }];
-    if ('citations' in change) candidate.citations = change.citations;
-    if ('privateReasoning' in change) candidate.audit = { ...candidate.audit, privateReasoning: change.privateReasoning };
-    if ('prompt' in change) candidate.prompt = change.prompt;
+    const candidateBase = {
+      ...baseInput,
+      citations: [{ ...baseInput.citations[0], contentHash: sourceContentHash }],
+      findings: [...baseInput.findings],
+      audit: { ...baseInput.audit },
+    };
+    let candidate: unknown = candidateBase;
+    if ('signalId' in change) {
+      candidate = { ...candidateBase, findings: [{ ...candidateBase.findings[0], signalId: change.signalId }] };
+    }
+    if ('citationUrl' in change) {
+      candidate = { ...candidateBase, citations: [{ ...candidateBase.citations[0], url: change.citationUrl }] };
+    }
+    if ('contentHash' in change) {
+      candidate = { ...candidateBase, citations: [{ ...candidateBase.citations[0], contentHash: change.contentHash }] };
+    }
+    if ('citations' in change) candidate = { ...candidateBase, citations: change.citations };
+    if ('privateReasoning' in change) {
+      candidate = { ...candidateBase, audit: { ...candidateBase.audit, privateReasoning: change.privateReasoning } };
+    }
+    if ('prompt' in change) candidate = { ...candidateBase, prompt: change.prompt };
 
     expect(() => normalizeAnalysisPacket(candidate)).toThrow();
     try {
