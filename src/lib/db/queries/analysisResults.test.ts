@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   db: { execute: vi.fn() },
@@ -96,6 +96,10 @@ const approvedPersonaPolicy = {
 };
 
 describe('analysis result persistence boundary', () => {
+  beforeEach(() => {
+    mocks.db.execute.mockReset();
+  });
+
   it('collapses canonical duplicate sources before persistence', () => {
     const prepared = prepareAnalysisPacket({
       packet: {
