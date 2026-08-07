@@ -8,6 +8,8 @@ vi.mock('../index', () => ({ db: mocks.db }));
 
 import {
   AnalysisPacketConflictError,
+  enforcePersonaArtifactRetention,
+  getAnalysisPacket,
   persistAnalysisPacket,
   prepareAnalysisPacket,
 } from './analysisResults';
@@ -176,5 +178,23 @@ describe('analysis result persistence boundary', () => {
     expect(queryText).toContain('persona-policy-1');
     expect(queryText).toContain('2026-08-07T13:00:00.000Z');
     expect(queryText).not.toContain('email');
+  });
+
+  it('tombstones only retention rows and is idempotent at the query boundary', async () => {
+    mocks.db.execute.mockResolvedValueOnce({ rows: [{ resultId: 44 }] });
+
+    expect(await enforcePersonaArtifactRetention(new Date('2026-08-07T13:00:00.000Z'))).toEqual([44]);
+    const queryText = JSON.stringify(mocks.db.execute.mock.calls[0]?.[0]);
+    expect(queryText).toContain('analysis_result_retention');
+    expect(queryText).not.toContain('UPDATE analysis_run_result');
+  });
+
+  it('hides a Persona packet when its server-side retention record is absent', async () => {
+    mocks.db.execute.mockResolvedValueOnce({ rows: [] });
+
+    expect(await getAnalysisPacket(45, new Date('2026-08-07T13:00:00.000Z'))).toBeUndefined();
+    const queryText = JSON.stringify(mocks.db.execute.mock.calls[0]?.[0]);
+    expect(queryText).toContain('analysis_result_retention');
+    expect(queryText).toContain("status = 'retained'");
   });
 });
