@@ -776,3 +776,37 @@ export const analysisResultRetention = pgTable(
     index('analysis_result_retention_visibility_idx').on(table.status, table.expiresAt),
   ]
 );
+
+// Phase 34 (D-34-02): one whole-run terminal review decision per completed
+// analysis run/result. The authoritative lifecycle status remains
+// `analysis_run.status`; this row is a direct, immutable review projection that
+// makes the Confirm/Dismiss decision queryable without re-deriving it from the
+// audit log. Insert-once only — there is intentionally no update/delete helper
+// and no mutable packet column. `decided_by` is the server-derived Clerk staff
+// user id (opaque string, NO FK — Clerk is external, same pattern as
+// `userModelSettings`/`recentlyViewed`), and `packet_hash` is captured from the
+// immutable `analysis_run_result` so a decision is bound to the exact packet
+// that was reviewed. Unique run and result identities give Confirm/Dismiss
+// exactly one database winner under retries and competing attempts.
+export const analysisReviewDecisionEnum = pgEnum('analysis_review_decision', [
+  'confirmed',
+  'dismissed',
+]);
+
+export const analysisRunReview = pgTable(
+  'analysis_run_review',
+  {
+    id: serial('id').primaryKey(),
+    analysisRunId: integer('analysis_run_id').notNull().references(() => analysisRun.id),
+    resultId: integer('result_id').notNull().references(() => analysisRunResult.id),
+    decision: analysisReviewDecisionEnum('decision').notNull(),
+    decidedBy: text('decided_by').notNull(),
+    decidedAt: timestamp('decided_at').notNull(),
+    packetHash: text('packet_hash').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    unique('analysis_run_review_analysis_run_id_unique').on(table.analysisRunId),
+    unique('analysis_run_review_result_id_unique').on(table.resultId),
+  ]
+);

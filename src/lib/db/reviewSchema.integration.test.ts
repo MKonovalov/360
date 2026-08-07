@@ -78,8 +78,8 @@ describeWithDatabase('analysis review decision schema metadata', () => {
 
     expect(names.get('analysis_run_review_analysis_run_id_unique')).toBe('UNIQUE');
     expect(names.get('analysis_run_review_result_id_unique')).toBe('UNIQUE');
-    expect(names.get('analysis_run_review_analysis_run_id_fkey')).toBe('FOREIGN KEY');
-    expect(names.get('analysis_run_review_result_id_fkey')).toBe('FOREIGN KEY');
+    expect(names.get('analysis_run_review_analysis_run_id_analysis_run_id_fk')).toBe('FOREIGN KEY');
+    expect(names.get('analysis_run_review_result_id_analysis_run_result_id_fk')).toBe('FOREIGN KEY');
   });
 
   it('leaves legacy proposal tables and Phase 33 packet tables structurally unchanged', async () => {
