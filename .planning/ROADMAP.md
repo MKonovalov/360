@@ -131,7 +131,7 @@ Full details: [`.planning/milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.m
 
 - [x] **Phase 31: Durable Executor Selection & Validation** - Select and prove a Vercel-compatible executor can independently claim, complete, recover, or safely fail a durable run.
 - [ ] **Phase 32: Template, Snapshot & Run Ledger** - Establish two compatible GBS templates and the immutable run ledger that records intent, lifecycle, limits, and safe audit outcomes.
-- [ ] **Phase 33: Grounded Analysis Execution & Evidence** - Execute snapshotted runs through the existing modelFactory and Firecrawl seam, persisting safe, source-grounded findings.
+- [x] **Phase 33: Grounded Analysis Execution & Evidence** - Execute snapshotted runs through the existing modelFactory and Firecrawl seam, persisting safe, source-grounded findings. (completed 2026-08-07)
 - [ ] **Phase 34: Whole-Run Review & Confirmed Candidates** - Apply one idempotent decision per completed run and expose only confirmed, provenance-backed candidate offerings.
 - [ ] **Phase 35: Company & Persona Analysis Experiences** - Give staff preview, launch, history, result, source, and review visibility from both target records.
 - [ ] **Phase 36: Agent Management & End-to-End Verification** - Version and manage templates, then prove lifecycle, grounding, security, review, aggregation, and both target flows.
@@ -175,7 +175,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 30. Offerings UI | v1.6 | 11/11 | Complete   | 2026-08-06 |
 | 31. Durable Executor Selection & Validation | v1.7 | 3/3 | Complete | 2026-08-07 |
 | 32. Template, Snapshot & Run Ledger | v1.7 | 0/TBD | Not started | - |
-| 33. Grounded Analysis Execution & Evidence | v1.7 | 5/6 | In Progress|  |
+| 33. Grounded Analysis Execution & Evidence | v1.7 | 6/6 | Complete   | 2026-08-07 |
 | 34. Whole-Run Review & Confirmed Candidates | v1.7 | 0/TBD | Not started | - |
 | 35. Company & Persona Analysis Experiences | v1.7 | 0/TBD | Not started | - |
 | 36. Agent Management & End-to-End Verification | v1.7 | 0/TBD | Not started | - |
@@ -460,7 +460,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 33-06-PLAN.md — Final automated gate, scope audit, and approved/deferred live smoke evidence (RUN-04, EVD-01..05)
+- [x] 33-06-PLAN.md — Final automated gate, scope audit, and approved/deferred live smoke evidence (RUN-04, EVD-01..05)
 
 ### Phase 34: Whole-Run Review & Confirmed Candidates
 **Goal**: Staff can make one safe decision for a completed analysis, and only confirmed evidence can influence candidate offerings.
