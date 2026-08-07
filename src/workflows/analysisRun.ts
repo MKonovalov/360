@@ -21,7 +21,7 @@ export type AnalysisRunResult = {
 };
 
 type ExecutionStepResult =
-  | { readonly ok: true; readonly run: AnalysisRunRow; readonly execution: Extract<GroundedExecutionResult, { ok: true }> }
+  | { readonly ok: true; readonly execution: Extract<GroundedExecutionResult, { ok: true }> }
   | { readonly ok: false; readonly safeReason: 'execution_failed' | 'timed_out' };
 
 export async function analysisRun(applicationRunId: number): Promise<AnalysisRunResult> {
@@ -38,21 +38,21 @@ export async function analysisRun(applicationRunId: number): Promise<AnalysisRun
         return await observeAuthoritativeState(applicationRunId);
       }
 
-      const normalized = await normalizeGroundedPacket(applicationRunId, execution.run, execution.execution);
+      const normalized = await normalizeGroundedPacket(applicationRunId, execution.execution);
       if (!normalized.ok) {
         const failed = await recordFailure(applicationRunId, 'execution_failed');
         if (failed.ok) return { applicationRunId, terminalStatus: 'failed' };
         return await observeAuthoritativeState(applicationRunId);
       }
 
-      const persisted = await persistGroundedPacket(applicationRunId, execution.run, normalized.packet);
+      const persisted = await persistGroundedPacket(applicationRunId, normalized.packet);
       if (!persisted.ok) {
         const failed = await recordFailure(applicationRunId, 'execution_failed');
         if (failed.ok) return { applicationRunId, terminalStatus: 'failed' };
         return await observeAuthoritativeState(applicationRunId);
       }
 
-      await recordTelemetryAfterPersistence(execution.run, execution.execution, normalized.packet);
+      await recordTelemetryAfterPersistence(applicationRunId, execution.execution, normalized.packet);
       const completed = await completePersistedRun(applicationRunId);
       if (completed.ok) return { applicationRunId, terminalStatus: 'completed' };
     }
@@ -108,7 +108,7 @@ async function executeGroundedAnalysis(applicationRunId: number): Promise<Execut
     if (!execution.ok) {
       return { ok: false, safeReason: execution.failureReason === 'timeout' ? 'timed_out' : 'execution_failed' };
     }
-    return { ok: true, run, execution };
+    return { ok: true, execution };
   } catch {
     return { ok: false, safeReason: 'execution_failed' };
   }
@@ -116,10 +116,11 @@ async function executeGroundedAnalysis(applicationRunId: number): Promise<Execut
 
 async function normalizeGroundedPacket(
   applicationRunId: number,
-  run: AnalysisRunRow,
   execution: Extract<GroundedExecutionResult, { ok: true }>,
 ) {
   'use step';
+  const run = await getAnalysisRun(applicationRunId);
+  if (!run || run.status !== 'running') return { ok: false as const, reason: 'invalid_packet' as const };
   try {
     const packet = normalizeAnalysisPacket({
       checklistSnapshot: run.checklistSnapshot,
@@ -152,9 +153,10 @@ async function normalizeGroundedPacket(
   }
 }
 
-async function persistGroundedPacket(applicationRunId: number, run: AnalysisRunRow, packet: NormalizedAnalysisPacket) {
+async function persistGroundedPacket(applicationRunId: number, packet: NormalizedAnalysisPacket) {
   'use step';
-  if (!packet) return { ok: false as const };
+  const run = await getAnalysisRun(applicationRunId);
+  if (!run || run.status !== 'running') return { ok: false as const };
   try {
     const result = await persistAnalysisPacket({
       runId: applicationRunId,
@@ -169,12 +171,14 @@ async function persistGroundedPacket(applicationRunId: number, run: AnalysisRunR
 }
 
 async function recordTelemetryAfterPersistence(
-  run: AnalysisRunRow,
+  applicationRunId: number,
   execution: Extract<GroundedExecutionResult, { ok: true }>,
   packet: NormalizedAnalysisPacket,
 ): Promise<void> {
   'use step';
   try {
+    const run = await getAnalysisRun(applicationRunId);
+    if (!run) return;
     const metadata = buildPhase33TelemetryMetadata({
       runId: run.id,
       targetType: run.subjectType,
