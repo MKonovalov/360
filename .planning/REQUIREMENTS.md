@@ -19,7 +19,7 @@
 - [ ] **RUN-01**: Staff can create one on-demand analysis run that remains visible after navigation or reload.
 - [ ] **RUN-02**: Runs persist queued, running, completed, failed, cancelled, Pending Review, Confirmed, and Dismissed states with actor/timestamp audit.
 - [ ] **RUN-03**: A Vercel-compatible durable executor is selected and proven able to claim, complete, recover, or safely fail a run independent of the initiating page request.
-- [ ] **RUN-04**: The executor uses the existing in-house model factory and Firecrawl research tool behind a provider-agnostic contract, without adding Exa.
+- [x] **RUN-04**: The executor uses the existing in-house model factory and Firecrawl research tool behind a provider-agnostic contract, without adding Exa.
 - [ ] **RUN-05**: The system prevents duplicate active runs and bounds retries, tool calls, execution time, and spend.
 - [ ] **RUN-06**: Failed, timed-out, invalid, and successful runs all retain safe error/result audit records.
 
@@ -86,7 +86,7 @@
 | RUN-01 | Phase 32 | Pending |
 | RUN-02 | Phase 32 | Pending |
 | RUN-03 | Phase 31 | Pending |
-| RUN-04 | Phase 33 | Pending |
+| RUN-04 | Phase 33 | Complete |
 | RUN-05 | Phase 32 | Pending |
 | RUN-06 | Phase 32 | Pending |
 | EVD-01 | Phase 33 | Complete |
