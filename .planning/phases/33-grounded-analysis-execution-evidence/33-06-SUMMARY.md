@@ -29,7 +29,7 @@ key-files:
 
 key-decisions:
   - "The source-scope audit scans tracked source, scripts, manifests, schema/query paths, and Phase 33-owned production modules while leaving earlier-phase legacy/UI features untouched."
-  - "Missing TEST_DATABASE_URL remains a hard evidence blocker; database-backed commands fail fast and are never represented as passing."
+  - "TEST_DATABASE_URL remains a hard fail-fast prerequisite; when safely configured, database-backed commands must pass before automated evidence is marked complete."
   - "Live provider smoke is deferred as policy_or_credentials_unavailable because policy remains explicitly deferred and execution-disabled."
 
 patterns-established:
@@ -45,7 +45,7 @@ completed: 2026-08-07
 
 # Phase 33 Plan 06: Final Verification and Scope Audit Summary
 
-**A tracked-source boundary audit and rerun ledger prove runnable Phase 33 contracts, pass Neon schema validation, and isolate packet-CTE and Workflow-bundle blockers without claiming green.**
+**A tracked-source boundary audit and rerun ledger prove runnable Phase 33 contracts, pass Neon schema validation, and close the packet-CTE, Workflow-bundle, and lifecycle timestamp blockers without making a live-provider claim.**
 
 ## Performance
 
@@ -59,16 +59,16 @@ completed: 2026-08-07
 
 - Added `scripts/phase33-scope-audit.ts` and its focused test. The audit scanned 257 tracked files across source, scripts, manifests, and schema/query categories and reported zero forbidden findings.
 - Ran the policy guard, scope audit, focused contract/evidence/adapter/telemetry suite (11 files / 115 tests), pure packet-query suite (8 tests), Workflow listing, TypeScript check, and production build successfully.
-- Preserved the mandatory `TEST_DATABASE_URL` fail-fast behavior. Neon schema, packet integration, retention, atomicity/replay, and Workflow integration evidence remain explicitly blocked rather than skipped or fabricated.
+- Preserved the mandatory `TEST_DATABASE_URL` fail-fast behavior. Neon schema, packet integration, retention, atomicity/replay, and Workflow integration evidence now pass against the configured test database without bypassing assertions or fabricating live-provider evidence.
 - Recorded live smoke as `deferred: policy_or_credentials_unavailable`; no provider credentials, live calls, raw prompts, PII, unrestricted packet content, or private reasoning were used.
-- Reran against the configured test database: `db:push` and schema metadata passed, while packet persistence failed on an enum cast and Workflow integration failed on generated `catalog.json` JSON-module loading.
+- Reran against the configured test database: `db:push`, schema metadata, packet persistence, and all 13 Workflow tests passed after the scoped enum/result-row, catalog-loading, and lifecycle timestamp fixes.
 
 ## Task Commits
 
 1. **Task 1: Execute the focused final gate and source-scope audit** - `b40502c4` (feat)
 2. **Task 2: Approve or defer the live provider smoke claim** - recorded as deferred in verification ledger; no production code change
 
-**Plan metadata:** pending rerun metadata commit.
+**Plan metadata:** pending authoritative final-gate metadata commit.
 
 ## Files Created/Modified
 
@@ -110,18 +110,34 @@ completed: 2026-08-07
 - Safe dotenv loading confirmed `TEST_DATABASE_URL` without printing its value; only command-scoped test/database variables were assigned.
 - `DATABASE_URL="$TEST_DATABASE_URL" TEST_DATABASE_URL="$TEST_DATABASE_URL" npm run db:push` passed and applied the test schema.
 - `analysisResultsSchema.integration.test.ts` passed (1/1), and the pure packet/evidence/query group passed (3 files / 26 tests).
-- `analysisResults.integration.test.ts` failed 0/2 before insert because JSON-derived `status` text was not cast to the Postgres `analysis_evidence_status` enum. This is a follow-up application fix, not a Plan 06 code change.
-- `npm run test:workflow` ran 13 tests: 1 passed and 12 timed out after the generated bundle attempted to import `catalog.json` without a JSON import attribute. No provider or Firecrawl request occurred.
+- `analysisResults.integration.test.ts` passed 2/2 after the JSON-to-enum CTE casts and result-row replay fix.
+- `npm run test:workflow` passed all 13 tests after the generated-bundle catalog loader and lifecycle timestamp fixes. No provider or Firecrawl request occurred.
 - Scope audit (257 files / 0 findings), focused suite (115 tests), typecheck, and build passed again.
 
-The final gate remains blocked. Required follow-up is to cast packet CTE enum
-expressions and make Workflow catalog JSON loading runtime-compatible, then
-rerun the complete database and Workflow suites. Live smoke remains deferred
+The authoritative automated final gate now passes. Live smoke remains deferred
 while the policy record is `executionEnabled: false`.
 
 ## Known Stubs
 
-None. The blocked database gate and deferred live smoke are explicit verification states, not placeholder implementation.
+None. The deferred live smoke is an explicit policy state, not placeholder implementation.
+
+## Authoritative Final Gate Rerun — 2026-08-07
+
+- Safely loaded `.env.local`; command-scoped `DATABASE_URL` and
+  `TEST_DATABASE_URL` targeted the configured test database without exposing
+  their values.
+- Scope audit passed with 257 tracked files and 0 findings; isolated audit test
+  passed 1/1 (the literal shared Vitest command remains undiscoverable because
+  the repository include is `src/**/*.test.ts`).
+- `db:push` passed; schema/query/packet database tests passed 3 files / 13
+  tests, including both replay/atomicity and Persona retention cases.
+- Focused contract/evidence/adapter/telemetry tests passed 11 files / 115
+  tests; lifecycle query regression passed 2 files / 21 tests.
+- Workflow integration passed 2 files / 13 tests, including catalog loading and
+  failed/cancelled `completedAt` semantics; typecheck and production build
+  passed.
+- Automated gate is verified. Live provider smoke remains deferred as
+  `policy_or_credentials_unavailable` while execution remains disabled.
 
 ## Threat Flags
 
@@ -136,7 +152,7 @@ None. The blocked database gate and deferred live smoke are explicit verificatio
 - `33-VALIDATION.md`, `33-VERIFICATION.md`, and this summary exist.
 - Task commit `b40502c4` exists.
 - Focused automated tests, typecheck, and build passed.
-- Schema passed, concrete persistence/Workflow defects are explicitly recorded, and no unsupported database-backed or live-provider pass is claimed.
+- Schema, packet persistence, and Workflow suites passed in the authoritative rerun; live provider smoke remains explicitly deferred and no unsupported live-provider pass is claimed.
 
 ---
 *Phase: 33-grounded-analysis-execution-evidence*

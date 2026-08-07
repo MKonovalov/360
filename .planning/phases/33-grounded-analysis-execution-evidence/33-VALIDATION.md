@@ -1,9 +1,9 @@
 ---
 phase: 33-grounded-analysis-execution-evidence
-status: executed_blocked
+status: executed_verified
 nyquist_compliant: true
 wave_0_complete: false
-final_gate: blocked_persistence_enum_cast_and_workflow_bundle
+final_gate: automated_pass_live_smoke_deferred
 live_smoke: deferred_policy_or_credentials_unavailable
 ---
 
@@ -129,6 +129,30 @@ reasoning, PII, or unrestricted packet content was used or claimed. Live smoke
 must not be approved by this ledger until policy and credentials are separately
 available and the smoke is human-authorized and redacted.
 
+## Authoritative Final Gate Rerun — 2026-08-07
+
+The complete guarded gate was rerun after the packet enum-cast, Workflow catalog
+loader, and terminal `completedAt` fixes. `.env.local` was loaded with
+`dotenv`; `TEST_DATABASE_URL` was checked for presence and assigned only to
+command-scoped `DATABASE_URL`/`TEST_DATABASE_URL`. No credential value was
+printed or persisted.
+
+| Order | Gate | Result |
+|---|---|---|
+| 1 | Policy guard | **PASS** — deferred policy remains `executionEnabled: false` |
+| 2 | Scope audit | **PASS** — 257 tracked files, 0 findings |
+| 3 | Scope-audit test | **PASS** — isolated Vitest config, 1 file / 1 test. The literal repository command remains undiscoverable because shared Vitest includes only `src/**/*.test.ts`. |
+| 4 | `db:push` against `TEST_DATABASE_URL` | **PASS** — schema applied |
+| 5 | Focused contract/evidence/adapter/telemetry suite | **PASS** — 11 files / 115 tests |
+| 6 | Schema/query/packet database suite | **PASS** — 3 files / 13 tests; both packet replay/atomicity and Persona retention cases pass |
+| 7 | Lifecycle query regression suite | **PASS** — 2 files / 21 tests |
+| 8 | Guarded Workflow integration | **PASS** — 2 files / 13 tests; catalog loading and terminal timestamp assertions pass |
+| 9 | `npx tsc --noEmit` | **PASS** |
+| 10 | `npm run build` | **PASS** |
+
+No live provider or Firecrawl call was made. The automated gate is verified;
+live smoke remains separately deferred by policy.
+
 ## Rerun Evidence — 2026-08-07
 
 `.env.local` was loaded through `dotenv` without printing values. The configured
@@ -164,4 +188,20 @@ make the packet CTE cast `status`/`confidence` JSON text to their declared
 Postgres enum types, then rerun schema and packet integration. Separately, the
 Workflow test bundle must load the model catalog with a runtime-compatible JSON
 import (or an equivalent non-JSON ESM boundary), then rerun all 13 Workflow
-tests. Until both reruns pass, the final gate remains blocked.
+tests. Those follow-ups are now closed; the final lifecycle rerun is recorded
+below. Live provider smoke remains deferred.
+
+## Final Lifecycle Rerun — 2026-08-07
+
+`.env.local` was loaded without printing values. Only command-scoped database
+variables were assigned from `TEST_DATABASE_URL`; local Workflow execution
+also omitted `VERCEL_URL` so Local World used its localhost route.
+
+| Gate | Result |
+|---|---|
+| Transition-boundary red regression before source fix | **PASS — red reproduced**: failed `completedAt` was null while running remained null |
+| Transition-boundary regression after minimal fix | **PASS** — failed/cancelled `completedAt` non-null and equal to `terminalAt`; running null |
+| `analysisRuns.test.ts` + `analysisRuns.integration.test.ts` | **PASS** — 2 files / 21 tests |
+| `npm run test:workflow` | **PASS** — 2 files / 13 tests |
+| `npx tsc --noEmit` | **PASS** |
+| `npm run build` | **PASS** — Next.js production build completed |
