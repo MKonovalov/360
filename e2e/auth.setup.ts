@@ -1,4 +1,4 @@
-import { clerkSetup, clerk } from '@clerk/testing/playwright';
+import { clerkSetup, clerk, setupClerkTestingToken } from '@clerk/testing/playwright';
 import { test as setup } from '@playwright/test';
 import { expect } from '@playwright/test';
 import path from 'path';
@@ -21,7 +21,15 @@ setup('authenticate and save state', async ({ page }) => {
     );
   }
 
-  await page.goto('/');
+  // Set up the Clerk testing token route handler BEFORE navigating, so the
+  // FAPI dev-browser handshake intercept (Clerk test-key mode) is active
+  // during page.goto. Without this, the handshake redirect chain ends at a
+  // Vercel serverless 500 on the __clerk_handshake callback. clerk.signIn
+  // calls setupClerkTestingToken again internally, but its WeakSet guard
+  // makes the second call a no-op.
+  await setupClerkTestingToken({ context: page.context() });
+
+  await page.goto('/sign-in');
   await clerk.signIn({ page, emailAddress: email });
   // The RESEARCH Pattern 1 literal waitForURL('**/companies/**') assumed a
   // recall.ai-style dashboard redirect; this app's post-login dashboard is '/'
