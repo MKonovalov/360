@@ -50,7 +50,7 @@ const baseInput = {
     {
       findingId: 'finding-1',
       url: 'https://example.com/news/launch',
-      contentHash: 'placeholder',
+      contentHash: 'wrong-hash',
       locator: 'The company announced a transformation program.',
       supportRole: 'primary',
     },
