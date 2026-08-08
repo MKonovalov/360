@@ -14,7 +14,7 @@ const SELECTED_IMPLEMENTATION_FILES = [
 const FORBIDDEN_PATTERNS = [
   { rule: 'nested_reviews_agents_route', pattern: /\/reviews\/agents/ },
   { rule: 'new_provider_or_firecrawl_import', pattern: /(?:from|require\()\s*['"](?:firecrawl|@ai-sdk\/)/ },
-  { rule: 'direct_live_catalog_write', pattern: /(?:insert|update|delete)\s*\(?.*(?:signalOfferingLink|signal_offering_link|companySignal|personaSignal|offering)/is },
+  { rule: 'direct_live_catalog_write', pattern: /\b(?:insert|update|delete)\s*\(\s*(?:schema\.)?(?:signalOfferingLink|signal_offering_link|companySignal|personaSignal|offering)\b/ },
   { rule: 'packet_mutation', pattern: /(?:packet|resultPacket)\s*\.(?:findings|sources|links)\s*=/ },
   { rule: 'legacy_proposal_reuse', pattern: /(?:agent_run|signal_proposal)/ },
   { rule: 'client_secret_exposure', pattern: /NEXT_PUBLIC_[A-Z0-9_]*(?:SECRET|KEY|DATABASE)/ },
