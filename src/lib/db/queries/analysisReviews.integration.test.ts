@@ -256,6 +256,119 @@ describeWithDatabase('analysis review boundary (reconcile, decide, list) against
     if (!persisted.ok) throw new Error(`persistAnalysisPacket failed: ${JSON.stringify(persisted)}`);
   }
 
+  // Count evidence rows keyed to this run's result — used to prove Confirm/
+  // Dismiss never creates or mutates Phase 33 packet rows. db.execute returns
+  // a { rows, rowCount } envelope, so the count lives at rows[0].count.
+  async function countEvidenceRows(
+    runId: number,
+    table: 'analysis_finding' | 'analysis_source' | 'analysis_finding_source',
+  ): Promise<number> {
+    const result = await dbModule.db.execute<{ count: number }>(
+      drizzleSql`SELECT count(*)::int AS count FROM ${drizzleSql.raw(table)}
+        WHERE result_id IN (SELECT id FROM analysis_run_result WHERE analysis_run_id = ${runId})`,
+    );
+    return result.rows[0]?.count ?? 0;
+  }
+
+  // Serialize every Phase 33 packet row keyed to this run's result as JSON —
+  // the byte-for-byte snapshot used to prove Confirm/Dismiss never creates,
+  // updates, or deletes packet rows (result, findings, sources, links,
+  // retention). `drizzleSql.raw` table names are from the fixed literal set
+  // above (never user input).
+  async function snapshotPacketRows(runId: number): Promise<string> {
+    const result = await dbModule.db.execute(
+      drizzleSql`SELECT * FROM analysis_run_result WHERE analysis_run_id = ${runId} ORDER BY id`,
+    );
+    const findings = await dbModule.db.execute(
+      drizzleSql`SELECT * FROM analysis_finding WHERE analysis_run_id = ${runId} ORDER BY id`,
+    );
+    const sources = await dbModule.db.execute(
+      drizzleSql`SELECT * FROM analysis_source
+        WHERE result_id IN (SELECT id FROM analysis_run_result WHERE analysis_run_id = ${runId}) ORDER BY id`,
+    );
+    const links = await dbModule.db.execute(
+      drizzleSql`SELECT * FROM analysis_finding_source
+        WHERE result_id IN (SELECT id FROM analysis_run_result WHERE analysis_run_id = ${runId}) ORDER BY id`,
+    );
+    const retention = await dbModule.db.execute(
+      drizzleSql`SELECT * FROM analysis_result_retention
+        WHERE result_id IN (SELECT id FROM analysis_run_result WHERE analysis_run_id = ${runId}) ORDER BY id`,
+    );
+    return JSON.stringify({
+      result: result.rows,
+      findings: findings.rows,
+      sources: sources.rows,
+      links: links.rows,
+      retention: retention.rows,
+    });
+  }
+
+  // Rich company packet with one strong finding + source + persisted link so
+  // packet-immutability evidence is non-trivial (row counts > 0 before/after).
+  // Mirrors the confirmedCandidates fixture packet shape.
+  function richCompanyPacket(runId: number) {
+    const findingId = `f-immutable-${runId}`;
+    const sourceId = `s-immutable-${runId}`;
+    return {
+      schemaVersion: 1,
+      targetType: 'company' as const,
+      narrative: `immutable narrative ${runId}`,
+      findings: [
+        {
+          findingId,
+          identity: {
+            signalId: runId,
+            signalName: `Signal ${runId}`,
+            signalCategory: 'Financial',
+            buyerRoleId: null,
+          },
+          status: 'strong' as const,
+          confidence: 'high',
+          claim: `Claim for ${findingId}.`,
+          reasoningSummary: null,
+        },
+      ],
+      sources: [
+        {
+          sourceId,
+          canonicalUrl: `https://www.example.com/immutable-${runId}`,
+          title: `Immutable ${runId}`,
+          retrievedAt: '2026-07-01T00:00:00.000Z',
+          excerpt: 'Immutable evidence excerpt.',
+          contentHash: 'b'.repeat(64),
+          classification: 'public_biz' as const,
+        },
+      ],
+      links: [
+        {
+          findingId,
+          sourceId,
+          locator: 'immutable evidence',
+          supportRole: 'primary' as const,
+        },
+      ],
+      audit: {
+        attempt: 0,
+        modelId: 'integration-model',
+        toolCallCount: 0,
+        sourceCount: 1,
+        findingCount: 1,
+        durationMs: 1,
+        traceId: null,
+        failureReason: null,
+      },
+    };
+  }
+
+  async function persistRichCompanyPacket(runId: number): Promise<void> {
+    const persisted = await resultQueries.persistAnalysisPacket({
+      runId,
+      packet: richCompanyPacket(runId),
+      checklistSignalIds: [runId],
+    });
+    if (!persisted.ok) throw new Error(`persistAnalysisPacket failed: ${JSON.stringify(persisted)}`);
+  }
+
   it('reconciles a completed run to pending_review exactly once and replays as a no-op', async () => {
     const runId = await createRun('company', 910001);
     await completeRun(runId);
@@ -471,5 +584,215 @@ describeWithDatabase('analysis review boundary (reconcile, decide, list) against
       { decidedAt: DECIDED_AT },
     );
     expect(outcome).toEqual({ ok: false, reason: 'not_pending_review' });
+  });
+
+  it('resolves a concurrent Confirm/Confirm race to exactly one winner', async () => {
+    const runId = await createRun('company', 910007);
+    await completeRun(runId);
+    await persistCompanyPacket(runId);
+    await reviewQueries.reconcileCompletedRunForReview({ runId });
+
+    const outcomes = await Promise.all([
+      reviewQueries.decideAnalysisRun({ runId, decision: 'confirmed' }, 'user_race_a', {
+        decidedAt: new Date('2026-08-08T10:00:01.000Z'),
+      }),
+      reviewQueries.decideAnalysisRun({ runId, decision: 'confirmed' }, 'user_race_b', {
+        decidedAt: new Date('2026-08-08T10:00:02.000Z'),
+      }),
+      reviewQueries.decideAnalysisRun({ runId, decision: 'confirmed' }, 'user_race_c', {
+        decidedAt: new Date('2026-08-08T10:00:03.000Z'),
+      }),
+    ]);
+
+    const winners = outcomes.filter((outcome) => outcome.ok === true && outcome.replayed === false);
+    expect(winners).toHaveLength(1);
+    const winner = winners[0];
+    if (!winner || winner.ok !== true) throw new Error('expected exactly one race winner');
+
+    // Losers either replay the stored winner's identity or classify as
+    // race_loser (their read snapshot predates the winner's commit) — never a
+    // second decision row, never a conflicting decision.
+    for (const outcome of outcomes) {
+      if (outcome.ok === true && outcome.replayed === true) {
+        expect(outcome.runId).toBe(winner.runId);
+        expect(outcome.resultId).toBe(winner.resultId);
+        expect(outcome.decision).toBe(winner.decision);
+        expect(outcome.decidedBy).toBe(winner.decidedBy);
+        expect(outcome.decidedAt).toBe(winner.decidedAt);
+        expect(outcome.packetHash).toBe(winner.packetHash);
+      } else if (outcome.ok === false) {
+        expect(outcome.reason).toBe('race_loser');
+      }
+    }
+
+    const runRow = await runQueries.getAnalysisRun(runId);
+    expect(runRow?.status).toBe('confirmed');
+
+    const reviews = await dbModule.db
+      .select()
+      .from(schema.analysisRunReview)
+      .where(eq(schema.analysisRunReview.analysisRunId, runId));
+    expect(reviews).toHaveLength(1);
+    expect(reviews[0].decision).toBe('confirmed');
+    expect(reviews[0].decidedBy).toBe(winner.decidedBy);
+    expect(new Date(reviews[0].decidedAt).toISOString()).toBe(winner.decidedAt);
+
+    const events = await runQueries.listAnalysisRunEvents(runId);
+    expect(
+      events.filter((event) => event.fromStatus === 'pending_review' && event.toStatus === 'confirmed'),
+    ).toHaveLength(1);
+  });
+
+  it('resolves a concurrent Dismiss/Dismiss race to exactly one winner', async () => {
+    const runId = await createRun('company', 910008);
+    await completeRun(runId);
+    await persistCompanyPacket(runId);
+    await reviewQueries.reconcileCompletedRunForReview({ runId });
+
+    const outcomes = await Promise.all([
+      reviewQueries.decideAnalysisRun({ runId, decision: 'dismissed' }, 'user_race_a', {
+        decidedAt: new Date('2026-08-08T10:00:01.000Z'),
+      }),
+      reviewQueries.decideAnalysisRun({ runId, decision: 'dismissed' }, 'user_race_b', {
+        decidedAt: new Date('2026-08-08T10:00:02.000Z'),
+      }),
+      reviewQueries.decideAnalysisRun({ runId, decision: 'dismissed' }, 'user_race_c', {
+        decidedAt: new Date('2026-08-08T10:00:03.000Z'),
+      }),
+    ]);
+
+    const winners = outcomes.filter((outcome) => outcome.ok === true && outcome.replayed === false);
+    expect(winners).toHaveLength(1);
+    const winner = winners[0];
+    if (!winner || winner.ok !== true) throw new Error('expected exactly one race winner');
+
+    for (const outcome of outcomes) {
+      if (outcome.ok === true && outcome.replayed === true) {
+        expect(outcome.decision).toBe('dismissed');
+        expect(outcome.decidedBy).toBe(winner.decidedBy);
+        expect(outcome.decidedAt).toBe(winner.decidedAt);
+        expect(outcome.packetHash).toBe(winner.packetHash);
+      } else if (outcome.ok === false) {
+        expect(outcome.reason).toBe('race_loser');
+      }
+    }
+
+    const runRow = await runQueries.getAnalysisRun(runId);
+    expect(runRow?.status).toBe('dismissed');
+
+    const reviews = await dbModule.db
+      .select()
+      .from(schema.analysisRunReview)
+      .where(eq(schema.analysisRunReview.analysisRunId, runId));
+    expect(reviews).toHaveLength(1);
+    expect(reviews[0].decision).toBe('dismissed');
+    expect(reviews[0].decidedBy).toBe(winner.decidedBy);
+
+    const events = await runQueries.listAnalysisRunEvents(runId);
+    expect(
+      events.filter((event) => event.fromStatus === 'pending_review' && event.toStatus === 'dismissed'),
+    ).toHaveLength(1);
+  });
+
+  it('resolves a concurrent Confirm/Dismiss race to the stored winner decision', async () => {
+    const runId = await createRun('company', 910009);
+    await completeRun(runId);
+    await persistCompanyPacket(runId);
+    await reviewQueries.reconcileCompletedRunForReview({ runId });
+
+    const outcomes = await Promise.all([
+      reviewQueries.decideAnalysisRun({ runId, decision: 'confirmed' }, 'user_race_a', {
+        decidedAt: new Date('2026-08-08T10:00:01.000Z'),
+      }),
+      reviewQueries.decideAnalysisRun({ runId, decision: 'confirmed' }, 'user_race_b', {
+        decidedAt: new Date('2026-08-08T10:00:02.000Z'),
+      }),
+      reviewQueries.decideAnalysisRun({ runId, decision: 'dismissed' }, 'user_race_c', {
+        decidedAt: new Date('2026-08-08T10:00:03.000Z'),
+      }),
+    ]);
+
+    const winners = outcomes.filter((outcome) => outcome.ok === true && outcome.replayed === false);
+    expect(winners).toHaveLength(1);
+    const winner = winners[0];
+    if (!winner || winner.ok !== true) throw new Error('expected exactly one race winner');
+
+    // The stored winner's decision (confirmed OR dismissed) wins; every losing
+    // caller receives that same decision, never their own.
+    for (const outcome of outcomes) {
+      if (outcome.ok === true && outcome.replayed === true) {
+        expect(outcome.decision).toBe(winner.decision);
+        expect(outcome.decidedBy).toBe(winner.decidedBy);
+        expect(outcome.decidedAt).toBe(winner.decidedAt);
+        expect(outcome.packetHash).toBe(winner.packetHash);
+      } else if (outcome.ok === false) {
+        expect(outcome.reason).toBe('race_loser');
+      }
+    }
+
+    const runRow = await runQueries.getAnalysisRun(runId);
+    expect(runRow?.status).toBe(winner.decision);
+
+    const reviews = await dbModule.db
+      .select()
+      .from(schema.analysisRunReview)
+      .where(eq(schema.analysisRunReview.analysisRunId, runId));
+    expect(reviews).toHaveLength(1);
+    expect(reviews[0].decision).toBe(winner.decision);
+    expect(reviews[0].decidedBy).toBe(winner.decidedBy);
+
+    const events = await runQueries.listAnalysisRunEvents(runId);
+    expect(
+      events.filter(
+        (event) => event.fromStatus === 'pending_review' && event.toStatus === winner.decision,
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('leaves Phase 33 packet rows byte-for-byte unchanged across Confirm and Dismiss', async () => {
+    const confirmRun = await createRun('company', 910010);
+    await completeRun(confirmRun);
+    await persistRichCompanyPacket(confirmRun);
+    await reviewQueries.reconcileCompletedRunForReview({ runId: confirmRun });
+
+    const countsBefore = {
+      findings: await countEvidenceRows(confirmRun, 'analysis_finding'),
+      sources: await countEvidenceRows(confirmRun, 'analysis_source'),
+      links: await countEvidenceRows(confirmRun, 'analysis_finding_source'),
+    };
+    expect(countsBefore.findings).toBeGreaterThan(0);
+    expect(countsBefore.links).toBeGreaterThan(0);
+    const snapshotBefore = await snapshotPacketRows(confirmRun);
+
+    const confirmed = await reviewQueries.decideAnalysisRun(
+      { runId: confirmRun, decision: 'confirmed' },
+      STAFF_ACTOR,
+      { decidedAt: DECIDED_AT },
+    );
+    expect(confirmed.ok).toBe(true);
+
+    expect(await snapshotPacketRows(confirmRun)).toBe(snapshotBefore);
+    expect({
+      findings: await countEvidenceRows(confirmRun, 'analysis_finding'),
+      sources: await countEvidenceRows(confirmRun, 'analysis_source'),
+      links: await countEvidenceRows(confirmRun, 'analysis_finding_source'),
+    }).toEqual(countsBefore);
+
+    const dismissRun = await createRun('company', 910011);
+    await completeRun(dismissRun);
+    await persistRichCompanyPacket(dismissRun);
+    await reviewQueries.reconcileCompletedRunForReview({ runId: dismissRun });
+
+    const dismissSnapshotBefore = await snapshotPacketRows(dismissRun);
+    const dismissed = await reviewQueries.decideAnalysisRun(
+      { runId: dismissRun, decision: 'dismissed' },
+      STAFF_ACTOR,
+      { decidedAt: DECIDED_AT },
+    );
+    expect(dismissed.ok).toBe(true);
+
+    expect(await snapshotPacketRows(dismissRun)).toBe(dismissSnapshotBefore);
+    expect(await countEvidenceRows(dismissRun, 'analysis_finding')).toBeGreaterThan(0);
+    expect(await countEvidenceRows(dismissRun, 'analysis_finding_source')).toBeGreaterThan(0);
   });
 });
