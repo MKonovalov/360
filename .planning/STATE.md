@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Agent Constructor & Buying Signal Analysis
 status: verifying
-last_updated: "2026-08-08T22:31:46.681Z"
+last_updated: "2026-08-08T22:41:44.186Z"
 last_activity: 2026-08-08
 progress:
   total_phases: 14
   completed_phases: 10
   total_plans: 77
-  completed_plans: 70
+  completed_plans: 71
   percent: 71
 ---
 
@@ -29,7 +29,7 @@ Plan: 4 of 4 (Adversarial Gate & Authenticated UAT)
 Status: Phase complete — ready for verification
 Last activity: 2026-08-08
 
-Progress: [██████████] 95%
+Progress: [██████████] 96%
 
 ## Performance Metrics
 
@@ -66,6 +66,7 @@ Progress: [██████████] 95%
 | Phase 36 P04 | 5m | 2 tasks | 5 files |
 | Phase 36 P05 | 7m | 2 tasks | 9 files |
 | Phase 36 P06 | 10m | 2 tasks | 8 files |
+| Phase 36 P7 | 12m | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -109,6 +110,8 @@ Progress: [██████████] 95%
 - [Phase 36]: TEST_DATABASE_URL absence blocks Neon/Workflow evidence and is recorded as blocked, not passed.
 - [Phase 36]: Fixture mode requires PHASE36_FIXTURE_ONLY=1 and exact TEST_DATABASE_URL/DATABASE_URL equality before deterministic execution.
 - [Phase 36]: Authenticated browser evidence remains blocked when TEST_DATABASE_URL or sanitized Phase 36 fixture IDs are unavailable.
+- [Phase 36]: Final evidence distinguishes passing deterministic/unit/build/scope gates from blocked Neon, Workflow, and authenticated browser prerequisites.
+- [Phase 36]: Optional provider/Firecrawl smoke remains non-gating and is recorded not_run with policy_or_credentials_unavailable.
 
 ### Pending Todos
 
@@ -131,7 +134,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-08-08T22:31:46.673Z
-Stopped at: Completed 36-06-PLAN.md; authenticated E2E blocked by missing TEST_DATABASE_URL and fixture IDs
+Last session: 2026-08-08T22:41:43.957Z
+Stopped at: Completed 36-07-PLAN.md; DB/Workflow and authenticated full-flow evidence blocked by missing TEST_DATABASE_URL and fixture IDs
 Next: Phase 35 — Company & Persona Analysis Experiences
 Resume file: None
