@@ -49,3 +49,5 @@ skills-lock.json
 e2e/.clerk/
 test-results/
 playwright-report/
+.env*.local
+/.swc
