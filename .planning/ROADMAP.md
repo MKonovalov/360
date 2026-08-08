@@ -178,7 +178,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 33. Grounded Analysis Execution & Evidence | v1.7 | 6/6 | Complete   | 2026-08-07 |
 | 34. Whole-Run Review & Confirmed Candidates | v1.7 | 3/4 | In Progress|  |
 | 35. Company & Persona Analysis Experiences | v1.7 | 0/TBD | Not started | - |
-| 36. Agent Management & End-to-End Verification | v1.7 | 5/7 | In Progress|  |
+| 36. Agent Management & End-to-End Verification | v1.7 | 6/7 | In Progress|  |
 
 ---
 
@@ -509,6 +509,6 @@ Plans:
 - [x] 36-03-PLAN.md — `/agents` management page, two fixed template cards, editor, lifecycle, and history UI
 - [x] 36-04-PLAN.md — Manage navigation wiring and canonical `/agents` route verification
 - [x] 36-05-PLAN.md — Deterministic lifecycle, grounding, adversarial, review, aggregation, and scope gates
-- [ ] 36-06-PLAN.md — Authenticated real-app Company/Persona E2E with deterministic executor/fixture packet
+- [x] 36-06-PLAN.md — Authenticated real-app Company/Persona E2E with deterministic executor/fixture packet
 - [ ] 36-07-PLAN.md — Final automated gate, sanitized evidence ledger, and optional-smoke disposition
 **UI hint**: yes

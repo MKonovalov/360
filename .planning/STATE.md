@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Agent Constructor & Buying Signal Analysis
 status: verifying
-last_updated: "2026-08-08T22:19:25.634Z"
+last_updated: "2026-08-08T22:31:46.681Z"
 last_activity: 2026-08-08
 progress:
   total_phases: 14
   completed_phases: 10
   total_plans: 77
-  completed_plans: 69
+  completed_plans: 70
   percent: 71
 ---
 
@@ -29,7 +29,7 @@ Plan: 4 of 4 (Adversarial Gate & Authenticated UAT)
 Status: Phase complete — ready for verification
 Last activity: 2026-08-08
 
-Progress: [█████████░] 93%
+Progress: [██████████] 95%
 
 ## Performance Metrics
 
@@ -65,6 +65,7 @@ Progress: [█████████░] 93%
 | Phase 36 P3 | 26m | 2 tasks | 5 files |
 | Phase 36 P04 | 5m | 2 tasks | 5 files |
 | Phase 36 P05 | 7m | 2 tasks | 9 files |
+| Phase 36 P06 | 10m | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -106,6 +107,8 @@ Progress: [█████████░] 93%
 - [Phase 36]: Authenticated route/sidebar E2E uses the real app and existing Clerk storage state without mocking app HTML. — Preserves real route wiring evidence while keeping database fixture prerequisites separate.
 - [Phase 36]: Deterministic Phase 36 verification uses the existing executor injection seam.
 - [Phase 36]: TEST_DATABASE_URL absence blocks Neon/Workflow evidence and is recorded as blocked, not passed.
+- [Phase 36]: Fixture mode requires PHASE36_FIXTURE_ONLY=1 and exact TEST_DATABASE_URL/DATABASE_URL equality before deterministic execution.
+- [Phase 36]: Authenticated browser evidence remains blocked when TEST_DATABASE_URL or sanitized Phase 36 fixture IDs are unavailable.
 
 ### Pending Todos
 
@@ -128,7 +131,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-08-08T22:19:25.627Z
-Stopped at: Completed 36-05-PLAN.md; DB verification blocked
+Last session: 2026-08-08T22:31:46.673Z
+Stopped at: Completed 36-06-PLAN.md; authenticated E2E blocked by missing TEST_DATABASE_URL and fixture IDs
 Next: Phase 35 — Company & Persona Analysis Experiences
 Resume file: None
