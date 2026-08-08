@@ -3,8 +3,11 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
+import { decideRunInputSchema } from '@/lib/analysis/reviewContracts';
+import type { ReviewDecisionOutcome, WholeRunDecision } from '@/lib/analysis/reviewContracts';
 import { acceptProposal, getProposalById } from '@/lib/db/queries/proposals';
 import { rejectProposal } from '@/lib/db/queries/corrections';
+import { decideAnalysisRun } from '@/lib/db/queries/analysisReviews';
 import { correctionReasonEnum } from '@/lib/db/schema';
 
 // Server Action controller for the proposal review queue (ANLZ-02/OBSV-02).
@@ -66,4 +69,42 @@ export async function rejectProposalAction(proposalId: number, input: unknown): 
   } catch {
     return { ok: false, reason: 'action_failed' };
   }
+}
+
+// ---- v1.7 whole-run review actions below this line ----
+//
+// D-34-02/D-34-05/T-34-12: the whole-run Confirm/Dismiss boundary is structurally
+// separate from the legacy proposal Accept/Reject path above. Both actions call
+// requireStaffAccess() FIRST (never accept an actor from the browser), validate
+// the 34-01 decideRunInputSchema (positive runId + closed decision only — packet,
+// source, signal, offering and timestamp fields are rejected as invalid_input),
+// and reach the database exclusively through decideAnalysisRun from Plan 34-02.
+// They never call acceptProposal, never write a live Signal/offering/link, and
+// never open an interactive transaction (neon-http constraint). Replay/race
+// outcomes are returned verbatim from the winner-preserving query — a loser is
+// never reported as a win. A thrown query error propagates so the client
+// surfaces a retryable failure instead of a forged closed reason.
+
+async function decideWholeRun(
+  input: unknown,
+  decision: WholeRunDecision,
+  actorId: string,
+): Promise<ReviewDecisionOutcome> {
+  const parsed = decideRunInputSchema.safeParse(input);
+  if (!parsed.success || parsed.data.decision !== decision) {
+    return { ok: false, reason: 'invalid_input' };
+  }
+  const outcome = await decideAnalysisRun({ runId: parsed.data.runId, decision }, actorId);
+  if (outcome.ok) revalidatePath('/reviews');
+  return outcome;
+}
+
+export async function confirmRunAction(input: unknown): Promise<ReviewDecisionOutcome> {
+  const { userId } = await requireStaffAccess();
+  return decideWholeRun(input, 'confirmed', userId);
+}
+
+export async function dismissRunAction(input: unknown): Promise<ReviewDecisionOutcome> {
+  const { userId } = await requireStaffAccess();
+  return decideWholeRun(input, 'dismissed', userId);
 }
