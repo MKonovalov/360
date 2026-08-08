@@ -1,6 +1,7 @@
 'use client';
 
 import type { ManagedAnalysisTemplateRead } from '@/lib/analysis/templateContracts';
+import { FIXED_ANALYSIS_TEMPLATES } from '@/lib/analysis/templateContracts';
 
 import { AgentTemplateCard } from './agent-template-card';
 
@@ -24,9 +25,10 @@ export function AgentManagement({
         <h2 id="agent-templates-heading" className="sr-only">
           Analysis templates
         </h2>
-        {templates.map((template) => (
-          <AgentTemplateCard key={template.key} template={template} />
-        ))}
+        {FIXED_ANALYSIS_TEMPLATES.flatMap((fixedTemplate) => {
+          const template = templates.find(({ key }) => key === fixedTemplate.key);
+          return template ? [<AgentTemplateCard key={template.key} template={template} />] : [];
+        })}
       </section>
     </main>
   );

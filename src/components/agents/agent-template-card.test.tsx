@@ -1,7 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: () => undefined }),
+}));
+vi.mock('@/app/actions/analysisTemplates', () => ({
+  saveAnalysisTemplateAction: async () => ({ ok: true, kind: 'no_op', template: undefined }),
+  setAnalysisTemplateStatusAction: async () => ({ ok: true, kind: 'lifecycle_updated', template: undefined }),
+}));
+
 import { AgentManagement } from './agent-management';
+import { AgentTemplateCard, actionMessage } from './agent-template-card';
 import type { ManagedAnalysisTemplateRead } from '@/lib/analysis/templateContracts';
 
 const makeTemplate = (
@@ -33,7 +42,27 @@ const makeTemplate = (
 });
 
 const TEMPLATES = [
-  makeTemplate('company-buying-signal-analysis', 'Company Buying Signal Analysis', 'company'),
+  {
+    ...makeTemplate('company-buying-signal-analysis', 'Company Buying Signal Analysis', 'company'),
+    latest: {
+      ...makeTemplate('company-buying-signal-analysis', 'Company Buying Signal Analysis', 'company').latest,
+      version: 2,
+      instruction: 'Current company instruction',
+    },
+    history: [
+      {
+        ...makeTemplate('company-buying-signal-analysis', 'Company Buying Signal Analysis', 'company').latest,
+        version: 2,
+        instruction: 'Current company instruction',
+      },
+      {
+        ...makeTemplate('company-buying-signal-analysis', 'Company Buying Signal Analysis', 'company').latest,
+        templateVersionId: 10,
+        version: 1,
+        instruction: 'Prior company instruction',
+      },
+    ],
+  },
   makeTemplate('persona-buying-signal-analysis', 'Persona Buying Signal Analysis', 'persona'),
 ];
 
@@ -49,5 +78,34 @@ describe('AgentManagement', () => {
     expect(html).toContain('Persona Buying Signal Analysis');
     expect(html).not.toContain('Create template');
     expect(html).not.toContain('Provider');
+  });
+
+  it('exposes only current editable content and labels prior history read-only', () => {
+    const html = renderToStaticMarkup(<AgentManagement templates={TEMPLATES} />);
+
+    expect(html).toContain('Current version');
+    expect(html).toContain('Version 1');
+    expect(html).toContain('Read-only history');
+    expect(html).toContain('Current company instruction');
+    expect(html).toContain('Prior company instruction');
+    expect(html).toContain('Default effort');
+    expect(html).toContain('Retire template');
+    expect(html).not.toContain('Delete version');
+  });
+
+  it('shows reactivation for a retired template without changing its current version label', () => {
+    const retired = { ...TEMPLATES[1], status: 'retired' as const, latest: { ...TEMPLATES[1].latest, version: 4 } };
+    const html = renderToStaticMarkup(<AgentTemplateCard template={retired} />);
+
+    expect(html).toContain('Retired');
+    expect(html).toContain('Reactivate template');
+    expect(html).toContain('Current version 4');
+    expect(html).not.toContain('New version 5');
+  });
+
+  it('maps safe action failures to reloadable feedback without exposing raw errors', () => {
+    expect(actionMessage('conflict')).toContain('Refresh');
+    expect(actionMessage('action_failed')).not.toContain('database');
+    expect(actionMessage('unexpected-internal-error')).not.toContain('unexpected-internal-error');
   });
 });
