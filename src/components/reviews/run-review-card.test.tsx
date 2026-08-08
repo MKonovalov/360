@@ -107,7 +107,9 @@ describe('RunReviewSection', () => {
 
   it('renders an explicit DB-error state when the fetch failed', () => {
     const html = renderToStaticMarkup(<RunReviewSection items={null} />);
-    expect(html).toContain("Couldn't load run reviews");
+    // React SSR escapes the apostrophe (&#x27;), so assert without it.
+    expect(html).toContain('load run reviews');
+    expect(html).not.toContain('data-run-id');
   });
 
   it('labels the section heading accessibly and marks it as v1.7', () => {
@@ -205,7 +207,9 @@ describe('RunDecisionButtons', () => {
     );
     const buttons = [...html.matchAll(/<button[^>]*>/g)].map((match) => match[0]);
     expect(buttons.length).toBe(2);
-    expect(buttons.every((button) => button.includes('disabled'))).toBe(true);
+    // The rendered `disabled` attribute, not the substring — the Tailwind base
+    // class always contains "disabled:" as a variant prefix.
+    expect(buttons.every((button) => button.includes('disabled=""'))).toBe(true);
   });
 
   it('enables both buttons when idle', () => {
@@ -213,7 +217,7 @@ describe('RunDecisionButtons', () => {
       <RunDecisionButtons runId={7} state={{ status: 'idle' }} onDecision={() => {}} />,
     );
     const buttons = [...html.matchAll(/<button[^>]*>/g)].map((match) => match[0]);
-    expect(buttons.every((button) => !button.includes('disabled'))).toBe(true);
+    expect(buttons.every((button) => !button.includes('disabled=""'))).toBe(true);
   });
 });
 
@@ -264,8 +268,15 @@ describe('RunReviewActions state machine', () => {
       decidedBy: 'user_first',
       decidedAt: DECIDED_AT,
     });
-    expect(decidedCopy(next)).toContain('user_first');
-    expect(decidedCopy(next)).toContain('preserved');
+    const decided: Extract<RunActionState, { readonly status: 'decided' }> = {
+      status: 'decided',
+      decision: 'confirmed',
+      replayed: true,
+      decidedBy: 'user_first',
+      decidedAt: DECIDED_AT,
+    };
+    expect(decidedCopy(decided)).toContain('user_first');
+    expect(decidedCopy(decided)).toContain('preserved');
   });
 
   it('maps race_loser to a non-retryable error without ever claiming a win', () => {
@@ -292,7 +303,7 @@ describe('RunReviewActions state machine', () => {
   it('renders pending action controls for a pending run and decided copy once decided', () => {
     const idleHtml = renderToStaticMarkup(<RunReviewActions runId={7} />);
     expect(idleHtml).toContain('aria-label="Confirm run 7"');
-    const decidedState: RunActionState = {
+    const decidedState: Extract<RunActionState, { readonly status: 'decided' }> = {
       status: 'decided',
       decision: 'confirmed',
       replayed: false,
