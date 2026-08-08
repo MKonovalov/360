@@ -442,7 +442,12 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
       const offeringId = await insertOffering(catalogPa, 'active');
       await insertSignalOfferingLink('company', signalId, offeringId);
       await persistPacket(runId, 'company', [
-        { key: `f-${status}-${runId}`, signalId, status: 'strong' },
+        {
+          key: `f-${status}-${runId}`,
+          signalId,
+          status: 'strong',
+          sourceKeys: [`s-annual-${runId}`],
+        },
       ]);
       statusRuns.push({ status, runId, signalId, offeringId });
       return runId;
@@ -519,8 +524,8 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
     const runId = await createRun('company', 920100);
     await completeRun(runId);
     await persistPacket(runId, 'company', [
-      { key: `f-strong-${runId}`, signalId: 5201, status: 'strong' },
-      { key: `f-weak-${runId}`, signalId: 5202, status: 'weak', supportRole: 'corroborating' },
+      { key: `f-strong-${runId}`, signalId: 5201, status: 'strong', sourceKeys: [`s-annual-${runId}`] },
+      { key: `f-weak-${runId}`, signalId: 5202, status: 'weak', supportRole: 'corroborating', sourceKeys: [`s-annual-${runId}`] },
       { key: `f-no-evidence-${runId}`, signalId: 5203, status: 'no_evidence' },
       { key: `f-inconclusive-${runId}`, signalId: 5204, status: 'inconclusive' },
       // Strong finding with NO persisted source link — excluded by the join.
@@ -559,15 +564,20 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
     const companyRunId = await createRun('company', 920200);
     await completeRun(companyRunId);
     await persistPacket(companyRunId, 'company', [
-      { key: `f-company-${companyRunId}`, signalId: 5301, status: 'strong' },
+      { key: `f-company-${companyRunId}`, signalId: 5301, status: 'strong', sourceKeys: [`s-annual-${companyRunId}`] },
     ]);
     await confirmRun(companyRunId);
 
     const personaRunId = await createRun('persona', 920201);
     await completeRun(personaRunId);
-    await persistPacket(personaRunId, 'persona', [
-      { key: `f-persona-${personaRunId}`, signalId: 5301, status: 'strong' },
-    ]);
+    // Persona retention is 60s from persist-now; persist at DECIDED_AT so the
+    // retention window still covers the decide and the default-now query.
+    await persistPacket(
+      personaRunId,
+      'persona',
+      [{ key: `f-persona-${personaRunId}`, signalId: 5301, status: 'strong', sourceKeys: [`s-annual-${personaRunId}`] }],
+      { now: DECIDED_AT },
+    );
     await confirmRun(personaRunId);
 
     const candidates = await candidateQueries.listConfirmedCandidateOfferings();
@@ -586,7 +596,7 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
     const runId = await createRun('company', 920300);
     await completeRun(runId);
     await persistPacket(runId, 'company', [
-      { key: `f-status-${runId}`, signalId: 5401, status: 'strong' },
+      { key: `f-status-${runId}`, signalId: 5401, status: 'strong', sourceKeys: [`s-annual-${runId}`] },
     ]);
     await confirmRun(runId);
 
@@ -660,7 +670,7 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
     await persistPacket(
       liveRunId,
       'persona',
-      [{ key: `f-live-${liveRunId}`, signalId: 5601, status: 'strong' }],
+      [{ key: `f-live-${liveRunId}`, signalId: 5601, status: 'strong', sourceKeys: [`s-annual-${liveRunId}`] }],
       { now: COMPLETED_AT },
     );
     await confirmRun(liveRunId, new Date(COMPLETED_AT.getTime() + 30_000));
@@ -671,7 +681,7 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
     await persistPacket(
       expiredRunId,
       'persona',
-      [{ key: `f-expired-${expiredRunId}`, signalId: 5601, status: 'strong' }],
+      [{ key: `f-expired-${expiredRunId}`, signalId: 5601, status: 'strong', sourceKeys: [`s-annual-${expiredRunId}`] }],
       { now: COMPLETED_AT },
     );
     await confirmRun(expiredRunId, new Date(COMPLETED_AT.getTime() + 30_000));
@@ -701,7 +711,7 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
     const runId = await createRun('company', 920600);
     await completeRun(runId);
     await persistPacket(runId, 'company', [
-      { key: `f-readonly-${runId}`, signalId: companySignalId, status: 'strong' },
+      { key: `f-readonly-${runId}`, signalId: companySignalId, status: 'strong', sourceKeys: [`s-annual-${runId}`] },
     ]);
     await confirmRun(runId);
 
