@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { BuiltAnalysisSnapshots } from '@/lib/analysis/snapshots';
+import { createPhase36Fixture } from '@/lib/verification/phase36Fixtures';
 import type { CreateAnalysisRunInput } from './analysisRuns';
 
 // 32-04: atomic run ledger + guarded state machine against a live DB. Gated on
@@ -31,8 +32,11 @@ describeWithDatabase('analysis run ledger boundaries', () => {
   // Fixture identity (shared by every run in the suite).
   let templateId = 0;
   let templateVersionId = 0;
+  let personaTemplateId = 0;
+  let personaTemplateVersionId = 0;
   let practiceAreaId = 0;
   let built: BuiltAnalysisSnapshots;
+  let personaBuilt: BuiltAnalysisSnapshots;
 
   // Each run gets its own positive subject id so the partial unique index
   // (subject_type, subject_id, template_id) scopes cleanly per test.
@@ -44,23 +48,24 @@ describeWithDatabase('analysis run ledger boundaries', () => {
     return BASE_SUBJECT_ID + subjectCounter;
   }
 
-  function runInput(subjectId: number): CreateAnalysisRunInput {
+  function runInput(subjectId: number, targetType: 'company' | 'persona' = 'company'): CreateAnalysisRunInput {
+    const snapshots = targetType === 'company' ? built : personaBuilt;
     return {
-      templateId,
-      templateVersionId,
-      subjectType: 'company',
+      templateId: targetType === 'company' ? templateId : personaTemplateId,
+      templateVersionId: targetType === 'company' ? templateVersionId : personaTemplateVersionId,
+      subjectType: targetType,
       subjectId,
       practiceAreaId,
       createdBy: 'integration-test',
-      templateSnapshot: built.templateSnapshot,
+      templateSnapshot: snapshots.templateSnapshot,
       subjectSnapshot: Object.freeze({
-        type: 'company',
+        type: targetType,
         id: subjectId,
-        displayName: `IT Run Co ${subjectId}`,
+        displayName: `IT Run ${targetType} ${subjectId}`,
       }),
-      checklistSnapshot: built.checklistSnapshot,
-      executionSnapshot: built.executionSnapshot,
-      policySnapshot: built.policySnapshot,
+      checklistSnapshot: snapshots.checklistSnapshot,
+      executionSnapshot: snapshots.executionSnapshot,
+      policySnapshot: snapshots.policySnapshot,
     };
   }
 
@@ -131,6 +136,56 @@ describeWithDatabase('analysis run ledger boundaries', () => {
       checklist: {
         schemaVersion: 1,
         targetType: 'company',
+        practiceAreaId,
+        practiceAreaName: `IT-RUN-PA-${suffix}`,
+        items: [],
+      },
+      resolvedModelChain: ['phase32-noop'],
+    });
+
+    const personaTemplateKey = `it-run-persona-${suffix.slice(0, 12)}`;
+    const [personaTemplate] = await dbModule.db
+      .insert(schema.analysisTemplate)
+      .values({
+        key: personaTemplateKey,
+        name: `Integration Persona Run Template ${suffix}`,
+        targetType: 'persona',
+        status: 'active',
+        createdBy: 'integration-test',
+        updatedBy: 'integration-test',
+      })
+      .returning({ id: schema.analysisTemplate.id });
+    personaTemplateId = personaTemplate.id;
+    templateIds.push(personaTemplateId);
+
+    const [personaVersion] = await dbModule.db
+      .insert(schema.analysisTemplateVersion)
+      .values({
+        templateId: personaTemplateId,
+        version: 1,
+        instruction: 'Integration-test persona fixture instruction.',
+        createdBy: 'integration-test',
+      })
+      .returning({ id: schema.analysisTemplateVersion.id });
+    personaTemplateVersionId = personaVersion.id;
+    versionIds.push(personaTemplateVersionId);
+
+    personaBuilt = snapshots.buildAnalysisSnapshots({
+      template: {
+        schemaVersion: 1,
+        templateId: personaTemplateId,
+        templateVersionId: personaTemplateVersionId,
+        templateKey: personaTemplateKey,
+        templateName: `Integration Persona Run Template ${suffix}`,
+        targetType: 'persona',
+        version: 1,
+        resolvedInstruction: 'Integration-test persona fixture instruction.',
+        effort: 'standard',
+      },
+      subject: { type: 'persona', id: nextSubjectId(), displayName: 'IT Persona Run seed' },
+      checklist: {
+        schemaVersion: 1,
+        targetType: 'persona',
         practiceAreaId,
         practiceAreaName: `IT-RUN-PA-${suffix}`,
         items: [],
@@ -501,5 +556,30 @@ describeWithDatabase('analysis run ledger boundaries', () => {
         expect(next.id).toBeGreaterThan(prev.id);
       }
     }
+  });
+
+  it('allows exactly one active Company and Persona run under concurrent starts', async () => {
+    for (const targetType of ['company', 'persona'] as const) {
+      const fixture = createPhase36Fixture(targetType);
+      expect(fixture.targetType).toBe(targetType);
+      const subjectId = nextSubjectId();
+      const outcomes = await Promise.all([
+        queries.createAnalysisRun(runInput(subjectId, targetType)),
+        queries.createAnalysisRun(runInput(subjectId, targetType)),
+      ]);
+      const winners = outcomes.filter((outcome) => outcome.ok);
+      const duplicates = outcomes.filter((outcome) => !outcome.ok);
+      expect(winners).toHaveLength(1);
+      expect(duplicates).toEqual([{ ok: false, reason: 'active_run_exists' }]);
+      const winner = winners[0];
+      if (winner?.ok) runIds.push(winner.run.id);
+    }
+
+    const independentCompany = await queries.createAnalysisRun(runInput(nextSubjectId(), 'company'));
+    const independentPersona = await queries.createAnalysisRun(runInput(nextSubjectId(), 'persona'));
+    expect(independentCompany.ok).toBe(true);
+    expect(independentPersona.ok).toBe(true);
+    if (independentCompany.ok) runIds.push(independentCompany.run.id);
+    if (independentPersona.ok) runIds.push(independentPersona.run.id);
   });
 });
