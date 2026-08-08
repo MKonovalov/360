@@ -476,7 +476,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 Plans:
 - [x] 34-01-PLAN.md — Additive review identity schema and closed review/candidate contracts (REV-01..03)
-- [ ] 34-02-PLAN.md — Packet-required reconciliation, atomic whole-run decisions, and confirmed-only provenance projection (REV-01..05)
+- [x] 34-02-PLAN.md — Packet-required reconciliation, atomic whole-run decisions, and confirmed-only provenance projection (REV-01..05)
 - [ ] 34-03-PLAN.md — Additive shared Reviews run-level UI and staff-gated Confirm/Dismiss actions (REV-01..04)
 - [ ] 34-04-PLAN.md — Scope audit, automated evidence gate, and authenticated fixture-only UAT (REV-01..05)
 

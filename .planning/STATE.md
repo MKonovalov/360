@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Agent Constructor & Buying Signal Analysis
 status: executing
-last_updated: "2026-08-07T22:42:55.317Z"
-last_activity: 2026-08-07
+last_updated: "2026-08-08T00:13:06.078Z"
+last_activity: 2026-08-08
 progress:
   total_phases: 14
   completed_phases: 2
   total_plans: 19
-  completed_plans: 12
+  completed_plans: 13
   percent: 14
 ---
 
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-08-06)
 ## Current Position
 
 Phase: 34 of 36 (Whole-Run Review & Confirmed Candidates)
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
-Last activity: 2026-08-07
+Last activity: 2026-08-08
 
-Progress: [███████░░░] 67%
+Progress: [███████░░░] 72%
 
 ## Performance Metrics
 
@@ -56,6 +56,7 @@ Progress: [███████░░░] 67%
 | Phase 33 P05 | ~1h | 3 tasks | 4 files |
 | Phase 33 P06 | 25m | 2 tasks | 4 files |
 | Phase 34-whole-run-review-confirmed-candidates P01 | 45m | 2 tasks | 4 files |
+| Phase 34-whole-run-review-confirmed-candidates P02 | 61 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,10 @@ Progress: [███████░░░] 67%
 - [Phase 34-whole-run-review-confirmed-candidates]: One immutable, packet-bound whole-run decision per analysis run/result: unique analysis_run_id and result_id, closed confirmed|dismissed enum, non-null decided_by/decided_at/packet_hash.
 - [Phase 34-whole-run-review-confirmed-candidates]: Actor identity, decision timestamp, and packet hash are server-result fields; reconciliation/decision inputs accept only a positive run ID plus the closed decision (T-34-02).
 - [Phase 34-whole-run-review-confirmed-candidates]: Candidate eligibility is strong/weak only with persisted source linkage; active display status and historical link identity are distinct fields (D-34-03/D-34-04).
+- [Phase 34-whole-run-review-confirmed-candidates]: Confirmed-only predicate lives in SQL (status = 'confirmed' AND confirmed review join), never client-side filtering; the contract rejects non-eligible evidence at parse time as a second layer.
+- [Phase 34-whole-run-review-confirmed-candidates]: Polymorphic join casts both sides to text: signal_offering_link.signal_type is record_type while analysis_run.subject_type is analysis_target_type — two distinct PG enum types.
+- [Phase 34-whole-run-review-confirmed-candidates]: Confirmed review identity is enforced by the INNER JOIN on analysis_run_review decision = 'confirmed'; candidate rows do not carry decided_by/decided_at because the closed 34-01 contract omits them.
+- [Phase 34-whole-run-review-confirmed-candidates]: Deterministic duplicate provenance: multiple sources per finding survive as separate evidence rows; normalizeCandidateEvidence orders by run:finding:source without grouping.
 
 ### Pending Todos
 
@@ -102,6 +107,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-08-07T22:42:55.311Z
-Stopped at: Completed 32-05-PLAN.md; Phase 32 final gate passed
+Last session: 2026-08-08T00:13:06.072Z
+Stopped at: Completed 34-02-PLAN.md; review boundary + confirmed-only candidate projection shipped
 Resume file: None
