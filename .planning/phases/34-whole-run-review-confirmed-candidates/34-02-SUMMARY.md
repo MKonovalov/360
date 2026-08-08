@@ -78,7 +78,7 @@ Each task was committed atomically:
 2. **Task 2: Implement the confirmed-only provenance candidate projection** - `acf917da` (test), `e5e822be` (feat, includes integration fixture fixes)
 3. **Evidence: concurrent race + packet immutability proof** - `3ce74928` (test) — Promise.all Confirm/Confirm, Dismiss/Dismiss, and Confirm/Dismiss races proving single-winner + winner-preserving classification, plus byte-for-byte Phase 33 packet snapshots before/after Confirm and Dismiss
 
-**Plan metadata:** (final docs commit after this summary)
+**Plan metadata:** final docs commits `fd669ed0` (complete plan) and `435ddbfd` (review gate report)
 
 _Note: Both tasks were TDD (test → feat); the evidence commit lands after GREEN as an additional proof layer._
 
