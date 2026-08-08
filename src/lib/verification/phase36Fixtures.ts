@@ -4,7 +4,7 @@ import { type AnalysisTargetType } from '@/lib/analysis/contracts';
 
 export const PHASE36_TARGETS = ['company', 'persona'] as const satisfies readonly AnalysisTargetType[];
 
-const APPROVED_POLICY = {
+export const PHASE36_APPROVED_POLICY = {
   schemaVersion: 1,
   mode: 'phase33_grounded',
   executionEnabled: true,
@@ -46,7 +46,7 @@ export type Phase36Fixture = Readonly<{
   readonly practiceAreaId: number;
   readonly signalId: number;
   readonly built: BuiltAnalysisSnapshots;
-  readonly policy: typeof APPROVED_POLICY;
+  readonly policy: typeof PHASE36_APPROVED_POLICY;
   readonly subjectSnapshot: BuiltAnalysisSnapshots['subjectSnapshot'];
   readonly templateSnapshot: BuiltAnalysisSnapshots['templateSnapshot'];
   readonly source: Readonly<{ url: string; title: string; snippet: string }>;
@@ -98,7 +98,7 @@ export function createPhase36Fixture(targetType: AnalysisTargetType): Phase36Fix
       },
       resolvedModelChain: ['phase36.fixture'],
     },
-    APPROVED_POLICY,
+    PHASE36_APPROVED_POLICY,
   );
   const sourceResult = {
     origin: 'firecrawl',
@@ -124,10 +124,13 @@ export function createPhase36Fixture(targetType: AnalysisTargetType): Phase36Fix
 
   const executorDependencies: GroundedExecutionDependencies = {
     instantiateChain: () => [],
-    runAgent: async () => ({
+    runAgent: async (input) => ({
       output: {
         narrative: packetInput.narrative,
-        findings: packetInput.findings,
+        findings: packetInput.findings.map((finding) => ({
+          ...finding,
+          signalId: Number(input.liveSignals[0]?.signalType ?? signalId),
+        })),
       },
       modelUsed: 'phase36.fixture',
       usedFallback: false,
@@ -145,11 +148,22 @@ export function createPhase36Fixture(targetType: AnalysisTargetType): Phase36Fix
     practiceAreaId,
     signalId,
     built,
-    policy: APPROVED_POLICY,
+    policy: PHASE36_APPROVED_POLICY,
     subjectSnapshot: built.subjectSnapshot,
     templateSnapshot: built.templateSnapshot,
     source,
     packetInput,
     executorDependencies,
   });
+}
+
+export function isPhase36FixtureMode(): boolean {
+  const testDatabaseUrl = process.env.TEST_DATABASE_URL;
+  return process.env.PHASE36_FIXTURE_ONLY === '1'
+    && Boolean(testDatabaseUrl)
+    && process.env.DATABASE_URL === testDatabaseUrl;
+}
+
+export function phase36ExecutorDependencies(targetType: AnalysisTargetType): GroundedExecutionDependencies {
+  return createPhase36Fixture(targetType).executorDependencies;
 }
