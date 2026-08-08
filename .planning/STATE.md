@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Agent Constructor & Buying Signal Analysis
 status: verifying
-last_updated: "2026-08-08T21:41:48.076Z"
+last_updated: "2026-08-08T21:53:25.991Z"
 last_activity: 2026-08-08
 progress:
   total_phases: 14
   completed_phases: 10
   total_plans: 77
-  completed_plans: 66
+  completed_plans: 67
   percent: 71
 ---
 
@@ -29,7 +29,7 @@ Plan: 4 of 4 (Adversarial Gate & Authenticated UAT)
 Status: Phase complete — ready for verification
 Last activity: 2026-08-08
 
-Progress: [█████████░] 89%
+Progress: [█████████░] 91%
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Progress: [█████████░] 89%
 | Phase 36 P01 | 10m | 2 tasks | 5 files |
 | Phase 36 P02 | 17m | 2 tasks | 3 files |
 | Phase 36 P02 | 17m | 2 tasks | 3 files |
+| Phase 36 P3 | 26m | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -96,6 +97,9 @@ Progress: [█████████░] 89%
 - [Phase ?]: Lifecycle changes update only analysis_template and preserve versions and run snapshots.
 - [Phase ?]: Template management revalidates only /agents because management changes do not rewrite historical runs or live catalog data.
 - [Phase ?]: Unexpected template query failures return action_failed while concurrent immutable-version conflicts remain safe reloadable outcomes.
+- [Phase 36]: The public management route is /agents and the UI allowlists the two canonical fixed template keys.
+- [Phase 36]: Only current instruction and defaultEffort are submitted for content saves; lifecycle submits only the fixed key and next status.
+- [Phase 36]: Historical versions remain read-only while lifecycle changes preserve the current version.
 
 ### Pending Todos
 
@@ -117,7 +121,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-08-08T21:40:58.771Z
+Last session: 2026-08-08T21:50:15.220Z
 Stopped at: Phase 36 context gathered
 Next: Phase 35 — Company & Persona Analysis Experiences
 Resume file: None
