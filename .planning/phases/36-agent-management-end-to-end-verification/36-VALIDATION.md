@@ -14,8 +14,9 @@ the guarded database/Workflow/authenticated browser gates.
 3. `npm run build`
 4. `npm exec tsx -- scripts/phase36-scope-audit.ts`
 5. `npm test -- scripts/phase36-scope-audit.test.ts`
-6. If `TEST_DATABASE_URL` is present, run `TEST_DATABASE_URL="$TEST_DATABASE_URL" npm run test:workflow`; otherwise record **BLOCKED**.
-7. If `TEST_DATABASE_URL`, `PHASE36_FIXTURE_ONLY=1`, `e2e/.clerk/user.json`, `PHASE36_COMPANY_ID`, and `PHASE36_PERSONA_ID` are all present, run `TEST_DATABASE_URL="$TEST_DATABASE_URL" PHASE36_FIXTURE_ONLY=1 npm exec playwright test e2e/36-agent-management.spec.ts`; otherwise record authenticated E2E **BLOCKED**.
+6. If `TEST_DATABASE_URL` is present, run `TEST_DATABASE_URL="$TEST_DATABASE_URL" npm exec tsx e2e/phase36-fixture-reset.ts --check`; otherwise record the reset check **BLOCKED**.
+7. If `TEST_DATABASE_URL` is present, run `TEST_DATABASE_URL="$TEST_DATABASE_URL" npm run test:workflow`; otherwise record **BLOCKED**.
+8. If `TEST_DATABASE_URL`, `PHASE36_FIXTURE_ONLY=1`, `e2e/.clerk/user.json`, `PHASE36_COMPANY_ID`, and `PHASE36_PERSONA_ID` are all present, run `TEST_DATABASE_URL="$TEST_DATABASE_URL" PHASE36_FIXTURE_ONLY=1 npm exec playwright test e2e/36-agent-management.spec.ts`; otherwise record authenticated E2E **BLOCKED**.
 
 Focused Phase 36 rerun:
 
@@ -30,6 +31,7 @@ npm test -- src/lib/analysis/templateContracts.test.ts src/lib/db/queries/analys
 | Management contracts/actions/UI/nav | **PASS** | Focused Phase 36 run: 66 passed; 7 files passed. |
 | Scope audit and regression test | **PASS** | Executable audit: 0 findings; regression: 1 passed. |
 | Production build | **PASS** | Next build completed and emitted `/agents`. |
+| Fixture reset check | **BLOCKED** | `TEST_DATABASE_URL` absent; no fixture IDs were generated. |
 | Full repository suite | **NOT PASSING (baseline/out-of-scope)** | 886 passed, 21 failed, 94 skipped; failures are not Phase 36 scope evidence. |
 | TypeScript CLI check | **BLOCKED (baseline)** | Three existing `analysisProposalDerivation.test.ts` errors. |
 | Lifecycle/recovery/grounding/duplicate/review/aggregation/no-live-write DB matrix | **BLOCKED** | `TEST_DATABASE_URL` absent; integration files skipped and Workflow guard did not run. |

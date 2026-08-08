@@ -47,6 +47,7 @@ private reasoning, or unrestricted provider output are included here.
 | `npm run build` | **PASS** | Next.js compiled, completed its TypeScript phase, generated the application, and listed canonical `/agents`; no Phase 36 build failure occurred. |
 | `npm exec tsx -- scripts/phase36-scope-audit.ts` | **PASS** | 0 findings; selected tracked implementation files only. Planning history was excluded. |
 | `npm test -- scripts/phase36-scope-audit.test.ts` | **PASS** | 1 test passed. |
+| Guarded `npm exec tsx e2e/phase36-fixture-reset.ts --check` | **BLOCKED** | Not run because `TEST_DATABASE_URL` was unavailable; no fixture IDs were generated or claimed. |
 | `TEST_DATABASE_URL=… npm run test:workflow` | **BLOCKED** | Guard did not run because `TEST_DATABASE_URL` was unavailable. No Workflow success is claimed. |
 | Guarded `npm exec playwright test e2e/36-agent-management.spec.ts` | **BLOCKED** | Guard stopped before the Phase 36 tests because `TEST_DATABASE_URL`, `PHASE36_FIXTURE_ONLY=1`, and fixture IDs were unavailable. Auth setup itself completed. |
 | Playwright route/sidebar subset | **BLOCKED** | The current Phase 36 spec applies the same prerequisite guard to all tests; no route/sidebar or target-flow success is inferred from the auth setup. |
