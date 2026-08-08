@@ -1,0 +1,9 @@
+{
+  "workflowFiles": [
+    "/Users/mkonovalov/gsd-workspaces/signals/360-arclumen/src/workflows/analysisRun.ts",
+    "/Users/mkonovalov/gsd-workspaces/signals/360-arclumen/src/workflows/workflowProof.ts"
+  ],
+  "serdeOnlyFiles": [
+    "/Users/mkonovalov/gsd-workspaces/signals/360-arclumen/node_modules/@workflow/builders/dist/serde-checker.js"
+  ]
+}

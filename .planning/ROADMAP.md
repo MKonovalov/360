@@ -130,8 +130,8 @@ Full details: [`.planning/milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.m
 **Phase Numbering:** Continues directly from v1.6's Phase 30. Phase 31 is a mandatory durable-executor selection and validation gate; no later phase may promise detached asynchronous execution until it passes.
 
 - [x] **Phase 31: Durable Executor Selection & Validation** - Select and prove a Vercel-compatible executor can independently claim, complete, recover, or safely fail a durable run.
-- [ ] **Phase 32: Template, Snapshot & Run Ledger** - Establish two compatible GBS templates and the immutable run ledger that records intent, lifecycle, limits, and safe audit outcomes.
-- [ ] **Phase 33: Grounded Analysis Execution & Evidence** - Execute snapshotted runs through the existing modelFactory and Firecrawl seam, persisting safe, source-grounded findings.
+- [x] **Phase 32: Template, Snapshot & Run Ledger** - Establish two compatible GBS templates and the immutable run ledger that records intent, lifecycle, limits, and safe audit outcomes. (completed 2026-08-07; final gate passed against TEST_DATABASE_URL)
+- [x] **Phase 33: Grounded Analysis Execution & Evidence** - Execute snapshotted runs through the existing modelFactory and Firecrawl seam, persisting safe, source-grounded findings. (completed 2026-08-07)
 - [ ] **Phase 34: Whole-Run Review & Confirmed Candidates** - Apply one idempotent decision per completed run and expose only confirmed, provenance-backed candidate offerings.
 - [ ] **Phase 35: Company & Persona Analysis Experiences** - Give staff preview, launch, history, result, source, and review visibility from both target records.
 - [ ] **Phase 36: Agent Management & End-to-End Verification** - Version and manage templates, then prove lifecycle, grounding, security, review, aggregation, and both target flows.
@@ -174,9 +174,9 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 29. Signals UI | v1.6 | 8/8 | Complete   | 2026-08-05 |
 | 30. Offerings UI | v1.6 | 11/11 | Complete   | 2026-08-06 |
 | 31. Durable Executor Selection & Validation | v1.7 | 3/3 | Complete | 2026-08-07 |
-| 32. Template, Snapshot & Run Ledger | v1.7 | 0/TBD | Not started | - |
-| 33. Grounded Analysis Execution & Evidence | v1.7 | 0/TBD | Not started | - |
-| 34. Whole-Run Review & Confirmed Candidates | v1.7 | 0/TBD | Not started | - |
+| 32. Template, Snapshot & Run Ledger | v1.7 | 5/5 | Complete | 2026-08-07 |
+| 33. Grounded Analysis Execution & Evidence | v1.7 | 6/6 | Complete   | 2026-08-07 |
+| 34. Whole-Run Review & Confirmed Candidates | v1.7 | 3/4 | In Progress|  |
 | 35. Company & Persona Analysis Experiences | v1.7 | 0/TBD | Not started | - |
 | 36. Agent Management & End-to-End Verification | v1.7 | 0/TBD | Not started | - |
 
@@ -275,7 +275,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
   4. NousResearch Hermes rows render honest capability captions (chat/reasoning-tuned caveat, mirroring the `:free` fail-loud pattern) with per-MTok cost captions converted from the API's per-token pricing.
   5. Provider badges cover all 4 providers and disambiguate same-name models (hermes-4-70b via nousresearch vs openrouter; claude rows via opencode vs anthropic); union fallback pickers group by all 4 providers with correct badges; save + staleness verified end-to-end against 4-provider chains.
 
-**Plans**: TBD
 **UI hint**: yes
 
 ### Phase 27: Verification Gate
@@ -441,7 +440,27 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
   3. Every material finding identifies a snapshotted signal and its confidence/evidence status and links to persisted, navigable sources with title, canonical URL, retrieval time, and excerpt.
   4. Unsupported, unsafe, duplicate, or unlinked evidence is rejected rather than displayed as proof.
   5. Persona inputs, results, sources, and telemetry honor the minimum-data, redaction, classification, and retention policy.
-**Plans**: TBD
+**Plans**: 6 plans
+**Wave 0**
+
+- [x] 33-01-PLAN.md — Policy checkpoint and strict grounded execution/Persona contracts (RUN-04, EVD-01..05)
+
+**Wave 1** *(blocked on Wave 0 completion; parallel with each other)*
+
+- [x] 33-02-PLAN.md — Additive immutable packet/finding/source/link schema and Neon-http-safe persistence (EVD-01..05)
+- [x] 33-03-PLAN.md — Canonical evidence normalization and fail-closed packet validation (EVD-01..05)
+
+**Wave 2** *(blocked on Wave 1 contract/evidence completion)*
+
+- [x] 33-04-PLAN.md — Provider-neutral modelFactory/Firecrawl adapter and bounded tool seam (RUN-04, EVD-01..05)
+
+**Wave 3** *(blocked on Waves 1-2 completion)*
+
+- [x] 33-05-PLAN.md — Durable workflow integration, persistence-before-completion, replay safety, and Langfuse redaction (RUN-04, EVD-01..05)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 33-06-PLAN.md — Final automated gate, scope audit, and approved/deferred live smoke evidence (RUN-04, EVD-01..05)
 
 ### Phase 34: Whole-Run Review & Confirmed Candidates
 **Goal**: Staff can make one safe decision for a completed analysis, and only confirmed evidence can influence candidate offerings.
@@ -453,7 +472,13 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
   3. Either decision leaves live Signals and signal-offering links unchanged.
   4. Company and Persona candidate-offering results include run, finding, and source provenance and derive solely from Confirmed runs through existing signal-offering links.
   5. Pending, failed, cancelled, and dismissed runs never appear in candidate-offering aggregation.
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [x] 34-01-PLAN.md — Additive review identity schema and closed review/candidate contracts (REV-01..03)
+- [x] 34-02-PLAN.md — Packet-required reconciliation, atomic whole-run decisions, and confirmed-only provenance projection (REV-01..05)
+- [x] 34-03-PLAN.md — Additive shared Reviews run-level UI and staff-gated Confirm/Dismiss actions (REV-01..04)
+- [ ] 34-04-PLAN.md — Scope audit, automated evidence gate, and authenticated fixture-only UAT (REV-01..05)
 
 ### Phase 35: Company & Persona Analysis Experiences
 **Goal**: Staff can launch, follow, and inspect trustworthy buying-signal analysis from either eligible target record.

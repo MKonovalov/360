@@ -1,0 +1,20 @@
+{
+  "runId": "wrun_01KZF2Y51VMXJ21XASMKM4F6T4",
+  "stepId": "step_01KZF2Y51W09A36ABQ6WFNAH2Z",
+  "stepName": "step//./src/workflows/analysisRun//observeAuthoritativeState",
+  "status": "completed",
+  "input": {
+    "__type": "Uint8Array",
+    "data": "ZGV2bFt7ImFyZ3MiOjEsImNsb3N1cmVWYXJzIjotMSwidGhpc1ZhbCI6LTF9LFsyXSwyMTdd"
+  },
+  "attempt": 1,
+  "startedAt": "2026-08-07T21:44:15.273Z",
+  "createdAt": "2026-08-07T21:44:15.271Z",
+  "updatedAt": "2026-08-07T21:44:15.389Z",
+  "specVersion": 3,
+  "output": {
+    "__type": "Uint8Array",
+    "data": "ZGV2bFt7ImFwcGxpY2F0aW9uUnVuSWQiOjEsInRlcm1pbmFsU3RhdHVzIjoyfSwyMTcsImNvbXBsZXRlZCJd"
+  },
+  "completedAt": "2026-08-07T21:44:15.389Z"
+}

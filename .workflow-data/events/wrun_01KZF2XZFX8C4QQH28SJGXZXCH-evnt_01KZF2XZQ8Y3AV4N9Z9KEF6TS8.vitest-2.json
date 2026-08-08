@@ -1,0 +1,16 @@
+{
+  "eventType": "step_created",
+  "specVersion": 3,
+  "correlationId": "step_01KZF2XZFY25H6ETYS4GD8QZ1E",
+  "eventData": {
+    "stepName": "step//./src/workflows/workflowProof//reconcileProof",
+    "workflowName": "workflow//./src/workflows/workflowProof//workflowProof",
+    "input": {
+      "__type": "Uint8Array",
+      "data": "ZGV2bFt7ImFyZ3MiOjEsImNsb3N1cmVWYXJzIjotMSwidGhpc1ZhbCI6LTF9LFsyXSw3OF0="
+    }
+  },
+  "runId": "wrun_01KZF2XZFX8C4QQH28SJGXZXCH",
+  "eventId": "evnt_01KZF2XZQ8Y3AV4N9Z9KEF6TS8",
+  "createdAt": "2026-08-07T21:44:09.704Z"
+}

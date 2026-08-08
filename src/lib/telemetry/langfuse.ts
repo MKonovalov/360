@@ -3,6 +3,7 @@ import { NodeSDK } from '@opentelemetry/sdk-node';
 import { LangfuseSpanProcessor } from '@langfuse/otel';
 import { LangfuseVercelAiSdkIntegration } from '@langfuse/vercel-ai-sdk';
 import { LangfuseClient } from '@langfuse/client';
+import { z } from 'zod';
 import { env } from '../env';
 
 // Phase 9 observability bootstrap (D-13, D-15, D-16). No `instrumentation.ts`
@@ -13,6 +14,46 @@ import { env } from '../env';
 
 let langfuseClient: LangfuseClient | undefined;
 let initialized = false;
+
+const telemetryIdentifierSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(200)
+  .regex(/^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/)
+  .refine((value) => !/(?:sk|pk)[_-](?:live|test)|api[_-]?key|secret|token|session|clerk|database/i.test(value));
+
+const phase33MetadataSchema = z
+  .object({
+    runId: z.number().int().positive(),
+    targetType: z.enum(['company', 'persona']),
+    modelId: telemetryIdentifierSchema,
+    modelChain: z.array(telemetryIdentifierSchema).max(8),
+    usedFallback: z.boolean(),
+    durationMs: z.number().int().nonnegative().max(86_400_000),
+    toolCallCount: z.number().int().nonnegative().max(100),
+    findingCount: z.number().int().nonnegative().max(100),
+    sourceCount: z.number().int().nonnegative().max(100),
+    packetSchemaVersion: z.literal(1),
+    policyVersion: z.string().trim().min(1).max(120).nullable(),
+    traceId: telemetryIdentifierSchema.nullable(),
+    traceUrl: z
+      .string()
+      .url()
+      .max(2_048)
+      .refine((value) => {
+        const url = new URL(value);
+        return url.protocol === 'https:' && url.username === '' && url.password === '' && url.search === '' && url.hash === '';
+      })
+      .nullable(),
+  })
+  .strip();
+
+export type Phase33TelemetryMetadata = z.infer<typeof phase33MetadataSchema>;
+
+export function buildPhase33TelemetryMetadata(input: unknown): Phase33TelemetryMetadata {
+  return phase33MetadataSchema.parse(input);
+}
 
 // Lazy client accessor shared by initLangfuse, getTraceUrl and the reject
 // mirror. initLangfuse() runs only inside the Analyze route handler — Server
@@ -68,7 +109,32 @@ export async function getTraceUrl(traceId: string): Promise<string | undefined> 
   // only when Langfuse is actually configured (D-15).
   const client = getLangfuseClient();
   if (!client) return undefined;
-  return client.getTraceUrl(traceId);
+  try {
+    return await client.getTraceUrl(traceId);
+  } catch (error: unknown) {
+    if (error instanceof Error) return undefined;
+    return undefined;
+  }
+}
+
+export async function recordPhase33Telemetry(input: unknown): Promise<void> {
+  const metadata = buildPhase33TelemetryMetadata(input);
+  if (!metadata.traceId) return;
+  const client = getLangfuseClient();
+  if (!client) return;
+
+  try {
+    await client.score.create({
+      traceId: metadata.traceId,
+      name: 'phase33_run',
+      value: 1,
+      comment: JSON.stringify(metadata),
+    });
+    await client.flush();
+  } catch (error: unknown) {
+    if (error instanceof Error) return;
+    return;
+  }
 }
 
 export async function mirrorCorrectionAnnotation(

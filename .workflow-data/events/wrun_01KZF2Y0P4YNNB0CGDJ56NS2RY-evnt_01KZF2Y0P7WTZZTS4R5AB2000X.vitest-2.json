@@ -1,0 +1,22 @@
+{
+  "eventType": "run_created",
+  "runId": "wrun_01KZF2Y0P4YNNB0CGDJ56NS2RY",
+  "eventId": "evnt_01KZF2Y0P7WTZZTS4R5AB2000X",
+  "createdAt": "2026-08-07T21:44:10.693Z",
+  "specVersion": 3,
+  "eventData": {
+    "deploymentId": "dpl_local@4.2.4",
+    "workflowName": "workflow//./src/workflows/workflowProof//workflowProof",
+    "input": {
+      "__type": "Uint8Array",
+      "data": "ZGV2bFtbMV0sNzld"
+    },
+    "executionContext": {
+      "traceCarrier": {},
+      "workflowCoreVersion": "4.8.0",
+      "features": {
+        "encryption": false
+      }
+    }
+  }
+}

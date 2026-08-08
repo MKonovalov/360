@@ -1,0 +1,11 @@
+{
+  "eventType": "step_started",
+  "specVersion": 3,
+  "correlationId": "step_01KZF2Y1TRV95RFXYGB79RPW46",
+  "eventData": {
+    "stepName": "step//./src/workflows/workflowProof//completeProof"
+  },
+  "runId": "wrun_01KZF2Y1TQEGGB2WC6H4C3HTN2",
+  "eventId": "evnt_01KZF2Y28N2FFJZZQRKJYNJDBG",
+  "createdAt": "2026-08-07T21:44:12.309Z"
+}

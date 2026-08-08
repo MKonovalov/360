@@ -1,0 +1,11 @@
+{
+  "eventType": "step_started",
+  "specVersion": 3,
+  "correlationId": "step_01KZF2XXDB50D84C9G8QHWP4EN",
+  "eventData": {
+    "stepName": "step//./src/workflows/workflowProof//syntheticWork"
+  },
+  "runId": "wrun_01KZF2XXD3ZKJFX6ZQ68Q7NJVR",
+  "eventId": "evnt_01KZF2XZ25HDEAWYDC85E9G7K9",
+  "createdAt": "2026-08-07T21:44:09.029Z"
+}

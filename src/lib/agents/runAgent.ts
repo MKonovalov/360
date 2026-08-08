@@ -4,6 +4,7 @@ import { webSearchTool } from './tools';
 import { outputSchema, type CompanyInput, type LiveSignalInput } from './types';
 import { classifyModelError, isFailoverEligible, shouldAdvance } from './modelConfig';
 import { defaultChain } from './modelFactory';
+import type { ZodType } from 'zod';
 // D-20-07: provider identity for the hop decision is catalog-derived — static,
 // env-free imports (modelConfig.ts Pattern 2); constraint 11 untouched, the
 // catalog is NOT a provider SDK.
@@ -23,6 +24,9 @@ export interface RunAgentInput {
   // primary gets the full budget, a fast-failing primary (404/connection/
   // early 5xx) leaves ~50s for a complete fallback analysis.
   timeouts?: { primaryMs: number; fallbackMs: number };
+  prompt?: string;
+  outputSchema?: ZodType;
+  maxToolCalls?: number;
 }
 
 // FAL-04 loop wall: maxDuration=60 (route.ts:16) minus ~6s for DB writes +
@@ -54,6 +58,9 @@ export async function runAgent({
   liveSignals,
   models = defaultChain(),
   timeouts = { primaryMs: 54_000, fallbackMs: 50_000 },
+  prompt,
+  outputSchema: requestedOutputSchema = outputSchema,
+  maxToolCalls = 12,
 }: RunAgentInput) {
   const startedAt = Date.now();
   let lastError: unknown;
@@ -69,9 +76,9 @@ export async function runAgent({
       const result = await generateText({
         model: models[i],
         tools: { webSearch: webSearchTool },
-        prompt: buildAnalyzePrompt(company, liveSignals),
-        stopWhen: isStepCount(12),
-        output: Output.object({ schema: outputSchema }),
+        prompt: prompt ?? buildAnalyzePrompt(company, liveSignals),
+        stopWhen: isStepCount(Math.max(1, Math.min(12, maxToolCalls + 1))),
+        output: Output.object({ schema: requestedOutputSchema }),
         // FAL-04 why-comment (house convention): { totalMs } is the TOTAL
         // budget for this call INCLUDING the SDK's own retries + backoff
         // (verified: mergeAbortSignals feeds the retry loop's abort signal).

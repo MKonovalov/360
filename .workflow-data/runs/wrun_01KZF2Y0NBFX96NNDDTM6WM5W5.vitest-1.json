@@ -1,0 +1,26 @@
+{
+  "runId": "wrun_01KZF2Y0NBFX96NNDDTM6WM5W5",
+  "deploymentId": "dpl_local@4.2.4",
+  "workflowName": "workflow//./src/workflows/analysisRun//analysisRun",
+  "specVersion": 3,
+  "executionContext": {
+    "traceCarrier": {},
+    "workflowCoreVersion": "4.8.0",
+    "features": {
+      "encryption": false
+    }
+  },
+  "input": {
+    "__type": "Uint8Array",
+    "data": "ZGV2bFtbMV0sMjE0XQ=="
+  },
+  "createdAt": "2026-08-07T21:44:10.669Z",
+  "startedAt": "2026-08-07T21:44:10.669Z",
+  "status": "completed",
+  "output": {
+    "__type": "Uint8Array",
+    "data": "ZGV2bFt7ImFwcGxpY2F0aW9uUnVuSWQiOjEsInRlcm1pbmFsU3RhdHVzIjoyfSwyMTQsImNhbmNlbGxlZCJd"
+  },
+  "completedAt": "2026-08-07T21:44:10.851Z",
+  "updatedAt": "2026-08-07T21:44:10.851Z"
+}

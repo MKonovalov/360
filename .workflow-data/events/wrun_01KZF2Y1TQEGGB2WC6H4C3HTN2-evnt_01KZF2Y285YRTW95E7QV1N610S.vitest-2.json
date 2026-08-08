@@ -1,0 +1,16 @@
+{
+  "eventType": "step_completed",
+  "specVersion": 3,
+  "correlationId": "step_01KZF2Y1TRV95RFXYGB79RPW45",
+  "eventData": {
+    "stepName": "step//./src/workflows/workflowProof//syntheticWork",
+    "workflowName": "workflow//./src/workflows/workflowProof//workflowProof",
+    "result": {
+      "__type": "Uint8Array",
+      "data": "ZGV2bC0x"
+    }
+  },
+  "runId": "wrun_01KZF2Y1TQEGGB2WC6H4C3HTN2",
+  "eventId": "evnt_01KZF2Y285YRTW95E7QV1N610S",
+  "createdAt": "2026-08-07T21:44:12.293Z"
+}
