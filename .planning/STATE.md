@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Agent Constructor & Buying Signal Analysis
 status: verifying
-last_updated: "2026-08-08T21:35:12.828Z"
+last_updated: "2026-08-08T21:41:48.076Z"
 last_activity: 2026-08-08
 progress:
   total_phases: 14
   completed_phases: 10
   total_plans: 77
-  completed_plans: 65
+  completed_plans: 66
   percent: 71
 ---
 
@@ -29,7 +29,7 @@ Plan: 4 of 4 (Adversarial Gate & Authenticated UAT)
 Status: Phase complete — ready for verification
 Last activity: 2026-08-08
 
-Progress: [█████████░] 88%
+Progress: [█████████░] 89%
 
 ## Performance Metrics
 
@@ -60,6 +60,8 @@ Progress: [█████████░] 88%
 | Phase 34-whole-run-review-confirmed-candidates P03 | 17m | 2 tasks | 8 files |
 | Phase 34-whole-run-review-confirmed-candidates P04 | ~30m | 2 tasks (automated + UAT) | 3 files + 1 E2E test |
 | Phase 36 P01 | 10m | 2 tasks | 5 files |
+| Phase 36 P02 | 17m | 2 tasks | 3 files |
+| Phase 36 P02 | 17m | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -92,6 +94,8 @@ Progress: [█████████░] 88%
 - [Phase ?]: Fixed template management input remains limited to the seeded Company and Persona keys.
 - [Phase ?]: Neon-safe append conflicts are classified without mutating immutable history.
 - [Phase ?]: Lifecycle changes update only analysis_template and preserve versions and run snapshots.
+- [Phase ?]: Template management revalidates only /agents because management changes do not rewrite historical runs or live catalog data.
+- [Phase ?]: Unexpected template query failures return action_failed while concurrent immutable-version conflicts remain safe reloadable outcomes.
 
 ### Pending Todos
 
@@ -113,7 +117,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-08-08T21:34:23.349Z
+Last session: 2026-08-08T21:40:58.771Z
 Stopped at: Phase 36 context gathered
 Next: Phase 35 — Company & Persona Analysis Experiences
 Resume file: None
