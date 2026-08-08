@@ -69,7 +69,7 @@ Each task was committed atomically:
 1. **Task 1: Add staff-gated `/agents` server page and two-template composition** - `17d94757` (feat)
 2. **Task 2: Implement version editor, lifecycle controls, and history presentation** - `4fa8e1c1` (feat)
 
-**Plan metadata:** pending SDK metadata commit
+**Plan metadata:** `eae8b468` (docs: complete plan)
 
 ## Files Created/Modified
 
