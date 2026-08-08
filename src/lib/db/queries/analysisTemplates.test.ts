@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -216,6 +218,36 @@ describe('analysisTemplates query module', () => {
     const query = flattenSql(execute.mock.calls[0]?.[0]);
     expect(query).toContain('UPDATE analysis_template');
     expect(query).not.toContain('analysis_template_version');
+  });
+
+  it('returns a reloadable conflict when a concurrent append wins with different content', async () => {
+    const execute = vi.fn()
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [managedTemplateRow(13, 2, 'another instruction')] });
+    mocks.db.execute = execute;
+
+    const result = await saveAnalysisTemplateVersion(
+      {
+        operation: 'content',
+        templateKey: 'company-buying-signal-analysis',
+        instruction: 'concurrent instruction',
+        defaultEffort: 'standard',
+      },
+      'staff-2',
+    );
+
+    expect(result).toEqual({ ok: false, reason: 'conflict' });
+    expect(flattenSql(execute.mock.calls[0]?.[0])).toContain('ON CONFLICT');
+    expect(flattenSql(execute.mock.calls[0]?.[0])).not.toMatch(/UPDATE|DELETE/);
+    expect(execute).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps template management writes isolated from run, evidence, review, and live catalog tables', async () => {
+    const source = readFileSync(new URL('./analysisTemplates.ts', import.meta.url), 'utf8');
+
+    expect(source).not.toMatch(
+      /\b(?:analysis_run|analysis_run_event|analysis_result|analysis_finding|analysis_source|analysis_run_review|signal|offering|signal_offering_link)\b/,
+    );
   });
 });
 
