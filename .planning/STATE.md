@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Agent Constructor & Buying Signal Analysis
 status: verifying
-last_updated: "2026-08-08T21:53:25.991Z"
+last_updated: "2026-08-08T22:02:10.664Z"
 last_activity: 2026-08-08
 progress:
   total_phases: 14
   completed_phases: 10
   total_plans: 77
-  completed_plans: 67
+  completed_plans: 68
   percent: 71
 ---
 
@@ -29,7 +29,7 @@ Plan: 4 of 4 (Adversarial Gate & Authenticated UAT)
 Status: Phase complete — ready for verification
 Last activity: 2026-08-08
 
-Progress: [█████████░] 91%
+Progress: [█████████░] 92%
 
 ## Performance Metrics
 
@@ -63,6 +63,7 @@ Progress: [█████████░] 91%
 | Phase 36 P02 | 17m | 2 tasks | 3 files |
 | Phase 36 P02 | 17m | 2 tasks | 3 files |
 | Phase 36 P3 | 26m | 2 tasks | 5 files |
+| Phase 36 P04 | 5m | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -100,6 +101,8 @@ Progress: [█████████░] 91%
 - [Phase 36]: The public management route is /agents and the UI allowlists the two canonical fixed template keys.
 - [Phase 36]: Only current instruction and defaultEffort are submitted for content saves; lifecycle submits only the fixed key and next status.
 - [Phase 36]: Historical versions remain read-only while lifecycle changes preserve the current version.
+- [Phase 36]: Agents is the first Manage item and links only to the canonical exact leaf route /agents. — Keeps the public route and placement aligned with D-36-07.
+- [Phase 36]: Authenticated route/sidebar E2E uses the real app and existing Clerk storage state without mocking app HTML. — Preserves real route wiring evidence while keeping database fixture prerequisites separate.
 
 ### Pending Todos
 
@@ -121,7 +124,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-08-08T21:50:15.220Z
-Stopped at: Phase 36 context gathered
+Last session: 2026-08-08T22:02:10.656Z
+Stopped at: Completed 36-04-PLAN.md
 Next: Phase 35 — Company & Persona Analysis Experiences
 Resume file: None
