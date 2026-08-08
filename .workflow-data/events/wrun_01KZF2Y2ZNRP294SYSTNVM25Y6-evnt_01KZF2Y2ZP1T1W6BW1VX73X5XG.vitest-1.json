@@ -1,0 +1,22 @@
+{
+  "eventType": "run_created",
+  "specVersion": 3,
+  "eventData": {
+    "deploymentId": "dpl_local@4.2.4",
+    "workflowName": "workflow//./src/workflows/analysisRun//analysisRun",
+    "input": {
+      "__type": "Uint8Array",
+      "data": "ZGV2bFtbMV0sMjE2XQ=="
+    },
+    "executionContext": {
+      "traceCarrier": {},
+      "workflowCoreVersion": "4.8.0",
+      "features": {
+        "encryption": false
+      }
+    }
+  },
+  "runId": "wrun_01KZF2Y2ZNRP294SYSTNVM25Y6",
+  "eventId": "evnt_01KZF2Y2ZP1T1W6BW1VX73X5XG",
+  "createdAt": "2026-08-07T21:44:13.046Z"
+}

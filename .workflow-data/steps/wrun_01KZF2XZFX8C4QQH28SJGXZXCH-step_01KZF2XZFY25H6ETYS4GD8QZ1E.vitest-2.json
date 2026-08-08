@@ -1,0 +1,20 @@
+{
+  "runId": "wrun_01KZF2XZFX8C4QQH28SJGXZXCH",
+  "stepId": "step_01KZF2XZFY25H6ETYS4GD8QZ1E",
+  "stepName": "step//./src/workflows/workflowProof//reconcileProof",
+  "status": "completed",
+  "input": {
+    "__type": "Uint8Array",
+    "data": "ZGV2bFt7ImFyZ3MiOjEsImNsb3N1cmVWYXJzIjotMSwidGhpc1ZhbCI6LTF9LFsyXSw3OF0="
+  },
+  "attempt": 1,
+  "startedAt": "2026-08-07T21:44:09.706Z",
+  "createdAt": "2026-08-07T21:44:09.704Z",
+  "updatedAt": "2026-08-07T21:44:09.737Z",
+  "specVersion": 3,
+  "output": {
+    "__type": "Uint8Array",
+    "data": "ZGV2bFsicnVubmluZyJd"
+  },
+  "completedAt": "2026-08-07T21:44:09.737Z"
+}

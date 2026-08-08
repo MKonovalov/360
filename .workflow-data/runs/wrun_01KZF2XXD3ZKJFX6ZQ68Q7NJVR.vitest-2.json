@@ -1,0 +1,26 @@
+{
+  "runId": "wrun_01KZF2XXD3ZKJFX6ZQ68Q7NJVR",
+  "deploymentId": "dpl_local@4.2.4",
+  "workflowName": "workflow//./src/workflows/workflowProof//workflowProof",
+  "specVersion": 3,
+  "executionContext": {
+    "traceCarrier": {},
+    "workflowCoreVersion": "4.8.0",
+    "features": {
+      "encryption": false
+    }
+  },
+  "input": {
+    "__type": "Uint8Array",
+    "data": "ZGV2bFtbMV0sNzdd"
+  },
+  "createdAt": "2026-08-07T21:44:07.335Z",
+  "startedAt": "2026-08-07T21:44:07.339Z",
+  "status": "completed",
+  "output": {
+    "__type": "Uint8Array",
+    "data": "ZGV2bFt7ImFwcGxpY2F0aW9uUnVuSWQiOjEsInRlcm1pbmFsU3RhdHVzIjoyfSw3NywiY29tcGxldGVkIl0="
+  },
+  "completedAt": "2026-08-07T21:44:09.295Z",
+  "updatedAt": "2026-08-07T21:44:09.295Z"
+}

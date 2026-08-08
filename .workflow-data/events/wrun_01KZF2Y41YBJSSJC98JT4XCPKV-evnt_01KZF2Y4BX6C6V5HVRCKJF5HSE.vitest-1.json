@@ -1,0 +1,11 @@
+{
+  "eventType": "step_started",
+  "specVersion": 3,
+  "correlationId": "step_01KZF2Y41ZFCSTQ4R6ATDMT44R",
+  "eventData": {
+    "stepName": "step//./src/workflows/analysisRun//completePersistedRun"
+  },
+  "runId": "wrun_01KZF2Y41YBJSSJC98JT4XCPKV",
+  "eventId": "evnt_01KZF2Y4BX6C6V5HVRCKJF5HSE",
+  "createdAt": "2026-08-07T21:44:14.461Z"
+}

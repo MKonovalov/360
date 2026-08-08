@@ -1,0 +1,16 @@
+{
+  "eventType": "step_created",
+  "specVersion": 3,
+  "correlationId": "step_01KZF2Y64P3WXV0PMF19JE2C84",
+  "eventData": {
+    "stepName": "step//./src/workflows/analysisRun//loadRun",
+    "workflowName": "workflow//./src/workflows/analysisRun//analysisRun",
+    "input": {
+      "__type": "Uint8Array",
+      "data": "ZGV2bFt7ImFyZ3MiOjEsImNsb3N1cmVWYXJzIjotMSwidGhpc1ZhbCI6LTF9LFsyXSwyMThd"
+    }
+  },
+  "runId": "wrun_01KZF2Y64NZTNV8399KT8P4K64",
+  "eventId": "evnt_01KZF2Y660YN832PQG36H2HYC9",
+  "createdAt": "2026-08-07T21:44:16.320Z"
+}

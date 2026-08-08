@@ -1,0 +1,20 @@
+{
+  "runId": "wrun_01KZF2XXD3ZKJFX6ZQ68Q7NJVR",
+  "stepId": "step_01KZF2XXDB50D84C9G8QHWP4EK",
+  "stepName": "step//./src/workflows/workflowProof//claimProof",
+  "status": "completed",
+  "input": {
+    "__type": "Uint8Array",
+    "data": "ZGV2bFt7ImFyZ3MiOjEsImNsb3N1cmVWYXJzIjotMSwidGhpc1ZhbCI6LTF9LFsyXSw3N10="
+  },
+  "attempt": 1,
+  "startedAt": "2026-08-07T21:44:07.693Z",
+  "createdAt": "2026-08-07T21:44:07.358Z",
+  "updatedAt": "2026-08-07T21:44:07.750Z",
+  "specVersion": 3,
+  "output": {
+    "__type": "Uint8Array",
+    "data": "ZGV2bFsicnVubmluZyJd"
+  },
+  "completedAt": "2026-08-07T21:44:07.750Z"
+}

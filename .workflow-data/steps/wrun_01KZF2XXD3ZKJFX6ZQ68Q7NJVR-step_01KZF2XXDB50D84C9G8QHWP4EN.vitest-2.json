@@ -1,0 +1,24 @@
+{
+  "runId": "wrun_01KZF2XXD3ZKJFX6ZQ68Q7NJVR",
+  "stepId": "step_01KZF2XXDB50D84C9G8QHWP4EN",
+  "stepName": "step//./src/workflows/workflowProof//syntheticWork",
+  "status": "completed",
+  "input": {
+    "__type": "Uint8Array",
+    "data": "ZGV2bFt7ImFyZ3MiOjEsImNsb3N1cmVWYXJzIjotMSwidGhpc1ZhbCI6LTF9LFsyXSw3N10="
+  },
+  "error": {
+    "message": "controlled synthetic transient failure",
+    "stack": "RetryableError: controlled synthetic transient failure\n    at syntheticWork (file:///Users/mkonovalov/gsd-workspaces/signals/360-arclumen/.workflow-vitest/steps.mjs:2958:11)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at file:///Users/mkonovalov/gsd-workspaces/signals/360-arclumen/node_modules/@workflow/core/dist/runtime/step-handler.js:379:28\n    at file:///Users/mkonovalov/gsd-workspaces/signals/360-arclumen/node_modules/@workflow/core/dist/telemetry.js:79:28\n    at file:///Users/mkonovalov/gsd-workspaces/signals/360-arclumen/node_modules/@workflow/core/dist/runtime/step-handler.js:378:26\n    at file:///Users/mkonovalov/gsd-workspaces/signals/360-arclumen/node_modules/@workflow/core/dist/telemetry.js:79:28\n    at file:///Users/mkonovalov/gsd-workspaces/signals/360-arclumen/node_modules/@workflow/core/dist/telemetry.js:50:60\n    at file:///Users/mkonovalov/gsd-workspaces/signals/360-arclumen/node_modules/@workflow/core/dist/runtime/step-handler.js:87:12\n    at file:///Users/mkonovalov/gsd-workspaces/signals/360-arclumen/node_modules/@workflow/world-local/dist/queue.js:252:32\n    at file:///Users/mkonovalov/gsd-workspaces/signals/360-arclumen/node_modules/@workflow/core/dist/runtime/helpers.js:520:16"
+  },
+  "attempt": 2,
+  "startedAt": "2026-08-07T21:44:07.850Z",
+  "createdAt": "2026-08-07T21:44:07.847Z",
+  "updatedAt": "2026-08-07T21:44:09.144Z",
+  "specVersion": 3,
+  "output": {
+    "__type": "Uint8Array",
+    "data": "ZGV2bC0x"
+  },
+  "completedAt": "2026-08-07T21:44:09.144Z"
+}

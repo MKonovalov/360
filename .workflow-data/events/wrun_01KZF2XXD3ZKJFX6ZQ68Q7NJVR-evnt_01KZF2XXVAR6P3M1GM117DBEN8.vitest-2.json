@@ -1,0 +1,11 @@
+{
+  "eventType": "step_started",
+  "specVersion": 3,
+  "correlationId": "step_01KZF2XXDB50D84C9G8QHWP4EM",
+  "eventData": {
+    "stepName": "step//./src/workflows/workflowProof//reconcileProof"
+  },
+  "runId": "wrun_01KZF2XXD3ZKJFX6ZQ68Q7NJVR",
+  "eventId": "evnt_01KZF2XXVAR6P3M1GM117DBEN8",
+  "createdAt": "2026-08-07T21:44:07.786Z"
+}

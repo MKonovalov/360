@@ -1,0 +1,16 @@
+{
+  "eventType": "step_created",
+  "specVersion": 3,
+  "correlationId": "step_01KZF2Y0P5TCY1EDTFGPQAYE87",
+  "eventData": {
+    "stepName": "step//./src/workflows/workflowProof//claimProof",
+    "workflowName": "workflow//./src/workflows/workflowProof//workflowProof",
+    "input": {
+      "__type": "Uint8Array",
+      "data": "ZGV2bFt7ImFyZ3MiOjEsImNsb3N1cmVWYXJzIjotMSwidGhpc1ZhbCI6LTF9LFsyXSw3OV0="
+    }
+  },
+  "runId": "wrun_01KZF2Y0P4YNNB0CGDJ56NS2RY",
+  "eventId": "evnt_01KZF2Y0PJFFQ4QQ7GBVVXKK9P",
+  "createdAt": "2026-08-07T21:44:10.706Z"
+}

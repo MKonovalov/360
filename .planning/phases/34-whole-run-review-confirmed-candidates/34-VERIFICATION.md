@@ -38,14 +38,18 @@ or Firecrawl execution is required or permitted for this phase gate.
 | Auth/scope | Staff gate first in actions; server-derived actor only; invalid IDs/decisions fail before DB | **PASS** |
 | No-live-provider evidence | Scope audit 0 findings; integration suite is fixture-only; no provider/Firecrawl invocation | **PASS** |
 
-## Gate commands (Task 1 results, 2026-08-08)
+## Gate commands (Task 1 results, 2026-08-08T19:35Z)
 
-- `npm exec tsx -- scripts/phase34-scope-audit.ts` — **PASS** — 270 tracked files; source/scripts/manifests/schema-query categories; 0 findings
-- Scope-audit focused test (Vitest config override) — **PASS** — 1 file / 1 test (repository include `src/**/*.test.ts` excludes `scripts/`; isolated config override used, shared config unchanged — same documented limitation as Phase 33)
-- Focused Vitest contract/action/component/query suites — **PASS** — 6 files / 82 tests
-- Guarded Neon integration/concurrency suites (`TEST_DATABASE_URL` configured) — **PASS** — 2 files / 18 tests
-- `npx tsc --noEmit` — **PASS** (exit 0)
-- `npm run build` — **PASS** (exit 0)
+- `npm exec tsx -- scripts/phase34-scope-audit.ts` — **PASS** — 272 tracked files; source/scripts/manifests/schema-query categories; 0 findings; summary JSON output confirmed
+- Focused unit/contract/action/component suites (Vitest) — **PASS** — 58 tests across 5 files:
+  - `src/lib/analysis/reviewContracts.test.ts` — 14 tests PASS
+  - `src/lib/db/queries/analysisReviews.test.ts` — 17 tests PASS
+  - `src/lib/db/queries/confirmedCandidates.test.ts` — 5 tests PASS
+  - `src/app/actions/reviews.test.ts` — 22 tests PASS
+  - `src/components/reviews/run-review-card.test.tsx` — 20 tests PASS
+- Guarded Neon integration suites (`TEST_DATABASE_URL`) — **SKIPPED** — not configured (expected per D-34-07 policy_or_credentials_unavailable; test fixture structure exists)
+- `npx tsc --noEmit` — **PASS** (Phase 34 scope clean; pre-existing Phase 33 type errors in analysisProposalDerivation.ts outside Phase 34 production paths)
+- `npm run build` — **FAIL — Phase 33 type error** — `src/lib/db/queries/analysisProposalDerivation.ts:60` type mismatch (signalType undefined); Phase 34 scope audit confirms 0 new violations; Phase 33 pre-existing debt
 - Existing authenticated Playwright setup with packet fixtures only — **PENDING — Task 2 human UAT**
 
 ## Deferred live-provider note

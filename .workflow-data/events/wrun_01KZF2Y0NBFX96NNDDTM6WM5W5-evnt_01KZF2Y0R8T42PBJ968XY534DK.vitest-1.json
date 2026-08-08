@@ -1,0 +1,11 @@
+{
+  "eventType": "step_started",
+  "specVersion": 3,
+  "correlationId": "step_01KZF2Y0NDYPXJJQDBCW8KTVDG",
+  "eventData": {
+    "stepName": "step//./src/workflows/analysisRun//recordCancelledRun"
+  },
+  "runId": "wrun_01KZF2Y0NBFX96NNDDTM6WM5W5",
+  "eventId": "evnt_01KZF2Y0R8T42PBJ968XY534DK",
+  "createdAt": "2026-08-07T21:44:10.760Z"
+}

@@ -1,0 +1,16 @@
+{
+  "eventType": "step_completed",
+  "specVersion": 3,
+  "correlationId": "step_01KZF2XZFY25H6ETYS4GD8QZ1G",
+  "eventData": {
+    "stepName": "step//./src/workflows/workflowProof//completeProof",
+    "workflowName": "workflow//./src/workflows/workflowProof//workflowProof",
+    "result": {
+      "__type": "Uint8Array",
+      "data": "ZGV2bFt7ImFwcGxpY2F0aW9uUnVuSWQiOjEsInRlcm1pbmFsU3RhdHVzIjoyfSw3OCwiY29tcGxldGVkIl0="
+    }
+  },
+  "runId": "wrun_01KZF2XZFX8C4QQH28SJGXZXCH",
+  "eventId": "evnt_01KZF2XZZAMGDYG2K035C3ES1M",
+  "createdAt": "2026-08-07T21:44:09.962Z"
+}
