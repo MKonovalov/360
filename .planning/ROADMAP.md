@@ -178,7 +178,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 33. Grounded Analysis Execution & Evidence | v1.7 | 6/6 | Complete   | 2026-08-07 |
 | 34. Whole-Run Review & Confirmed Candidates | v1.7 | 3/4 | In Progress|  |
 | 35. Company & Persona Analysis Experiences | v1.7 | 0/TBD | Not started | - |
-| 36. Agent Management & End-to-End Verification | v1.7 | 0/TBD | Not started | - |
+| 36. Agent Management & End-to-End Verification | v1.7 | 1/7 | In Progress|  |
 
 ---
 
@@ -501,5 +501,14 @@ Plans:
   2. Automated verification proves lifecycle recovery, duplicate-run prevention, whole-run decision idempotency, confirmed-only aggregation, and source-grounded findings.
   3. Adversarial verification proves prompt-injection and tool-policy controls reject unsafe research content and preserve the no-write boundary.
   4. Live Company and Persona end-to-end flows prove preview, durable execution, result inspection, one whole-run decision, and confirmed-only candidate visibility.
-**Plans**: TBD
+**Plans**: 7 plans
+
+Plans:
+- [x] 36-01-PLAN.md — Fixed-template contracts, latest/history queries, immutable version and lifecycle invariants
+- [ ] 36-02-PLAN.md — Staff-gated template management Server Actions and no-live-write boundary
+- [ ] 36-03-PLAN.md — `/agents` management page, two fixed template cards, editor, lifecycle, and history UI
+- [ ] 36-04-PLAN.md — Manage navigation wiring and canonical `/agents` route verification
+- [ ] 36-05-PLAN.md — Deterministic lifecycle, grounding, adversarial, review, aggregation, and scope gates
+- [ ] 36-06-PLAN.md — Authenticated real-app Company/Persona E2E with deterministic executor/fixture packet
+- [ ] 36-07-PLAN.md — Final automated gate, sanitized evidence ledger, and optional-smoke disposition
 **UI hint**: yes

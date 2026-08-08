@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Agent Constructor & Buying Signal Analysis
-status: completed
-last_updated: "2026-08-08T18:39:38.192Z"
-last_activity: "2026-08-08T19:40Z"
+status: verifying
+last_updated: "2026-08-08T21:35:12.828Z"
+last_activity: 2026-08-08
 progress:
   total_phases: 14
   completed_phases: 10
-  total_plans: 64
-  completed_plans: 60
+  total_plans: 77
+  completed_plans: 65
   percent: 71
 ---
 
@@ -26,10 +26,10 @@ See: .planning/PROJECT.md (updated 2026-08-06)
 
 Phase: 34 of 36 (Whole-Run Review & Confirmed Candidates) — ✅ COMPLETE
 Plan: 4 of 4 (Adversarial Gate & Authenticated UAT)
-Status: Complete — Ready for Phase 35
-Last activity: 2026-08-08T19:40Z
+Status: Phase complete — ready for verification
+Last activity: 2026-08-08
 
-Progress: [██████████] 95% (3 of 3 v1.7 phases complete: 31, 32, 33, 34)
+Progress: [█████████░] 88%
 
 ## Performance Metrics
 
@@ -59,6 +59,7 @@ Progress: [██████████] 95% (3 of 3 v1.7 phases complete: 31,
 | Phase 34-whole-run-review-confirmed-candidates P02 | 61m | 2 tasks | 6 files |
 | Phase 34-whole-run-review-confirmed-candidates P03 | 17m | 2 tasks | 8 files |
 | Phase 34-whole-run-review-confirmed-candidates P04 | ~30m | 2 tasks (automated + UAT) | 3 files + 1 E2E test |
+| Phase 36 P01 | 10m | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -88,6 +89,9 @@ Progress: [██████████] 95% (3 of 3 v1.7 phases complete: 31,
 - [Phase 34-whole-run-review-confirmed-candidates]: Polymorphic join casts both sides to text: signal_offering_link.signal_type is record_type while analysis_run.subject_type is analysis_target_type — two distinct PG enum types.
 - [Phase 34-whole-run-review-confirmed-candidates]: Confirmed review identity is enforced by the INNER JOIN on analysis_run_review decision = 'confirmed'; candidate rows do not carry decided_by/decided_at because the closed 34-01 contract omits them.
 - [Phase 34-whole-run-review-confirmed-candidates]: Deterministic duplicate provenance: multiple sources per finding survive as separate evidence rows; normalizeCandidateEvidence orders by run:finding:source without grouping.
+- [Phase ?]: Fixed template management input remains limited to the seeded Company and Persona keys.
+- [Phase ?]: Neon-safe append conflicts are classified without mutating immutable history.
+- [Phase ?]: Lifecycle changes update only analysis_template and preserve versions and run snapshots.
 
 ### Pending Todos
 
@@ -109,7 +113,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-08-08T18:39:38.182Z
-Stopped at: Phase 35 context gathered
+Last session: 2026-08-08T21:34:23.349Z
+Stopped at: Phase 36 context gathered
 Next: Phase 35 — Company & Persona Analysis Experiences
-Resume file: .planning/phases/35-company-persona-analysis-experiences/35-CONTEXT.md
+Resume file: None
