@@ -54,6 +54,18 @@ describe('getActiveNavKey', () => {
     expect(getActiveNavKey('/settings')).toBe('settings');
   });
 
+  it("returns 'agents' for the agents index", () => {
+    expect(getActiveNavKey('/agents')).toBe('agents');
+  });
+
+  it('returns null for an agents sibling prefix', () => {
+    expect(getActiveNavKey('/agents-archive')).toBeNull();
+  });
+
+  it('returns null for an agents nested path because agents is a leaf route', () => {
+    expect(getActiveNavKey('/agents/anything')).toBeNull();
+  });
+
   it('returns null for the sign-in route', () => {
     expect(getActiveNavKey('/sign-in')).toBeNull();
   });
