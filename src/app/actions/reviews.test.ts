@@ -169,7 +169,7 @@ const decidedOutcome = (overrides: Record<string, unknown> = {}) => ({
 
 describe('whole-run review actions (v1.7)', () => {
   beforeEach(() => {
-    mocks.decideAnalysisRun.mockReset();
+    vi.clearAllMocks();
     mocks.decideAnalysisRun.mockResolvedValue(decidedOutcome());
   });
 
