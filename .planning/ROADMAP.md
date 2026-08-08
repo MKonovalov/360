@@ -176,7 +176,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 31. Durable Executor Selection & Validation | v1.7 | 3/3 | Complete | 2026-08-07 |
 | 32. Template, Snapshot & Run Ledger | v1.7 | 5/5 | Complete | 2026-08-07 |
 | 33. Grounded Analysis Execution & Evidence | v1.7 | 6/6 | Complete   | 2026-08-07 |
-| 34. Whole-Run Review & Confirmed Candidates | v1.7 | 1/4 | In Progress|  |
+| 34. Whole-Run Review & Confirmed Candidates | v1.7 | 3/4 | In Progress|  |
 | 35. Company & Persona Analysis Experiences | v1.7 | 0/TBD | Not started | - |
 | 36. Agent Management & End-to-End Verification | v1.7 | 0/TBD | Not started | - |
 
@@ -477,7 +477,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 Plans:
 - [x] 34-01-PLAN.md — Additive review identity schema and closed review/candidate contracts (REV-01..03)
 - [x] 34-02-PLAN.md — Packet-required reconciliation, atomic whole-run decisions, and confirmed-only provenance projection (REV-01..05)
-- [ ] 34-03-PLAN.md — Additive shared Reviews run-level UI and staff-gated Confirm/Dismiss actions (REV-01..04)
+- [x] 34-03-PLAN.md — Additive shared Reviews run-level UI and staff-gated Confirm/Dismiss actions (REV-01..04)
 - [ ] 34-04-PLAN.md — Scope audit, automated evidence gate, and authenticated fixture-only UAT (REV-01..05)
 
 ### Phase 35: Company & Persona Analysis Experiences
