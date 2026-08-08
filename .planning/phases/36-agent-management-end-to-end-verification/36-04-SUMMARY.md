@@ -69,7 +69,7 @@ Each task was committed atomically:
 1. **Task 1: Add agents active-route contract and navigation item** - `f46010b8` (test), `3c73e9fa` (feat)
 2. **Task 2: Add authenticated browser route and sidebar assertions** - `c8d6349b` (test)
 
-**Plan metadata:** pending final metadata commit.
+**Plan metadata:** `12207972` (docs: complete plan metadata and state updates)
 
 ## Files Created/Modified
 
