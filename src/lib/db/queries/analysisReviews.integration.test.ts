@@ -795,4 +795,33 @@ describeWithDatabase('analysis review boundary (reconcile, decide, list) against
     expect(await countEvidenceRows(dismissRun, 'analysis_finding')).toBeGreaterThan(0);
     expect(await countEvidenceRows(dismissRun, 'analysis_finding_source')).toBeGreaterThan(0);
   });
+
+  it('keeps one attributable winner when Company and Persona reviews race', async () => {
+    for (const targetType of ['company', 'persona'] as const) {
+      const runId = await createRun(targetType, targetType === 'company' ? 910012 : 910013);
+      await completeRun(runId);
+      if (targetType === 'company') await persistCompanyPacket(runId);
+      else await persistPersonaPacket(runId, COMPLETED_AT);
+      await reviewQueries.reconcileCompletedRunForReview({ runId });
+
+      const outcomes = await Promise.all([
+        reviewQueries.decideAnalysisRun({ runId, decision: 'confirmed' }, `${targetType}_confirm`, { decidedAt: DECIDED_AT }),
+        reviewQueries.decideAnalysisRun({ runId, decision: 'dismissed' }, `${targetType}_dismiss`, { decidedAt: new Date(DECIDED_AT.getTime() + 1_000) }),
+      ]);
+      const winners = outcomes.filter((outcome) => outcome.ok && !outcome.replayed);
+      expect(winners).toHaveLength(1);
+      const winner = winners[0];
+      if (!winner || !winner.ok) throw new Error('expected one review winner');
+      const replay = outcomes.find((outcome) => outcome.ok && outcome.replayed);
+      if (replay?.ok) expect(replay).toEqual({ ...winner, replayed: true });
+
+      const reviews = await dbModule.db
+        .select()
+        .from(schema.analysisRunReview)
+        .where(eq(schema.analysisRunReview.analysisRunId, runId));
+      expect(reviews).toHaveLength(1);
+      expect(reviews[0]?.decidedBy).toBe(winner.decidedBy);
+      expect(reviews[0]?.decision).toBe(winner.decision);
+    }
+  });
 });
