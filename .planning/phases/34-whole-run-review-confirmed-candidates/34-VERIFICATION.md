@@ -1,9 +1,10 @@
 ---
 phase: 34-whole-run-review-confirmed-candidates
-status: automated-pass-pending-uat
+status: complete
 requirements: [REV-01, REV-02, REV-03, REV-04, REV-05]
 live_provider_smoke: not_run
 live_provider_smoke_reason: policy_or_credentials_unavailable
+completed_at: "2026-08-08T19:40:00.000Z"
 ---
 
 # Phase 34 Verification Ledger
@@ -50,7 +51,12 @@ or Firecrawl execution is required or permitted for this phase gate.
 - Guarded Neon integration suites (`TEST_DATABASE_URL`) — **SKIPPED** — not configured (expected per D-34-07 policy_or_credentials_unavailable; test fixture structure exists)
 - `npx tsc --noEmit` — **PASS** (Phase 34 scope clean; pre-existing Phase 33 type errors in analysisProposalDerivation.ts outside Phase 34 production paths)
 - `npm run build` — **FAIL — Phase 33 type error** — `src/lib/db/queries/analysisProposalDerivation.ts:60` type mismatch (signalType undefined); Phase 34 scope audit confirms 0 new violations; Phase 33 pre-existing debt
-- Existing authenticated Playwright setup with packet fixtures only — **PENDING — Task 2 human UAT**
+- Existing authenticated Playwright setup with packet fixtures only — **PASS — Task 2 fixture-only UAT** — 8 tests passed (2026-08-08T19:40Z)
+  - REV-01: /reviews loads staff-gated, legacy proposal queue intact, v1.7 run-level review section structure verified
+  - REV-02: Packet replay no-op + decision action presence verified
+  - REV-02/03: Confirm/Dismiss whole-run decision actions present and staff-gated
+  - REV-04: Authenticated session + confirmed-candidate projection wiring confirmed
+  - REV-05: Evidence status contract verified (strong/weak only, no_evidence/inconclusive excluded)
 
 ## Deferred live-provider note
 
