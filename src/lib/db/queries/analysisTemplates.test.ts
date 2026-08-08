@@ -1,14 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  db: { select: vi.fn() },
+  db: { select: vi.fn(), execute: vi.fn() },
 }));
 
 vi.mock('../index', () => ({ db: mocks.db }));
 
 import {
   getAnalysisTemplateVersion,
+  listManagedAnalysisTemplates,
   listActiveAnalysisTemplates,
+  saveAnalysisTemplateVersion,
+  setAnalysisTemplateStatus,
 } from './analysisTemplates';
 import { analysisTemplate, analysisTemplateVersion } from '../schema';
 
@@ -114,4 +117,127 @@ describe('analysisTemplates query module', () => {
 
     await expect(getAnalysisTemplateVersion(999)).resolves.toBeUndefined();
   });
+
+  it('D-36-01/D-36-04: projects one latest row and ordered read-only history per fixed template', async () => {
+    const execute = vi.fn().mockResolvedValue({
+      rows: [
+        {
+          templateId: 1,
+          templateVersionId: 12,
+          key: 'company-buying-signal-analysis',
+          name: 'Company Buying Signal Analysis',
+          targetType: 'company',
+          status: 'active',
+          version: 2,
+          instruction: 'new company instruction',
+          supportedEfforts: ['standard'],
+          defaultEffort: 'standard',
+          futureBudget: { maxAttempts: 2, maxToolCalls: 12, maxExecutionSeconds: 300, maxSpendUsd: 2.5 },
+          createdBy: 'staff-2',
+          createdAt: '2026-08-08T00:00:02.000Z',
+        },
+        {
+          templateId: 1,
+          templateVersionId: 11,
+          key: 'company-buying-signal-analysis',
+          name: 'Company Buying Signal Analysis',
+          targetType: 'company',
+          status: 'active',
+          version: 1,
+          instruction: 'old company instruction',
+          supportedEfforts: ['standard'],
+          defaultEffort: 'standard',
+          futureBudget: { maxAttempts: 2, maxToolCalls: 12, maxExecutionSeconds: 300, maxSpendUsd: 2.5 },
+          createdBy: 'seed-script',
+          createdAt: '2026-08-08T00:00:01.000Z',
+        },
+        {
+          templateId: 2,
+          templateVersionId: 21,
+          key: 'persona-buying-signal-analysis',
+          name: 'Persona Buying Signal Analysis',
+          targetType: 'persona',
+          status: 'retired',
+          version: 1,
+          instruction: 'persona instruction',
+          supportedEfforts: ['standard'],
+          defaultEffort: 'standard',
+          futureBudget: { maxAttempts: 2, maxToolCalls: 12, maxExecutionSeconds: 300, maxSpendUsd: 2.5 },
+          createdBy: 'seed-script',
+          createdAt: '2026-08-08T00:00:01.000Z',
+        },
+      ],
+    });
+    mocks.db.execute = execute;
+
+    const result = await listManagedAnalysisTemplates();
+
+    expect(result).toHaveLength(2);
+    expect(result[0]?.latest.version).toBe(2);
+    expect(result[0]?.history.map((version) => version.version)).toEqual([2, 1]);
+    expect(result[1]?.status).toBe('retired');
+    expect(execute).toHaveBeenCalledOnce();
+    expect(flattenSql(execute.mock.calls[0]?.[0])).toContain('analysis_template_version');
+  });
+
+  it('D-36-03/D-36-05: appends content atomically without exposing actor or version input', async () => {
+    const execute = vi.fn()
+      .mockResolvedValueOnce({ rows: [{ templateVersionId: 13 }] })
+      .mockResolvedValueOnce({ rows: [managedTemplateRow(13, 2, 'updated instruction')] });
+    mocks.db.execute = execute;
+
+    const result = await saveAnalysisTemplateVersion(
+      {
+        operation: 'content',
+        templateKey: 'company-buying-signal-analysis',
+        instruction: 'updated instruction',
+        defaultEffort: 'standard',
+      },
+      'staff-2',
+    );
+
+    expect(result.ok).toBe(true);
+    expect(flattenSql(execute.mock.calls[0]?.[0])).toContain('INSERT INTO analysis_template_version');
+    expect(flattenSql(execute.mock.calls[0]?.[0])).toContain('MAX');
+  });
+
+  it('D-36-06: changes lifecycle on the template row without inserting a version', async () => {
+    const execute = vi.fn()
+      .mockResolvedValueOnce({ rows: [{ templateId: 2 }] })
+      .mockResolvedValueOnce({ rows: [managedTemplateRow(21, 1, 'persona instruction', 'retired')] });
+    mocks.db.execute = execute;
+
+    const result = await setAnalysisTemplateStatus(
+        { operation: 'lifecycle', templateKey: 'company-buying-signal-analysis', status: 'retired' },
+        'staff-2',
+      );
+
+    expect(result.ok).toBe(true);
+    const query = flattenSql(execute.mock.calls[0]?.[0]);
+    expect(query).toContain('UPDATE analysis_template');
+    expect(query).not.toContain('analysis_template_version');
+  });
 });
+
+function managedTemplateRow(
+  templateVersionId: number,
+  version: number,
+  instruction: string,
+  status: 'active' | 'retired' = 'active',
+) {
+  return {
+    templateId: 1,
+    templateVersionId,
+    key: 'company-buying-signal-analysis',
+    name: 'Company Buying Signal Analysis',
+    targetType: 'company',
+    status,
+    version,
+    instruction,
+    supportedEfforts: ['standard'],
+    defaultEffort: 'standard',
+    futureBudget: { maxAttempts: 2, maxToolCalls: 12, maxExecutionSeconds: 300, maxSpendUsd: 2.5 },
+    createdBy: 'staff-2',
+    createdAt: '2026-08-08T00:00:02.000Z',
+  };
+}

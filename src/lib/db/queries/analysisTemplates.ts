@@ -1,6 +1,17 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
-import type { AnalysisTargetType } from '@/lib/analysis/contracts';
+import {
+  STANDARD_EXECUTION_BUDGET,
+  supportedEfforts,
+  type AnalysisTargetType,
+} from '@/lib/analysis/contracts';
+import { FIXED_ANALYSIS_TEMPLATES } from '@/lib/analysis/templateContracts';
+import type {
+  ManagedAnalysisTemplateRead,
+  TemplateManagementInput,
+  TemplateManagementResult,
+  TemplateVersionRead,
+} from '@/lib/analysis/templateContracts';
 import { db } from '../index';
 import { analysisTemplate, analysisTemplateVersion } from '../schema';
 
@@ -52,4 +63,173 @@ export async function getAnalysisTemplateVersion(templateVersionId: number) {
     .where(eq(analysisTemplateVersion.id, templateVersionId));
 
   return rows[0];
+}
+
+type ManagedTemplateQueryRow = {
+  readonly templateId: number;
+  readonly templateVersionId: number;
+  readonly key: string;
+  readonly name: string;
+  readonly targetType: AnalysisTargetType;
+  readonly status: 'active' | 'retired';
+  readonly version: number;
+  readonly instruction: string;
+  readonly supportedEfforts: TemplateVersionRead['supportedEfforts'];
+  readonly defaultEffort: TemplateVersionRead['defaultEffort'];
+  readonly futureBudget: TemplateVersionRead['futureBudget'];
+  readonly createdBy: string;
+  readonly createdAt: string | Date;
+};
+
+function toVersionRead(row: ManagedTemplateQueryRow): TemplateVersionRead {
+  return {
+    templateVersionId: row.templateVersionId,
+    version: row.version,
+    instruction: row.instruction,
+    supportedEfforts: row.supportedEfforts,
+    defaultEffort: row.defaultEffort,
+    futureBudget: row.futureBudget,
+    createdBy: row.createdBy,
+    createdAt: new Date(row.createdAt).toISOString(),
+  };
+}
+
+export async function listManagedAnalysisTemplates(): Promise<ManagedAnalysisTemplateRead[]> {
+  const result = await db.execute<ManagedTemplateQueryRow>(sql`
+    SELECT
+      t.id AS "templateId",
+      v.id AS "templateVersionId",
+      t.key,
+      t.name,
+      t.target_type AS "targetType",
+      t.status,
+      v.version,
+      v.instruction,
+      v.supported_efforts AS "supportedEfforts",
+      v.default_effort AS "defaultEffort",
+      v.future_budget AS "futureBudget",
+      v.created_by AS "createdBy",
+      v.created_at AS "createdAt"
+    FROM analysis_template AS t
+    INNER JOIN analysis_template_version AS v ON v.template_id = t.id
+    WHERE t.key IN (${sql.join(
+      FIXED_ANALYSIS_TEMPLATES.map(({ key }) => sql`${key}`),
+      sql`, `,
+    )})
+    ORDER BY t.name ASC, v.version DESC
+  `);
+
+  const grouped = new Map<
+    number,
+    { readonly row: ManagedTemplateQueryRow; readonly history: TemplateVersionRead[] }
+  >();
+  for (const row of result.rows) {
+    const fixedTemplate = FIXED_ANALYSIS_TEMPLATES.find((template) => template.key === row.key);
+    if (!fixedTemplate) continue;
+    const existing = grouped.get(row.templateId);
+    if (existing) {
+      existing.history.push(toVersionRead(row));
+      continue;
+    }
+    grouped.set(row.templateId, { row, history: [toVersionRead(row)] });
+  }
+
+  return FIXED_ANALYSIS_TEMPLATES.flatMap((fixedTemplate) => {
+    const groupedTemplate = [...grouped.values()].find(
+      ({ row }) => row.key === fixedTemplate.key,
+    );
+    const latest = groupedTemplate?.history[0];
+    if (!groupedTemplate || !latest) return [];
+    return [
+      {
+        templateId: groupedTemplate.row.templateId,
+        key: fixedTemplate.key,
+        name: fixedTemplate.name,
+        targetType: fixedTemplate.targetType,
+        status: groupedTemplate.row.status,
+        latest,
+        history: groupedTemplate.history,
+      },
+    ];
+  });
+}
+
+type ContentTemplateManagementInput = Extract<TemplateManagementInput, { operation: 'content' }>;
+type LifecycleTemplateManagementInput = Extract<TemplateManagementInput, { operation: 'lifecycle' }>;
+
+function findManagedTemplate(
+  templates: readonly ManagedAnalysisTemplateRead[],
+  templateKey: ContentTemplateManagementInput['templateKey'] | LifecycleTemplateManagementInput['templateKey'],
+): ManagedAnalysisTemplateRead | undefined {
+  return templates.find((template) => template.key === templateKey);
+}
+
+export async function saveAnalysisTemplateVersion(
+  input: ContentTemplateManagementInput,
+  actorId: string,
+): Promise<TemplateManagementResult> {
+  const result = await db.execute<{ readonly templateVersionId: number }>(sql`
+    WITH current_version AS (
+      SELECT
+        t.id AS template_id,
+        v.instruction,
+        v.default_effort AS default_effort,
+        COALESCE(MAX(v.version) OVER (PARTITION BY t.id), 0) + 1 AS next_version
+      FROM analysis_template AS t
+      INNER JOIN analysis_template_version AS v ON v.template_id = t.id
+      WHERE t.key = ${input.templateKey}
+      ORDER BY v.version DESC
+      LIMIT 1
+    )
+    INSERT INTO analysis_template_version (
+      template_id,
+      version,
+      instruction,
+      supported_efforts,
+      default_effort,
+      future_budget,
+      created_by
+    )
+    SELECT
+      template_id,
+      next_version,
+      ${input.instruction},
+      ${JSON.stringify(supportedEfforts)}::jsonb,
+      ${input.defaultEffort},
+      ${JSON.stringify(STANDARD_EXECUTION_BUDGET)}::jsonb,
+      ${actorId}
+    FROM current_version
+    WHERE instruction <> ${input.instruction} OR default_effort <> ${input.defaultEffort}
+    ON CONFLICT (template_id, version) DO NOTHING
+    RETURNING id AS "templateVersionId"
+  `);
+
+  const templates = await listManagedAnalysisTemplates();
+  const template = findManagedTemplate(templates, input.templateKey);
+  if (!template) return { ok: false, reason: 'not_found' };
+  if (result.rows[0]) return { ok: true, kind: 'version_appended', template };
+  if (
+    template.latest.instruction === input.instruction &&
+    template.latest.defaultEffort === input.defaultEffort
+  ) {
+    return { ok: true, kind: 'no_op', template };
+  }
+  return { ok: false, reason: 'conflict' };
+}
+
+export async function setAnalysisTemplateStatus(
+  input: LifecycleTemplateManagementInput,
+  actorId: string,
+): Promise<TemplateManagementResult> {
+  const result = await db.execute<{ readonly templateId: number }>(sql`
+    UPDATE analysis_template
+    SET status = ${input.status}, updated_by = ${actorId}, updated_at = NOW()
+    WHERE key = ${input.templateKey}
+    RETURNING id AS "templateId"
+  `);
+
+  const templates = await listManagedAnalysisTemplates();
+  const template = findManagedTemplate(templates, input.templateKey);
+  if (!result.rows[0] || !template) return { ok: false, reason: 'not_found' };
+  return { ok: true, kind: 'lifecycle_updated', template };
 }
