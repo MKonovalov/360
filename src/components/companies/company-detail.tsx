@@ -6,13 +6,17 @@ import { countPendingProposalsForCompany } from '@/lib/db/queries/proposals';
 import { Badge } from '@/components/ui/badge';
 import { SignalBadge } from '@/components/companies/signal-badge';
 import { ProposalBadge } from '@/components/companies/proposal-badge';
-import { AnalyzeRunStatus } from '@/components/agents/analyze-run-status';
 import { fetchArcpediaArticles } from '@/lib/arcpedia';
 import { ExplorerCloseButton } from '@/components/explorer/explorer-table-behavior';
 import { EnrichMenu } from '@/components/enrichment/enrichment-review-dialog';
 import { RecordViewTracker } from '@/components/dashboard/record-view-tracker';
 import { humanizeEnum, dateFormatter, FirmographicField, FieldSourceBadge } from '@/components/explorer/explorer-format';
 import { env } from '@/lib/env';
+import { listAnalysisRunsForSubject } from '@/lib/db/queries/analysisRuns';
+import { listConfirmedCandidateOfferingsForSubject } from '@/lib/db/queries/confirmedCandidates';
+import { getAnalysisPacket } from '@/lib/db/queries/analysisResults';
+import { AnalysisHistory, projectRunReviewCards } from '@/components/analysis/analysis-history';
+import { ConfirmedCandidateOfferings } from '@/components/analysis/confirmed-candidate-offerings';
 
 export async function CompanyDetail({ id }: { id: number }) {
   // EXPL-06/D-09: mirrors company-list.tsx's try/catch error-card pattern —
@@ -52,6 +56,14 @@ export async function CompanyDetail({ id }: { id: number }) {
     notFound();
   }
 
+  const [analysisRuns, confirmedCandidateOfferings] = await Promise.all([
+    listAnalysisRunsForSubject({ targetType: 'company', subjectId: company.id }).catch(() => null),
+    listConfirmedCandidateOfferingsForSubject({ targetType: 'company', subjectId: company.id }).catch(() => null),
+  ]);
+  const reviewCards = analysisRuns
+    ? await projectRunReviewCards(analysisRuns, getAnalysisPacket)
+    : [];
+
   // D-04/Pitfall 4: fired only after the confirmed-exists check above — a
   // broken/deleted-record deep link must never write a recentlyViewed row
   // for a nonexistent id.
@@ -70,9 +82,7 @@ export async function CompanyDetail({ id }: { id: number }) {
           recordId={company.id}
           canEnrich={Boolean(company.domain && env.APOLLO_API_KEY && env.ENRICHMENT_REVIEW_SECRET)}
           disabledReason={!company.domain ? 'Add a domain first' : 'Company enrichment is not configured'}
-          // FAL-04: gate on any provider key — the precise chain-aware check lives server-side (missingProviderKey)
-          canAnalyze={Boolean((env.ANTHROPIC_API_KEY || env.OPENROUTER_API_KEY) && env.FIRECRAWL_API_KEY)}
-          analyzeDisabledReason="Agent not configured"
+          canAnalyze
         />
         <ExplorerCloseButton />
       </div>
@@ -85,8 +95,6 @@ export async function CompanyDetail({ id }: { id: number }) {
           <FieldSourceBadge source={company.fieldSources?.industry} />
         </div>
       </div>
-
-      <AnalyzeRunStatus companyId={company.id} companyName={company.name} />
 
       <section>
         <h2 className="mb-4 text-[18px] font-semibold leading-[1.2] text-slate-900">
@@ -144,6 +152,10 @@ export async function CompanyDetail({ id }: { id: number }) {
           </p>
         )}
       </section>
+
+      <ConfirmedCandidateOfferings items={confirmedCandidateOfferings} />
+
+      <AnalysisHistory rows={analysisRuns} reviewCards={reviewCards} />
 
       <section>
         <h2 className="mb-4 text-[18px] font-semibold leading-[1.2] text-slate-900">
