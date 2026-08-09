@@ -2,7 +2,7 @@
 phase: 37-custom-agent-definition-versioning-lifecycle
 plan: 05
 status: partial
-updated: 2026-08-09T12:01:24Z
+updated: 2026-08-09T15:17:00Z
 focused_matrix: pass
 scope_audit: pass
 database_integration: blocked
@@ -30,9 +30,9 @@ confirmed-only candidate, or authenticated E2E proof.
 
 | Command | Result | Sanitized evidence / limitation |
 |---|---|---|
-| Focused Phase 37 matrix | **PASS** | 10 test files, 127 tests passed. Covers fixed contracts, custom contracts, queries, actions, options, preview, run input, subjects, and UI. |
+| Focused Phase 37 matrix | **PASS** | Original Plan 37-05 evidence: 10 files, 127 tests passed. Post-review remediation: the same 10 files, 131 tests passed, adding fixed-kind resolver, enum round-trip, action-issue state, and complete inline-field regressions. |
 | `npm test -- src/lib/db/queries/analysisTemplates.integration.test.ts` | **BLOCKED** | 1 migration-contract test passed; 5 database tests skipped because `TEST_DATABASE_URL unavailable`. |
-| Full matrix including guarded integration | **PASS / BLOCKED MIXED** | 11 files, 128 passed, 5 skipped. No DB pass is inferred from the process exit code. |
+| Full matrix including guarded integration | **PASS / BLOCKED MIXED** | Original evidence: 128 passed, 5 skipped. Post-review evidence: 132 passed, 5 skipped. No DB pass is inferred from either process exit code. |
 | `npm exec tsx scripts/phase37-scope-audit.ts` | **PASS** | 14 selected tracked implementation files scanned; `findingCount: 0`; positive canaries and explicit Phase 38/39 handoff emitted. |
 | `npx tsc --noEmit` | **BLOCKED** | Unchanged baseline errors: `demonstrated`, `signalId`, and `signalRecordType` in `src/lib/db/queries/analysisProposalDerivation.test.ts`. |
 | `npm run build` | **PASS** | Next.js production compilation, TypeScript build phase, and route generation completed. |
@@ -47,8 +47,8 @@ confirmed-only candidate, or authenticated E2E proof.
 | Fixed options | Company/Persona target requests remain routed through the fixed allowlist; authored custom fields are not serialized into launcher options. | **PASS** |
 | Fixed preview | Preview accepts only target/practice input and rejects custom identity/key or snapshot override fields. | **PASS** |
 | Fixed run input | Run creation rejects custom identity/key and client-owned launch metadata; existing no-op policy assertions remain intact. | **PASS** |
-| Fixed subject resolution | Fixed resolver read shape remains legacy-only and target-scoped; custom authored fields do not appear in the fixed consumer contract. | **PASS** |
-| Custom definition/versioning | Existing custom contract/query/action suites cover stable opaque identity, immutable history, actor/timestamp, schema/capability policy, conflict/reload, and retired edits. | **PASS — deterministic** |
+| Fixed subject resolution | Fixed resolver read shape remains legacy-only and target-scoped; both template identity and version queries require `kind = fixed`, so activated custom versions cannot enter fixed consumers. | **PASS** |
+| Custom definition/versioning | Custom contract/query/action/UI suites cover stable opaque identity, immutable history, actor/timestamp, schema/capability policy, enum-preserving edits, complete inline validation, conflict/reload, and retired edits. | **PASS — deterministic** |
 | Lifecycle | Existing custom query/action/UI suites cover retired-first create, active/retired transitions, reactivation without version bump, and no hard-delete control. | **PASS — deterministic** |
 | Practice Area boundary | Create-time selection is server-approved and singular; edit-time Practice Area is read-only; launch/preview override fields are rejected. | **PASS — deterministic** |
 | Scope boundary | Selected tracked implementation scan rejects runtime/provider/workflow/review/candidate/clone/delete/RBAC/credential leakage. | **PASS** |

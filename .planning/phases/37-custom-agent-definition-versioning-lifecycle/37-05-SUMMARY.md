@@ -75,7 +75,7 @@ Each task was committed atomically:
 1. **Task 1: Complete cross-layer custom/fixed regression matrix** - `0f591b7f` (test)
 2. **Task 2: Add non-vacuous Phase 37 scope audit and final gates** - `cc404288` (feat)
 
-**Plan metadata:** pending final SDK metadata commit.
+**Plan metadata:** finalized by `fae92b04`.
 
 ## Files Created/Modified
 
@@ -138,6 +138,14 @@ Phase 39 must own adversarial fail-closed proof, review/candidate boundaries, no
 - `npm run build`: **PASS**.
 - `git diff --check`: **PASS**.
 - `lsp_diagnostics`: **UNAVAILABLE** — TypeScript LSP not installed.
+
+### Ship-review remediation evidence
+
+- The original 127-test Plan 37-05 result above remains the historical execution record.
+- The post-review focused matrix passes **131/131** tests after adding fixed-kind runtime fences, enum-preserving editor drafts, action-returned validation state, and rendered authored/nested field errors.
+- The guarded integration result remains **1 contract passed / 5 database tests skipped** because `TEST_DATABASE_URL` is unavailable; database persistence is still blocked, not passed.
+- Scope audit remains **PASS** with 14 selected files and zero findings; production build and range diff check pass.
+- Repository typecheck remains blocked only by the same three unrelated baseline errors.
 
 ## Known Stubs
 

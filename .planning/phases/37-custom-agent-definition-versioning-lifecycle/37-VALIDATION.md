@@ -129,7 +129,7 @@ Executed 2026-08-09 with the required commands run independently:
 
 | Gate | Result | Evidence / limitation |
 |---|---|---|
-| Focused cross-layer matrix | **PASS** | 10 files, 127 tests passed, including fixed Company/Persona options, preview, run-input, and subject-resolution regressions. |
+| Focused cross-layer matrix | **PASS** | Plan 37-05 baseline: 10 files, 127 tests passed. Post-review remediation: the same 10 files, 131 tests passed, preserving the original evidence while adding fixed-kind resolver and editor validation regressions. |
 | Canonical guarded integration | **BLOCKED** | `npm test -- src/lib/db/queries/analysisTemplates.integration.test.ts` reported 1 contract test passed and 5 database tests skipped because `TEST_DATABASE_URL unavailable`. |
 | Scope audit | **PASS** | `npm exec tsx scripts/phase37-scope-audit.ts`; 14 selected tracked implementation files, zero findings. |
 | Typecheck | **BLOCKED** | `npx tsc --noEmit` found three unchanged `analysisProposalDerivation.test.ts` baseline errors. |
