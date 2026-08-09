@@ -143,7 +143,9 @@ export async function listManagedAnalysisTemplates(): Promise<ManagedAnalysisTem
       v.created_at AS "createdAt"
     FROM analysis_template AS t
     INNER JOIN analysis_template_version AS v ON v.template_id = t.id
-    WHERE t.key IN (${sql.join(
+    WHERE t.kind = 'fixed'
+      AND v.kind = 'fixed'
+      AND t.key IN (${sql.join(
       FIXED_ANALYSIS_TEMPLATES.map(({ key }) => sql`${key}`),
       sql`, `,
     )})
@@ -210,6 +212,8 @@ export async function saveAnalysisTemplateVersion(
       FROM analysis_template AS t
       INNER JOIN analysis_template_version AS v ON v.template_id = t.id
       WHERE t.key = ${input.templateKey}
+        AND t.kind = 'fixed'
+        AND v.kind = 'fixed'
       ORDER BY v.version DESC
       LIMIT 1
     )
@@ -257,6 +261,7 @@ export async function setAnalysisTemplateStatus(
     UPDATE analysis_template
     SET status = ${input.status}, updated_by = ${actorId}, updated_at = NOW()
     WHERE key = ${input.templateKey}
+      AND kind = 'fixed'
     RETURNING id AS "templateId"
   `);
 

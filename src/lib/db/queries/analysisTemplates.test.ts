@@ -206,7 +206,9 @@ describe('analysisTemplates query module', () => {
     expect(result[0]?.history.map((version) => version.version)).toEqual([2, 1]);
     expect(result[1]?.status).toBe('retired');
     expect(execute).toHaveBeenCalledOnce();
-    expect(flattenSql(execute.mock.calls[0]?.[0])).toContain('analysis_template_version');
+    const query = flattenSql(execute.mock.calls[0]?.[0]);
+    expect(query).toContain('analysis_template_version');
+    expect(query.match(/fixed/g) ?? []).toHaveLength(2);
   });
 
   it('D-36-03/D-36-05: appends content atomically without exposing actor or version input', async () => {
@@ -226,8 +228,10 @@ describe('analysisTemplates query module', () => {
     );
 
     expect(result.ok).toBe(true);
-    expect(flattenSql(execute.mock.calls[0]?.[0])).toContain('INSERT INTO analysis_template_version');
-    expect(flattenSql(execute.mock.calls[0]?.[0])).toContain('MAX');
+    const query = flattenSql(execute.mock.calls[0]?.[0]);
+    expect(query).toContain('INSERT INTO analysis_template_version');
+    expect(query).toContain('MAX');
+    expect(query.match(/fixed/g) ?? []).toHaveLength(2);
   });
 
   it('D-36-06: changes lifecycle on the template row without inserting a version', async () => {
@@ -244,6 +248,7 @@ describe('analysisTemplates query module', () => {
     expect(result.ok).toBe(true);
     const query = flattenSql(execute.mock.calls[0]?.[0]);
     expect(query).toContain('UPDATE analysis_template');
+    expect(query).toContain('fixed');
     expect(query).not.toContain('analysis_template_version');
   });
 
