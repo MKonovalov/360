@@ -10,9 +10,13 @@ vi.mock('../index', () => ({ db: mocks.db }));
 
 import {
   getAnalysisTemplateVersion,
+  createCustomAgent,
   listManagedAnalysisTemplates,
+  listManagedCustomAgents,
   listActiveAnalysisTemplates,
+  saveCustomAgentVersion,
   saveAnalysisTemplateVersion,
+  setCustomAgentStatus,
   setAnalysisTemplateStatus,
 } from './analysisTemplates';
 import { analysisTemplate, analysisTemplateVersion } from '../schema';
@@ -258,6 +262,68 @@ describe('analysisTemplates query module', () => {
       /\b(?:analysis_run|analysis_run_event|analysis_result|analysis_finding|analysis_source|analysis_run_review|signal|offering|signal_offering_link)\b/,
     );
   });
+
+  it('creates an opaque custom identity and retired version one in one write', async () => {
+    mocks.db.execute
+      .mockResolvedValueOnce({ rows: [{ templateId: 7, templateVersionId: 71, customAgentId: 'custom-server-key' }] })
+      .mockResolvedValueOnce({ rows: [customAgentRow(7, 71, 1, 'Draft agent', 'retired')] });
+
+    const result = await createCustomAgent(customAgentInput(), 'staff-creator');
+
+    expect(result).toMatchObject({ ok: true, kind: 'created' });
+    const query = flattenSql(mocks.db.execute.mock.calls[0]?.[0]);
+    expect(query).toContain('WITH');
+    expect(query).toContain('gen_random_uuid');
+    expect(query).toContain("'retired'");
+    expect(query).toContain('analysis_template_version');
+    expect(query).toContain('staff-creator');
+  });
+
+  it('lists custom agents with newest immutable version first and complete authored fields', async () => {
+    mocks.db.execute.mockResolvedValueOnce({
+      rows: [
+        customAgentRow(7, 72, 2, 'Renamed agent', 'retired'),
+        customAgentRow(7, 71, 1, 'Draft agent', 'retired'),
+      ],
+    });
+
+    const result = await listManagedCustomAgents();
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.latest.name).toBe('Renamed agent');
+    expect(result[0]?.history.map((version) => version.version)).toEqual([2, 1]);
+    expect(result[0]?.latest.researchQuery).toBe('Find buying pressure');
+    expect(result[0]?.latest.behaviorInstruction).toBe('Use evidence.');
+    expect(result[0]?.latest.capabilityPresetIds).toEqual(['web-research']);
+  });
+
+  it('appends a custom version without changing target identity or retired lifecycle', async () => {
+    mocks.db.execute
+      .mockResolvedValueOnce({ rows: [{ templateVersionId: 72 }] })
+      .mockResolvedValueOnce({ rows: [customAgentRow(7, 72, 2, 'Renamed agent', 'retired')] });
+
+    const result = await saveCustomAgentVersion('custom-server-key', customAgentInput({ name: 'Renamed agent' }), 'staff-editor');
+
+    expect(result).toMatchObject({ ok: true, kind: 'version_appended', agent: { status: 'retired' } });
+    const query = flattenSql(mocks.db.execute.mock.calls[0]?.[0]);
+    expect(query).toContain('MAX');
+    expect(query).toContain('ON CONFLICT');
+    expect(query).not.toMatch(/UPDATE|DELETE/);
+    expect(query).toContain('practice_area_id');
+  });
+
+  it('changes custom lifecycle without inserting a content version', async () => {
+    mocks.db.execute
+      .mockResolvedValueOnce({ rows: [{ templateId: 7 }] })
+      .mockResolvedValueOnce({ rows: [customAgentRow(7, 72, 2, 'Renamed agent', 'active')] });
+
+    const result = await setCustomAgentStatus('custom-server-key', 'active', 'staff-activator');
+
+    expect(result).toMatchObject({ ok: true, kind: 'lifecycle_updated', agent: { status: 'active' } });
+    const query = flattenSql(mocks.db.execute.mock.calls[0]?.[0]);
+    expect(query).toContain('UPDATE analysis_template');
+    expect(query).not.toContain('analysis_template_version');
+  });
 });
 
 function managedTemplateRow(
@@ -280,5 +346,48 @@ function managedTemplateRow(
     futureBudget: { maxAttempts: 2, maxToolCalls: 12, maxExecutionSeconds: 300, maxSpendUsd: 2.5 },
     createdBy: 'staff-2',
     createdAt: '2026-08-08T00:00:02.000Z',
+  };
+}
+
+function customAgentInput(overrides: Partial<Parameters<typeof createCustomAgent>[0]> = {}) {
+  return {
+    name: 'Draft agent',
+    description: 'A custom research agent',
+    targetType: 'company' as const,
+    practiceAreaId: 42,
+    researchQuery: 'Find buying pressure',
+    behaviorInstruction: 'Use evidence.',
+    defaultEffort: 'standard' as const,
+    outputSchema: null,
+    capabilityPresetIds: ['web-research'] as const,
+    ...overrides,
+  };
+}
+
+function customAgentRow(
+  templateId: number,
+  templateVersionId: number,
+  version: number,
+  name: string,
+  status: 'active' | 'retired',
+) {
+  return {
+    templateId,
+    customAgentId: 'custom-server-key',
+    targetType: 'company',
+    practiceAreaId: 42,
+    status,
+    templateVersionId,
+    version,
+    name,
+    description: 'A custom research agent',
+    researchQuery: 'Find buying pressure',
+    behaviorInstruction: 'Use evidence.',
+    outputSchema: null,
+    capabilityPresetIds: ['web-research'],
+    supportedEfforts: ['standard'],
+    defaultEffort: 'standard',
+    createdBy: 'staff-editor',
+    createdAt: '2026-08-09T00:00:00.000Z',
   };
 }
