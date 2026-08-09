@@ -8,6 +8,11 @@ import { EnrichMenu } from '@/components/enrichment/enrichment-review-dialog';
 import { RecordViewTracker } from '@/components/dashboard/record-view-tracker';
 import { humanizeEnum, dateFormatter, FirmographicField, FieldSourceBadge } from '@/components/explorer/explorer-format';
 import { env } from '@/lib/env';
+import { listAnalysisRunsForSubject } from '@/lib/db/queries/analysisRuns';
+import { listConfirmedCandidateOfferingsForSubject } from '@/lib/db/queries/confirmedCandidates';
+import { getAnalysisPacket } from '@/lib/db/queries/analysisResults';
+import { AnalysisHistory, projectRunReviewCards } from '@/components/analysis/analysis-history';
+import { ConfirmedCandidateOfferings } from '@/components/analysis/confirmed-candidate-offerings';
 
 // WR-06: enrichment/programmatic writes into persona data are on the
 // near-term roadmap (CLAUDE.md Constraints) — once linkedinUrl is populated
@@ -49,6 +54,14 @@ export async function PersonaDetail({ id }: { id: number }) {
     notFound();
   }
 
+  const [analysisRuns, confirmedCandidateOfferings] = await Promise.all([
+    listAnalysisRunsForSubject({ targetType: 'persona', subjectId: persona.id }).catch(() => null),
+    listConfirmedCandidateOfferingsForSubject({ targetType: 'persona', subjectId: persona.id }).catch(() => null),
+  ]);
+  const reviewCards = analysisRuns
+    ? await projectRunReviewCards(analysisRuns, getAnalysisPacket)
+    : [];
+
   // D-04/Pitfall 4: fired only after the confirmed-exists check above — a
   // broken/deleted-record deep link must never write a recentlyViewed row
   // for a nonexistent id.
@@ -70,6 +83,7 @@ export async function PersonaDetail({ id }: { id: number }) {
           recordId={persona.id}
           canEnrich={Boolean(persona.email && env.PROSPEO_API_KEY && env.ENRICHMENT_REVIEW_SECRET)}
           disabledReason={!persona.email ? 'Add an email first' : 'Persona enrichment is not configured'}
+          canAnalyze
         />
         <ExplorerCloseButton />
       </div>
@@ -175,6 +189,10 @@ export async function PersonaDetail({ id }: { id: number }) {
           </p>
         )}
       </section>
+
+      <ConfirmedCandidateOfferings items={confirmedCandidateOfferings} />
+
+      <AnalysisHistory rows={analysisRuns} reviewCards={reviewCards} />
 
       {articles.length > 0 ? (
         <section>
