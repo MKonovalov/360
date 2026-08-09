@@ -25,7 +25,7 @@ vi.mock('@/components/ui/sheet', () => {
 
 import { CustomAgentEditor, buildCustomAgentCreatePayload } from './custom-agent-editor';
 import type { PracticeAreaOption, SafeCapabilityPreset } from './custom-agent-editor';
-import { schemaToDraft } from './structured-output-editor';
+import { schemaToDraft, StructuredOutputEditor } from './structured-output-editor';
 
 const practiceAreas: readonly PracticeAreaOption[] = [
   { id: 4, name: 'GBS — Design, Build & Run', shortCode: 'GBS-DBR' },
@@ -149,11 +149,19 @@ describe('CustomAgentEditor', () => {
       <CustomAgentEditor
         {...baseProps}
         mode="create"
-        issues={[{ path: 'behaviorInstruction', code: 'too_big', message: 'Behavior instruction is too long' }]}
+        issues={[
+          { path: 'description', code: 'too_big', message: 'Description is too long' },
+          { path: 'researchQuery', code: 'too_big', message: 'Research query is too long' },
+          { path: 'behaviorInstruction', code: 'too_big', message: 'Behavior instruction is too long' },
+          { path: 'outputSchema.fields.0.enum', code: 'too_big', message: 'Too many enum values' },
+        ]}
       />,
     );
 
+    expect(html).toContain('Description is too long');
+    expect(html).toContain('Research query is too long');
     expect(html).toContain('Behavior instruction is too long');
+    expect(html).toContain('Too many enum values');
     expect(html).toContain('aria-invalid="true"');
     expect(html).not.toContain('DATABASE_URL');
     expect(html).not.toContain('stack trace');
@@ -182,6 +190,18 @@ describe('CustomAgentEditor', () => {
         enum: ['high', 'medium', 'low'],
       },
     ]);
+  });
+
+  it('renders nested output-schema issues beside the affected field row', () => {
+    const outputEditor = Reflect.apply(StructuredOutputEditor, undefined, [{
+      fields: [{ name: 'priority', type: 'string', description: '', required: false, nullable: false }],
+      onChange: () => undefined,
+      issues: [{ path: 'outputSchema.fields.0.enum', code: 'too_big', message: 'Too many enum values' }],
+    }]);
+    const html = renderToStaticMarkup(outputEditor);
+
+    expect(html).toContain('data-output-field-error="0"');
+    expect(html).toContain('Too many enum values');
   });
 
   it('retains field issues returned by a failed save for inline rendering', async () => {

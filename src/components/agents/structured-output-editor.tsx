@@ -3,7 +3,12 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { BOUNDED_OUTPUT_FIELD_TYPES, CUSTOM_AGENT_POLICY, type BoundedOutputSchema } from '@/lib/analysis/customAgentContracts';
+import {
+  BOUNDED_OUTPUT_FIELD_TYPES,
+  CUSTOM_AGENT_POLICY,
+  type BoundedOutputSchema,
+  type CustomAgentValidationIssue,
+} from '@/lib/analysis/customAgentContracts';
 
 export type OutputFieldDraft = {
   readonly name: string;
@@ -33,12 +38,19 @@ export function schemaToDraft(schema: BoundedOutputSchema | null): OutputFieldDr
 export function StructuredOutputEditor({
   fields,
   onChange,
+  issues = [],
 }: {
   readonly fields: readonly OutputFieldDraft[];
   readonly onChange: (fields: readonly OutputFieldDraft[]) => void;
+  readonly issues?: readonly CustomAgentValidationIssue[];
 }) {
   function updateField(index: number, patch: Partial<OutputFieldDraft>): void {
     onChange(fields.map((field, fieldIndex) => (fieldIndex === index ? { ...field, ...patch } : field)));
+  }
+
+  function issueForField(index: number): CustomAgentValidationIssue | undefined {
+    const prefix = `outputSchema.fields.${index}`;
+    return issues.find((issue) => issue.path === prefix || issue.path.startsWith(`${prefix}.`));
   }
 
   return (
@@ -46,8 +58,10 @@ export function StructuredOutputEditor({
       <p className="text-xs leading-5 text-slate-500">
         Optional additive fields only. Up to {CUSTOM_AGENT_POLICY.maxFields} shallow fields; arrays are bounded and nested objects are not available.
       </p>
-      {fields.map((field, index) => (
-        <div key={`${field.name}-${index}`} className="rounded-md border border-slate-200 bg-slate-50 p-3">
+      {fields.map((field, index) => {
+        const fieldIssue = issueForField(index);
+        return (
+        <div key={`${field.name}-${index}`} className="rounded-md border border-slate-200 bg-slate-50 p-3" data-output-field-error={fieldIssue ? index : undefined}>
           <div className="grid gap-3 sm:grid-cols-[1fr_9rem]">
             <Input aria-label={`Output field ${index + 1} name`} value={field.name} onChange={(event) => updateField(index, { name: event.target.value })} placeholder="Field name" />
             <select aria-label={`Output field ${index + 1} type`} value={field.type} onChange={(event) => updateField(index, { type: event.target.value as OutputFieldDraft['type'] })} className="h-8 rounded-lg border border-input bg-background px-2 text-sm">
@@ -78,8 +92,10 @@ export function StructuredOutputEditor({
               <Input type="number" min={CUSTOM_AGENT_POLICY.minArrayItems} max={CUSTOM_AGENT_POLICY.maxArrayItems} aria-label={`Output field ${index + 1} maximum items`} value={field.maxItems ?? 5} onChange={(event) => updateField(index, { maxItems: Number(event.target.value) })} />
             </div>
           ) : null}
+          {fieldIssue ? <p role="alert" className="mt-2 text-xs text-red-600">{fieldIssue.message}</p> : null}
         </div>
-      ))}
+        );
+      })}
       {fields.length < CUSTOM_AGENT_POLICY.maxFields ? (
         <Button type="button" variant="outline" onClick={() => onChange([...fields, { name: '', type: 'string', description: '', required: false, nullable: false }])}>
           Add output field
