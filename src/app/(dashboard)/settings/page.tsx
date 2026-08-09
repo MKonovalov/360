@@ -9,6 +9,7 @@ import { PROVIDER_DEFAULT_MODELS } from '@/lib/agents/modelFactory';
 import { ModelSettingsForm } from '@/components/settings/model-settings-form';
 import { providerName } from '@/components/settings/model-picker-logic';
 import type { ServableModel } from '@/components/settings/model-picker-logic';
+import { resolveStoredModelRef } from '@/lib/models/modelSettings';
 
 // Belt-and-suspenders alongside the (dashboard) layout's auth gate
 // (02-RESEARCH.md Pitfall 4) — every page in the group gates itself too, so
@@ -109,14 +110,17 @@ export default async function SettingsPage() {
   // would have labeled NousResearch/OpenCode "OpenRouter").
   const providers = SERVABLE_PROVIDERS.map((id) => ({ id, name: providerName(id) }));
 
-  // SET-05: saved primary + fallbacks with server-resolved provider identity
-  // (trigger badges + stale-row rendering in the form). providerID is null
-  // when the id is catalog-absent — the form's raw-id fallback path.
+  // SET-05: saved primary + fallbacks retain explicit provider metadata when
+  // present; only legacy rows use catalog precedence.
   const savedChain = settings
-    ? [settings.primaryModel, ...settings.fallbackModels].map((id) => ({
+    ? [settings.primaryModel, ...settings.fallbackModels].map((id, index) => ({
         id,
         name: getModelDisplayName(id),
-        providerID: getProviderForModelId(catalogJson, id),
+        providerID: resolveStoredModelRef(
+          id,
+          index === 0 ? settings.primaryProvider : settings.fallbackProviders[index - 1],
+          catalogJson,
+        )?.provider ?? null,
       }))
     : null;
 

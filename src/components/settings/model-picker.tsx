@@ -57,13 +57,12 @@ export function ModelPicker({
   onChange: (id: string) => void;
   placeholder: string;
   badge?: ServableModel['providerID']; // trigger badge (D-21-10) — required for the primary picker + closed state
-  grouped?: boolean; // true → provider CommandGroup sections (union fallback pickers, D-21-08); false → single provider header (primary)
+  grouped?: boolean; // true → provider sections for union option lists; false → one provider-scoped section
   staleLabel?: string | null; // non-null → append a disabled CommandItem with this label (D-10/D-11 stale-row rendering)
 }) {
   const [open, setOpen] = useState(false);
-  // Provider sections (D-21-08): grouped mode buckets the union options by
-  // provider for the fallback pickers; the primary picker is provider-scoped
-  // (SET-02), so it renders one section header for its single provider.
+  // Provider sections (D-21-08): grouped mode buckets union options by
+  // provider; provider-scoped slots render one section header.
   const byProvider = grouped ? groupByProvider(options) : null;
   const groups: { provider: ServableModel['providerID']; models: ServableModel[] }[] = byProvider
     ? (Object.keys(byProvider) as ServableModel['providerID'][]).map((provider) => ({
@@ -108,7 +107,7 @@ export function ModelPicker({
       </PopoverTrigger>
       <PopoverContent className="w-(--radix-popover-trigger-width) p-0">
         <Command>
-          <CommandInput placeholder="Search models…" autoFocus />
+          <CommandInput aria-label={`Search ${ariaLabel}`} placeholder="Search models…" autoFocus />
           <CommandList>
             <CommandEmpty>No models found.</CommandEmpty>
             {/* Pinned current-selection row (WR-02/GAP-2): renders when a known
