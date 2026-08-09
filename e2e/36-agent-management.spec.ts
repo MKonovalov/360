@@ -4,6 +4,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 type SubjectType = 'company' | 'persona';
 type FixtureSubject = Readonly<{ type: SubjectType; id: number; path: string; heading: string; template: string }>;
+type LiveSignalCounts = Readonly<{ companySignals: number; personaSignals: number; links: number }>;
 
 const forbiddenRequest = /firecrawl|(?:exa|perplexity|tavily|serpapi|brave-search)|\/api\/companies\/\d+\/analyze|\/api\/agent-runs|\/api\/signal-proposals/i;
 
@@ -39,13 +40,34 @@ function installRequestGuard(page: Page): () => void {
 
 async function openLauncher(page: Page, subject: FixtureSubject): Promise<void> {
   await page.goto(`${subject.path}?selected=${subject.id}`);
-  await page.getByRole('button', { name: 'Menu' }).click();
+  const selectedDetail = page.locator('tr[aria-expanded="true"] + tr');
+  await selectedDetail.getByRole('button', { name: 'Menu', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Analyze', exact: true }).click();
   await expect(page.getByRole('heading', { name: subject.heading, exact: true })).toBeVisible();
+  const launcher = page.getByRole('dialog', { name: subject.heading, exact: true });
+  await launcher.getByRole('combobox').click();
+  await page.getByRole('option', { name: 'Phase 36 E2E GBS · phase36-e2e', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Analysis preview' })).toBeVisible();
 }
 
-async function databaseEvidence(subject: FixtureSubject): Promise<void> {
+async function readLiveSignalCounts(): Promise<LiveSignalCounts> {
+  const testUrl = process.env.TEST_DATABASE_URL;
+  if (!testUrl) throw new Error('TEST_DATABASE_URL disappeared during Phase 36 evidence collection');
+  const sql = neon(testUrl);
+  const rows = await sql`
+    SELECT
+      (SELECT COUNT(*)::int FROM company_signal) AS company_signals,
+      (SELECT COUNT(*)::int FROM persona_signal) AS persona_signals,
+      (SELECT COUNT(*)::int FROM signal_offering_link) AS links
+  `;
+  return {
+    companySignals: Number(rows[0]?.company_signals ?? 0),
+    personaSignals: Number(rows[0]?.persona_signals ?? 0),
+    links: Number(rows[0]?.links ?? 0),
+  };
+}
+
+async function databaseEvidence(subject: FixtureSubject, baseline: LiveSignalCounts): Promise<void> {
   const testUrl = process.env.TEST_DATABASE_URL;
   if (!testUrl) throw new Error('TEST_DATABASE_URL disappeared during Phase 36 evidence collection');
   const sql = neon(testUrl);
@@ -70,13 +92,8 @@ async function databaseEvidence(subject: FixtureSubject): Promise<void> {
   expect(Number(row?.persisted_sources)).toBeGreaterThan(0);
   expect(Number(row?.review_count)).toBe(1);
 
-  const liveRows = await sql`
-    SELECT
-      (SELECT COUNT(*)::int FROM signal) AS signals,
-      (SELECT COUNT(*)::int FROM signal_offering_link) AS links
-  `;
-  expect(Number(liveRows[0]?.signals)).toBe(0);
-  expect(Number(liveRows[0]?.links)).toBe(0);
+  const liveCounts = await readLiveSignalCounts();
+  expect(liveCounts).toEqual(baseline);
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -94,18 +111,25 @@ test.describe('Phase 36: authenticated agent management and target flows', () =>
 
     const companyCard = page.locator('[data-template-key="company-buying-signal-analysis"]');
     const instruction = companyCard.locator('textarea');
-    await instruction.fill('Phase 36 browser-appended deterministic instruction.');
+    const currentVersionText = await companyCard.getByText(/Current version \d+/, { exact: false }).textContent();
+    const currentVersionMatch = currentVersionText?.match(/Current version (\d+)/);
+    expect(currentVersionMatch).toBeTruthy();
+    const currentVersion = Number(currentVersionMatch?.[1]);
+    const currentInstruction = await instruction.inputValue();
+    const updatedInstruction = `${currentInstruction}\n\nPhase 36 browser-appended deterministic instruction ${Date.now()}.`;
+    await instruction.fill(updatedInstruction);
     await companyCard.getByRole('button', { name: 'Save new version' }).click();
-    await expect(companyCard).toContainText('Saved as version 2.');
+    const nextVersion = currentVersion + 1;
+    await expect(companyCard).toContainText(`Saved as version ${nextVersion}.`);
     await page.reload();
-    await expect(companyCard).toContainText('Version 1');
+    await expect(companyCard).toContainText(`Version ${currentVersion}`);
     await expect(companyCard).toContainText('Read-only');
     await companyCard.getByRole('button', { name: 'Retire template' }).click();
     await expect(companyCard).toContainText('Template retired.');
     await expect(companyCard.getByRole('button', { name: 'Reactivate template' })).toBeVisible();
     await companyCard.getByRole('button', { name: 'Reactivate template' }).click();
     await expect(companyCard).toContainText('Template reactivated.');
-    await expect(companyCard).toContainText('Current version 2');
+    await expect(companyCard).toContainText(`Current version ${nextVersion}`);
     guard();
   });
 
@@ -113,6 +137,7 @@ test.describe('Phase 36: authenticated agent management and target flows', () =>
     test(`VER-01: ${type} preview launch reload review and confirmed-only candidate boundary`, async ({ page }) => {
       requirePrerequisites();
       const subject = subjects()[type];
+      const liveSignalBaseline = await readLiveSignalCounts();
       const guard = installRequestGuard(page);
       await openLauncher(page, subject);
       const preview = page.getByRole('region', { name: 'Analysis preview' });
@@ -122,27 +147,36 @@ test.describe('Phase 36: authenticated agent management and target flows', () =>
       await expect(preview).toContainText('Signals checked');
       await expect(preview).toContainText('standard');
       await page.getByRole('button', { name: 'Start analysis', exact: true }).click();
-      await expect(page.getByRole('status')).toContainText(/Analysis run #\d+ started/);
+      const startStatus = page.getByRole('status');
+      await expect(startStatus).toContainText(/Analysis run #\d+ started/);
+      const runIdMatch = (await startStatus.textContent())?.match(/Analysis run #(\d+) started/);
+      expect(runIdMatch).toBeTruthy();
+      const runId = Number(runIdMatch?.[1]);
 
       await page.goto('/');
       await page.goto(`${subject.path}?selected=${subject.id}`);
+      let terminalStatus = 'unknown';
       await expect.poll(async () => {
-        await page.reload();
-        return await page.locator('[data-status]').first().getAttribute('data-status');
+        const response = await page.request.get(`/api/analysis-runs/${runId}`);
+        if (!response.ok()) return 'error';
+        const payload = await response.json() as { status?: string };
+        terminalStatus = payload.status ?? 'unknown';
+        return terminalStatus;
       }, { timeout: 90_000 }).toMatch(/pending_review|confirmed|dismissed/);
+      await expect(page.locator(`[data-status="${terminalStatus}"]`).first()).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Analysis', exact: true })).toBeVisible();
       await expect(page.getByText(/sources|source #/i).first()).toBeVisible();
       await page.goto('/reviews');
-      const reviewCard = page.locator('[data-run-id]').filter({ hasText: subject.template }).first();
+      const reviewCard = page.locator(`[data-run-id="${runId}"]`);
       await expect(reviewCard).toBeVisible();
-      await expect(reviewCard.getByRole('button', { name: 'Confirm', exact: true })).toBeVisible();
-      await reviewCard.getByRole('button', { name: 'Confirm', exact: true }).click();
+      await expect(reviewCard.getByRole('button', { name: /^Confirm run \d+$/ })).toBeVisible();
+      await reviewCard.getByRole('button', { name: /^Confirm run \d+$/ }).click();
       await expect(reviewCard).toContainText(/Confirmed by/);
 
       await page.goto(`${subject.path}?selected=${subject.id}`);
       await expect(page.getByRole('heading', { name: 'Confirmed Candidate Offerings', exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: /^(Confirm|Dismiss)$/ })).toHaveCount(0);
-      await databaseEvidence(subject);
+      await databaseEvidence(subject, liveSignalBaseline);
       guard();
     });
   }
