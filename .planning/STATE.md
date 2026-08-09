@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Agent Constructor
-status: executing
-last_updated: "2026-08-09T11:51:19.973Z"
+status: verifying
+last_updated: "2026-08-09T12:05:53.661Z"
 last_activity: 2026-08-09
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 6
-  completed_plans: 4
-  percent: 0
+  completed_plans: 5
+  percent: 83
 ---
 
 # Project State
@@ -25,8 +25,8 @@ See: .planning/PROJECT.md (updated 2026-08-09)
 ## Current Position
 
 Phase: 37 — Custom Agent Definition, Versioning & Lifecycle
-Plan: 4 of 05
-Status: Ready to execute
+Plan: 5 of 05
+Status: Phase complete — ready for verification
 Last activity: 2026-08-09
 
 ## Performance Metrics
@@ -70,6 +70,7 @@ Last activity: 2026-08-09
 | Phase 37 P02 | 16m | 2 tasks | 6 files |
 | Phase 37 P03 | 8min | 2 tasks | 4 files |
 | Phase 37 P04 | 8min | 2 tasks | 8 files |
+| Phase 37 P5 | 15m | 2 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -130,6 +131,9 @@ Last activity: 2026-08-09
 - [Phase 37]: Keep fixed AgentTemplateCard rendering and behavior untouched; custom agents compose after the fixed allowlist on the same /agents route.
 - [Phase 37]: Use one native create-time Practice Area selector from server-projected options and render the persisted choice read-only during edits.
 - [Phase 37]: Render only server-approved capability metadata and keep lifecycle separate from version saves so retired edits remain retired.
+- [Phase ?]: Fixed compatibility is proven at options, preview, run-input, and subject-resolution seams without changing those production consumers.
+- [Phase ?]: The Phase 37 scope audit scans selected tracked implementation files, ignores comments, and requires positive canaries before forbidden-surface checks.
+- [Phase ?]: Missing TEST_DATABASE_URL and unrelated baseline TypeScript errors remain blocked evidence, never pass evidence.
 
 ### Pending Todos
 
@@ -146,6 +150,8 @@ None.
 - Persona enablement needs explicit privacy, redaction, classification, and retention policy values before Phase 33 implementation.
 - Phase 32's original parallel seed/ledger command exposed a shared disposable-database fixture race; validation now serializes those two files without weakening assertions.
 - TEST_DATABASE_URL is missing; 36-05 database and Workflow evidence remains blocked.
+- Phase 37 canonical Neon integration remains blocked: TEST_DATABASE_URL unavailable.
+- Phase 37 repository typecheck remains blocked by three unchanged analysisProposalDerivation.test.ts baseline errors.
 
 ## Deferred Items
 
@@ -156,7 +162,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-08-09T11:51:19.968Z
+Last session: 2026-08-09T12:05:40.695Z
 Stopped at: Completed 37-04-PLAN.md
 Next: Execute 37-04-PLAN.md
 Resume file: None
