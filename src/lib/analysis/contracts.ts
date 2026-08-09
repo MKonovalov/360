@@ -95,6 +95,56 @@ export const PHASE33_DEFERRED_POLICY = Object.freeze({
   effectiveMaxSpendUsd: 0,
 });
 
+// The production-approved grounded policy applied to every non-fixture run
+// created through POST /api/analysis-runs. `mode: 'phase33_grounded'` is the
+// only phase33 shape the executor will execute (execution.ts:140 parses via
+// phase33PolicySnapshotSchema, and phase33_policy_deferred short-circuits to
+// policy_unavailable at execution.ts:144-150). It is deliberately NOT derived
+// from PHASE36_APPROVED_POLICY — that fixture policy carries a
+// 'phase36-fixture-v1' version and is reserved for fixture-mode runs.
+//
+// personaExecutionEnabled is FALSE for now: the executor hands
+// `subjectDisplayName` (a persona's real name, resolved in subjects.ts) to the
+// model verbatim via buildGroundedPrompt — the redactPersonaInput allowlist
+// gate in personaPolicy.ts is NOT wired into the execution path. Enabling
+// persona execution here would send unredacted persona names to the model, a
+// PII blocker. Persona runs therefore fail closed with the documented
+// `persona_policy_unavailable` reason (execution.ts:151-153) until the
+// executor redacts persona input through personaPolicy.ts and a persona
+// policy/retention exists (contracts.ts superRefine requires both when
+// personaExecutionEnabled is true).
+export const PHASE33_STANDARD_APPROVED_POLICY = Object.freeze({
+  schemaVersion: 1,
+  mode: 'phase33_grounded',
+  executionEnabled: true,
+  personaExecutionEnabled: false,
+  policyVersion: 'phase33-standard-v1',
+  limits: Object.freeze({
+    // Budget fields derived from STANDARD_EXECUTION_BUDGET.
+    maxAttempts: STANDARD_EXECUTION_BUDGET.maxAttempts,
+    maxToolCalls: STANDARD_EXECUTION_BUDGET.maxToolCalls,
+    maxExecutionSeconds: STANDARD_EXECUTION_BUDGET.maxExecutionSeconds,
+    // Source bounds aligned with the webSearch tool's own caps
+    // (WEB_SEARCH_LIMITS.maxResults = 5, maxSnippetLength = 8_000) so a
+    // legitimate grounded analysis is never rejected by its own policy.
+    maxSources: 5,
+    maxSourceBytes: 50_000,
+    maxExcerptBytes: 8_000,
+    maxSpendUsd: STANDARD_EXECUTION_BUDGET.maxSpendUsd,
+  }),
+  personaPolicy: null,
+  retention: null,
+  evidenceStorage: 'bounded_excerpt_and_content_hash',
+  auditVisibility: 'allowlisted_safe_metadata_only',
+  failureReason: null,
+  networkAccess: true,
+  writesAllowed: false,
+  effectiveMaxAttempts: STANDARD_EXECUTION_BUDGET.maxAttempts,
+  effectiveMaxToolCalls: STANDARD_EXECUTION_BUDGET.maxToolCalls,
+  effectiveMaxExecutionSeconds: STANDARD_EXECUTION_BUDGET.maxExecutionSeconds,
+  effectiveMaxSpendUsd: STANDARD_EXECUTION_BUDGET.maxSpendUsd,
+});
+
 export const analysisTargetTypes = ['company', 'persona'] as const;
 export type AnalysisTargetType = (typeof analysisTargetTypes)[number];
 

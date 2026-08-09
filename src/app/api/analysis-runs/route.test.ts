@@ -90,7 +90,7 @@ describe('analysis run routes', () => {
     mocks.transitionAnalysisRun.mockResolvedValue({ ok: true });
   });
 
-  it('authenticates first, persists the Phase 32 no-op policy before scalar dispatch, and returns only the application ID', async () => {
+  it('authenticates first, persists the Phase 33 standard approved policy before scalar dispatch, and returns only the application ID', async () => {
     const order: string[] = [];
     mocks.requireStaffAccess.mockImplementation(async () => { order.push('auth'); return { userId: 'user_staff' }; });
     mocks.createAnalysisRun.mockImplementation(async () => { order.push('create'); return { ok: true, run: { id: 41, status: 'queued' } }; });
@@ -106,9 +106,9 @@ describe('analysis run routes', () => {
       executionSnapshot: expect.objectContaining({
         effort: 'standard', resolvedModelChain: ['model-primary', 'model-fallback'],
         futureBudget: { maxAttempts: 2, maxToolCalls: 12, maxExecutionSeconds: 300, maxSpendUsd: 2.5 },
-        policy: { schemaVersion: 1, mode: 'phase32_noop', networkAccess: false, writesAllowed: false, effectiveMaxAttempts: 1, effectiveMaxToolCalls: 0, effectiveMaxExecutionSeconds: 5, effectiveMaxSpendUsd: 0 },
+        policy: expect.objectContaining({ schemaVersion: 1, mode: 'phase33_grounded', executionEnabled: true, personaExecutionEnabled: false, failureReason: null }),
        }),
-       policySnapshot: { schemaVersion: 1, mode: 'phase32_noop', networkAccess: false, writesAllowed: false, effectiveMaxAttempts: 1, effectiveMaxToolCalls: 0, effectiveMaxExecutionSeconds: 5, effectiveMaxSpendUsd: 0 },
+       policySnapshot: expect.objectContaining({ schemaVersion: 1, mode: 'phase33_grounded', executionEnabled: true, personaExecutionEnabled: false, failureReason: null }),
      }));
   });
 

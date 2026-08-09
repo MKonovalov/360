@@ -10,6 +10,7 @@ import {
   parseAnalysisSnapshot,
   PHASE32_NOOP_POLICY,
   PHASE33_DEFERRED_POLICY,
+  PHASE33_STANDARD_APPROVED_POLICY,
   phase33PolicySnapshotSchema,
   resolveAnalysisTransition,
   STANDARD_EXECUTION_BUDGET,
@@ -25,6 +26,9 @@ describe('Phase 32 analysis contracts', () => {
       'completed',
       'failed',
       'cancelled',
+      'pending_review',
+      'confirmed',
+      'dismissed',
     ]);
     expect(NONTERMINAL_ANALYSIS_RUN_STATUSES).toEqual(['queued', 'running']);
   });
@@ -56,9 +60,52 @@ describe('Phase 32 analysis contracts', () => {
     );
   });
 
+  it('accepts the production standard approved policy with execution enabled and no persona execution', () => {
+    expect(phase33PolicySnapshotSchema.safeParse(PHASE33_STANDARD_APPROVED_POLICY).success).toBe(true);
+    expect(PHASE33_STANDARD_APPROVED_POLICY).toMatchObject({
+      schemaVersion: 1,
+      mode: 'phase33_grounded',
+      executionEnabled: true,
+      personaExecutionEnabled: false,
+      policyVersion: 'phase33-standard-v1',
+      personaPolicy: null,
+      retention: null,
+      failureReason: null,
+      networkAccess: true,
+      writesAllowed: false,
+    });
+  });
+
+  it('derives the production standard approved policy budget from STANDARD_EXECUTION_BUDGET', () => {
+    expect(PHASE33_STANDARD_APPROVED_POLICY.limits).toEqual({
+      maxAttempts: STANDARD_EXECUTION_BUDGET.maxAttempts,
+      maxToolCalls: STANDARD_EXECUTION_BUDGET.maxToolCalls,
+      maxExecutionSeconds: STANDARD_EXECUTION_BUDGET.maxExecutionSeconds,
+      maxSources: 5,
+      maxSourceBytes: 50_000,
+      maxExcerptBytes: 8_000,
+      maxSpendUsd: STANDARD_EXECUTION_BUDGET.maxSpendUsd,
+    });
+    expect(PHASE33_STANDARD_APPROVED_POLICY.effectiveMaxAttempts).toBe(STANDARD_EXECUTION_BUDGET.maxAttempts);
+    expect(PHASE33_STANDARD_APPROVED_POLICY.effectiveMaxToolCalls).toBe(STANDARD_EXECUTION_BUDGET.maxToolCalls);
+    expect(PHASE33_STANDARD_APPROVED_POLICY.effectiveMaxExecutionSeconds).toBe(
+      STANDARD_EXECUTION_BUDGET.maxExecutionSeconds,
+    );
+    expect(PHASE33_STANDARD_APPROVED_POLICY.effectiveMaxSpendUsd).toBe(STANDARD_EXECUTION_BUDGET.maxSpendUsd);
+  });
+
+  it('enforces the persona superRefine gate on the standard approved policy shape', () => {
+    expect(
+      phase33PolicySnapshotSchema.safeParse({
+        ...PHASE33_STANDARD_APPROVED_POLICY,
+        personaExecutionEnabled: true,
+      }).success,
+    ).toBe(false);
+  });
+
   it('accepts only legal lifecycle edges and makes replay a no-transition outcome', () => {
     expect(canTransitionAnalysisRun('queued', 'running')).toBe(true);
-    expect(analysisRunStatusSchema.safeParse('pending_review').success).toBe(false);
+    expect(analysisRunStatusSchema.safeParse('pending_review').success).toBe(true);
     expect(canTransitionAnalysisRun('failed', 'running')).toBe(false);
     expect(resolveAnalysisTransition('running', 'completed')).toEqual({
       ok: true,

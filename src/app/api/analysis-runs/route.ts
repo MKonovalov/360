@@ -2,8 +2,8 @@ import { start } from 'workflow/api';
 import { z } from 'zod';
 
 import { deriveActiveChecklist } from '@/lib/analysis/checklist';
-import { analysisSubjectSchema } from '@/lib/analysis/contracts';
-import { buildAnalysisSnapshots, buildPhase33AnalysisSnapshots } from '@/lib/analysis/snapshots';
+import { analysisSubjectSchema, PHASE33_STANDARD_APPROVED_POLICY } from '@/lib/analysis/contracts';
+import { buildPhase33AnalysisSnapshots } from '@/lib/analysis/snapshots';
 import { isPhase36FixtureMode, PHASE36_APPROVED_POLICY } from '@/lib/verification/phase36Fixtures';
 import {
   resolveActivePracticeArea,
@@ -85,7 +85,7 @@ export async function POST(request: Request) {
   };
   const snapshots = isPhase36FixtureMode()
     ? buildPhase33AnalysisSnapshots(snapshotInput, PHASE36_APPROVED_POLICY)
-    : buildAnalysisSnapshots(snapshotInput);
+    : buildPhase33AnalysisSnapshots(snapshotInput, PHASE33_STANDARD_APPROVED_POLICY);
 
   const created = await createAnalysisRun({
     ...snapshots,

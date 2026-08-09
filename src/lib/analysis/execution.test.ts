@@ -12,7 +12,7 @@ vi.mock('@/lib/env', () => ({ env: { FIRECRAWL_API_KEY: 'test-key' } }));
 vi.mock('firecrawl', () => ({ Firecrawl: vi.fn(function Firecrawl() { return mocks.firecrawlClient; }) }));
 
 import { GroundedExecutionAdapter } from './execution';
-import { PHASE33_DEFERRED_POLICY } from './contracts';
+import { PHASE33_DEFERRED_POLICY, PHASE33_STANDARD_APPROVED_POLICY } from './contracts';
 import { webSearchTool } from '@/lib/agents/tools';
 
 const approvedPolicy = {
@@ -115,6 +115,43 @@ describe('GroundedExecutionAdapter', () => {
     expect(result).toMatchObject({ ok: true, modelId: 'model.primary', usedFallback: false });
     expect(mocks.instantiateChain).toHaveBeenCalledWith(['model.primary', 'model.fallback']);
     expect(mocks.runAgent.mock.calls[0]?.[0]).toMatchObject({ maxToolCalls: 4, models: ['model-object'] });
+  });
+
+  it('executes a company run end-to-end with the production standard approved policy', async () => {
+    const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });
+
+    const result = await adapter.execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklistSignalIds: [1],
+      modelChain: ['model.primary', 'model.fallback'],
+      policy: PHASE33_STANDARD_APPROVED_POLICY,
+    });
+
+    expect(result).toMatchObject({ ok: true, modelId: 'model.primary', usedFallback: false });
+    expect(mocks.runAgent).toHaveBeenCalled();
+    expect(mocks.runAgent.mock.calls[0]?.[0]).toMatchObject({ maxToolCalls: 12 });
+  });
+
+  it('fails persona runs cleanly under the standard approved policy until a persona policy exists', async () => {
+    const adapter = new GroundedExecutionAdapter({
+      runAgent: vi.fn(),
+      instantiateChain: vi.fn(),
+    });
+
+    const result = await adapter.execute({
+      runId: 42,
+      targetType: 'persona',
+      subjectId: 7,
+      subjectDisplayName: 'Jane Doe',
+      checklistSignalIds: [1],
+      modelChain: ['model.primary'],
+      policy: PHASE33_STANDARD_APPROVED_POLICY,
+    });
+
+    expect(result).toMatchObject({ ok: false, failureReason: 'persona_policy_unavailable' });
   });
 
   it('maps malformed structured output, timeout, missing key, and unsafe tool content to safe reasons', async () => {

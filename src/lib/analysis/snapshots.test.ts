@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   PHASE32_NOOP_POLICY,
   PHASE33_DEFERRED_POLICY,
+  PHASE33_STANDARD_APPROVED_POLICY,
   STANDARD_EXECUTION_BUDGET,
   type AnalysisTargetType,
 } from './contracts';
@@ -116,6 +117,24 @@ describe('buildAnalysisSnapshots', () => {
     expect(result.executionSnapshot.policy).toEqual(PHASE33_DEFERRED_POLICY);
     expect(result.policySnapshot).not.toEqual(PHASE32_NOOP_POLICY);
   });
+
+  it.each(['company', 'persona'] as const)(
+    'carries the production standard approved policy into snapshots for a %s',
+    (type) => {
+      const result = buildPhase33AnalysisSnapshots(createInput(type), PHASE33_STANDARD_APPROVED_POLICY);
+
+      expect(result.policySnapshot).toEqual(PHASE33_STANDARD_APPROVED_POLICY);
+      expect(result.executionSnapshot.policy).toEqual(PHASE33_STANDARD_APPROVED_POLICY);
+      expect(result.policySnapshot).toMatchObject({
+        mode: 'phase33_grounded',
+        executionEnabled: true,
+        personaExecutionEnabled: false,
+        failureReason: null,
+      });
+      expect(result.executionSnapshot.futureBudget).toEqual(STANDARD_EXECUTION_BUDGET);
+      expect(Object.isFrozen(result.policySnapshot)).toBe(true);
+    },
+  );
 
   it('accepts only a complete approved Phase 33 policy and preserves it immutably', () => {
     const policy = {
