@@ -18,7 +18,7 @@ type TerminalStatus = 'completed' | 'failed' | 'cancelled';
 
 export type AnalysisRunResult = { readonly applicationRunId: number; readonly terminalStatus: TerminalStatus };
 
-type ExecutionStepResult = { readonly ok: true; readonly execution: Extract<GroundedExecutionResult, { ok: true }> } | { readonly ok: false; readonly safeReason: 'execution_failed' | 'timed_out' };
+type ExecutionStepResult = { readonly ok: true; readonly execution: Extract<GroundedExecutionResult, { ok: true }> } | { readonly ok: false; readonly safeReason: 'execution_failed' | 'timed_out' | 'policy_unavailable' | 'persona_policy_unavailable' };
 
 export async function analysisRun(applicationRunId: number): Promise<AnalysisRunResult> {
   'use workflow';
@@ -105,12 +105,21 @@ async function executeGroundedAnalysis(applicationRunId: number): Promise<Execut
       policy: run.executionSnapshot.policy,
     });
     if (!execution.ok) {
-      return { ok: false, safeReason: execution.failureReason === 'timeout' ? 'timed_out' : 'execution_failed' };
+      return { ok: false, safeReason: mapSafeReason(execution.failureReason) };
     }
     return { ok: true, execution };
   } catch {
     return { ok: false, safeReason: 'execution_failed' };
   }
+}
+
+function mapSafeReason(
+  failureReason: Extract<GroundedExecutionResult, { readonly ok: false }>['failureReason'],
+): Extract<ExecutionStepResult, { readonly ok: false }>['safeReason'] {
+  if (failureReason === 'timeout') return 'timed_out';
+  if (failureReason === 'persona_policy_unavailable') return 'persona_policy_unavailable';
+  if (failureReason === 'policy_unavailable') return 'policy_unavailable';
+  return 'execution_failed';
 }
 
 async function normalizeGroundedPacket(
@@ -221,7 +230,10 @@ async function reconcileCompletedRun(applicationRunId: number) {
   return reconcileCompletedRunForReview({ runId: applicationRunId });
 }
 
-async function recordFailure(applicationRunId: number, safeReason: 'execution_failed' | 'timed_out') {
+async function recordFailure(
+  applicationRunId: number,
+  safeReason: 'execution_failed' | 'timed_out' | 'policy_unavailable' | 'persona_policy_unavailable',
+) {
   'use step';
   return transitionAnalysisRun({
     runId: applicationRunId,

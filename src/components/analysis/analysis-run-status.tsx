@@ -85,6 +85,8 @@ const SAFE_REASON_COPY = {
   dispatch_failed: 'The analysis could not be started.',
   execution_failed: 'The analysis did not complete.',
   timed_out: 'The analysis took too long and stopped safely.',
+  policy_unavailable: 'The analysis policy is not yet available for this run.',
+  persona_policy_unavailable: 'Persona analysis is temporarily unavailable while persona data protection is finalized.',
   cancelled: 'The analysis was cancelled.',
   completed: 'The analysis completed successfully.',
   replayed: 'This transition was already recorded.',

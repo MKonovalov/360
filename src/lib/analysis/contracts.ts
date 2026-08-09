@@ -359,6 +359,8 @@ export const safeOutcomeReasons = [
   'dispatch_failed',
   'execution_failed',
   'timed_out',
+  'policy_unavailable',
+  'persona_policy_unavailable',
   'cancelled',
   'completed',
   'replayed',

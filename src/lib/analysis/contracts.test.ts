@@ -214,6 +214,10 @@ describe('Phase 32 analysis contracts', () => {
     expect(boundedAttemptSchema.safeParse(2).success).toBe(true);
     expect(boundedAttemptSchema.safeParse(3).success).toBe(false);
     expect(safeOutcomeSchema.safeParse({ ok: false, reason: 'timed_out', attempts: 2 }).success).toBe(true);
+    expect(safeOutcomeSchema.safeParse({ ok: false, reason: 'persona_policy_unavailable', attempts: 1 }).success).toBe(
+      true,
+    );
+    expect(safeOutcomeSchema.safeParse({ ok: false, reason: 'policy_unavailable', attempts: 1 }).success).toBe(true);
     expect(safeOutcomeSchema.safeParse({ ok: false, reason: 'private_reasoning', attempts: 1 }).success).toBe(
       false,
     );

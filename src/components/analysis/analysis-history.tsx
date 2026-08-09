@@ -15,6 +15,8 @@ const SAFE_REASON_COPY: Readonly<Record<string, string>> = {
   cancelled: 'The analysis was cancelled.',
   execution_failed: 'The analysis did not complete.',
   timed_out: 'The analysis took too long and stopped safely.',
+  policy_unavailable: 'The analysis policy is not yet available for this run.',
+  persona_policy_unavailable: 'Persona analysis is temporarily unavailable while persona data protection is finalized.',
 };
 
 function assertNever(value: never): never {
