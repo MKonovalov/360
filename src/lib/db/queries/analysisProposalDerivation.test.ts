@@ -79,7 +79,7 @@ describe('grounded proposal derivation', () => {
 
     expect(proposals.map((proposal) => proposal.demonstrated)).toEqual([true, true, false, false]);
     expect(proposals.map((proposal) => proposal.signalId)).toEqual([11, 12, 13, 14]);
-    expect(proposals.every((proposal) => proposal.signalType === undefined)).toBe(true);
+    expect(proposals.every((proposal) => proposal.signalType === 'cost_pressure')).toBe(true);
     expect(proposals.every((proposal) => proposal.signalRecordType === 'company')).toBe(true);
     expect(proposals.map((proposal) => proposal.strength)).toEqual(['high', 'medium', 'low', 'high']);
     expect(proposals.map((proposal) => proposal.confidence)).toEqual(['C1', 'C2', 'C3', 'C1']);
