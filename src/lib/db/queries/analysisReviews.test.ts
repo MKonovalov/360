@@ -370,6 +370,8 @@ describe('listRunReviewItems', () => {
     expect(reconcileSql).toContain("'pending_review'");
     expect(reconcileSql).toContain('INSERT INTO analysis_run_event');
     expect(reconcileSql).toContain('analysis_result_retention');
+    expect(reconcileSql).toContain('active_run.status IN');
+    expect(reconcileSql).toContain('newer_completed.status =');
 
     const listSql = flattenSql(mocks.db.execute.mock.calls[1][0]);
     expect(listSql).toContain('FROM analysis_run');

@@ -3,7 +3,8 @@ import { z } from 'zod';
 
 import { deriveActiveChecklist } from '@/lib/analysis/checklist';
 import { analysisSubjectSchema } from '@/lib/analysis/contracts';
-import { buildAnalysisSnapshots } from '@/lib/analysis/snapshots';
+import { buildAnalysisSnapshots, buildPhase33AnalysisSnapshots } from '@/lib/analysis/snapshots';
+import { isPhase36FixtureMode, PHASE36_APPROVED_POLICY } from '@/lib/verification/phase36Fixtures';
 import {
   resolveActivePracticeArea,
   resolveAnalysisSubject,
@@ -66,7 +67,7 @@ export async function POST(request: Request) {
   const modelSettings = await getModelSettingsForUser(userId);
   const resolvedModelChain = resolveModelChain(modelSettings);
   const template = templateResolution.value;
-  const snapshots = buildAnalysisSnapshots({
+  const snapshotInput = {
     template: {
       schemaVersion: 1,
       templateId: template.templateId,
@@ -81,7 +82,10 @@ export async function POST(request: Request) {
     subject: subjectResolution.value,
     checklist,
     resolvedModelChain,
-  });
+  };
+  const snapshots = isPhase36FixtureMode()
+    ? buildPhase33AnalysisSnapshots(snapshotInput, PHASE36_APPROVED_POLICY)
+    : buildAnalysisSnapshots(snapshotInput);
 
   const created = await createAnalysisRun({
     ...snapshots,
@@ -125,6 +129,7 @@ function resolutionErrorResponse(reason: AnalysisResolutionReason): Response {
     case 'practice_area_not_found':
       return Response.json({ error: reason }, { status: 404 });
     case 'template_not_active':
+    case 'template_version_not_current':
     case 'subject_type_mismatch':
       return Response.json({ error: reason }, { status: 409 });
   }

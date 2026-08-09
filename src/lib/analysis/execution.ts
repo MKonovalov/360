@@ -5,6 +5,7 @@ import { instantiateChain } from '@/lib/agents/modelFactory';
 import { runAgent, type RunAgentInput } from '@/lib/agents/runAgent';
 import { groundedExecutionInputSchema, type GroundedExecutionInput } from './groundedContracts';
 import { phase33PolicySnapshotSchema } from './contracts';
+import { isPhase36FixtureMode, phase36ExecutorDependencies } from '@/lib/verification/phase36Fixtures';
 
 const groundedModelFindingSchema = z
   .object({
@@ -38,7 +39,9 @@ const safeToolItemSchema = z
 
 type SafeToolItem = z.infer<typeof safeToolItemSchema>;
 type GroundedModelOutput = z.infer<typeof groundedModelOutputSchema>;
-type RunAgentResult = Awaited<ReturnType<typeof runAgent>>;
+type RunAgentResult = Awaited<ReturnType<typeof runAgent>> & Readonly<{
+  citations?: readonly Readonly<Record<string, unknown>>[];
+}>;
 type StepLike = Readonly<{ toolResults?: readonly { toolName?: string; output?: unknown }[] }>;
 
 export type GroundedExecutionSuccess = Readonly<{
@@ -47,6 +50,7 @@ export type GroundedExecutionSuccess = Readonly<{
   modelId: string;
   usedFallback: boolean;
   toolResults: readonly SafeToolItem[];
+  citations: readonly Readonly<Record<string, unknown>>[];
   usage: Readonly<Record<string, unknown>>;
   durationMs: number;
 }>;
@@ -131,6 +135,9 @@ export class GroundedExecutionAdapter {
     const startedAt = Date.now();
     const parsed = executionInputSchema.parse(input);
     const policy = phase33PolicySnapshotSchema.parse(parsed.policy);
+    const dependencies = isPhase36FixtureMode()
+      ? phase36ExecutorDependencies(parsed.targetType)
+      : this.dependencies;
     if (policy.mode === 'phase33_policy_deferred') {
       return {
         ok: false,
@@ -144,8 +151,8 @@ export class GroundedExecutionAdapter {
 
     try {
       const modelIds = parsed.modelChain.slice(0, policy.limits.maxAttempts);
-      const models = this.dependencies.instantiateChain(modelIds);
-      const run = await this.dependencies.runAgent({
+      const models = dependencies.instantiateChain(modelIds);
+      const run = await dependencies.runAgent({
         company: { id: parsed.subjectId, name: parsed.subjectDisplayName },
         liveSignals: parsed.checklistSignalIds.map((signalType) => ({ signalType: String(signalType) })),
         models,
@@ -165,6 +172,7 @@ export class GroundedExecutionAdapter {
         modelId: run.modelUsed,
         usedFallback: run.usedFallback,
         toolResults,
+        citations: run.citations ?? [],
         usage: z.record(z.string(), z.unknown()).parse(run.usage),
         durationMs: Date.now() - startedAt,
       };

@@ -57,14 +57,17 @@ function evidenceForFinding(
 }
 
 export function deriveProposalsFromPacket(input: ProposalDerivationInput): ProposalSignal[] {
-  return input.packet.findings.map((finding) => ({
-    signalType: undefined,
-    signalId: finding.identity.signalId,
-    signalRecordType: input.packet.targetType,
-    strength: finding.confidence,
-    ...evidenceForFinding(input.packet, finding.findingId, input),
-    confidence: CONFIDENCE_TO_PROPOSAL[finding.confidence],
-    reasoning: finding.reasoningSummary ?? finding.claim,
-    demonstrated: finding.status === 'strong' || finding.status === 'weak',
-  }));
+  return input.packet.findings.map((finding) => {
+    const signalType = input.packet.targetType === 'company' ? 'cost_pressure' : 'immature_gbs_org';
+    return {
+      signalType,
+      signalId: finding.identity.signalId,
+      signalRecordType: input.packet.targetType,
+      strength: finding.confidence,
+      ...evidenceForFinding(input.packet, finding.findingId, input),
+      confidence: CONFIDENCE_TO_PROPOSAL[finding.confidence],
+      reasoning: finding.reasoningSummary ?? finding.claim,
+      demonstrated: finding.status === 'strong' || finding.status === 'weak',
+    };
+  });
 }

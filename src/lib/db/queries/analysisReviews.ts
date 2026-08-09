@@ -62,7 +62,9 @@ export async function reconcileCompletedRunForReview(
 
   const result = await db.execute<ReconcileOutcomeRow>(sql`
     WITH current_run AS (
-      SELECT id, status FROM analysis_run WHERE id = ${runId}
+      SELECT id, status, subject_type, subject_id, template_id, created_at
+      FROM analysis_run
+      WHERE id = ${runId}
     ),
     packet AS (
       SELECT result.id, result.packet_hash
@@ -78,9 +80,33 @@ export async function reconcileCompletedRunForReview(
     updated AS (
       UPDATE analysis_run
       SET status = 'pending_review', updated_at = ${nowIso}
-      WHERE id = ${runId} AND status = 'completed'
+      FROM current_run
+      WHERE analysis_run.id = current_run.id AND current_run.status = 'completed'
         AND EXISTS (SELECT 1 FROM packet)
-      RETURNING id
+        AND NOT EXISTS (
+          SELECT 1
+          FROM analysis_run AS active_run
+          WHERE active_run.subject_type = current_run.subject_type
+            AND active_run.subject_id = current_run.subject_id
+            AND active_run.template_id = current_run.template_id
+            AND active_run.status IN ('queued', 'running', 'pending_review')
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM analysis_run AS newer_completed
+          WHERE newer_completed.subject_type = current_run.subject_type
+            AND newer_completed.subject_id = current_run.subject_id
+            AND newer_completed.template_id = current_run.template_id
+            AND newer_completed.status = 'completed'
+            AND (
+              newer_completed.created_at > current_run.created_at
+              OR (
+                newer_completed.created_at = current_run.created_at
+                AND newer_completed.id > current_run.id
+              )
+            )
+        )
+        RETURNING analysis_run.id
     ),
     inserted_event AS (
       INSERT INTO analysis_run_event (
@@ -311,6 +337,29 @@ export async function listRunReviewItems(
           SELECT 1 FROM analysis_run_result AS result
           WHERE result.analysis_run_id = run.id
             AND ${packetVisibilitySql(nowIso)}
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM analysis_run AS active_run
+          WHERE active_run.subject_type = run.subject_type
+            AND active_run.subject_id = run.subject_id
+            AND active_run.template_id = run.template_id
+            AND active_run.status IN ('queued', 'running', 'pending_review')
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM analysis_run AS newer_completed
+          WHERE newer_completed.subject_type = run.subject_type
+            AND newer_completed.subject_id = run.subject_id
+            AND newer_completed.template_id = run.template_id
+            AND newer_completed.status = 'completed'
+            AND (
+              newer_completed.created_at > run.created_at
+              OR (
+                newer_completed.created_at = run.created_at
+                AND newer_completed.id > run.id
+              )
+            )
         )
       RETURNING id
     ),

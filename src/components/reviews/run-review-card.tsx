@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { WholeRunDecision } from '@/lib/analysis/reviewContracts';
 import { dateFormatter, humanizeEnum } from '@/components/explorer/explorer-format';
 import { RunReviewActions } from './run-review-actions';
@@ -43,8 +44,17 @@ export type RunReviewCardData = {
   readonly findings: readonly RunReviewFinding[];
 };
 
-export function RunReviewCard({ item }: { item: RunReviewCardData }) {
+export type RunReviewCardMode = 'interactive' | 'readonly';
+
+export function RunReviewCard({
+  item,
+  mode = 'interactive',
+}: {
+  readonly item: RunReviewCardData;
+  readonly mode?: RunReviewCardMode;
+}) {
   const decided = item.decision !== null;
+  const isReadonly = mode === 'readonly';
   return (
     <div data-run-id={item.runId} className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
       <div className="flex items-center justify-between gap-2">
@@ -116,12 +126,27 @@ export function RunReviewCard({ item }: { item: RunReviewCardData }) {
 
       <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
         {item.packetMissing ? (
-          <p className="text-[14px] text-slate-500">Decision unavailable — packet missing.</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-[14px] text-slate-500">Decision unavailable — packet missing.</p>
+            {isReadonly && item.status === 'pending_review' ? (
+              <Link href="/reviews" className="text-[14px] text-indigo-600 hover:text-indigo-800 hover:underline">
+                Review in Reviews →
+              </Link>
+            ) : null}
+          </div>
         ) : decided ? (
           <p className="text-[14px] text-slate-600">
             {item.decision === 'confirmed' ? 'Confirmed' : 'Dismissed'} by {item.decidedBy} at{' '}
             {item.decidedAt ? dateFormatter.format(new Date(item.decidedAt)) : '—'}.
           </p>
+        ) : isReadonly ? (
+          item.status === 'pending_review' ? (
+            <Link href="/reviews" className="text-[14px] text-indigo-600 hover:text-indigo-800 hover:underline">
+              Review in Reviews →
+            </Link>
+          ) : (
+            <p className="text-[14px] text-slate-500">No review decision has been recorded.</p>
+          )
         ) : (
           <RunReviewActions runId={item.runId} />
         )}

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useUser, SignOutButton } from '@clerk/nextjs';
-import { Building2, Inbox, Layers, LayoutDashboard, Mail, PanelLeftClose, PanelLeftOpen, Radar, Settings, Users } from 'lucide-react';
+import { Bot, Building2, Inbox, Layers, LayoutDashboard, Mail, PanelLeftClose, PanelLeftOpen, Radar, Settings, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getActiveNavKey } from '@/lib/nav';
 import { getUserDisplayName, getUserInitials } from '@/lib/user';
@@ -169,6 +169,19 @@ export function AppSidebar({ pendingCount = 0 }: { pendingCount?: number }) {
         <SidebarGroup className="-mt-1">
           <SidebarGroupLabel className="pointer-events-none text-[13px] font-semibold">Manage</SidebarGroupLabel>
           <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={activeKey === 'agents'}
+                tooltip={getNavTooltipLabel('agents', pendingCount)}
+                className="h-[30px] p-0 px-2 gap-2.5 rounded-[4px] text-[15px] font-normal"
+              >
+                <Link href="/agents">
+                  <Bot />
+                  <span>Agents</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild

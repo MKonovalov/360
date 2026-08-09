@@ -13,5 +13,13 @@ export function getCollapseToggleLabel(state: 'expanded' | 'collapsed'): 'Collap
 
 export function getNavTooltipLabel(key: NavKey, pendingCount: number): string {
   if (key === 'reviews') return pendingCount > 0 ? `Reviews (${pendingCount})` : 'Reviews';
-  return { start: 'Start', companies: 'Companies', personas: 'Key Personas', signals: 'Signals', offerings: 'Offerings', settings: 'Settings' }[key];
+  return {
+    start: 'Start',
+    companies: 'Companies',
+    personas: 'Key Personas',
+    agents: 'Agents',
+    signals: 'Signals',
+    offerings: 'Offerings',
+    settings: 'Settings',
+  }[key];
 }

@@ -205,8 +205,6 @@ export function normalizeAnalysisPacket(input: unknown): NormalizedAnalysisPacke
       findingId: finding.findingId,
       identity: {
         signalId: item.signalId,
-        signalName: item.name,
-        signalCategory: item.category,
         buyerRoleId: item.buyerRoleId ?? null,
       },
       status: finding.status,

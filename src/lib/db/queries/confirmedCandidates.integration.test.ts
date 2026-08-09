@@ -592,6 +592,50 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
     expect(personaRows[0].linkIdentity.offeringId).toBe(personaOffering);
   });
 
+  it('isolates equal numeric subject IDs by target discriminator', async () => {
+    const catalogPa = await createCatalogPracticeArea();
+    const companyOffering = await insertOffering(catalogPa, 'active');
+    const personaOffering = await insertOffering(catalogPa, 'active');
+    await insertSignalOfferingLink('company', 5701, companyOffering);
+    await insertSignalOfferingLink('persona', 5701, personaOffering);
+
+    const companyRunId = await createRun('company', 920700);
+    await completeRun(companyRunId);
+    await persistPacket(companyRunId, 'company', [
+      { key: `f-company-subject-${companyRunId}`, signalId: 5701, status: 'strong', sourceKeys: [`s-annual-${companyRunId}`] },
+    ]);
+    await confirmRun(companyRunId);
+
+    const personaRunId = await createRun('persona', 920700);
+    await completeRun(personaRunId);
+    await persistPacket(
+      personaRunId,
+      'persona',
+      [{ key: `f-persona-subject-${personaRunId}`, signalId: 5701, status: 'strong', sourceKeys: [`s-annual-${personaRunId}`] }],
+      { now: COMPLETED_AT },
+    );
+    await confirmRun(personaRunId);
+
+    const queryNow = new Date(COMPLETED_AT.getTime() + 30_000);
+    const companyRows = await candidateQueries.listConfirmedCandidateOfferingsForSubject({
+      targetType: 'company',
+      subjectId: 920700,
+      now: queryNow,
+    });
+    const personaRows = await candidateQueries.listConfirmedCandidateOfferingsForSubject({
+      targetType: 'persona',
+      subjectId: 920700,
+      now: queryNow,
+    });
+
+    expect(companyRows).toHaveLength(1);
+    expect(companyRows[0].offeringId).toBe(companyOffering);
+    expect(companyRows[0].offeringName).toContain('Candidate Offering');
+    expect(personaRows).toHaveLength(1);
+    expect(personaRows[0].offeringId).toBe(personaOffering);
+    expect(personaRows[0].offeringName).toContain('Candidate Offering');
+  });
+
   it('presents active offerings as the default display and retains retired/draft historical identity', async () => {
     const runId = await createRun('company', 920300);
     await completeRun(runId);
@@ -686,11 +730,32 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
     );
     await confirmRun(expiredRunId, new Date(COMPLETED_AT.getTime() + 30_000));
 
+    // Tombstoned persona candidate: even an unexpired timestamp is invisible.
+    const tombstonedRunId = await createRun('persona', 920502);
+    await completeRun(tombstonedRunId);
+    await persistPacket(
+      tombstonedRunId,
+      'persona',
+      [{ key: `f-tombstoned-${tombstonedRunId}`, signalId: 5601, status: 'strong', sourceKeys: [`s-annual-${tombstonedRunId}`] }],
+      { now: COMPLETED_AT },
+    );
+    await confirmRun(tombstonedRunId, new Date(COMPLETED_AT.getTime() + 30_000));
+    const [tombstonedResult] = await dbModule.db
+      .select({ id: schema.analysisRunResult.id })
+      .from(schema.analysisRunResult)
+      .where(eq(schema.analysisRunResult.analysisRunId, tombstonedRunId));
+    if (!tombstonedResult) throw new Error('tombstoned fixture result was not created');
+    await dbModule.db
+      .update(schema.analysisResultRetention)
+      .set({ status: 'tombstoned', tombstonedAt: new Date(COMPLETED_AT.getTime() + 30_000) })
+      .where(eq(schema.analysisResultRetention.resultId, tombstonedResult.id));
+
     const candidates = await candidateQueries.listConfirmedCandidateOfferings({
       now: new Date(COMPLETED_AT.getTime() + 30_000),
     });
     expect(candidates.some((candidate) => candidate.analysisRunId === liveRunId)).toBe(true);
     expect(candidates.some((candidate) => candidate.analysisRunId === expiredRunId)).toBe(true);
+    expect(candidates.some((candidate) => candidate.analysisRunId === tombstonedRunId)).toBe(false);
 
     // After the retention window both persona packets are invisible.
     const afterExpiry = await candidateQueries.listConfirmedCandidateOfferings({
@@ -698,6 +763,7 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
     });
     expect(afterExpiry.some((candidate) => candidate.analysisRunId === liveRunId)).toBe(false);
     expect(afterExpiry.some((candidate) => candidate.analysisRunId === expiredRunId)).toBe(false);
+    expect(afterExpiry.some((candidate) => candidate.analysisRunId === tombstonedRunId)).toBe(false);
   });
 
   it('is read-only: signals, links, and offerings are untouched by candidate reads', async () => {
@@ -737,5 +803,28 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
     expect(await countRows('offering')).toBe(before.offerings);
     expect(await countRows('companySignal')).toBe(before.companySignals);
     expect(await countRows('personaSignal')).toBe(before.personaSignals);
+  });
+
+  it('aggregates only source-backed strong/weak findings for each target contract', async () => {
+    const catalogPa = await createCatalogPracticeArea();
+    for (const targetType of ['company', 'persona'] as const) {
+      const signalId = targetType === 'company' ? 5801 : 5802;
+      const subjectId = targetType === 'company' ? 920800 : 920801;
+      const offeringId = await insertOffering(catalogPa, 'active');
+      await insertSignalOfferingLink(targetType, signalId, offeringId);
+      const runId = await createRun(targetType, subjectId);
+      await completeRun(runId);
+      await persistPacket(runId, targetType, [
+        { key: `f-eligible-${runId}`, signalId, status: 'weak', sourceKeys: [`s-annual-${runId}`] },
+        { key: `f-excluded-${runId}`, signalId: signalId + 100, status: 'no_evidence' },
+      ], { now: targetType === 'persona' ? COMPLETED_AT : undefined });
+      await confirmRun(runId);
+
+      const rows = await candidateQueries.listConfirmedCandidateOfferingsForSubject({ targetType, subjectId });
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.analysisRunId).toBe(runId);
+      expect(rows[0]?.evidenceStatus).toBe('weak');
+      expect(rows[0]?.targetType).toBe(targetType);
+    }
   });
 });

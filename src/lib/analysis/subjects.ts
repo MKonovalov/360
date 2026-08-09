@@ -13,6 +13,7 @@ import {
 export const analysisResolutionReasons = [
   'invalid_input',
   'template_not_active',
+  'template_version_not_current',
   'template_version_not_found',
   'subject_type_mismatch',
   'subject_not_found',
@@ -78,6 +79,9 @@ export async function resolveAnalysisTemplateVersion(input: unknown) {
   if (!version) return { ok: false, reason: 'template_version_not_found' } as const;
   if (version.status !== 'active') {
     return { ok: false, reason: 'template_not_active' } as const;
+  }
+  if (!version.isCurrent) {
+    return { ok: false, reason: 'template_version_not_current' } as const;
   }
   return { ok: true, value: version } as const;
 }

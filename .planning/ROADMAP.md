@@ -132,9 +132,9 @@ Full details: [`.planning/milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.m
 - [x] **Phase 31: Durable Executor Selection & Validation** - Select and prove a Vercel-compatible executor can independently claim, complete, recover, or safely fail a durable run.
 - [x] **Phase 32: Template, Snapshot & Run Ledger** - Establish two compatible GBS templates and the immutable run ledger that records intent, lifecycle, limits, and safe audit outcomes. (completed 2026-08-07; final gate passed against TEST_DATABASE_URL)
 - [x] **Phase 33: Grounded Analysis Execution & Evidence** - Execute snapshotted runs through the existing modelFactory and Firecrawl seam, persisting safe, source-grounded findings. (completed 2026-08-07)
-- [ ] **Phase 34: Whole-Run Review & Confirmed Candidates** - Apply one idempotent decision per completed run and expose only confirmed, provenance-backed candidate offerings.
-- [ ] **Phase 35: Company & Persona Analysis Experiences** - Give staff preview, launch, history, result, source, and review visibility from both target records.
-- [ ] **Phase 36: Agent Management & End-to-End Verification** - Version and manage templates, then prove lifecycle, grounding, security, review, aggregation, and both target flows.
+- [x] **Phase 34: Whole-Run Review & Confirmed Candidates** - Apply one idempotent decision per completed run and expose only confirmed, provenance-backed candidate offerings. (completed 2026-08-08)
+- [x] **Phase 35: Company & Persona Analysis Experiences** - Give staff preview, launch, history, result, source, and review visibility from both target records. (completed 2026-08-09; authenticated acceptance covered by the Phase 36 superset run)
+- [x] **Phase 36: Agent Management & End-to-End Verification** - Version and manage templates, then prove lifecycle, grounding, security, review, aggregation, and both target flows. (completed 2026-08-08)
 
 ## Progress
 
@@ -176,9 +176,9 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 31. Durable Executor Selection & Validation | v1.7 | 3/3 | Complete | 2026-08-07 |
 | 32. Template, Snapshot & Run Ledger | v1.7 | 5/5 | Complete | 2026-08-07 |
 | 33. Grounded Analysis Execution & Evidence | v1.7 | 6/6 | Complete   | 2026-08-07 |
-| 34. Whole-Run Review & Confirmed Candidates | v1.7 | 3/4 | In Progress|  |
-| 35. Company & Persona Analysis Experiences | v1.7 | 0/TBD | Not started | - |
-| 36. Agent Management & End-to-End Verification | v1.7 | 0/TBD | Not started | - |
+| 34. Whole-Run Review & Confirmed Candidates | v1.7 | 4/4 | Complete | 2026-08-08 |
+| 35. Company & Persona Analysis Experiences | v1.7 | 4/4 | Complete | 2026-08-09 |
+| 36. Agent Management & End-to-End Verification | v1.7 | 7/7 | Complete   | 2026-08-08 |
 
 ---
 
@@ -497,9 +497,18 @@ Plans:
 **Depends on**: Phases 31-35
 **Requirements**: UX-03, VER-01
 **Success Criteria** (what must be TRUE):
-  1. In `Manage > Reviews > Agents`, staff can view and edit template instructions and default effort, with every save creating a new immutable version and templates being activatable or retireable.
+  1. In `Manage > Agents`, staff can view and edit template instructions and default effort, with every save creating a new immutable version and templates being activatable or retireable.
   2. Automated verification proves lifecycle recovery, duplicate-run prevention, whole-run decision idempotency, confirmed-only aggregation, and source-grounded findings.
   3. Adversarial verification proves prompt-injection and tool-policy controls reject unsafe research content and preserve the no-write boundary.
   4. Live Company and Persona end-to-end flows prove preview, durable execution, result inspection, one whole-run decision, and confirmed-only candidate visibility.
-**Plans**: TBD
+**Plans**: 7 plans
+
+Plans:
+- [x] 36-01-PLAN.md — Fixed-template contracts, latest/history queries, immutable version and lifecycle invariants
+- [x] 36-02-PLAN.md — Staff-gated template management Server Actions and no-live-write boundary
+- [x] 36-03-PLAN.md — `/agents` management page, two fixed template cards, editor, lifecycle, and history UI
+- [x] 36-04-PLAN.md — Manage navigation wiring and canonical `/agents` route verification
+- [x] 36-05-PLAN.md — Deterministic lifecycle, grounding, adversarial, review, aggregation, and scope gates
+- [x] 36-06-PLAN.md — Authenticated real-app Company/Persona E2E with deterministic executor/fixture packet
+- [x] 36-07-PLAN.md — Final automated gate, sanitized evidence ledger, and optional-smoke disposition
 **UI hint**: yes

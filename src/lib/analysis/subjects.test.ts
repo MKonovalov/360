@@ -120,6 +120,21 @@ describe('analysis subject and catalog resolution', () => {
     });
   });
 
+  it('rejects a historical version even when its fixed template remains active', async () => {
+    mocks.getAnalysisTemplateVersion.mockResolvedValue({
+      templateId: 1,
+      templateVersionId: 11,
+      status: 'active',
+      targetType: 'company',
+      isCurrent: false,
+    });
+
+    await expect(resolveAnalysisTemplateVersion(11)).resolves.toEqual({
+      ok: false,
+      reason: 'template_version_not_current',
+    });
+  });
+
   it('returns active immutable template version data for snapshot construction', async () => {
     const version = {
       templateId: 1,
@@ -138,6 +153,7 @@ describe('analysis subject and catalog resolution', () => {
         maxExecutionSeconds: 300,
         maxSpendUsd: 2.5,
       },
+      isCurrent: true,
     };
     mocks.getAnalysisTemplateVersion.mockResolvedValue(version);
 

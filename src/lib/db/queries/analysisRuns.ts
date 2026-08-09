@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 
 import {
   ANALYSIS_RUN_STATUSES,
@@ -10,8 +10,13 @@ import {
   type ReadonlyAnalysisSnapshot,
   type SafeOutcomeReason,
 } from '@/lib/analysis/contracts';
+import {
+  analysisRunHistoryRowSchema,
+  type AnalysisRunHistoryRow,
+  type SubjectScope,
+} from '@/lib/analysis/experienceContracts';
 import { db } from '../index';
-import { analysisRun, analysisRunEvent } from '../schema';
+import { analysisRun, analysisRunEvent, analysisRunResult, analysisRunReview } from '../schema';
 
 // The exact status set the partial unique index
 // analysis_run_active_subject_template_idx blocks duplicates with. Kept in one
@@ -107,6 +112,56 @@ export async function listAnalysisRunEvents(runId: number): Promise<AnalysisRunE
     .from(analysisRunEvent)
     .where(eq(analysisRunEvent.analysisRunId, runId))
     .orderBy(analysisRunEvent.createdAt, analysisRunEvent.id);
+}
+
+// D-35-04/D-35-05: history is a read-only, all-status projection. Both parts
+// of the polymorphic subject identity stay in SQL so equal Company/Persona IDs
+// cannot cross-resolve, and no review reconciliation is triggered by a read.
+export async function listAnalysisRunsForSubject(
+  scope: SubjectScope,
+): Promise<AnalysisRunHistoryRow[]> {
+  const rows = await db
+    .select({ run: analysisRun, review: analysisRunReview, result: analysisRunResult })
+    .from(analysisRun)
+    .leftJoin(analysisRunReview, eq(analysisRunReview.analysisRunId, analysisRun.id))
+    .leftJoin(analysisRunResult, eq(analysisRunResult.analysisRunId, analysisRun.id))
+    .where(
+      and(
+        eq(analysisRun.subjectType, scope.targetType),
+        eq(analysisRun.subjectId, scope.subjectId),
+      ),
+    )
+    .orderBy(desc(analysisRun.createdAt), desc(analysisRun.id));
+
+  return rows.map(({ run, review, result }) =>
+    analysisRunHistoryRowSchema.parse({
+      runId: run.id,
+      status: run.status,
+      targetType: run.subjectType,
+      subjectId: run.subjectId,
+      subjectDisplayName: run.subjectSnapshot.displayName,
+      templateVersionId: run.templateVersionId,
+      templateName: run.templateSnapshot.templateName,
+      practiceAreaId: run.practiceAreaId,
+      practiceAreaName: run.checklistSnapshot.practiceAreaName,
+      safeReason: run.safeReason,
+      createdAt: run.createdAt.toISOString(),
+      startedAt: run.startedAt?.toISOString() ?? null,
+      completedAt: run.completedAt?.toISOString() ?? null,
+      terminalAt: run.terminalAt?.toISOString() ?? null,
+      updatedAt: run.updatedAt.toISOString(),
+      review: review
+        ? {
+            decision: review.decision,
+            decidedBy: review.decidedBy,
+            decidedAt: review.decidedAt.toISOString(),
+          }
+        : null,
+      packetProjection: result
+        ? { resultId: result.id, packetHash: result.packetHash }
+        : null,
+    }),
+  );
 }
 
 // The installed neon-http driver rejects interactive db.transaction (see

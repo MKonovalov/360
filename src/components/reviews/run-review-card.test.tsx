@@ -180,6 +180,14 @@ describe('RunReviewCard', () => {
     expect(html).not.toContain('aria-label="Dismiss run');
   });
 
+  it('renders pending review as read-only with a Reviews link and no decision controls', () => {
+    const html = renderToStaticMarkup(<RunReviewCard item={PENDING_ITEM} mode="readonly" />);
+    expect(html).toContain('href="/reviews"');
+    expect(html).toContain('Review in Reviews');
+    expect(html).not.toContain('aria-label="Confirm run');
+    expect(html).not.toContain('aria-label="Dismiss run');
+  });
+
   it('never renders chain-of-thought, raw reasoning, narrative, or persona-sensitive fields', () => {
     const html = renderToStaticMarkup(<RunReviewCard item={PENDING_ITEM} />);
     expect(html.toLowerCase()).not.toContain('reasoning');

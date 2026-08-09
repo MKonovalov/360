@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Agent Constructor & Buying Signal Analysis
-status: executing
-last_updated: "2026-08-08T19:40:00.000Z"
-last_activity: 2026-08-08
+status: shipping
+last_updated: "2026-08-09T04:25:20Z"
+last_activity: 2026-08-09
 progress:
   total_phases: 14
-  completed_phases: 3
-  total_plans: 19
-  completed_plans: 18
-  percent: 95
+  completed_phases: 10
+  total_plans: 77
+  completed_plans: 71
+  percent: 71
 ---
 
 # Project State
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-06)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** Phase 34 — Whole-Run Review & Confirmed Candidates
+**Current focus:** Phase 36 — shipping Phase 35/36 after authenticated acceptance
 
 ## Current Position
 
-Phase: 34 of 36 (Whole-Run Review & Confirmed Candidates) — ✅ COMPLETE
-Plan: 4 of 4 (Adversarial Gate & Authenticated UAT)
-Status: Complete — Ready for Phase 35
-Last activity: 2026-08-08T19:40Z
+Phase: 36 of 36 (Agent Management & End-to-End Verification)
+Plan: 7 of 7
+Status: Shipping — authenticated Playwright 5/5 passed; separate database/Workflow matrix remains documented as prerequisite-gated
+Last activity: 2026-08-09
 
-Progress: [██████████] 95% (3 of 3 v1.7 phases complete: 31, 32, 33, 34)
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -59,6 +59,14 @@ Progress: [██████████] 95% (3 of 3 v1.7 phases complete: 31,
 | Phase 34-whole-run-review-confirmed-candidates P02 | 61m | 2 tasks | 6 files |
 | Phase 34-whole-run-review-confirmed-candidates P03 | 17m | 2 tasks | 8 files |
 | Phase 34-whole-run-review-confirmed-candidates P04 | ~30m | 2 tasks (automated + UAT) | 3 files + 1 E2E test |
+| Phase 36 P01 | 10m | 2 tasks | 5 files |
+| Phase 36 P02 | 17m | 2 tasks | 3 files |
+| Phase 36 P02 | 17m | 2 tasks | 3 files |
+| Phase 36 P3 | 26m | 2 tasks | 5 files |
+| Phase 36 P04 | 5m | 2 tasks | 5 files |
+| Phase 36 P05 | 7m | 2 tasks | 9 files |
+| Phase 36 P06 | 10m | 2 tasks | 8 files |
+| Phase 36 P7 | 12m | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -88,6 +96,22 @@ Progress: [██████████] 95% (3 of 3 v1.7 phases complete: 31,
 - [Phase 34-whole-run-review-confirmed-candidates]: Polymorphic join casts both sides to text: signal_offering_link.signal_type is record_type while analysis_run.subject_type is analysis_target_type — two distinct PG enum types.
 - [Phase 34-whole-run-review-confirmed-candidates]: Confirmed review identity is enforced by the INNER JOIN on analysis_run_review decision = 'confirmed'; candidate rows do not carry decided_by/decided_at because the closed 34-01 contract omits them.
 - [Phase 34-whole-run-review-confirmed-candidates]: Deterministic duplicate provenance: multiple sources per finding survive as separate evidence rows; normalizeCandidateEvidence orders by run:finding:source without grouping.
+- [Phase ?]: Fixed template management input remains limited to the seeded Company and Persona keys.
+- [Phase ?]: Neon-safe append conflicts are classified without mutating immutable history.
+- [Phase ?]: Lifecycle changes update only analysis_template and preserve versions and run snapshots.
+- [Phase ?]: Template management revalidates only /agents because management changes do not rewrite historical runs or live catalog data.
+- [Phase ?]: Unexpected template query failures return action_failed while concurrent immutable-version conflicts remain safe reloadable outcomes.
+- [Phase 36]: The public management route is /agents and the UI allowlists the two canonical fixed template keys.
+- [Phase 36]: Only current instruction and defaultEffort are submitted for content saves; lifecycle submits only the fixed key and next status.
+- [Phase 36]: Historical versions remain read-only while lifecycle changes preserve the current version.
+- [Phase 36]: Agents is the first Manage item and links only to the canonical exact leaf route /agents. — Keeps the public route and placement aligned with D-36-07.
+- [Phase 36]: Authenticated route/sidebar E2E uses the real app and existing Clerk storage state without mocking app HTML. — Preserves real route wiring evidence while keeping database fixture prerequisites separate.
+- [Phase 36]: Deterministic Phase 36 verification uses the existing executor injection seam.
+- [Phase 36]: TEST_DATABASE_URL absence blocks Neon/Workflow evidence and is recorded as blocked, not passed.
+- [Phase 36]: Fixture mode requires PHASE36_FIXTURE_ONLY=1 plus a marked application URL that normalizes to the same disposable database identity as TEST_DATABASE_URL.
+- [Phase 36]: Authenticated browser evidence passed 5/5 originally in 31.2s and again after ship-review remediation in 36.9s with guarded disposable fixtures; the independent database/Workflow matrix remains prerequisite-gated.
+- [Phase 36]: Final evidence distinguishes passing deterministic/unit/build/scope gates from blocked Neon, Workflow, and authenticated browser prerequisites.
+- [Phase 36]: Optional provider/Firecrawl smoke remains non-gating and is recorded not_run with policy_or_credentials_unavailable.
 
 ### Pending Todos
 
@@ -99,6 +123,7 @@ None.
 - Phase 32 planning must inventory legacy `agent_run`/proposal/review relations before selecting additive migration details.
 - Persona enablement needs explicit privacy, redaction, classification, and retention policy values before Phase 33 implementation.
 - Phase 32's original parallel seed/ledger command exposed a shared disposable-database fixture race; validation now serializes those two files without weakening assertions.
+- TEST_DATABASE_URL is missing; 36-05 database and Workflow evidence remains blocked.
 
 ## Deferred Items
 
@@ -109,7 +134,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-08-08T19:40:00Z
-Stopped at: Completed Phase 34-04; adversarial gate + authenticated fixture-only UAT passed; Phase 34 complete
-Next: Phase 35 — Company & Persona Analysis Experiences
+Last session: 2026-08-09T04:25:20Z
+Stopped at: Phase 35/36 ship preparation after authenticated Playwright 5/5 and review-work remediation
+Next: Review and merge the Phase 35/36 pull request when CI is acceptable
 Resume file: None

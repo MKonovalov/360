@@ -58,8 +58,36 @@ type PersistedResultRow = {
   readonly inserted: boolean;
 };
 
+function stripRecitedFindingIdentity(input: unknown): unknown {
+  if (typeof input !== 'object' || input === null || !('findings' in input) || !Array.isArray(input.findings)) {
+    return input;
+  }
+
+  return {
+    ...input,
+    findings: input.findings.map((finding) => {
+      if (
+        typeof finding !== 'object'
+        || finding === null
+        || !('identity' in finding)
+        || typeof finding.identity !== 'object'
+        || finding.identity === null
+      ) {
+        return finding;
+      }
+      return {
+        ...finding,
+        identity: {
+          signalId: 'signalId' in finding.identity ? finding.identity.signalId : undefined,
+          buyerRoleId: 'buyerRoleId' in finding.identity ? finding.identity.buyerRoleId : null,
+        },
+      };
+    }),
+  };
+}
+
 export function prepareAnalysisPacket(input: PreparationInput): PreparedAnalysisPacket {
-  const validated = validateGroundedPacket(input.packet, input.checklistSignalIds);
+  const validated = validateGroundedPacket(stripRecitedFindingIdentity(input.packet), input.checklistSignalIds);
   const sourcesByCanonicalUrl = new Map<string, CanonicalSource>();
   const sourceIdMap = new Map<string, string>();
 
@@ -127,7 +155,7 @@ export async function persistAnalysisPacket(input: PersistenceInput): Promise<Pe
         ${retention?.classification ?? null}, ${retention?.expiresAt.toISOString() ?? null}
       )
       ON CONFLICT (analysis_run_id) DO NOTHING
-      RETURNING id
+      RETURNING id, packet_hash
     ),
     inserted_findings AS (
       INSERT INTO analysis_finding (
@@ -138,10 +166,28 @@ export async function persistAnalysisPacket(input: PersistenceInput): Promise<Pe
       SELECT
         inserted_result.id, ${input.runId}, item->>'findingId',
         (item->'identity'->>'signalId')::integer,
-        item->'identity'->>'signalName', item->'identity'->>'signalCategory',
+        (
+          SELECT checklist_item->>'name'
+          FROM analysis_run AS source_run
+          CROSS JOIN LATERAL jsonb_array_elements(source_run.checklist_snapshot->'items') AS checklist_item
+          WHERE source_run.id = ${input.runId}
+            AND (checklist_item->>'signalId')::integer = (item->'identity'->>'signalId')::integer
+          LIMIT 1
+        ),
+        (
+          SELECT checklist_item->>'category'
+          FROM analysis_run AS source_run
+          CROSS JOIN LATERAL jsonb_array_elements(source_run.checklist_snapshot->'items') AS checklist_item
+          WHERE source_run.id = ${input.runId}
+            AND (checklist_item->>'signalId')::integer = (item->'identity'->>'signalId')::integer
+          LIMIT 1
+        ),
         NULLIF(item->'identity'->>'buyerRoleId', '')::integer,
-        item->>'status', item->>'confidence', item->>'claim', item->>'reasoningSummary',
-        ${retention?.policy.policyVersion ?? null}, ${retention?.classification ?? null},
+        (item->>'status')::analysis_evidence_status,
+        (item->>'confidence')::analysis_confidence,
+        item->>'claim', item->>'reasoningSummary',
+        ${retention?.policy.policyVersion ?? null},
+        ${retention?.classification ?? null}::analysis_source_classification,
         ${retention?.expiresAt.toISOString() ?? null}
       FROM inserted_result
       CROSS JOIN LATERAL jsonb_array_elements(${JSON.stringify(packet.findings)}::jsonb) AS item
@@ -155,7 +201,8 @@ export async function persistAnalysisPacket(input: PersistenceInput): Promise<Pe
       SELECT
         inserted_result.id, item->>'sourceId', item->>'canonicalUrl', item->>'title',
         (item->>'retrievedAt')::timestamptz, item->>'excerpt', item->>'contentHash',
-        item->>'classification', ${retention?.policy.policyVersion ?? null},
+        (item->>'classification')::analysis_source_classification,
+        ${retention?.policy.policyVersion ?? null},
         ${retention?.expiresAt.toISOString() ?? null}
       FROM inserted_result
       CROSS JOIN LATERAL jsonb_array_elements(${JSON.stringify(packet.sources)}::jsonb) AS item
@@ -163,7 +210,8 @@ export async function persistAnalysisPacket(input: PersistenceInput): Promise<Pe
     ),
     inserted_links AS (
       INSERT INTO analysis_finding_source (result_id, finding_id, source_id, locator, support_role)
-      SELECT inserted_result.id, finding.id, source.id, item->>'locator', item->>'supportRole'
+      SELECT inserted_result.id, finding.id, source.id, item->>'locator',
+        (item->>'supportRole')::analysis_support_role
       FROM inserted_result
       CROSS JOIN LATERAL jsonb_array_elements(${JSON.stringify(packet.links)}::jsonb) AS item
       JOIN inserted_findings AS finding ON finding."findingId" = item->>'findingId'
@@ -180,11 +228,15 @@ export async function persistAnalysisPacket(input: PersistenceInput): Promise<Pe
       WHERE ${packet.targetType} = 'persona'
       RETURNING id
     )
+    SELECT inserted_result.id AS "resultId", inserted_result.packet_hash AS "packetHash",
+      TRUE AS inserted
+    FROM inserted_result
+    UNION ALL
     SELECT result.id AS "resultId", result.packet_hash AS "packetHash",
-      (inserted_result.id IS NOT NULL) AS inserted
+      FALSE AS inserted
     FROM analysis_run_result AS result
-    LEFT JOIN inserted_result ON inserted_result.id = result.id
     WHERE result.analysis_run_id = ${input.runId}
+      AND NOT EXISTS (SELECT 1 FROM inserted_result)
   `);
 
   const row = result.rows[0];

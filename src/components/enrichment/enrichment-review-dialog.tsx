@@ -19,10 +19,11 @@ import {
 } from '@/components/ui/dialog';
 import { humanizeEnum } from '@/components/explorer/explorer-format';
 import { runEnrichment, commitEnrichment } from '@/app/actions/enrichment';
-import { ANALYZE_START_EVENT } from '@/components/agents/analyze-run-status';
+import { AnalysisMenuAction } from '@/components/analysis/AnalysisMenuAction';
+import { AnalysisLauncher } from '@/components/analysis/AnalysisLauncher';
 import type { EnrichmentPlanRow } from '@/lib/enrichment/mergePlan';
 
-// Combined detail-panel Menu (Enrich + still-disabled Analyze) plus the
+// Combined detail-panel Menu (Enrich + Analyze) plus the
 // enrichment review dialog. Self-contained so it can drop into the two
 // server-rendered detail panels (company-detail / persona-detail) in the slot
 // the ExplorerMenu icon variant used to occupy. ENRC-01/02/04/05.
@@ -84,20 +85,19 @@ export function EnrichMenu({
   recordId,
   canEnrich,
   disabledReason,
-  canAnalyze = false,
-  analyzeDisabledReason = 'Agent not configured',
+  canAnalyze = true,
+  analyzeDisabledReason = 'Analysis unavailable',
 }: {
   entityType: 'company' | 'persona';
   recordId: number;
   canEnrich: boolean;
   disabledReason: string;
-  // Analyze is company-only (ANLZ-02: "Menu → Analyze on a Company"). Persona
-  // detail never passes this prop, so its Analyze item stays disabled.
   canAnalyze?: boolean;
   analyzeDisabledReason?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [analysisOpen, setAnalysisOpen] = useState(false);
   const [state, setState] = useState<ReviewState>({ status: 'idle' });
   // field → checked; seeded from each row's preAccepted flag when the plan loads
   const [checked, setChecked] = useState<Record<string, boolean>>({});
@@ -133,15 +133,6 @@ export function EnrichMenu({
     });
   }
 
-  function startAnalyze() {
-    if (entityType !== 'company' || !canAnalyze) return;
-    setMenuOpen(false);
-    // The strip (AnalyzeRunStatus) owns the run state machine and the fetch —
-    // this menu is only the trigger. Sibling client components under a server
-    // parent can't share a callback, so they communicate via the scoped event.
-    window.dispatchEvent(new CustomEvent(ANALYZE_START_EVENT, { detail: { companyId: recordId } }));
-  }
-
   function handleDialogOpenChange(nextOpen: boolean) {
     if (!nextOpen) {
       requestGeneration.current++;
@@ -175,8 +166,7 @@ export function EnrichMenu({
     });
   }
 
-  const checkedCount =
-    state.status === 'ready' ? state.rows.filter((r) => checked[r.field]).length : 0;
+  const checkedCount = state.status === 'ready' ? state.rows.filter((r) => checked[r.field]).length : 0;
 
   return (
     <>
@@ -190,14 +180,23 @@ export function EnrichMenu({
           <DropdownMenuItem disabled={!canEnrich} onSelect={startEnrichment}>
             {canEnrich ? 'Enrich' : `Enrich — ${disabledReason}`}
           </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={entityType !== 'company' || !canAnalyze}
-            onSelect={startAnalyze}
-          >
-            {canAnalyze ? 'Analyze' : `Analyze — ${analyzeDisabledReason}`}
-          </DropdownMenuItem>
+          <AnalysisMenuAction
+            canAnalyze={canAnalyze}
+            disabledReason={analyzeDisabledReason}
+            onAnalyze={() => {
+              setMenuOpen(false);
+              setAnalysisOpen(true);
+            }}
+          />
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <AnalysisLauncher
+        open={analysisOpen}
+        onOpenChange={setAnalysisOpen}
+        subjectType={entityType}
+        subjectId={recordId}
+      />
 
       <Dialog open={open} onOpenChange={handleDialogOpenChange}>
         <DialogContent className="max-w-2xl">

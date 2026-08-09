@@ -1,5 +1,9 @@
 import { sql } from 'drizzle-orm';
 
+import {
+  type ConfirmedCandidateDisplayRow,
+  type SubjectScope,
+} from '@/lib/analysis/experienceContracts';
 import type { ConfirmedCandidateEvidence } from '@/lib/analysis/reviewContracts';
 
 import { db } from '../index';
@@ -21,30 +25,31 @@ function packetVisibilitySql(nowIso: string) {
 }
 
 type CandidateEvidenceRow = {
-  readonly targetType: string;
+  readonly targetType: ConfirmedCandidateDisplayRow['targetType'];
   readonly subjectId: number;
   readonly offeringId: number;
+  readonly offeringName: string;
   readonly analysisRunId: number;
   readonly resultId: number;
   readonly packetHash: string;
   readonly findingRowId: number;
   readonly findingKey: string;
-  readonly signalType: string;
+  readonly signalType: ConfirmedCandidateDisplayRow['signalType'];
   readonly signalId: number;
   readonly signalName: string;
-  readonly evidenceStatus: string;
-  readonly supportRole: string;
+  readonly evidenceStatus: ConfirmedCandidateDisplayRow['evidenceStatus'];
+  readonly supportRole: ConfirmedCandidateDisplayRow['supportRole'];
   readonly sourceRowId: number;
   readonly sourceKey: string;
   readonly canonicalUrl: string;
   readonly sourceTitle: string;
   readonly retrievedAt: string;
   readonly excerpt: string;
-  readonly displayStatus: string;
-  readonly linkSignalType: string;
+  readonly displayStatus: ConfirmedCandidateDisplayRow['displayStatus'];
+  readonly linkSignalType: ConfirmedCandidateDisplayRow['linkIdentity']['signalType'];
   readonly linkSignalId: number;
   readonly linkOfferingId: number;
-  readonly linkStatus: string;
+  readonly linkStatus: ConfirmedCandidateDisplayRow['linkIdentity']['status'];
 };
 
 // D-34-03/D-34-04/REV-05: confirmed-only candidate projection. Only runs whose
@@ -62,13 +67,34 @@ type CandidateEvidenceRow = {
 export async function listConfirmedCandidateOfferings(
   options: { readonly now?: Date } = {},
 ): Promise<ConfirmedCandidateEvidence[]> {
-  const nowIso = (options.now ?? new Date()).toISOString();
+  const rows = await listCandidateOfferings(undefined, options.now);
+  return rows.map(({ offeringName: _offeringName, ...candidate }) => candidate);
+}
+
+export async function listConfirmedCandidateOfferingsForSubject(
+  options: SubjectScope & { readonly now?: Date },
+): Promise<ConfirmedCandidateDisplayRow[]> {
+  return listCandidateOfferings(options, options.now);
+}
+
+async function listCandidateOfferings(
+  scope: SubjectScope | undefined,
+  now: Date | undefined,
+): Promise<ConfirmedCandidateDisplayRow[]> {
+  const nowIso = (now ?? new Date()).toISOString();
+  const subjectPredicate = scope
+    ? sql`
+      AND run.subject_type::text = ${scope.targetType}
+      AND run.subject_id = ${scope.subjectId}
+    `
+    : sql``;
 
   const result = await db.execute<CandidateEvidenceRow>(sql`
     SELECT
       run.subject_type AS "targetType",
       run.subject_id AS "subjectId",
       offering.id AS "offeringId",
+      offering.name AS "offeringName",
       run.id AS "analysisRunId",
       result.id AS "resultId",
       result.packet_hash AS "packetHash",
@@ -109,35 +135,37 @@ export async function listConfirmedCandidateOfferings(
     WHERE run.status = 'confirmed'
       AND finding.status IN ('strong', 'weak')
       AND ${packetVisibilitySql(nowIso)}
+      ${subjectPredicate}
     ORDER BY run.id, finding.id, source.id
   `);
 
   return result.rows.map((row) => ({
-    targetType: row.targetType as ConfirmedCandidateEvidence['targetType'],
+    targetType: row.targetType,
     subjectId: Number(row.subjectId),
     offeringId: Number(row.offeringId),
+    offeringName: row.offeringName,
     analysisRunId: Number(row.analysisRunId),
     resultId: Number(row.resultId),
     packetHash: row.packetHash,
     findingRowId: Number(row.findingRowId),
     findingKey: row.findingKey,
-    signalType: row.signalType as ConfirmedCandidateEvidence['signalType'],
+    signalType: row.signalType,
     signalId: Number(row.signalId),
     signalName: row.signalName,
-    evidenceStatus: row.evidenceStatus as ConfirmedCandidateEvidence['evidenceStatus'],
-    supportRole: row.supportRole as ConfirmedCandidateEvidence['supportRole'],
+    evidenceStatus: row.evidenceStatus,
+    supportRole: row.supportRole,
     sourceRowId: Number(row.sourceRowId),
     sourceKey: row.sourceKey,
     canonicalUrl: row.canonicalUrl,
     sourceTitle: row.sourceTitle,
     retrievedAt: new Date(row.retrievedAt).toISOString(),
     excerpt: row.excerpt,
-    displayStatus: row.displayStatus as ConfirmedCandidateEvidence['displayStatus'],
+    displayStatus: row.displayStatus,
     linkIdentity: {
-      signalType: row.linkSignalType as ConfirmedCandidateEvidence['linkIdentity']['signalType'],
+      signalType: row.linkSignalType,
       signalId: Number(row.linkSignalId),
       offeringId: Number(row.linkOfferingId),
-      status: row.linkStatus as ConfirmedCandidateEvidence['linkIdentity']['status'],
+      status: row.linkStatus,
     },
   }));
 }
