@@ -296,14 +296,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 **Plans**: 5 plans
 
-Plans:
-
-- [x] 37-01-PLAN.md — Custom-agent contracts, bounded schema policy, and capability presets
-- [x] 37-02-PLAN.md — Additive identity/version persistence and lifecycle query layer
-- [x] 37-03-PLAN.md — Staff-gated custom-agent Server Actions and validation outcomes
-- [x] 37-04-PLAN.md — Unified `/agents` custom creation/edit/history/lifecycle UX
-- [x] 37-05-PLAN.md — Fixed-template regression matrix and Phase 37 scope/final gates (completed 2026-08-09)
-
 ### Phase 28: Shared Data Model + Seed (v1.6, queued — see "Why queued" in the v1.6 milestone summary above)
 
 **Goal**: Every Offerings and Signals table exists with the correct shape (audit columns, status enums, join tables), the GBS practice area is fully seeded end-to-end (domains, offerings, triggers, ranked buyer roles, company signals, persona signals, and representative signal-offering links), the delete-guard business rule blocks destructive deletes at the query/service layer, and all writes reuse the existing staff-auth gate with `created_by`/`updated_by` recorded. This phase ships no UI — Phase 29 and Phase 30 build against this foundation.
