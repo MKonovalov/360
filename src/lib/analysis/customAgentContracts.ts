@@ -245,15 +245,6 @@ export function parseCustomAgentSaveInput(input: unknown): CustomAgentSaveParseR
   const parsed = customAgentSaveSchema.safeParse(input);
   if (!parsed.success) return { ok: false, issues: zodIssues(parsed.error) };
 
-  const capabilityResult = validateCapabilitySelection({
-    targetType: 'company',
-    practiceAreaId: 1,
-    capabilityPresetIds: parsed.data.capabilityPresetIds,
-  });
-  if (!capabilityResult.ok && capabilityResult.issues.some((entry) => entry.code === 'unknown' || entry.code === 'duplicate' || entry.code === 'invalid')) {
-    return { ok: false, issues: capabilityResult.issues };
-  }
-
   if (parsed.data.outputSchema === null) return { ok: true, value: { ...parsed.data, outputSchema: null } };
   const normalized = normalizeOutputSchema(parsed.data.outputSchema);
   return normalized.value === undefined
