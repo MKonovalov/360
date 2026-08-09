@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Agent Constructor
 status: executing
-last_updated: "2026-08-09T13:34:00Z"
+last_updated: "2026-08-09T11:50:17.109Z"
 last_activity: 2026-08-09
 progress:
-  total_phases: 17
-  completed_phases: 10
-  total_plans: 83
-  completed_plans: 74
-  percent: 60
+  total_phases: 3
+  completed_phases: 0
+  total_plans: 6
+  completed_plans: 4
+  percent: 0
 ---
 
 # Project State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-08-09)
 ## Current Position
 
 Phase: 37 — Custom Agent Definition, Versioning & Lifecycle
-Plan: 3 of 05
+Plan: 4 of 05
 Status: Ready to execute
 Last activity: 2026-08-09
 
@@ -69,6 +69,7 @@ Last activity: 2026-08-09
 | Phase 37 P01 | 7m | 2 tasks | 4 files |
 | Phase 37 P02 | 16m | 2 tasks | 6 files |
 | Phase 37 P03 | 8min | 2 tasks | 4 files |
+| Phase 37 P04 | 8min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -126,6 +127,9 @@ Last activity: 2026-08-09
 - [Phase 37]: Custom query operations use server-generated opaque keys, append-only versions, and lifecycle-only status updates.
 - [Phase 37]: Create validates exactly one active Practice Area after staff authentication and before the retired-first mutation.
 - [Phase 37]: Custom saves load immutable target and Practice Area identity; lifecycle changes remain explicit and version-neutral.
+- [Phase 37]: Keep fixed AgentTemplateCard rendering and behavior untouched; custom agents compose after the fixed allowlist on the same /agents route.
+- [Phase 37]: Use one native create-time Practice Area selector from server-projected options and render the persisted choice read-only during edits.
+- [Phase 37]: Render only server-approved capability metadata and keep lifecycle separate from version saves so retired edits remain retired.
 
 ### Pending Todos
 
@@ -152,7 +156,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-08-09T13:34:00Z
+Last session: 2026-08-09T11:50:17.103Z
 Stopped at: Completed 37-03-PLAN.md
 Next: Execute 37-04-PLAN.md
 Resume file: None

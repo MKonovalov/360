@@ -17,7 +17,7 @@ Requirements for creating and safely managing custom agents from the canonical `
 - [x] **AGT-01**: Staff can create a custom agent from `/agents` with a stable identity, name, and description.
 - [x] **AGT-02**: Staff can configure a custom agent for exactly one supported target type — Company or Persona — and one Practice Area.
 - [x] **AGT-03**: Staff can configure the agent's behavior instruction, supported effort values, and default effort from the server-approved policy.
-- [ ] **AGT-04**: The `/agents` surface distinguishes custom agents from the two fixed v1.7 Company and Persona templates without changing the fixed templates' keys, behavior, or launch compatibility.
+- [x] **AGT-04**: The `/agents` surface distinguishes custom agents from the two fixed v1.7 Company and Persona templates without changing the fixed templates' keys, behavior, or launch compatibility.
 
 ### Immutable Versioning and Lifecycle
 
@@ -44,7 +44,7 @@ Requirements for creating and safely managing custom agents from the canonical `
 
 ### Staff Experience and End-to-End Verification
 
-- [ ] **UX-01**: Authenticated staff can create, edit, inspect current/history versions, activate/retire/reactivate, and understand validation failures from `/agents` without a `/reviews/agents` route.
+- [x] **UX-01**: Authenticated staff can create, edit, inspect current/history versions, activate/retire/reactivate, and understand validation failures from `/agents` without a `/reviews/agents` route.
 - [ ] **UX-02**: Automated verification covers custom-agent contracts, immutable versioning, lifecycle recovery, target/Practice Area compatibility, bounded schema policy, duplicate-run protection, and backward compatibility of both fixed v1.7 templates.
 - [ ] **UX-03**: Authenticated Company and Persona E2E flows prove custom-agent preview/launch, durable status after navigation or reload, settled result/source inspection, one whole-run decision, and confirmed-only candidate visibility.
 - [ ] **E2E-01**: The final verification gate proves server-derived actor authorization, adversarial fail-closed behavior, no-live-write invariants, review idempotency, confirmed-only aggregation, and the canonical `/agents` route plus both target flows.
@@ -91,7 +91,7 @@ Deferred beyond v1.8; these are acknowledged but not in the current roadmap.
 | AGT-01 | Phase 37 | Complete |
 | AGT-02 | Phase 37 | Complete |
 | AGT-03 | Phase 37 | Complete |
-| AGT-04 | Phase 37 | Pending |
+| AGT-04 | Phase 37 | Complete |
 | VER-01 | Phase 37 | Complete |
 | VER-02 | Phase 37 | Complete |
 | VER-03 | Phase 38 | Pending |
@@ -106,7 +106,7 @@ Deferred beyond v1.8; these are acknowledged but not in the current roadmap.
 | SAFE-01 | Phase 39 | Pending |
 | SAFE-02 | Phase 39 | Pending |
 | SAFE-03 | Phase 39 | Pending |
-| UX-01 | Phase 37 | Pending |
+| UX-01 | Phase 37 | Complete |
 | UX-02 | Phase 39 | Pending |
 | UX-03 | Phase 39 | Pending |
 | E2E-01 | Phase 39 | Pending |
