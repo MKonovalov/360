@@ -1,114 +1,121 @@
 # Requirements: ArcLumen 360
 
-**Defined:** 2026-08-06
-**Milestone:** v1.7 Agent Constructor & Buying Signal Analysis
+**Defined:** 2026-08-09
+**Milestone:** v1.8 Agent Constructor
 **Core Value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
 
-## v1.7 Requirements
+## Previous Milestone Record
 
-### Constructor Foundation
+v1.7's fixed Company/Persona template requirements are preserved without being redefined or silently re-marked here. The historical snapshot is `.planning/milestones/v1.7-REQUIREMENTS.md`; Phase 36's implementation/UAT and partial database/Workflow verification remain recorded in `.planning/phases/36-agent-management-end-to-end-verification/`.
 
-- [ ] **CON-01**: Staff can use two active GBS templates: Company Buying Signal Analysis and Persona Buying Signal Analysis.
-- [ ] **CON-02**: Each template has a target type, instruction text, supported effort default, lifecycle status, and immutable version history.
-- [ ] **CON-03**: A run snapshots its template version, resolved instruction, subject input, active-signal checklist/schema, effort, and resolved model chain before execution.
-- [ ] **CON-04**: The system derives each checklist only from active Company or Persona Signals for the selected Practice Area.
-- [ ] **CON-05**: Staff can never run a template against an incompatible target type.
+## v1.8 Requirements
 
-### Durable Analysis Execution
+Requirements for creating and safely managing custom agents from the canonical `/agents` surface.
 
-- [ ] **RUN-01**: Staff can create one on-demand analysis run that remains visible after navigation or reload.
-- [ ] **RUN-02**: Runs persist queued, running, completed, failed, cancelled, Pending Review, Confirmed, and Dismissed states with actor/timestamp audit.
-- [ ] **RUN-03**: A Vercel-compatible durable executor is selected and proven able to claim, complete, recover, or safely fail a run independent of the initiating page request.
-- [x] **RUN-04**: The executor uses the existing in-house model factory and Firecrawl research tool behind a provider-agnostic contract, without adding Exa.
-- [ ] **RUN-05**: The system prevents duplicate active runs and bounds retries, tool calls, execution time, and spend.
-- [ ] **RUN-06**: Failed, timed-out, invalid, and successful runs all retain safe error/result audit records.
+### Agent Creation and Configuration
 
-### Evidence and Findings
+- [ ] **AGT-01**: Staff can create a custom agent from `/agents` with a stable identity, name, and description.
+- [ ] **AGT-02**: Staff can configure a custom agent for exactly one supported target type — Company or Persona — and one Practice Area.
+- [ ] **AGT-03**: Staff can configure the agent's behavior instruction, supported effort values, and default effort from the server-approved policy.
+- [ ] **AGT-04**: The `/agents` surface distinguishes custom agents from the two fixed v1.7 Company and Persona templates without changing the fixed templates' keys, behavior, or launch compatibility.
 
-- [x] **EVD-01**: Each completed run stores immutable normalized narrative, findings, raw audit output, model/trace provenance, and run timing.
-- [x] **EVD-02**: Each finding maps to the run's snapshotted signal identity and exposes strong, weak, no-evidence, or inconclusive status with confidence.
-- [x] **EVD-03**: Every material finding references persisted, navigable source evidence with title, canonical URL, retrieved time, and supporting excerpt.
-- [x] **EVD-04**: The system rejects unsupported, unsafe, duplicated, or unlinked evidence rather than treating a URL alone as proof.
-- [x] **EVD-05**: Persona inputs, output, sources, and telemetry follow a minimum-data, redaction, classification, and retention policy.
+### Immutable Versioning and Lifecycle
 
-### Review and Candidate Offerings
+- [ ] **VER-01**: Saving a valid custom-agent configuration appends a new immutable version and makes that version current for future launches.
+- [ ] **VER-02**: Historical custom-agent versions are read-only and remain inspectable with their configuration, actor, and timestamp; no save edits or deletes a prior version.
+- [ ] **VER-03**: A run snapshots the selected custom-agent version and resolved configuration before execution, and later edits never change that run, result, evidence, or review packet.
+- [ ] **LIFE-01**: Staff can activate, retire, and reactivate a custom agent; retirement blocks future launches while preserving versions, runs, results, and review history, and reactivation uses the latest immutable version.
 
-- [x] **REV-01**: Every successfully completed v1.7 analysis creates exactly one run-level review item in the shared Reviews experience.
-- [x] **REV-02**: A staff reviewer can Confirm or Dismiss the entire run exactly once; the terminal decision is attributable, idempotent, and preserves the review packet.
-- [x] **REV-03**: Confirming or dismissing a run never writes live Signals or signal-offering links.
-- [x] **REV-04**: Company and Persona candidate-offering views derive only from Confirmed runs through existing signal-offering links and include run/finding/source provenance.
-- [x] **REV-05**: Pending, failed, cancelled, and dismissed runs can never appear in candidate-offering aggregation.
+### Validation and Execution Compatibility
 
-### Staff Experiences and Verification
+- [ ] **VAL-01**: Server-side validation rejects missing, malformed, oversized, or unsupported custom-agent fields before a version can become current or runnable.
+- [ ] **VAL-02**: The system rejects a run when a custom agent's target type is incompatible with the selected Company or Persona record, before creating an active run.
+- [ ] **VAL-03**: A runnable custom agent resolves only active Signals for its configured target type and Practice Area, and the resolved checklist/schema is snapshotted with the run.
+- [ ] **VAL-04**: Effort, execution limits, model-chain resolution, research capabilities, and tool/provider access remain server-owned and compatible with the existing v1.7 executor; staff-authored configuration cannot select arbitrary providers or tools.
+- [ ] **VAL-05**: If a custom agent exposes structured output configuration, the system keeps behavior instructions separate from output shape and accepts only a shallow, bounded, essential-field schema; grounding/evidence remains a server-owned output channel.
+- [ ] **RUN-01**: An active, valid custom agent can execute through the existing durable v1.7 run path for its compatible target without adding Exa or another research provider.
+- [ ] **RUN-02**: Duplicate active-run prevention, bounded retries/tool calls/time/spend, safe failure audit, and lifecycle recovery apply equally to custom agents and the two fixed templates.
 
-- [x] **UX-01**: From an eligible Company or Persona record, staff can preview the resolved instruction, selected Practice Area, active-signal checklist, and effort before launching a run.
-- [x] **UX-02**: Company and Persona records show run history, current status, result details, sources, and review state; settled results remain inspectable.
-- [x] **UX-03**: `Manage > Agents` lets staff view and edit template instructions/default effort, changes versions on save, and activate or retire templates.
-- [x] **VER-01**: Automated and live verification cover lifecycle recovery, source-grounded findings, prompt-injection/tool-policy resistance, duplicate-run protection, one-review idempotency, confirmed-only aggregation, and the Company/Persona end-to-end flows.
+### Security, Review, and Candidate Boundaries
+
+- [ ] **SAFE-01**: Custom-agent instructions, structured configuration, research output, citations, and tools are validated against the existing fail-closed prompt-injection, unsafe-citation, unsupported-source, duplicate-evidence, and forbidden-write policies.
+- [ ] **SAFE-02**: Every successfully completed custom-agent run enters the existing one whole-run review contract; Confirm/Dismiss is attributable, idempotent, and cannot write live Signals or signal-offering links.
+- [ ] **SAFE-03**: Company and Persona candidate-offering views include custom-agent findings only after Confirmed review and retain run/version/finding/source provenance; pending, failed, cancelled, and dismissed runs are excluded.
+
+### Staff Experience and End-to-End Verification
+
+- [ ] **UX-01**: Authenticated staff can create, edit, inspect current/history versions, activate/retire/reactivate, and understand validation failures from `/agents` without a `/reviews/agents` route.
+- [ ] **UX-02**: Automated verification covers custom-agent contracts, immutable versioning, lifecycle recovery, target/Practice Area compatibility, bounded schema policy, duplicate-run protection, and backward compatibility of both fixed v1.7 templates.
+- [ ] **UX-03**: Authenticated Company and Persona E2E flows prove custom-agent preview/launch, durable status after navigation or reload, settled result/source inspection, one whole-run decision, and confirmed-only candidate visibility.
+- [ ] **E2E-01**: The final verification gate proves server-derived actor authorization, adversarial fail-closed behavior, no-live-write invariants, review idempotency, confirmed-only aggregation, and the canonical `/agents` route plus both target flows.
 
 ## Future Requirements
 
-### Analysis Operations
+Deferred beyond v1.8; these are acknowledged but not in the current roadmap.
 
-- **OPS-01**: Staff can run buying-signal analysis in bulk for selected Companies or Personas.
-- **OPS-02**: Staff can schedule or automatically rerun buying-signal analysis under explicit cost and freshness controls.
-- **OPS-03**: Staff can define ad-hoc questions and structured-output schemas for one-off analysis.
+### Constructor Expansion
 
-### Analysis Review and Activation
+- **FUT-01**: Staff can clone/fork custom agents or versions with explicit ownership and provenance semantics.
+- **FUT-02**: Staff can author richer nested output schemas after the bounded v1.8 contract is proven.
+- **FUT-03**: Staff can select additional server-approved data-source presets after policy and capability governance exists.
 
-- **REV-06**: Staff can approve, dismiss, or correct individual findings within a run.
-- **REV-07**: Firm-defined trusted templates can bypass review under explicit governance conditions.
-- **HYP-01**: Hypotheses can consume only Confirmed agent findings across a Company and its Personas.
-- **OUT-01**: Confirmed research can initiate reviewed outreach or CRM workflows.
+### Analysis Operations and Downstream Actions
+
+- **FUT-04**: Staff can run custom agents in bulk.
+- **FUT-05**: Staff can schedule or automatically rerun custom agents.
+- **FUT-06**: Staff can curate individual findings or auto-confirm trusted runs.
+- **FUT-07**: Confirmed research can initiate reviewed outreach or CRM workflows.
+- **FUT-08**: Hypotheses can consume confirmed custom-agent findings.
+- **FUT-09**: Persona Discovery can create new Persona records through custom agents.
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Persona Discovery | This milestone analyzes existing Persona records; discovery has separate matching, consent, and review semantics. |
-| Bulk, scheduled, or automatic re-analysis | Adds cost, notification, freshness, and review-volume controls before the on-demand workflow is proven. |
-| Per-finding curation | v1.7 deliberately uses one human decision for a whole completed run. |
-| Auto-confirmation or direct agent writes | Violates the human-review and confirmed-only trust boundary. |
-| Hypotheses, scoring, outreach, or CRM sync | These consume v1.7's confirmed evidence later; they are not part of the research-and-review loop. |
-| Exa or another external research provider | The locked direction is the existing in-house model factory and Firecrawl stack. |
-| Provider/model controls in the run flow | Existing Settings already owns per-user model configuration. |
-| Chain-of-thought display | Staff need sources and normalized findings, not private model reasoning. |
+| Bulk execution | Cost, concurrency, review-volume, and partial-failure controls are not part of the first custom-agent constructor. |
+| Scheduled or automatic execution | Freshness, notification, cost, and cancellation semantics require a separate milestone. |
+| Per-finding curation | v1.7's one whole-run human decision remains the trust boundary. |
+| Auto-confirmation or direct agent writes | Custom agents must never bypass review or write live Signals/links directly. |
+| New providers, including Exa | v1.7 locks execution to the in-house modelFactory and Firecrawl contract; Exa research informed shape only. |
+| Arbitrary provider/tool/data-source selection | Capabilities remain server-owned for security, cost, and policy control. |
+| Outreach or CRM sync | Downstream action follows scoring and reviewed activation, not constructor creation. |
+| Hypotheses | Explicitly deferred consumer of confirmed findings. |
+| Persona Discovery | Requires separate matching, consent, and record-creation semantics. |
+| Editing or deleting historical versions/runs/evidence | Reproducibility and auditability require immutable history. |
+| `/reviews/agents` | `/agents` is the canonical management surface. |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CON-01 | Phase 32 | Pending |
-| CON-02 | Phase 32 | Pending |
-| CON-03 | Phase 32 | Pending |
-| CON-04 | Phase 32 | Pending |
-| CON-05 | Phase 32 | Pending |
-| RUN-01 | Phase 32 | Pending |
-| RUN-02 | Phase 32 | Pending |
-| RUN-03 | Phase 31 | Pending |
-| RUN-04 | Phase 33 | Complete |
-| RUN-05 | Phase 32 | Pending |
-| RUN-06 | Phase 32 | Pending |
-| EVD-01 | Phase 33 | Complete |
-| EVD-02 | Phase 33 | Complete |
-| EVD-03 | Phase 33 | Complete |
-| EVD-04 | Phase 33 | Complete |
-| EVD-05 | Phase 33 | Complete |
-| REV-01 | Phase 34 | Complete |
-| REV-02 | Phase 34 | Complete |
-| REV-03 | Phase 34 | Complete |
-| REV-04 | Phase 34 | Complete |
-| REV-05 | Phase 34 | Complete |
-| UX-01 | Phase 35 | Complete |
-| UX-02 | Phase 35 | Complete |
-| UX-03 | Phase 36 | Complete |
-| VER-01 | Phase 36 | Complete |
+| AGT-01 | Phase 37 | Pending |
+| AGT-02 | Phase 37 | Pending |
+| AGT-03 | Phase 37 | Pending |
+| AGT-04 | Phase 37 | Pending |
+| VER-01 | Phase 37 | Pending |
+| VER-02 | Phase 37 | Pending |
+| VER-03 | Phase 38 | Pending |
+| LIFE-01 | Phase 37 | Pending |
+| VAL-01 | Phase 37 | Pending |
+| VAL-02 | Phase 38 | Pending |
+| VAL-03 | Phase 38 | Pending |
+| VAL-04 | Phase 38 | Pending |
+| VAL-05 | Phase 38 | Pending |
+| RUN-01 | Phase 38 | Pending |
+| RUN-02 | Phase 38 | Pending |
+| SAFE-01 | Phase 39 | Pending |
+| SAFE-02 | Phase 39 | Pending |
+| SAFE-03 | Phase 39 | Pending |
+| UX-01 | Phase 37 | Pending |
+| UX-02 | Phase 39 | Pending |
+| UX-03 | Phase 39 | Pending |
+| E2E-01 | Phase 39 | Pending |
 
 **Coverage:**
-- v1.7 requirements: 25 total
-- Mapped to phases: 25
-- Unmapped: 0
+- v1.8 requirements: 22 total
+- Mapped to phases: 22
+- Unmapped: 0 ✓
 
 ---
-*Requirements defined: 2026-08-06*
-*Last updated: 2026-08-09 after Phase 36 authenticated acceptance*
+*Requirements defined: 2026-08-09*
+*Last updated: 2026-08-09 after v1.8 research-first milestone definition*
