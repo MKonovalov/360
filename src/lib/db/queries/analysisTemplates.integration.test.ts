@@ -17,7 +17,7 @@ describe('custom agent migration contract', () => {
     expect(migrationSql).toContain('behavior_instruction');
     expect(migrationSql).toContain('structured_output_schema');
     expect(migrationSql).toContain('capability_preset_ids');
-    expect(migrationSql).toContain("UPDATE analysis_template SET kind = 'fixed'");
+    expect(migrationSql).toMatch(/UPDATE\s+"analysis_template"\s+SET\s+"kind"\s*=\s*'fixed'/);
     expect(migrationSql).not.toMatch(/ALTER TABLE\s+"?analysis_run"?\s+(DROP|ALTER|DELETE)/i);
     expect(migrationSql).not.toMatch(/analysis_run_snapshot/i);
   });
