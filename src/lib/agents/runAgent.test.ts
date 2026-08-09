@@ -52,7 +52,10 @@ vi.mock('firecrawl', () => ({ Firecrawl: vi.fn() }));
 // catalog is mocked with the hoisted provider resolver. The separate
 // '@/lib/models/catalog.json' JSON import is a different specifier and loads
 // the real static file (harmless).
-vi.mock('@/lib/models/catalog', () => ({ getProviderForModelId: mocks.getProviderForModelId }));
+vi.mock('@/lib/models/catalog', () => ({
+  getProviderForModelId: mocks.getProviderForModelId,
+  SERVABLE_PROVIDERS: ['anthropic', 'openrouter', 'nousresearch', 'opencode'],
+}));
 
 import { isOpenRouterPlatformRateLimit, runAgent } from './runAgent';
 import { buildAnalyzePrompt } from './prompt';
@@ -364,6 +367,33 @@ describe('runAgent failover loop (FAL-03/04)', () => {
       runAgent({ company, liveSignals: [], models: ['m3', 'm5'] }),
     ).rejects.toThrow();
     expect(mocks.generateText).toHaveBeenCalledTimes(1);
+  });
+
+  it('explicit model selections control provider failover comparison and audit identity', async () => {
+    mocks.generateText.mockRejectedValueOnce(apiErr(429));
+
+    await expect(
+      runAgent({
+        company,
+        liveSignals: [],
+        models: ['m1', 'm2'],
+        modelSelections: [
+          { modelId: 'm1', provider: 'opencode' },
+          { modelId: 'm2', provider: 'opencode' },
+        ],
+      }),
+    ).rejects.toThrow();
+    expect(mocks.generateText).toHaveBeenCalledTimes(1);
+
+    mocks.generateText.mockResolvedValueOnce(resolvedRun);
+    const result = await runAgent({
+      company,
+      liveSignals: [],
+      models: ['m1'],
+      modelSelections: [{ modelId: 'm1', provider: 'opencode' }],
+    });
+    expect(result.modelUsed).toBe('m1');
+    expect(result.modelUsedProvider).toBe('opencode');
   });
 
   // RUN-05 bare-id audit: modelIdOf (runAgent.ts l.35-37) returns .modelId
