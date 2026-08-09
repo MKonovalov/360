@@ -175,4 +175,58 @@ describeWithDatabase('analysis template management database boundary', () => {
       expect(reference.templateVersionId).toBeGreaterThan(0);
     }
   });
+
+  it('creates, edits, retires, and reactivates a custom agent without rewriting history', async () => {
+    const [practiceArea] = await dbModule.db
+      .select({ id: schema.practiceArea.id })
+      .from(schema.practiceArea)
+      .limit(1);
+    if (!practiceArea) throw new Error('practice area fixture is missing');
+
+    const created = await queries.createCustomAgent(
+      {
+        name: `Integration custom ${Date.now()}`,
+        description: 'Disposable custom agent integration fixture',
+        targetType: 'company',
+        practiceAreaId: practiceArea.id,
+        researchQuery: 'Find current buying pressure',
+        behaviorInstruction: 'Use only grounded evidence.',
+        defaultEffort: 'standard',
+        outputSchema: null,
+        capabilityPresetIds: ['web-research'],
+      },
+      'integration-custom-creator',
+    );
+    expect(created).toMatchObject({ ok: true, kind: 'created', agent: { status: 'retired' } });
+    if (!created.ok) throw new Error('custom fixture creation failed');
+
+    const edited = await queries.saveCustomAgentVersion(
+      created.agent.customAgentId,
+      {
+        name: `${created.agent.latest.name} renamed`,
+        description: created.agent.latest.description,
+        targetType: created.agent.targetType,
+        practiceAreaId: created.agent.practiceAreaId,
+        researchQuery: created.agent.latest.researchQuery,
+        behaviorInstruction: 'Preserve the source-grounding boundary.',
+        defaultEffort: 'standard',
+        outputSchema: null,
+        capabilityPresetIds: ['none'],
+      },
+      'integration-custom-editor',
+    );
+    expect(edited).toMatchObject({ ok: true, kind: 'version_appended', agent: { status: 'retired' } });
+    if (!edited.ok) throw new Error('custom fixture edit failed');
+    expect(edited.agent.history.map((version) => version.version)).toEqual([2, 1]);
+    expect(edited.agent.history[1]?.behaviorInstruction).toBe('Use only grounded evidence.');
+
+    const reactivated = await queries.setCustomAgentStatus(
+      created.agent.customAgentId,
+      'active',
+      'integration-custom-activator',
+    );
+    expect(reactivated).toMatchObject({ ok: true, kind: 'lifecycle_updated', agent: { status: 'active' } });
+    if (!reactivated.ok) throw new Error('custom fixture reactivation failed');
+    expect(reactivated.agent.history.map((version) => version.version)).toEqual([2, 1]);
+  });
 });
