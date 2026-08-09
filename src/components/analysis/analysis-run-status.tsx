@@ -1,33 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { z } from 'zod';
+import { useRouter } from 'next/navigation';
 
 import { Badge } from '@/components/ui/badge';
-import {
-  analysisRunStatusSchema,
-  safeOutcomeReasonSchema,
-} from '@/lib/analysis/contracts';
 import type { AnalysisRunStatus, SafeOutcomeReason } from '@/lib/analysis/contracts';
+import {
+  isTerminalAnalysisStatus,
+  pollAnalysisRun,
+  type AnalysisRunStatusResponse,
+} from '@/lib/analysis/pollingClient';
 
-const actorKindSchema = z.enum(['staff', 'workflow', 'system']);
-
-const analysisRunResponseSchema = z.object({
-  applicationRunId: z.number().int().positive(),
-  status: analysisRunStatusSchema,
-  safeReason: safeOutcomeReasonSchema.nullable(),
-  events: z.array(z.object({
-    fromStatus: analysisRunStatusSchema.nullable(),
-    toStatus: analysisRunStatusSchema,
-    actorKind: actorKindSchema,
-    safeReason: safeOutcomeReasonSchema.nullable(),
-    attempt: z.number().int().min(0).max(2),
-    createdAt: z.string().datetime({ offset: true }),
-  })),
-});
-
-type AnalysisRunResponse = z.infer<typeof analysisRunResponseSchema>;
-type ActorKind = z.infer<typeof actorKindSchema>;
+type AnalysisRunResponse = AnalysisRunStatusResponse;
+type ActorKind = AnalysisRunStatusResponse['events'][number]['actorKind'];
 type StatusTone = 'neutral' | 'active' | 'success' | 'warning' | 'danger';
 
 interface StatusPresentation {
@@ -126,41 +111,24 @@ const timestampFormatter = new Intl.DateTimeFormat('en-US', {
 
 export function AnalysisRunStatus({ applicationRunId }: { readonly applicationRunId: number }) {
   const [state, setState] = useState<LoadState>({ status: 'loading' });
+  const router = useRouter();
 
   useEffect(() => {
     const controller = new AbortController();
     let isActive = true;
     setState({ status: 'loading' });
 
-    void (async () => {
-      try {
-        const response = await fetch(`/api/analysis-runs/${applicationRunId}`, {
-          signal: controller.signal,
-        });
-        const payload: unknown = await response.json().catch(() => null);
-        if (!isActive) return;
-        if (!response.ok) {
-          setState({
-            status: 'error',
-            message: response.status === 404
-              ? 'This analysis run could not be found.'
-              : 'The analysis status could not be loaded. Refresh and try again.',
-          });
-          return;
-        }
-        const parsed = analysisRunResponseSchema.safeParse(payload);
-        if (!parsed.success) {
-          setState({ status: 'error', message: 'The analysis status could not be loaded. Refresh and try again.' });
-          return;
-        }
-        setState({ status: 'ready', run: parsed.data });
-      } catch (error: unknown) {
-        if (error instanceof DOMException && error.name === 'AbortError') return;
-        if (isActive) {
-          setState({ status: 'error', message: 'The analysis status could not be reached. Refresh and try again.' });
-        }
-      }
-    })();
+    void pollAnalysisRun({
+      applicationRunId,
+      signal: controller.signal,
+      onUpdate: (run) => {
+        if (isActive) setState({ status: 'ready', run });
+      },
+    }).then((result) => {
+      if (!isActive || result.kind === 'aborted') return;
+      if (result.kind === 'error') setState({ status: 'error', message: result.message });
+      if (result.kind === 'terminal' && isTerminalAnalysisStatus(result.run.status)) router.refresh();
+    });
 
     return () => {
       isActive = false;
