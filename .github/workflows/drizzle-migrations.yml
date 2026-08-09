@@ -56,7 +56,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      # NODE_ENV=production makes npm ci omit devDependencies; tsx and drizzle-kit are needed by db:validate/db:migrate.
+      - run: npm ci --include=dev
       - run: npm run db:validate
       # The protected environment supplies DATABASE_URL and required reviewers.
       # The 0007 baseline confirmation is an operator gate, not a migration skip.
