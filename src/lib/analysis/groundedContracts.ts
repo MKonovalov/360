@@ -1,8 +1,10 @@
 import { z } from 'zod';
+import { SERVABLE_PROVIDERS } from '@/lib/models/catalog';
 
 import {
   analysisTargetTypeSchema,
   phase33PolicySnapshotSchema,
+  modelRefSchema,
   type Phase33PolicySnapshot,
 } from './contracts';
 
@@ -22,6 +24,7 @@ export const GROUNDED_FAILURE_REASONS = [
 ] as const;
 
 const safeIdentifierSchema = z.string().trim().min(1).max(120).regex(/^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/);
+const safeModelIdSchema = z.string().trim().min(1).max(200).regex(/^(?!.*:\/\/)[a-zA-Z0-9][a-zA-Z0-9._:/-]*$/);
 const safeTextSchema = z
   .string()
   .trim()
@@ -48,6 +51,8 @@ export const groundedExecutionInputSchema = z
 export const findingIdentitySchema = z
   .object({
     signalId: z.number().int().positive(),
+    signalName: z.string().trim().min(1).max(200).optional(),
+    signalCategory: z.string().trim().min(1).max(120).optional(),
     buyerRoleId: z.number().int().positive().nullable(),
   })
   .strict();
@@ -112,7 +117,9 @@ export const findingSourceLinkSchema = z
 export const safeAuditSchema = z
   .object({
     attempt: z.number().int().nonnegative(),
-    modelId: safeIdentifierSchema.nullable(),
+    modelId: safeModelIdSchema.nullable(),
+    modelProvider: z.enum(SERVABLE_PROVIDERS).nullable().default(null),
+    modelChain: z.array(z.union([modelRefSchema, safeModelIdSchema])).max(8).default([]),
     toolCallCount: z.number().int().nonnegative(),
     sourceCount: z.number().int().nonnegative(),
     findingCount: z.number().int().nonnegative(),
