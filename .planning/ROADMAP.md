@@ -180,7 +180,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 34. Whole-Run Review & Confirmed Candidates | v1.7 | 4/4 | Complete | 2026-08-08 |
 | 35. Company & Persona Analysis Experiences | v1.7 | 4/4 | Complete | 2026-08-09 |
 | 36. Agent Management & End-to-End Verification | v1.7 | 7/7 | Complete   | 2026-08-08 |
-| 37. Custom Agent Definition, Versioning & Lifecycle | v1.8 | 1/5 | In Progress|  |
+| 37. Custom Agent Definition, Versioning & Lifecycle | v1.8 | 2/5 | In Progress|  |
 | 38. Execution Compatibility & Safe Integration | v1.8 | 0/TBD | Pending | — |
 | 39. Security, Review Boundaries & End-to-End Verification | v1.8 | 0/TBD | Pending | — |
 
@@ -297,8 +297,9 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 **Plans**: 5 plans
 
 Plans:
+
 - [x] 37-01-PLAN.md — Custom-agent contracts, bounded schema policy, and capability presets
-- [ ] 37-02-PLAN.md — Additive identity/version persistence and lifecycle query layer
+- [x] 37-02-PLAN.md — Additive identity/version persistence and lifecycle query layer
 - [ ] 37-03-PLAN.md — Staff-gated custom-agent Server Actions and validation outcomes
 - [ ] 37-04-PLAN.md — Unified `/agents` custom creation/edit/history/lifecycle UX
 - [ ] 37-05-PLAN.md — Fixed-template regression matrix and Phase 37 scope/final gates
@@ -420,37 +421,46 @@ Plans:
 **UI hint**: yes
 
 ### Phase 31: Durable Executor Selection & Validation
+
 **Goal**: The app has a proven Vercel-compatible durable executor that can progress a run safely without depending on the initiating page request.
 **Depends on**: Phase 30 (v1.6 data and staff-access foundation)
 **Requirements**: RUN-03
 **Success Criteria** (what must be TRUE):
+
   1. Staff can start a controlled proof run and navigate away or reload while an independently claimed executor completes it or records a safe terminal failure.
   2. An interrupted or expired claim is recovered or safely failed without leaving a run permanently running.
   3. The selected executor proves bounded retry/lease behavior and leaves an auditable lifecycle record for the proof run.
+
 **Plans**: TBD
 
 ### Phase 32: Template, Snapshot & Run Ledger
+
 **Goal**: Staff can select an applicable reusable GBS template and create a fully auditable, immutable analysis intent before execution begins.
 **Depends on**: Phase 31 (durable executor selected and validated)
 **Requirements**: CON-01, CON-02, CON-03, CON-04, CON-05, RUN-01, RUN-02, RUN-05, RUN-06
 **Success Criteria** (what must be TRUE):
+
   1. Staff can select active Company or Persona Buying Signal Analysis templates, and incompatible subject/template pairings are rejected.
   2. A created run remains visible after navigation or reload with its queued, running, terminal, review, and actor/timestamp history preserved.
   3. Each run retains its immutable template version, resolved instruction, subject input, practice-area active-signal checklist, effort, model-chain, and policy snapshots.
   4. The active-signal checklist contains only active signals for the selected target kind and Practice Area.
   5. Duplicate active starts are rejected and failed, timed-out, invalid, and successful runs retain safe bounded-attempt audit records.
+
 **Plans**: TBD
 
 ### Phase 33: Grounded Analysis Execution & Evidence
+
 **Goal**: A durable run produces a safe, source-grounded, immutable analysis packet using the locked in-house AI and Firecrawl stack.
 **Depends on**: Phase 31 (proven executor), Phase 32 (snapshotted run ledger)
 **Requirements**: RUN-04, EVD-01, EVD-02, EVD-03, EVD-04, EVD-05
 **Success Criteria** (what must be TRUE):
+
   1. A claimed run executes through a provider-agnostic contract backed only by the existing modelFactory and Firecrawl, with no Exa provider added.
   2. A completed run exposes an immutable normalized narrative, raw audit output, timing, actual model and trace provenance, and normalized findings.
   3. Every material finding identifies a snapshotted signal and its confidence/evidence status and links to persisted, navigable sources with title, canonical URL, retrieval time, and excerpt.
   4. Unsupported, unsafe, duplicate, or unlinked evidence is rejected rather than displayed as proof.
   5. Persona inputs, results, sources, and telemetry honor the minimum-data, redaction, classification, and retention policy.
+
 **Plans**: 6 plans
 **Wave 0**
 
@@ -474,47 +484,58 @@ Plans:
 - [x] 33-06-PLAN.md — Final automated gate, scope audit, and approved/deferred live smoke evidence (RUN-04, EVD-01..05)
 
 ### Phase 34: Whole-Run Review & Confirmed Candidates
+
 **Goal**: Staff can make one safe decision for a completed analysis, and only confirmed evidence can influence candidate offerings.
 **Depends on**: Phase 33 (completed evidence packets)
 **Requirements**: REV-01, REV-02, REV-03, REV-04, REV-05
 **Success Criteria** (what must be TRUE):
+
   1. Every successfully completed analysis appears exactly once as a run-level packet in the shared Reviews experience.
   2. A staff reviewer can Confirm or Dismiss the entire completed run once; repeat or competing attempts preserve the original attributable terminal decision and packet.
   3. Either decision leaves live Signals and signal-offering links unchanged.
   4. Company and Persona candidate-offering results include run, finding, and source provenance and derive solely from Confirmed runs through existing signal-offering links.
   5. Pending, failed, cancelled, and dismissed runs never appear in candidate-offering aggregation.
+
 **Plans**: 4 plans
 
 Plans:
+
 - [x] 34-01-PLAN.md — Additive review identity schema and closed review/candidate contracts (REV-01..03)
 - [x] 34-02-PLAN.md — Packet-required reconciliation, atomic whole-run decisions, and confirmed-only provenance projection (REV-01..05)
 - [x] 34-03-PLAN.md — Additive shared Reviews run-level UI and staff-gated Confirm/Dismiss actions (REV-01..04)
 - [ ] 34-04-PLAN.md — Scope audit, automated evidence gate, and authenticated fixture-only UAT (REV-01..05)
 
 ### Phase 35: Company & Persona Analysis Experiences
+
 **Goal**: Staff can launch, follow, and inspect trustworthy buying-signal analysis from either eligible target record.
 **Depends on**: Phase 34 (review and confirmed-only projection)
 **Requirements**: UX-01, UX-02
 **Success Criteria** (what must be TRUE):
+
   1. From an eligible Company or Persona, staff can preview the resolved instruction, selected Practice Area, active-signal checklist, and effort before starting a run.
   2. Both record types show durable run history and current status after navigation or reload.
   3. Staff can inspect settled results, normalized findings, navigable sources, provenance, and the whole-run review state from the record.
   4. Confirmed candidate offerings are visible on both record types with their evidence provenance, while non-confirmed output is excluded.
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 36: Agent Management & End-to-End Verification
+
 **Goal**: Staff can safely manage template lifecycle, and the complete analysis workflow is proven against its durability, trust, and review boundaries.
 **Depends on**: Phases 31-35
 **Requirements**: UX-03, VER-01
 **Success Criteria** (what must be TRUE):
+
   1. In `Manage > Agents`, staff can view and edit template instructions and default effort, with every save creating a new immutable version and templates being activatable or retireable.
   2. Automated verification proves lifecycle recovery, duplicate-run prevention, whole-run decision idempotency, confirmed-only aggregation, and source-grounded findings.
   3. Adversarial verification proves prompt-injection and tool-policy controls reject unsafe research content and preserve the no-write boundary.
   4. Live Company and Persona end-to-end flows prove preview, durable execution, result inspection, one whole-run decision, and confirmed-only candidate visibility.
+
 **Plans**: 7 plans
 
 Plans:
+
 - [x] 36-01-PLAN.md — Fixed-template contracts, latest/history queries, immutable version and lifecycle invariants
 - [x] 36-02-PLAN.md — Staff-gated template management Server Actions and no-live-write boundary
 - [x] 36-03-PLAN.md — `/agents` management page, two fixed template cards, editor, lifecycle, and history UI
@@ -522,6 +543,7 @@ Plans:
 - [x] 36-05-PLAN.md — Deterministic lifecycle, grounding, adversarial, review, aggregation, and scope gates
 - [x] 36-06-PLAN.md — Authenticated real-app Company/Persona E2E with deterministic executor/fixture packet
 - [x] 36-07-PLAN.md — Final automated gate, sanitized evidence ledger, and optional-smoke disposition
+
 **UI hint**: yes
 
 ### 🚧 v1.8 Agent Constructor (Phases 37-39)

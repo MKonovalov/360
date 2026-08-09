@@ -14,17 +14,17 @@ Requirements for creating and safely managing custom agents from the canonical `
 
 ### Agent Creation and Configuration
 
-- [ ] **AGT-01**: Staff can create a custom agent from `/agents` with a stable identity, name, and description.
+- [x] **AGT-01**: Staff can create a custom agent from `/agents` with a stable identity, name, and description.
 - [x] **AGT-02**: Staff can configure a custom agent for exactly one supported target type — Company or Persona — and one Practice Area.
 - [x] **AGT-03**: Staff can configure the agent's behavior instruction, supported effort values, and default effort from the server-approved policy.
 - [ ] **AGT-04**: The `/agents` surface distinguishes custom agents from the two fixed v1.7 Company and Persona templates without changing the fixed templates' keys, behavior, or launch compatibility.
 
 ### Immutable Versioning and Lifecycle
 
-- [ ] **VER-01**: Saving a valid custom-agent configuration appends a new immutable version and makes that version current for future launches.
-- [ ] **VER-02**: Historical custom-agent versions are read-only and remain inspectable with their configuration, actor, and timestamp; no save edits or deletes a prior version.
+- [x] **VER-01**: Saving a valid custom-agent configuration appends a new immutable version and makes that version current for future launches.
+- [x] **VER-02**: Historical custom-agent versions are read-only and remain inspectable with their configuration, actor, and timestamp; no save edits or deletes a prior version.
 - [ ] **VER-03**: A run snapshots the selected custom-agent version and resolved configuration before execution, and later edits never change that run, result, evidence, or review packet.
-- [ ] **LIFE-01**: Staff can activate, retire, and reactivate a custom agent; retirement blocks future launches while preserving versions, runs, results, and review history, and reactivation uses the latest immutable version.
+- [x] **LIFE-01**: Staff can activate, retire, and reactivate a custom agent; retirement blocks future launches while preserving versions, runs, results, and review history, and reactivation uses the latest immutable version.
 
 ### Validation and Execution Compatibility
 
@@ -88,14 +88,14 @@ Deferred beyond v1.8; these are acknowledged but not in the current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AGT-01 | Phase 37 | Pending |
+| AGT-01 | Phase 37 | Complete |
 | AGT-02 | Phase 37 | Complete |
 | AGT-03 | Phase 37 | Complete |
 | AGT-04 | Phase 37 | Pending |
-| VER-01 | Phase 37 | Pending |
-| VER-02 | Phase 37 | Pending |
+| VER-01 | Phase 37 | Complete |
+| VER-02 | Phase 37 | Complete |
 | VER-03 | Phase 38 | Pending |
-| LIFE-01 | Phase 37 | Pending |
+| LIFE-01 | Phase 37 | Complete |
 | VAL-01 | Phase 37 | Complete |
 | VAL-02 | Phase 38 | Pending |
 | VAL-03 | Phase 38 | Pending |
@@ -112,6 +112,7 @@ Deferred beyond v1.8; these are acknowledged but not in the current roadmap.
 | E2E-01 | Phase 39 | Pending |
 
 **Coverage:**
+
 - v1.8 requirements: 22 total
 - Mapped to phases: 22
 - Unmapped: 0 ✓

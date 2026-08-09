@@ -2,15 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Agent Constructor
-status: In Progress
-last_updated: "2026-08-09T11:06:57.038Z"
-last_activity: 2026-08-09 — Milestone v1.8 started
+status: executing
+stopped_at: Completed 37-01-PLAN.md
+last_updated: "2026-08-09T11:25:21.264Z"
+last_activity: 2026-08-09
 progress:
-  total_phases: 3
-  completed_phases: 0
-  total_plans: 5
-  completed_plans: 1
-  percent: 20
+  total_phases: 17
+  completed_phases: 10
+  total_plans: 83
+  completed_plans: 73
+  percent: 59
 ---
 
 # Project State
@@ -25,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-08-09)
 ## Current Position
 
 Phase: 37 — Custom Agent Definition, Versioning & Lifecycle
-Plan: 01 of 05
-Status: In Progress
-Last activity: 2026-08-09 — Completed 37-01-PLAN.md
+Plan: 2 of 05
+Status: Ready to execute
+Last activity: 2026-08-09
 
 ## Performance Metrics
 
@@ -67,6 +68,7 @@ Last activity: 2026-08-09 — Completed 37-01-PLAN.md
 | Phase 36 P06 | 10m | 2 tasks | 8 files |
 | Phase 36 P7 | 12m | 2 tasks | 3 files |
 | Phase 37 P01 | 7m | 2 tasks | 4 files |
+| Phase 37 P02 | 16m | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -120,6 +122,8 @@ Last activity: 2026-08-09 — Completed 37-01-PLAN.md
 - **Phase 37 Plan 01:** Custom create input excludes client-authored identity, actor, lifecycle, checklist, resolved instruction, budget, provider, credential, and executable tool fields.
 - **Phase 37 Plan 01:** Structured output is an optional normalized shallow object with locked bounded limits and reserved server-owned grounding/review channels.
 - **Phase 37 Plan 01:** Capability selection persists only `none` or `web-research` opaque IDs and never forces invocation.
+- [Phase 37]: Plan 02 reuses analysis_template and analysis_template_version with fixed custom discriminators to preserve run foreign keys and snapshots.
+- [Phase 37]: Custom query operations use server-generated opaque keys, append-only versions, and lifecycle-only status updates.
 
 ### Pending Todos
 
@@ -146,7 +150,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-08-09T11:06:57.030Z
+Last session: 2026-08-09T11:25:21.257Z
 Stopped at: Completed 37-01-PLAN.md
 Next: Execute 37-02-PLAN.md
 Resume file: None
