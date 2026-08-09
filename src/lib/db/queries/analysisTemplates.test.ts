@@ -328,6 +328,17 @@ describe('analysisTemplates query module', () => {
     expect(query).toContain('UPDATE analysis_template');
     expect(query).not.toContain('analysis_template_version');
   });
+
+  it('rejects a same-state custom lifecycle request without changing history', async () => {
+    mocks.db.execute
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [customAgentRow(7, 72, 2, 'Renamed agent', 'retired')] });
+
+    const result = await setCustomAgentStatus('custom-server-key', 'retired', 'staff-activator');
+
+    expect(result).toEqual({ ok: false, reason: 'invalid_transition' });
+    expect(flattenSql(mocks.db.execute.mock.calls[0]?.[0])).not.toContain('analysis_template_version');
+  });
 });
 
 function managedTemplateRow(
