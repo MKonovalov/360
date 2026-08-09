@@ -1,146 +1,139 @@
-# Domain Pitfalls
+# Pitfalls Research
 
-**Domain:** ArcLumen 360 v1.7 reusable, on-demand Company and Persona web-research analyses, whose complete findings require one partner confirmation or dismissal before later Hypotheses may consume them.
-**Researched:** 2026-08-06
-**Confidence:** HIGH for codebase-specific gaps and provider mechanics; MEDIUM-HIGH for governance controls based on OWASP and NIST guidance.
+**Domain:** Custom structured-research agent constructors
+**Researched:** 2026-08-09
+**Confidence:** HIGH
 
 ## Critical Pitfalls
 
-### Pitfall 1: A failed or gated run disappears, making the system non-auditable
-**What goes wrong:** The current flow creates `agent_run` only after `runAgent()` succeeds and the output gate passes. A timeout, model/provider error, tool error, malformed output, or persistence failure therefore has no durable row. It cannot meet v1.7's explicit retention requirement for inputs, resolved query/schema, provider response, and errors; operators also cannot distinguish “not run” from “run and failed.”
+### Pitfall 1: Version history is cosmetic rather than immutable
 
-**Why it happens:** `createRun()` only accepts successful artifacts, and `analyzeCompany()` returns before persistence on configuration, model, and gate failures. The existing model was designed for successful signal proposals, not an execution ledger.
+**What goes wrong:** Editing an agent changes the configuration used by an older run or makes historical versions editable.
+**Why it happens:** A single mutable JSON row is easier to build than a version/current-pointer model.
+**How to avoid:** Append a new version on every content/config save; snapshot the selected version at run creation; make history read-only.
+**Warning signs:** Existing run detail renders current instruction, or a history row has an update/delete action.
+**Phase to address:** Phase 37 — Definition, Versioning & Lifecycle.
 
-**Consequences:** No reproducible incident investigation; impossible cost/error reconciliation; a partner cannot review why a run did not produce findings; silent retries can become indistinguishable duplicate research.
+---
 
-**Prevention:** Create an immutable run row in `queued`/`running` state *before* provider work. Persist lifecycle transitions and a normalized error envelope in `finally`; retain canonical input snapshot, template/version, resolved query, output-schema version, model/provider configuration snapshot, tool request/results metadata, sanitized normalized provider output, usage/cost, and external request/trace IDs. Do **not** retain hidden chain-of-thought; retain only application-visible structured output and tool evidence. A DB failure after provider completion must be a recorded `persistence_failed` run where possible, plus an alert/dead-letter path.
+### Pitfall 2: The constructor accepts configurations the executor cannot safely run
 
-**Detection:** A request reaches Langfuse or Firecrawl but no local run exists; history has gaps between starts and terminal runs; error-rate dashboard is lower than provider-error logs.
+**What goes wrong:** A staff-created agent saves successfully but fails only after launch because target, Practice Area, effort, schema, or capability is incompatible.
+**Why it happens:** Validation is implemented only in the form or only at runtime.
+**How to avoid:** Use shared server-side normalization/validation before activation and again before run creation; report actionable compatibility errors.
+**Warning signs:** Client-only checks, arbitrary provider/tool fields, or inactive/retired agents reaching the run executor.
+**Phase to address:** Phase 37 — Definition, Versioning & Lifecycle; Phase 38 — Execution Compatibility.
 
-**Prevention owner:** **Phase A — Run ledger and agent-contract foundation.**
+---
 
-### Pitfall 2: “Citation resolves” is mistaken for “citation supports this finding”
-**What goes wrong:** The current gate verifies only that a proposal URL occurs in a server-derived evidence appendix. A model can attach a genuine but irrelevant URL, use a stale page for a current appointment, or claim a detail absent from the cited snippet. URL validity is provenance, not entailment.
+### Pitfall 3: Output-shape flexibility turns into unbounded cost and brittle review packets
 
-**Why it happens:** `ProposalSignal` stores one `evidenceUrl`, snippet, and reasoning; the gate does not capture page content/version, claim-to-source spans, publication date, or source-quality policy.
+**What goes wrong:** Deep schemas, huge required field sets, or unbounded arrays create expensive, slow, malformed, or unreviewable outputs.
+**Why it happens:** General agent playgrounds make schema authoring look unconstrained; users naturally request every possible field.
+**How to avoid:** Keep behavior instructions separate from output shape, require only essential fields, bound arrays, cap depth/size, and normalize into the existing packet contract.
+**Warning signs:** `maxItems` absent on list fields, schema depth grows without policy, or user schema directly becomes evidence.
+**Phase to address:** Phase 38 — Execution Compatibility; Phase 39 — Security & Verification.
 
-**Consequences:** Partners receive polished but ungrounded buying signals, and later Hypotheses may aggregate false “confirmed” evidence. Citation links can rot or change, making later audit impossible.
+---
 
-**Prevention:** Model findings as claim(s) with one-or-more immutable evidence records: canonical/final URL, title, publisher/host, retrieved-at time, publication date when available, quoted/supporting excerpt or bounded source snapshot, content hash, and source quality/type. Require each material claim to reference its evidence IDs; deterministic validation rejects missing, duplicate-only, off-domain/unsafe, or unquoted support. Present source date and uncertainty prominently, require a partner to inspect citations, and treat confidence as model-supplied metadata—not a truth score. Capture only lawful/minimal excerpts and retention-tag them.
+### Pitfall 4: Custom runs bypass the v1.7 review and no-live-write boundaries
 
-**Detection:** Finding’s claim text cannot be located in its stored excerpt; citation redirects to a different page; high-confidence findings rely on a single low-quality/undated source.
+**What goes wrong:** A new agent writes live Signals/links, creates multiple decisions, or exposes unconfirmed findings as candidate offerings.
+**Why it happens:** Constructor work is treated as a new product path instead of another input to the existing pipeline.
+**How to avoid:** Reuse the v1.7 durable run, evidence packet, whole-run review, and confirmed-only SQL projection; add mutation/no-write regression tests.
+**Warning signs:** Separate accept/reject actions, client-side confirmed filtering, or custom-agent code importing direct live-write queries.
+**Phase to address:** Phase 38 — Execution Compatibility; Phase 39 — Security & Verification.
 
-**Prevention owner:** **Phase A — Run ledger and normalized finding/evidence contract; Phase D — groundedness evaluation suite.**
+---
 
-### Pitfall 3: Per-finding review semantics leak unconfirmed research into downstream decisions
-**What goes wrong:** Existing `signal_proposal` accepts or rejects each proposal independently and turns an accepted proposal into a live Signal. v1.7 requires exactly one confirm/dismiss decision for the *whole completed run*. Reusing the table without a distinct run-level state allows mixed decisions, partially visible results, or a query that accidentally consumes `pending`/individual `accepted` rows.
+### Pitfall 5: Prompt/schema/tool fields create an injection or policy escape hatch
 
-**Why it happens:** The current review model is proposal-centric: `proposal_status` is `pending|accepted|rejected`, `run_id` is nullable, and `acceptProposal()` effects a live write per proposal.
+**What goes wrong:** Malicious instructions or schema descriptions induce unsafe tools, unsupported citations, secret exposure, or forbidden writes.
+**Why it happens:** User-authored text is treated as trusted execution policy.
+**How to avoid:** Keep tools/data sources server-owned, validate instructions/schema, preserve the allowlisted research boundary, reject unsupported/duplicate evidence, and prove unchanged live rows in adversarial fixtures.
+**Warning signs:** User-defined provider IDs, raw tool names in editable fields, or accepting URL-only citations.
+**Phase to address:** Phase 39 — Security & End-to-End Verification.
 
-**Consequences:** “Confirmed-only candidate offerings” becomes untrustworthy; downstream Hypotheses can aggregate dismissed or only partially reviewed findings; concurrent reviewers can record conflicting outcomes.
+---
 
-**Prevention:** Introduce a run-level finite-state machine, e.g. `queued → running → completed → confirmed|dismissed` plus terminal `failed|cancelled`; findings inherit eligibility solely from `run.status = confirmed`. Make confirmation/dismissal a single conditional, transactional update (`WHERE status='completed'`) that records reviewer ID, timestamp, and optional dismissal reason; it must be idempotent and return `already_decided` rather than overwrite. Keep findings immutable after completion. Build candidate-offering and future Hypothesis queries from an explicit confirmed-run predicate, never from UI filtering or a finding-local status.
+## Technical Debt Patterns
 
-**Detection:** One run contains different finding decision states; a dismissed/pending run appears in a candidate-offering view; two reviewers both receive success.
+| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
+|----------|-------------------|----------------|-----------------|
+| Store custom config as unvalidated JSON | Fast prototype | No stable compatibility, migration, or audit contract | Never for an activatable agent. |
+| Validate only in the client | Smaller Server Action | Direct requests can bypass safety and produce unrunnable versions | Never. |
+| Reuse current fixed template rows as custom rows without stable identity | Avoids a migration | Custom edits can corrupt v1.7 behavior and make ownership unclear | Never; preserve fixed identities and add custom identity explicitly. |
+| Copy v1.7 UI without constructor-specific error states | Quick visual reuse | Staff cannot understand why a custom agent cannot run | Only for a static mock, not a release candidate. |
 
-**Prevention owner:** **Phase B — Review lifecycle and confirmed-only consumption boundary.**
+## Integration Gotchas
 
-### Pitfall 4: The web becomes an instruction channel, not merely an evidence source
-**What goes wrong:** Search/scraped page text can contain indirect prompt injection (including hidden markup or encoded text) that tells the model to ignore rules, fabricate findings, expose context, or make more costly searches. The current prompt says web content is not spliced into instructions, but tool results still enter the model’s context and the agent has a search tool.
+| Integration | Common Mistake | Correct Approach |
+|-------------|----------------|------------------|
+| Durable run ledger | Read mutable agent config during a queued/running run | Snapshot exact version/configuration before enqueue/claim. |
+| Evidence packet | Trust custom output fields as citations | Reconcile evidence through canonical server-owned source/link contracts. |
+| Review/candidates | Add custom decision semantics | Use the existing one whole-run decision and confirmed-only projection. |
+| Provider/model execution | Expose provider selection in custom config | Resolve only the existing saved model chain and server-owned capability policy. |
 
-**Why it happens:** External pages are untrusted data while the model processes natural-language instructions and data in the same context. Prompt wording alone cannot provide a security boundary.
+## Performance Traps
 
-**Consequences:** Ungrounded or malicious findings, excess search calls, prompt/tool details in output, and persistence of poisoned content that a future consumer could treat as trusted evidence.
+| Trap | Symptoms | Prevention | When It Breaks |
+|------|----------|------------|----------------|
+| Unbounded output arrays | Long runs, high cost, oversized packets | Require bounded arrays and execution limits | Before large customer datasets; cost grows per run. |
+| Full history loaded for every card | Slow `/agents` page and unnecessary DB payload | Paginate/read current version separately from history | As custom-agent count or versions grow. |
+| Duplicate active-run checks only in UI | Two browser tabs enqueue duplicates | Enforce DB/query-layer guard atomically | Immediately under concurrent use. |
 
-**Prevention:** Keep the agent read-only with an allowlisted, parameter-validated search tool; cap calls, query length, domains/results/content bytes, and total context. Delimit and label all fetched content as untrusted data; strip active content and suspicious/invisible markup before model use; never give the model DB writes, arbitrary URLs, credentials, or arbitrary tool invocation. Apply deterministic output/evidence validation and partner confirmation as separate controls. Add indirect-injection fixtures (HTML comments, zero-width text, encoded instructions, hostile snippets) to the evaluation suite and log a redacted injection-suspected signal.
+## Security Mistakes
 
-**Detection:** Tool-call/query count spikes; output mentions instructions, credentials, or unrelated tasks; evaluation payload causes a new tool call or a policy-breaking finding.
+| Mistake | Risk | Prevention |
+|---------|------|------------|
+| Trusting submitted actor ID | Cross-user mutation or audit spoofing | Derive actor from Clerk gate, never from form input. |
+| Allowing arbitrary tool/provider fields | Data exfiltration, unsafe execution, policy bypass | Server-owned allowlists and capability resolution. |
+| Treating URL-only or user-authored citation as evidence | False findings influence candidate offerings | Require persisted canonical source identity/content support and fail closed. |
+| Retiring/deleting without lifecycle authorization | Historical runs disappear or future runs become inconsistent | Staff-gated lifecycle transitions; no destructive history deletion. |
 
-**Prevention owner:** **Phase C — Safe execution, tool policy, and spend controls; Phase D — adversarial evaluation.**
+## UX Pitfalls
 
-### Pitfall 5: Duplicate clicks, retries, and provider retries create costly duplicate runs
-**What goes wrong:** The client-side generation counter prevents stale UI rendering but does not make the POST idempotent. Multiple tabs, refresh/retry, or network uncertainty can execute multiple searches. AI SDK `generateText` retries retryable failures by default; Firecrawl reports `creditsUsed`, but if neither attempt-level cost nor request key is persisted, spend cannot be attributed or bounded.
+| Pitfall | User Impact | Better Approach |
+|---------|-------------|-----------------|
+| Current version and history look identical | Staff cannot tell what future runs use | Label current version, version number, created time, and read-only history clearly. |
+| Save appears successful while configuration is not runnable | Trust loss and failed launch later | Validate on save, show field-level errors, and distinguish draft-invalid from active. |
+| Retirement hides prior runs | Staff lose audit context | Block future launches but keep versions, runs, results, and review packets inspectable. |
 
-**Why it happens:** There is no server-held idempotency key, active-run uniqueness rule, reservation, per-user budget, or durable tool/provider usage accounting in the existing one-minute synchronous route.
+## "Looks Done But Isn't" Checklist
 
-**Consequences:** Surprise bills, multiple inconsistent research snapshots for the same entity, Vercel timeout pressure, and partner review overload.
+- [ ] **Creation:** Agent is persisted with stable identity and a valid current version — verify reload and direct action validation.
+- [ ] **Versioning:** Existing runs retain old config after edit — verify snapshot comparison, not only UI history.
+- [ ] **Compatibility:** Both Company and Persona fixed templates still run — verify backward-compatible target flows.
+- [ ] **Security:** Malicious instruction/schema/citation cases fail closed — verify live Signal/Offering/link rows remain unchanged.
+- [ ] **Review:** Exactly one whole-run decision remains authoritative — verify competing/concurrent decisions.
+- [ ] **Lifecycle:** Retire blocks new launches but preserves history — verify reactivation uses the same latest version.
 
-**Prevention:** Require a server-generated idempotency key bound to template version, subject, requester, and input hash; enforce one non-terminal run per `(template, subject)` (or an explicit, audited supersede rule). Reserve a maximum per-run and per-user/day budget before execution; configure bounded tool steps/results/retries/timeouts; persist provider/model usage and Firecrawl `creditsUsed` per attempt. On timeout/cancellation, mark a terminal/unknown-cost outcome rather than automatically re-run. Provide an operator kill switch and rate limit start endpoints.
+## Recovery Strategies
 
-**Detection:** Same input hash starts twice within the active window; a run has more calls/credits than configured; monthly cost cannot be summed from local data.
+| Pitfall | Recovery Cost | Recovery Steps |
+|---------|---------------|----------------|
+| Mutable version corruption | HIGH | Freeze affected runs, restore from immutable audit rows, add snapshot regression, and prevent in-place updates. |
+| Invalid activatable config | MEDIUM | Mark version non-runnable, preserve audit trail, fix through a new version, and revalidate server-side. |
+| Review/no-write bypass | HIGH | Quarantine affected output, audit live-row diffs, disable the path, and restore the existing v1.7 projection boundary. |
 
-**Prevention owner:** **Phase C — Safe execution, tool policy, and spend controls.**
+## Pitfall-to-Phase Mapping
 
-### Pitfall 6: Persona research retains or displays personal/sensitive data without a boundary
-**What goes wrong:** Persona inputs and web results can contain contact data, career history, unverified allegations, or special-category/sensitive inferences. Retaining raw provider responses and web evidence indefinitely magnifies the footprint; displaying model-generated assertions as facts can unfairly harm a person.
-
-**Why it happens:** v1.7 deliberately retains inputs and responses, while current evidence tags only distinguish `public_biz` and `personal_data`; they do not enforce minimization, redaction, access, retention period, or forbidden-claim policy.
-
-**Consequences:** Privacy/reputational harm, unnecessary sensitive-data retention, and an audit record that itself becomes unsafe to expose broadly.
-
-**Prevention:** Define an approved research schema and explicit disallowed categories before implementation. Send the minimum entity context needed; redact contact fields from model/tool payloads unless essential; classify evidence and outputs server-side; reject or quarantine sensitive/unverifiable claims; use role-aware display even though v1.7 retains existing staff auth. Set a documented retention/deletion policy by artifact class, redact before telemetry, and make deletion/subject-correction requests traceable without silently altering the original audit event (tombstone/redaction record).
-
-**Detection:** Raw email/phone/sensitive terms in provider logs or Langfuse; a citation/result violates the data-class policy; an old run remains after its retention deadline.
-
-**Prevention owner:** **Phase A — Data contract and retention classification; Phase B — safe review/display policy.**
-
-### Pitfall 7: Template or schema edits silently change the meaning of historical results
-**What goes wrong:** A reusable template is edited after runs exist. If history re-renders using the current template, query, signal definitions, or output schema, a partner cannot know what was actually asked or whether findings remain comparable. A later Hypothesis can aggregate similarly named findings from incompatible versions.
-
-**Why it happens:** Reusable template management invites mutable records, while current agent runs only retain output-oriented JSON, not an immutable definition/input snapshot.
-
-**Consequences:** Broken auditability, non-reproducible reviews, false trend/comparison signals, and “confirmed” results that no longer have a stable semantic contract.
-
-**Prevention:** Version templates immutably. Every run stores the exact template version/content hash, resolved query/prompt variables, input snapshot/hash, output-schema version, signal taxonomy version, tool-policy version, and model/provider chain. Editing creates a new version; it never rewrites prior runs. Make comparability explicit in future aggregation (same template/taxonomy version, or a documented migration).
-
-**Detection:** A historical run’s displayed query changes after a template edit; two findings with the same label have incompatible schemas; rerun cannot reconstruct its configuration.
-
-**Prevention owner:** **Phase A — Run ledger and agent-template versioning.**
-
-### Pitfall 8: “Human confirmed” is treated as a guarantee or loses the reviewer decision trail
-**What goes wrong:** A confirm button can be interpreted as factual certification, while a dismiss action without a reason yields no learning loop. If reviewer identity, exact reviewed snapshot, decision time, and decision reason are not durable, neither accountability nor correction is possible.
-
-**Why it happens:** Existing review actions optimize individual proposal accept/reject and correction reasons; v1.7 changes the unit and business meaning of review.
-
-**Consequences:** Overconfident downstream use, no way to reconcile a later correction, and weak evidence for how a partner exercised oversight.
-
-**Prevention:** Label results as AI-assisted research and “partner-confirmed for internal hypothesis use,” not verified fact. Confirmation binds to an immutable result checksum/version and records actor, timestamp, disposition, and optional structured dismissal/correction. Do not allow an existing confirmed run to be silently modified; correction requires an explicit superseding run or a recorded revocation. Measure confirmation/dismissal reasons and sampled citation-groundedness, but never advertise accuracy/confidence claims without validation evidence.
-
-**Detection:** Confirmed rows lack reviewer/time/checksum; a historical result changes in place; public/internal copy says “verified” or implies measured accuracy without an evaluation record.
-
-**Prevention owner:** **Phase B — Review lifecycle and decision audit; Phase D — evaluation and language verification.**
-
-## Moderate Pitfalls
-
-### Pitfall 9: A source URL is unsafe to render or trust as an identity
-**What goes wrong:** Redirects, URL variants, tracking parameters, and hostile schemes make evidence links misleading or unsafe; the same source is double-counted as independent corroboration.
-
-**Prevention:** Accept only `https` evidence URLs from tool output, normalize/canonicalize and record final URL/host, reject private/local addresses and unsafe schemes, deduplicate by canonical URL/content hash, and render links with normal browser protections. **Owner: Phase A.**
-
-### Pitfall 10: “No findings” is wrongly aggregated as “no signal exists”
-**What goes wrong:** Search coverage, provider failure, recency, and source availability are conflated with a negative business fact.
-
-**Prevention:** Make terminal outcome explicit (`completed_no_supported_findings`, `failed`, `cancelled`, `partial`); show search scope/limits and uncertainties; exclude all non-confirmed outcomes—and especially absence—from future signal aggregation. **Owner: Phase B.**
-
-### Pitfall 11: Telemetry becomes a second ungoverned evidence store
-**What goes wrong:** Langfuse traces may contain prompts, tool outputs, names, URLs, and provider errors beyond the application retention policy.
-
-**Prevention:** Send redacted/minimized trace attributes, keep trace IDs not raw payloads where possible, align Langfuse retention/access with application policy, and test that secrets and direct contact fields do not reach telemetry. **Owner: Phase C.**
-
-## Phase-Specific Warnings
-
-| Prevention owner | Likely pitfall | Required verification |
-|---|---|---|
-| Phase A — Run ledger and agent-contract foundation | Success-only persistence; mutable templates; citation URL without durable support; unsafe evidence identity | DB lifecycle tests covering success, gate failure, provider failure, timeout, and persistence failure; immutable version/snapshot assertions; citation/hash validation tests |
-| Phase B — Review lifecycle and confirmed-only consumption | Per-proposal reuse produces partial approval or pending leakage | Concurrency test: only one whole-run decision wins; query-level test that candidates/Hypotheses exclude every non-confirmed status; reviewer/audit checksum UAT |
-| Phase C — Safe execution, tool policy, and spend controls | Injection drives tools; duplicated work/retries spend money; telemetry leaks data | Tool policy and idempotency/rate-limit tests; injected-page fixture cannot change tool policy; cost/credits reconciliation; trace redaction grep/assertions |
-| Phase D — Groundedness, security, and human-oversight evaluation | Valid JSON/citation is accepted as factual support; claims overstate confidence | Golden set with supported, irrelevant-citation, stale, ambiguous, and no-evidence cases; indirect prompt-injection suite; partner review workflow UAT and sampled evidence audit |
+| Pitfall | Prevention Phase | Verification |
+|---------|------------------|--------------|
+| Cosmetic/non-immutable history | Phase 37 | Version append and old-run snapshot tests. |
+| Unrunnable configurations | Phase 37/38 | Server validation matrix and compatible/incompatible target tests. |
+| Unbounded schema/cost | Phase 38 | Schema policy tests and bounded-array/depth cases. |
+| Review/no-live-write bypass | Phase 38/39 | Confirm/Dismiss idempotency plus DB row-hash no-write tests. |
+| Prompt/tool policy escape | Phase 39 | Adversarial fixture suite and authenticated E2E. |
 
 ## Sources
 
-- Codebase, HIGH: `src/lib/agents/analyzeCompany.ts`, `runAgent.ts`, `prompt.ts`, `types.ts`, `src/lib/db/schema.ts`, `src/lib/db/queries/runs.ts`, `src/lib/db/queries/proposals.ts`, and `src/app/actions/reviews.ts`, inspected 2026-08-06. These establish the successful-run-only persistence, URL-membership citation gate, proposal-level review, default retry/tool loop, and existing audit fields.
-- Vercel AI SDK documentation, HIGH: structured-output errors and tool-validation errors; `generateText` retries retryable errors by default and applies total/step timeouts. https://ai-sdk.dev/docs/ai-sdk-core/generating-structured-data and https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling
-- Firecrawl Search API documentation, HIGH: search results expose URLs/content and response `creditsUsed`; query/result limits and timeouts are configurable. https://docs.firecrawl.dev/features/search
-- OWASP GenAI, HIGH: indirect prompt injection arises from external web content; recommended controls include untrusted-content separation, deterministic output validation, least privilege, and human oversight. https://genai.owasp.org/llmrisk/llm01-prompt-injection/ and https://cheatsheetseries.owasp.org/cheatsheets/AI_Agent_Security_Cheat_Sheet.html
-- NIST AI 600-1 Generative AI Profile, HIGH: calls for documented generated-data provenance, defined human oversight, retention of TEVV/content-transparency history, and ongoing testing/monitoring. https://doi.org/10.6028/NIST.AI.600-1
-- FTC AI claims guidance, MEDIUM (relevance is product-language governance, not a determination of ArcLumen's legal obligations): do not make unsupported efficacy claims; account for foreseeable risks and testing. https://www.ftc.gov/business-guidance/blog/2023/02/keep-your-ai-claims-check
+- [Exa Agent API guide](https://exa.ai/docs/reference/agent-api-guide) — bounded arrays, effort/cost, structured output, grounding, and lifecycle.
+- [Exa Create a Run](https://exa.ai/docs/reference/agent-api/create-a-run) — input/schema fields, status/error contract, and data-source configuration.
+- [Exa Agent overview](https://exa.ai/docs/reference/agent-api/overview) — async lifecycle, nullable unsupported fields, grounding, and limits.
+- [Exa Connect overview](https://exa.ai/docs/reference/agent-api/connect/overview) — schema/query-guided tool selection and separate sources.
+- Exa Agent Playground URL supplied by the milestone brief — login redirect limited direct UI observation.
+
+---
+*Pitfalls research for: custom structured-research agent constructors*
+*Researched: 2026-08-09*
