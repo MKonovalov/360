@@ -1,5 +1,27 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
+import type { ReactNode } from 'react';
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: () => undefined }),
+}));
+vi.mock('@/app/actions/analysisTemplates', () => ({
+  createCustomAgentAction: async () => ({ ok: true, kind: 'created' }),
+  saveCustomAgentAction: async () => ({ ok: true, kind: 'version_appended' }),
+  setCustomAgentStatusAction: async () => ({ ok: true, kind: 'lifecycle_updated' }),
+}));
+vi.mock('@/components/ui/sheet', () => {
+  const passthrough = ({ children }: { readonly children?: ReactNode }) => children;
+  return {
+    Sheet: passthrough,
+    SheetContent: passthrough,
+    SheetDescription: passthrough,
+    SheetFooter: passthrough,
+    SheetHeader: passthrough,
+    SheetTitle: passthrough,
+    SheetTrigger: passthrough,
+  };
+});
 
 import { CustomAgentEditor, buildCustomAgentCreatePayload } from './custom-agent-editor';
 import type { PracticeAreaOption, SafeCapabilityPreset } from './custom-agent-editor';
