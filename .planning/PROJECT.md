@@ -8,17 +8,19 @@ ArcLumen 360 is an end-to-end demand generation pipeline for ArcLumen Partners, 
 
 Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds, replacing signal knowledge that today lives scattered across individual heads and inboxes.
 
-## Current Milestone: v1.7 Agent Constructor & Buying Signal Analysis
+## Current Milestone: v1.8 Agent Constructor
 
-**Goal:** Let staff run source-grounded, human-reviewed Company and Persona signal analyses through reusable agent templates.
+**Goal:** Let staff create and manage safe custom agents from `/agents`, then run them through the existing source-grounded, human-reviewed Company and Persona analysis pipeline.
 
 **Target features:**
-- Reusable agent template, asynchronous run, normalized result, and review-proposal primitives built on the existing reviews model where its schema fits.
-- GBS Company and Persona Buying Signal Analysis templates derived from active Signals, powered by the in-house research-agent stack behind a provider-agnostic execution contract.
-- Preview-and-run, history, findings, one-decision-per-run review, and confirmed-only candidate-offering views on Company and Persona records.
-- A small `Manage > Agents` template-management surface.
+- Custom agent creation at the canonical `/agents` route with name/description, target type, Practice Area, instruction, supported/default effort, and lifecycle.
+- Editable configuration with immutable version-on-save history; prior versions and existing runs remain read-only and reproducible.
+- Server-side validation and execution compatibility against the existing target, signal/checklist, evidence, durable-run, review, and confirmed-only candidate contracts.
+- Security, review-boundary, backward-compatibility, and authenticated Company/Persona end-to-end verification for custom agents and the two fixed v1.7 templates.
 
-## Milestone Status: v1.6 SHIPPED (2026-08-06)
+## Milestone History
+
+**v1.7 Agent Constructor & Buying Signal Analysis (fixed-template scope preserved)** — implementation and authenticated UAT completed through Phase 36. The two fixed Company/Persona templates, canonical `/agents` management route, source-grounded run/review/candidate boundaries, and authenticated Company/Persona flows remain the compatibility baseline for v1.8. The separate Neon/Workflow verification matrix remains partial and prerequisite-gated by `TEST_DATABASE_URL`; see the preserved v1.7 requirements snapshot and Phase 36 verification ledger.
 
 **v1.6 Signals & Offerings (SHIPPED 2026-08-06)** — 3 phases (28 Shared Data Model + Seed, 29 Signals UI, 30 Offerings UI), 25 plans, 27/27 requirements validated (DATA-01..10, SIG-01..09, OFR-01..08). Delivered: 9-table data model (offerings + signals + ranked buyer-role joins + trigger + polymorphic signal-offering link) with delete-guard `has_dependents` rule at query layer; full GBS seed (3 domains, 11 offerings, 5 buyer roles, 27 company + 12 persona signals, 10 links); /signals two-tab explorer with filters, CRUD forms, linked-offerings picker, soft archive; /offerings Service Portfolio 3-level hierarchy manager + Offering × Trigger × Buyer Matrix with inline trigger/rank editing; shared Buyer Role lookup CRUD panel; D-10 dependents-guarded deletes (near-black confirms); OFR-07 reverse-linked-signal names. Cross-phase integration audit passed (18/18 wired, 4/4 flows); human UAT approved (30-11). Merged to main via PR #3 (a7a33f96); archived to `.planning/milestones/v1.6-*`. Documented deferral: SIG-07 inline buyer-role shortcut (D-03) addressed by OFR-06 panel; pre-existing VER-03 live-API test baseline (Phase 22-04) not v1.6 scope.
 
@@ -34,9 +36,11 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 
 ## Milestone Context
 
-v1.7 begins after v1.6 Signals & Offerings shipped. It adds a reusable Agent Constructor and its first two GBS buying-signal analyses without extending into Persona Discovery, bulk/scheduled analysis, outreach, or Hypotheses.
+v1.8 begins after v1.7's fixed-template implementation/UAT scope. It extends the same `/agents` management surface so staff can create custom Company/Persona-compatible agents without changing the two fixed templates or the existing run/review/candidate trust boundaries.
 
-**Locked direction:** Reuse the app's in-house AI + web-research capability behind a provider-agnostic constructor contract; adapt the existing reviews/proposals model where it supports shared proposal semantics; partners approve or dismiss one completed run as a whole.
+**Locked v1.7 baseline:** Reuse the in-house AI + web-research capability behind a provider-agnostic execution contract; partners approve or dismiss one completed run as a whole; existing runs and evidence remain immutable; confirmed-only candidate offerings remain the only downstream projection.
+
+**v1.8 research direction:** Separate behavior instructions from bounded structured-output configuration, use server-owned capabilities, validate before activation/run creation, and snapshot the selected immutable version before execution. Exa Agent/Connect documentation informed these patterns but does not authorize adding Exa or another provider.
 
 ## Requirements
 
@@ -88,7 +92,7 @@ v1.7 begins after v1.6 Signals & Offerings shipped. It adds a reusable Agent Con
 ### Active
 
 - [ ] Persona 360 "Related Knowledge" showing real Arcpedia articles end-to-end — code path proven identical to the working Company path, but the current seed Persona dataset has no name that matches real Arcpedia content; needs either updated seed data or acceptance of the gap (see `04-HUMAN-UAT.md`)
-- [ ] Staff can configure and run reusable, source-grounded Company and Persona Buying Signal Analysis templates, then review one complete analysis pass before its findings influence candidate offerings — v1.7
+- [ ] Staff can create, configure, version, lifecycle-manage, and safely run custom Company/Persona agents from `/agents` while preserving v1.7's review and confirmed-only candidate boundaries — v1.8
 
 ### Out of Scope
 
@@ -104,10 +108,14 @@ v1.7 begins after v1.6 Signals & Offerings shipped. It adds a reusable Agent Con
 - (v1.6) Numeric pricing field on `offering` — 5 of 6 catalogues explicitly defer pricing; `commercial_model_text` (free text, mechanism not figure) only, per spec Section 8
 - (v1.6) Dual-persona co-occurrence scoring on `persona_signal` — belongs to the future Hypotheses milestone, noted in spec so the schema doesn't need a breaking change later
 - (v1.6) Seeding practice areas beyond GBS — Technology/other 5 catalogues need the GBS/Technology offering-name boundary resolved first (spec Section 8)
+- (v1.8) Bulk, scheduled, or automatic custom-agent execution — deferred until on-demand compatibility, cost, freshness, and review-volume controls are proven
+- (v1.8) Per-finding curation or auto-confirmation — preserves v1.7's one whole-run decision and human-review trust boundary
+- (v1.8) New research providers, including Exa — v1.7's in-house provider-agnostic modelFactory/Firecrawl direction remains locked
+- (v1.8) Outreach/CRM workflows, Hypotheses, and Persona Discovery — separate downstream or discovery semantics, not constructor scope
 
 ## Current State
 
-**Milestone v1.7 (Agent Constructor & Buying Signal Analysis) is defining requirements.** It follows v1.6's shipped Signals & Offerings foundation. It will give staff two reusable GBS templates — Company and Persona signal analyses — using existing in-house AI/web research behind a provider-agnostic contract. Every completed run stays behind the existing reviews/proposals model until a partner confirms or dismisses the whole run. Persona Discovery, bulk/scheduled re-analysis, outreach, and Hypotheses remain outside this milestone.
+**Milestone v1.8 (Agent Constructor) is defining requirements.** It follows v1.7's fixed-template implementation/UAT baseline. It will let staff create custom Company/Persona-compatible agents from `/agents` with immutable versions, lifecycle controls, server-side compatibility validation, and safe execution through the existing source-grounded run/review/candidate pipeline. The two v1.7 fixed templates remain backward-compatible; bulk/scheduled execution, per-finding curation, auto-confirmation, new providers, outreach/CRM, Hypotheses, and Persona Discovery remain outside scope.
 
 **Milestone v1.5 (Additional AI Providers) shipped 2026-08-04.** All 5 phases complete (Phase 23 Provider Registry + Servable Sources, Phase 24 Refresh Script + Catalog Data, Phase 25 Run Path / modelFactory Seam, Phase 26 Settings UI, Phase 27 Verification Gate — 20 plans), 26/28 requirements validated, milestone archived to `.planning/milestones/v1.5-*`. NousResearch + OpenCode join Anthropic + OpenRouter as fully wired, servable AI providers. VER-02/VER-03's live round-trip evidence remains blocked on operator account-credit decisions for NousResearch and OpenCode (see `27-HUMAN-UAT.md`) — acknowledged and carried forward as known debt at close, matching v1.4's disposition of the identical OpenRouter billing gap. Next milestone: not yet scoped — see Future Candidates.
 
@@ -166,7 +174,7 @@ Not yet scoped. Carried forward from v1.1's deferred list, still relevant after 
 - Vercel production e2e for the Phase-22 Playwright suite — currently local-only (`E2E_CLERK_USER_EMAIL`/`E2E_CLERK_PASSWORD` gated, storage-state bootstrap); wiring the VER-02/VER-03 credit-dependent assertions (openrouter.ai top-up) is a prerequisite
 - Wire the Phase-22 security-grep gate into CI so key-placement regressions fail the build, not just local `npm test`
 
-**Shipped:** v1.6 Signals & Offerings shipped 2026-08-06 (see Milestone Status above).
+**Shipped/history:** v1.6 Signals & Offerings shipped 2026-08-06. v1.7 fixed-template implementation and authenticated UAT are preserved as the v1.8 compatibility baseline; its separate database/Workflow verification matrix remains partial per Phase 36's ledger.
 
 ## Context
 
@@ -178,7 +186,7 @@ Not yet scoped. Carried forward from v1.1's deferred list, still relevant after 
 - Full pipeline vision beyond milestone 1: a prioritized target list, outreach triggers pushed to sales, and CRM/export sync. Milestone 1 stops at the browsing/overview experience — the UI shell working end-to-end against seed data is the milestone-1 definition of done.
 - **Arcpedia** (`/Users/mkonovalov/Projects/arcpedia`, live at arcpedia.arclumen.de) is an existing, actively-built internal wiki ("a wiki for the agent age" — Next.js + Cloudflare Workers, Clerk-authenticated, LLM-powered ingest/query). It exposes a public (no-auth *at the application level*) REST read surface: `GET /api/wiki/search?q=`, `GET /api/wiki/browse?q=&scope=&tag=&page=`, `POST /api/wiki/dataview` (query by frontmatter), plus a session-gated `POST /api/query` (LLM-synthesized answers over the corpus) and an MCP server at `/api/mcp`. In production, the domain also sits behind a Cloudflare Zero Trust Access gate at the edge (see Key Decisions) — a Service Token is required regardless of the app-level "public" designation. ArcLumen 360 v1.0 reads from `/api/wiki/search` to surface related knowledge articles on Company/Persona 360 views — no write-back. Beyond v1.0, the user's stated future direction includes AI-drafted, tailored outreach content (e.g. persona-specific LinkedIn DMs, ARCP-03) — not in scope now, but worth keeping the data model open to it.
 - Codebase size at v1.4 ship: ~17,400 LOC across `src/**/*.{ts,tsx}` (up from ~13,600 at v1.2, ~13,100 at v1.1, ~3,840 at v1.0). `npm test` runs 385 tests (378 passed / 6 skipped / 1 known failure — the VER-03 live billing-success assertion, pending OpenRouter key credit). The Vitest suite locks pure-function contracts across 5+ modules (nav, display-name, tooltip, WCAG contrast, dedup/columnMapping/partitionRows/mergePlan/analyzeCompany) plus the Phase-20 classifier/loop/gate cases and Phase-22 security-grep harness (5 tests). Live-browser verification is now two-track: Playwright MCP (the Phase-5-pattern 12-cell matrix + interactions) for interactive checks, and the repo's first Playwright e2e suite (`e2e/auth.setup.ts` Clerk storage-state + `e2e/ver-02-analyze.spec.ts` + `e2e/ver-05-settings.spec.ts`) introduced in Phase 22, complementing the v1.1 manual UAT + live build/tsc checks.
-- **ArcLumen Partners' service portfolio taxonomy** (informs v1.6): Portfolio → Practice Area → Domain → Offering → Engagement, six practice areas total, each documented in a Word-doc catalogue with per-offering Entry Trigger + Primary Buyer fields. v1.6 seeds one practice area — GBS — Design, Build & Run — from `ArcLumen_GBS_DesignBuildRun_Catalogue_1.docx` and `ArcLumen360_Buying_Signal_Reference_GBS.docx` (both authored firm IP, not in this repo). Full data model/UI/seed-data spec: `.planning/specs/v1.4-signals-offerings.md`.
+ - **ArcLumen Partners' service portfolio taxonomy** (informs v1.6 and v1.8): Portfolio → Practice Area → Domain → Offering → Engagement, six practice areas total, each documented in a Word-doc catalogue with per-offering Entry Trigger + Primary Buyer fields. v1.6 seeds one practice area — GBS — Design, Build & Run — from `ArcLumen_GBS_DesignBuildRun_Catalogue_1.docx` and `ArcLumen360_Buying_Signal_Reference_GBS.docx` (both authored firm IP, not in this repo). Full data model/UI/seed-data spec: `.planning/specs/v1.4-signals-offerings.md`.
 - **Two-branch reconciliation (2026-08-04):** this milestone was originally planned in an isolated GSD workspace (`workspace/signals`, working dir `~/gsd-workspaces/signals/360-arclumen`) forked from the same commit as this branch (`a6b583a9`, 2026-08-02) but unaware of the 235 commits of real app progress (v1.3 finish, v1.4 Multi-Provider AI Config ship, v1.5 in-progress) that happened here in parallel. `workspace/signals` made zero real code changes (planning docs only — confirmed `schema.ts` byte-identical between branches at merge time), so reconciliation was a clean merge plus manual re-editing of `.planning/{PROJECT,STATE,ROADMAP,REQUIREMENTS}.md` to fold the queued v1.6 content in without disturbing v1.5's active tracking.
 
 ## Constraints
@@ -233,6 +241,8 @@ Not yet scoped. Carried forward from v1.1's deferred list, still relevant after 
 | NousResearch servable set is a curated Hermes-pair allowlist, not the full anonymous 292-row roster | The anonymous roster includes many non-production-ready rows; curating to 2 known-good Hermes models avoids shipping an unvetted long tail | Done — Phase 23; `PROVIDER_GATES.nousresearch` |
 | Go roster drift (models.dev lags live OpenCode CLI by up to 7 ids) — accepted via a pinned, logged exception rather than loosened to a non-strict check | A blanket non-strict check would silently mask future real drift; a pinned exception list accepts exactly the known-lagging ids and still aborts on anything new — user explicitly approved the exception | Done — Phase 24; `GO_KNOWN_LIVE_ONLY_IDS`, D-24-07 amendment |
 | A self-authored phase-completion VERIFICATION.md (written by the phase's own final plan) is independently re-verified before milestone close, not trusted at face value | This project's own precedent (Phase 22/OpenRouter) already established that "structurally proven, blocked by an external funding condition" must route to `human_needed` with explicit operator-action items, never a self-granted `passed` — Phase 27 initially self-graded `passed` and was corrected by an independent verifier pass to match that precedent | Done — Phase 27; corrected `27-VERIFICATION.md`, `27-HUMAN-UAT.md` |
+| v1.7 fixed-template management remains the v1.8 compatibility baseline | The two canonical Company/Persona templates, `/agents` route, immutable run/review/candidate boundaries, and authenticated target flows are preserved; the separate Phase 36 database/Workflow matrix remains explicitly partial rather than silently reclassified | Pending — v1.8 planning |
+| v1.8 custom agents are managed at `/agents` with server-owned capabilities and immutable versions | Custom name/description, target type, Practice Area, instruction, supported/default effort, and lifecycle are editable; behavior/configuration is separated from bounded output shape, while Exa research informs shape only and does not add a provider | Pending — v1.8 planning |
 
 ## Evolution
 
@@ -252,4 +262,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-06 — v1.6 (Signals & Offerings) milestone shipped 2026-08-06; 3 phases (28-30), 25 plans, 27/27 requirements validated (DATA-01..10/SIG-01..09/OFR-01..08), merged to main via PR #3 (a7a33f96). v1.5 (Additional AI Providers) shipped 2026-08-04 with 2 known gaps (VER-02/VER-03 live round trip) carried forward as documented debt.*
+*Last updated: 2026-08-09 — v1.8 Agent Constructor started after research-first scope approval; v1.7 fixed-template implementation/UAT history preserved, with its Phase 36 database/Workflow verification matrix remaining partial and prerequisite-gated.*

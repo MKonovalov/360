@@ -1,35 +1,33 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Agent Constructor & Buying Signal Analysis
-status: shipping
-last_updated: "2026-08-09T04:25:20Z"
+milestone: v1.8
+milestone_name: Agent Constructor
+status: planning
+last_updated: "2026-08-09T09:43:15.034Z"
 last_activity: 2026-08-09
 progress:
-  total_phases: 14
-  completed_phases: 10
-  total_plans: 77
-  completed_plans: 71
-  percent: 71
+  total_phases: 3
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-08-06)
+See: .planning/PROJECT.md (updated 2026-08-09)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** Phase 36 — shipping Phase 35/36 after authenticated acceptance
+**Current focus:** Phase 37 — Custom Agent Definition, Versioning & Lifecycle
 
 ## Current Position
 
-Phase: 36 of 36 (Agent Management & End-to-End Verification)
-Plan: 7 of 7
-Status: Shipping — authenticated Playwright 5/5 passed; separate database/Workflow matrix remains documented as prerequisite-gated
-Last activity: 2026-08-09
-
-Progress: [██████████] 100%
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-08-09 — Milestone v1.8 started
 
 ## Performance Metrics
 
@@ -43,7 +41,8 @@ Progress: [██████████] 100%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 31-36 | 0 | — | — |
+| 31-36 | Historical v1.7 | — | — |
+| 37-39 | 0 | — | — |
 
 **Recent Trend:**
 
@@ -112,6 +111,11 @@ Progress: [██████████] 100%
 - [Phase 36]: Authenticated browser evidence passed 5/5 originally in 31.2s and again after ship-review remediation in 36.9s with guarded disposable fixtures; the independent database/Workflow matrix remains prerequisite-gated.
 - [Phase 36]: Final evidence distinguishes passing deterministic/unit/build/scope gates from blocked Neon, Workflow, and authenticated browser prerequisites.
 - [Phase 36]: Optional provider/Firecrawl smoke remains non-gating and is recorded not_run with policy_or_credentials_unavailable.
+- **v1.8 scope:** `/agents` is the canonical custom-agent management route; `/reviews/agents` is explicitly excluded.
+- **v1.8 compatibility:** The two v1.7 fixed Company/Persona templates remain unchanged and backward-compatible; custom agents enter the same durable, source-grounded, whole-run review, and confirmed-only candidate pipeline.
+- **v1.8 constructor policy:** Editable fields are name/description, target type, Practice Area, instruction, supported/default effort, and lifecycle; behavior instructions remain separate from bounded structured-output configuration.
+- **v1.8 research boundary:** Exa Agent/Connect documentation informs constructor shape and guardrails, but Exa and other new providers remain out of scope; capabilities stay server-owned.
+- **v1.8 history:** Custom saves append immutable versions; historical versions and prior runs remain read-only and lifecycle changes do not mutate snapshots.
 
 ### Pending Todos
 
@@ -119,6 +123,10 @@ None.
 
 ### Blockers/Concerns
 
+- v1.7 Phase 36's separate Neon/Workflow matrix remains a historical partial verification item because `TEST_DATABASE_URL` was unavailable; v1.8 must not silently reclassify it.
+- Phase 37 must define custom-agent identity/ownership, schema boundaries, and additive migration details without changing the fixed-template keys.
+- Phase 38 must preserve the v1.7 durable executor, evidence, review, and confirmed-only candidate boundaries for custom agents.
+- Phase 39 must prove adversarial fail-closed behavior and no-live-write invariants with deterministic fixtures plus authenticated `/agents`, Company, and Persona E2E.
 - Phase 31 executor selection and deployed proof are complete; detached execution may now proceed through the planned ledger gates.
 - Phase 32 planning must inventory legacy `agent_run`/proposal/review relations before selecting additive migration details.
 - Persona enablement needs explicit privacy, redaction, classification, and retention policy values before Phase 33 implementation.
@@ -134,7 +142,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-08-09T04:25:20Z
-Stopped at: Phase 35/36 ship preparation after authenticated Playwright 5/5 and review-work remediation
-Next: Review and merge the Phase 35/36 pull request when CI is acceptable
+Last session: 2026-08-09T09:43:15Z
+Stopped at: v1.8 milestone definition after research-first approval
+Next: Discuss and plan Phase 37 — Custom Agent Definition, Versioning & Lifecycle
 Resume file: None
