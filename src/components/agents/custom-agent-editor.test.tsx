@@ -162,7 +162,6 @@ describe('CustomAgentEditor', () => {
   it('preserves string enum constraints when an existing schema enters edit state', () => {
     const fields = schemaToDraft({
       type: 'object',
-      additionalProperties: false,
       properties: {
         priority: {
           type: 'string',
@@ -195,6 +194,6 @@ describe('CustomAgentEditor', () => {
 
     expect(validationIssuesFromResult({ ok: false, reason: 'invalid_input', issues })).toEqual(issues);
     expect(validationIssuesFromResult({ ok: false, reason: 'action_failed' })).toEqual([]);
-    expect(validationIssuesFromResult({ ok: true, kind: 'created' })).toEqual([]);
+    expect(validationIssuesFromResult({ ok: false, reason: 'conflict' })).toEqual([]);
   });
 });
