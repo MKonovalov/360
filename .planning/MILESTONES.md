@@ -1,5 +1,18 @@
 # Milestones
 
+## v1.7 Agent Constructor & Buying Signal Analysis (Fixed-template implementation/UAT baseline: 2026-08-09)
+
+**Phases:** 31-36; fixed-template implementation and authenticated UAT complete. This entry preserves history without silently marking the v1.7 requirements fully validated.
+
+**Key accomplishments:**
+
+- Two fixed GBS Company/Persona analysis templates, immutable run snapshots, durable execution/evidence, one whole-run review decision, and confirmed-only candidate offerings were delivered through the v1.7 phase sequence.
+- The canonical staff management route is `/agents`; it manages only the two fixed templates and remains the backward-compatibility baseline for v1.8.
+- Phase 36 authenticated acceptance passed the `/agents` management flow plus Company and Persona target flows. Its separate Neon/Workflow/database matrix remains partial and prerequisite-gated by `TEST_DATABASE_URL`; see `.planning/phases/36-agent-management-end-to-end-verification/36-VERIFICATION.md`.
+- Historical v1.7 requirements are preserved in `.planning/milestones/v1.7-REQUIREMENTS.md`; v1.8 does not re-mark or rewrite them.
+
+---
+
 ## v1.6 Signals & Offerings (Shipped: 2026-08-06)
 
 **Phases completed:** 3 phases, 25 plans, 8 requirements → 27/27 satisfied

@@ -9,7 +9,8 @@
 - ✅ **v1.4 Multi-Provider AI Model Configuration** — Phases 19-22 (shipped 2026-08-03)
 - ✅ **v1.5 Additional AI Providers** — Phases 23-27 (shipped 2026-08-04)
 - ✅ **v1.6 Signals & Offerings** — Phases 28-30 (shipped 2026-08-06)
-- 🚧 **v1.7 Agent Constructor & Buying Signal Analysis** — Phases 31-36 (planned)
+- ◐ **v1.7 Agent Constructor & Buying Signal Analysis** — Phases 31-36 (fixed-template implementation/UAT complete; Phase 36 database/Workflow verification partial)
+- 🚧 **v1.8 Agent Constructor** — Phases 37-39 (planned)
 
 ## Phases
 
@@ -123,7 +124,7 @@ Full details: [`.planning/milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.m
 
 </details>
 
-### 🚧 v1.7 Agent Constructor & Buying Signal Analysis (Phases 31-36)
+### ◐ v1.7 Agent Constructor & Buying Signal Analysis (Phases 31-36)
 
 **Milestone Goal:** Staff can run source-grounded Company and Persona Buying Signal Analysis from reusable GBS templates, inspect an immutable evidence packet, and make one attributed confirm-or-dismiss decision before findings affect candidate offerings.
 
@@ -139,7 +140,7 @@ Full details: [`.planning/milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.m
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 27 → 28 → 29 → 30 → 31 → 32 → 33 → 34 → 35 → 36. Phase 31 is a hard gate before Phase 33 can promise detached execution.
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 27 → 28 → 29 → 30 → 31 → 32 → 33 → 34 → 35 → 36 → 37 → 38 → 39. Phase 31 remains the v1.7 hard gate before detached execution; Phase 37 is the v1.8 definition gate before custom execution compatibility.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|-----------------|--------|-----------|
@@ -179,6 +180,9 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 34. Whole-Run Review & Confirmed Candidates | v1.7 | 4/4 | Complete | 2026-08-08 |
 | 35. Company & Persona Analysis Experiences | v1.7 | 4/4 | Complete | 2026-08-09 |
 | 36. Agent Management & End-to-End Verification | v1.7 | 7/7 | Complete   | 2026-08-08 |
+| 37. Custom Agent Definition, Versioning & Lifecycle | v1.8 | 0/TBD | Pending | — |
+| 38. Execution Compatibility & Safe Integration | v1.8 | 0/TBD | Pending | — |
+| 39. Security, Review Boundaries & End-to-End Verification | v1.8 | 0/TBD | Pending | — |
 
 ---
 
@@ -512,3 +516,62 @@ Plans:
 - [x] 36-06-PLAN.md — Authenticated real-app Company/Persona E2E with deterministic executor/fixture packet
 - [x] 36-07-PLAN.md — Final automated gate, sanitized evidence ledger, and optional-smoke disposition
 **UI hint**: yes
+
+### 🚧 v1.8 Agent Constructor (Phases 37-39)
+
+**Milestone Goal:** Let staff create and manage custom Company/Persona-compatible agents from the canonical `/agents` surface, while preserving the two fixed v1.7 templates and the existing durable, source-grounded, whole-run review, and confirmed-only candidate boundaries.
+
+**Research-informed direction:** Keep behavior instructions separate from bounded structured-output configuration; use server-owned capabilities; validate before activation and execution; append immutable versions; snapshot the selected version before a run. Exa Agent/Connect documentation informed these patterns but does not add Exa or another provider to the v1.8 runtime.
+
+**Phase Numbering:** Continues directly from v1.7's Phase 36. v1.8 starts at Phase 37.
+
+- [ ] **Phase 37: Custom Agent Definition, Versioning & Lifecycle** - Create the `/agents` constructor for custom identities and approved fields, append immutable versions, manage current/history views, enforce lifecycle transitions, and preserve the two fixed v1.7 template identities and behavior.
+- [ ] **Phase 38: Execution Compatibility & Safe Integration** - Validate target/Practice Area/signal/checklist/effort/schema/capability compatibility, snapshot custom configuration into the existing durable run path, and prove custom and fixed templates share evidence/review/candidate semantics.
+- [ ] **Phase 39: Security, Review Boundaries & End-to-End Verification** - Prove actor authorization, adversarial fail-closed behavior, no-live-write and review idempotency, confirmed-only aggregation, canonical `/agents` routing, and authenticated Company/Persona custom-agent flows.
+
+### Phase 37: Custom Agent Definition, Versioning & Lifecycle
+
+**Goal**: Staff can create and safely manage custom agent identities and immutable configuration versions from `/agents` without mutating the two fixed v1.7 templates.
+**Depends on**: Phase 36 fixed-template management baseline; v1.7 schema/query/action conventions.
+**Requirements**: AGT-01, AGT-02, AGT-03, AGT-04, VER-01, VER-02, LIFE-01, VAL-01, UX-01
+**Success Criteria** (what must be TRUE):
+
+  1. Authenticated staff can create a custom agent with stable identity, name/description, Company or Persona target type, Practice Area, instruction, supported effort values, and default effort from the server-approved contract.
+  2. Valid content/configuration saves append an immutable current version; historical versions show actor/timestamp/configuration read-only and cannot be edited or deleted.
+  3. Activate, retire, and reactivate transitions are server-authorized: retired agents cannot launch, history and existing runs remain inspectable, and reactivation uses the latest version without an unintended content rewrite.
+  4. `/agents` clearly separates custom agents from the two fixed v1.7 templates, keeps the canonical route, and reports invalid/unsupported fields before a version becomes runnable.
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 38: Execution Compatibility & Safe Integration
+
+**Goal**: A valid active custom agent enters the existing v1.7 analysis pipeline only after server-owned compatibility checks and an immutable run snapshot.
+**Depends on**: Phase 37 (custom identity/version/lifecycle); v1.7 Phases 31-35 (durability, evidence, review, target experiences).
+**Requirements**: VER-03, VAL-02, VAL-03, VAL-04, VAL-05, RUN-01, RUN-02
+**Success Criteria** (what must be TRUE):
+
+  1. An incompatible target type, Practice Area/signal mismatch, invalid effort, unsupported capability, or policy-invalid structured configuration is rejected before an active run is created.
+  2. A compatible launch snapshots the selected custom-agent version, resolved instruction/configuration, target input, active-signal checklist/schema, effort, model chain, and execution policy before durable execution; later edits cannot affect the run.
+  3. Custom agents execute through the existing durable executor, modelFactory, and Firecrawl/provider-agnostic contract without Exa or arbitrary provider/tool selection, with duplicate-run, bounded-attempt, recovery, and safe-error behavior preserved.
+  4. Both fixed v1.7 templates continue to launch and produce the same target-scoped evidence, run history, review, and candidate surfaces after custom-agent integration.
+
+**Plans**: TBD
+
+### Phase 39: Security, Review Boundaries & End-to-End Verification
+
+**Goal**: The constructor is proven safe and backward-compatible across management, execution, evidence, review, candidate aggregation, and authenticated Company/Persona flows.
+**Depends on**: Phases 37-38; v1.7 Phase 36 verification harness and authenticated E2E setup.
+**Requirements**: SAFE-01, SAFE-02, SAFE-03, UX-02, UX-03, E2E-01
+**Success Criteria** (what must be TRUE):
+
+  1. Automated verification proves custom-agent contracts, immutable history, lifecycle/recovery, server-derived actor authorization, target compatibility, bounded schema policy, duplicate-run protection, and fixed-template backward compatibility.
+  2. Adversarial fixtures fail closed for prompt injection, unsafe/unsupported/duplicate evidence, URL-only citations, and forbidden tool/write attempts, with live Signal, Offering, and signal-offering-link rows unchanged.
+  3. Every successful custom-agent run receives exactly one attributable whole-run Confirm/Dismiss decision; repeated or competing decisions are idempotent, and only confirmed findings appear in candidate offerings with version/finding/source provenance.
+  4. Authenticated E2E proves `/agents` create/edit/history/lifecycle plus Company and Persona custom-agent preview, launch, reload/status, result/source inspection, review, and confirmed-only candidate visibility; no `/reviews/agents` route is introduced.
+
+**Plans**: TBD
+**UI hint**: yes
+
+---
+*Roadmap for v1.8 created 2026-08-09 after research-first definition; Phases 37-39 continue from v1.7 Phase 36. All 22 v1.8 requirements map exactly once. v1.7 fixed-template history remains preserved; its separate Phase 36 database/Workflow verification matrix remains partial and is not silently reclassified.*
