@@ -12,6 +12,8 @@ import {
   getUnionServableIds,
   type ModelProviderId,
 } from '@/lib/models/catalog';
+import { isServableModelRef, resolveStoredModelRef, type StoredModelSettings } from '@/lib/models/modelSettings';
+import type { ModelRef } from '@/lib/models/modelRef';
 // D-06: importing the JSON directly mirrors catalog.ts itself (ARCHITECTURE.md
 // Pattern 2 trade-off) and keeps the pure-module contract — no db/env/runAgent.
 import catalogJson from '@/lib/models/catalog.json';
@@ -106,17 +108,31 @@ export function shouldAdvance(
   return from !== null && to !== null && from !== to; // 429: same-provider never advances (D-01/D-03)
 }
 
-export type ModelSettingsRow = { primaryModel: string; fallbackModels: string[] } | undefined;
+export type ModelSettingsRow = StoredModelSettings | undefined;
 
 export function resolveModelChain(
   settings: ModelSettingsRow,
   servableIds: readonly string[] = getUnionServableIds(catalogJson),
-): string[] {
-  const raw = settings ? [settings.primaryModel, ...settings.fallbackModels] : [];
-  // D-08: stable-unique dedupe — never attempt the same model twice.
-  const deduped = [...new Set(raw)].filter((id) => servableIds.includes(id)); // Pitfall 1/7: union servable gate
-  // D-10: cap AFTER dedupe at primary + 1 fallback (FAL-03 budget honesty).
-  const capped = deduped.slice(0, 2);
-  // REG-05: no settings (or nothing servable) → the documented default.
-  return capped.length > 0 ? capped : [FAST_MODEL_ID];
+): ModelRef[] {
+  if (!settings) return [{ modelId: FAST_MODEL_ID, provider: 'anthropic' }];
+
+  const ids = [settings.primaryModel, ...settings.fallbackModels];
+  const refs = ids.flatMap((modelId, index): ModelRef[] => {
+    const explicitProvider = index === 0
+      ? settings.primaryProvider
+      : settings.fallbackProviders?.[index - 1];
+    const resolved = resolveStoredModelRef(modelId, explicitProvider, catalogJson);
+    if (resolved && servableIds.includes(modelId) && isServableModelRef(resolved, catalogJson)) {
+      return [resolved];
+    }
+    if (resolved === null && (explicitProvider === null || explicitProvider === undefined) && servableIds.includes(modelId)) {
+      return [{ modelId, provider: 'anthropic' }];
+    }
+    return [];
+  });
+
+  const deduped = refs.filter((ref, index) => refs.findIndex((candidate) => candidate.modelId === ref.modelId) === index);
+  return deduped.slice(0, 2).length > 0
+    ? deduped.slice(0, 2)
+    : [{ modelId: FAST_MODEL_ID, provider: 'anthropic' }];
 }

@@ -200,51 +200,71 @@ describe('shouldAdvance — 16-cell matrix (provider-keyed, D-20-07, widened to 
 
 describe('resolveModelChain', () => {
   it('defaults to [FAST_MODEL_ID] when settings are absent (REG-05)', () => {
-    expect(resolveModelChain(undefined)).toEqual([FAST_MODEL_ID]);
+    expect(resolveModelChain(undefined)).toEqual([{ modelId: FAST_MODEL_ID, provider: 'anthropic' }]);
   });
 
   it('dedupes a repeated model before attempting (D-08)', () => {
     expect(
       resolveModelChain({ primaryModel: 'a', fallbackModels: ['a'] }, ['a', 'b']),
-    ).toEqual(['a']);
+    ).toEqual([{ modelId: 'a', provider: 'anthropic' }]);
   });
 
   it('caps at primary + 1 fallback AFTER dedupe (D-10)', () => {
     expect(
       resolveModelChain({ primaryModel: 'a', fallbackModels: ['b', 'c'] }, ['a', 'b', 'c']),
-    ).toEqual(['a', 'b']);
+    ).toEqual([
+      { modelId: 'a', provider: 'anthropic' },
+      { modelId: 'b', provider: 'anthropic' },
+    ]);
   });
 
   it('drops non-allowlisted ids (Pitfall 1/7 — the allowlist gate)', () => {
     expect(
       resolveModelChain({ primaryModel: 'x', fallbackModels: ['b'] }, ['a', 'b']),
-    ).toEqual(['b']);
+    ).toEqual([{ modelId: 'b', provider: 'anthropic' }]);
   });
 
   it('falls back to [FAST_MODEL_ID] when every id is filtered out', () => {
     expect(
       resolveModelChain({ primaryModel: 'x', fallbackModels: ['y'] }, ['a', 'b']),
-    ).toEqual([FAST_MODEL_ID]);
+    ).toEqual([{ modelId: FAST_MODEL_ID, provider: 'anthropic' }]);
   });
 
   it('a partial chain (primary + one fallback) passes through intact when allowlisted', () => {
     expect(
       resolveModelChain({ primaryModel: 'a', fallbackModels: ['b'] }, ['a', 'b']),
-    ).toEqual(['a', 'b']);
+    ).toEqual([
+      { modelId: 'a', provider: 'anthropic' },
+      { modelId: 'b', provider: 'anthropic' },
+    ]);
   });
 
   it('accepts a cross-provider chain when both ids are in the union (D-06)', () => {
     expect(
       resolveModelChain(
-        { primaryModel: 'claude-sonnet-4-6', fallbackModels: ['anthropic/claude-sonnet-latest'] },
-        ['claude-sonnet-4-6', 'anthropic/claude-sonnet-latest'],
+        { primaryModel: 'claude-sonnet-4-6', fallbackModels: ['anthropic/claude-sonnet-4.6'] },
+        ['claude-sonnet-4-6', 'anthropic/claude-sonnet-4.6'],
       ),
-    ).toEqual(['claude-sonnet-4-6', 'anthropic/claude-sonnet-latest']);
+    ).toEqual([
+      { modelId: 'claude-sonnet-4-6', provider: 'anthropic' },
+      { modelId: 'anthropic/claude-sonnet-4.6', provider: 'openrouter' },
+    ]);
+  });
+
+  it('preserves an explicit provider for an overlapping id instead of precedence-resolving it', () => {
+    expect(
+      resolveModelChain({
+        primaryModel: 'claude-sonnet-4-6',
+        primaryProvider: 'opencode',
+        fallbackModels: [],
+        fallbackProviders: [],
+      }),
+    ).toEqual([{ modelId: 'claude-sonnet-4-6', provider: 'opencode' }]);
   });
 
   it('drops ids not in the union servable set', () => {
     expect(
       resolveModelChain({ primaryModel: 'not-in-union', fallbackModels: [] }, ['claude-sonnet-4-6']),
-    ).toEqual([FAST_MODEL_ID]);
+    ).toEqual([{ modelId: FAST_MODEL_ID, provider: 'anthropic' }]);
   });
 });
