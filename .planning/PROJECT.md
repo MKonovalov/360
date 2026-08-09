@@ -16,7 +16,7 @@ Fast, shared ICP lookup — anyone on the team can pull up a company or persona 
 - Reusable agent template, asynchronous run, normalized result, and review-proposal primitives built on the existing reviews model where its schema fits.
 - GBS Company and Persona Buying Signal Analysis templates derived from active Signals, powered by the in-house research-agent stack behind a provider-agnostic execution contract.
 - Preview-and-run, history, findings, one-decision-per-run review, and confirmed-only candidate-offering views on Company and Persona records.
-- A small `Manage > Reviews > Agents` template-management surface.
+- A small `Manage > Agents` template-management surface.
 
 ## Milestone Status: v1.6 SHIPPED (2026-08-06)
 

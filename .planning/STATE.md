@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Agent Constructor & Buying Signal Analysis
-status: verifying
-last_updated: "2026-08-08T22:41:44.186Z"
-last_activity: 2026-08-08
+status: shipping
+last_updated: "2026-08-09T04:25:20Z"
+last_activity: 2026-08-09
 progress:
   total_phases: 14
   completed_phases: 10
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-06)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** Phase 34 — Whole-Run Review & Confirmed Candidates
+**Current focus:** Phase 36 — shipping Phase 35/36 after authenticated acceptance
 
 ## Current Position
 
-Phase: 34 of 36 (Whole-Run Review & Confirmed Candidates) — ✅ COMPLETE
-Plan: 4 of 4 (Adversarial Gate & Authenticated UAT)
-Status: Phase complete — ready for verification
-Last activity: 2026-08-08
+Phase: 36 of 36 (Agent Management & End-to-End Verification)
+Plan: 7 of 7
+Status: Shipping — authenticated Playwright 5/5 passed; separate database/Workflow matrix remains documented as prerequisite-gated
+Last activity: 2026-08-09
 
-Progress: [██████████] 96%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -108,8 +108,8 @@ Progress: [██████████] 96%
 - [Phase 36]: Authenticated route/sidebar E2E uses the real app and existing Clerk storage state without mocking app HTML. — Preserves real route wiring evidence while keeping database fixture prerequisites separate.
 - [Phase 36]: Deterministic Phase 36 verification uses the existing executor injection seam.
 - [Phase 36]: TEST_DATABASE_URL absence blocks Neon/Workflow evidence and is recorded as blocked, not passed.
-- [Phase 36]: Fixture mode requires PHASE36_FIXTURE_ONLY=1 and exact TEST_DATABASE_URL/DATABASE_URL equality before deterministic execution.
-- [Phase 36]: Authenticated browser evidence remains blocked when TEST_DATABASE_URL or sanitized Phase 36 fixture IDs are unavailable.
+- [Phase 36]: Fixture mode requires PHASE36_FIXTURE_ONLY=1 plus a marked application URL that normalizes to the same disposable database identity as TEST_DATABASE_URL.
+- [Phase 36]: Authenticated browser evidence passed 5/5 originally in 31.2s and again after ship-review remediation in 36.9s with guarded disposable fixtures; the independent database/Workflow matrix remains prerequisite-gated.
 - [Phase 36]: Final evidence distinguishes passing deterministic/unit/build/scope gates from blocked Neon, Workflow, and authenticated browser prerequisites.
 - [Phase 36]: Optional provider/Firecrawl smoke remains non-gating and is recorded not_run with policy_or_credentials_unavailable.
 
@@ -134,7 +134,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-08-08T22:41:43.957Z
-Stopped at: Completed 36-07-PLAN.md; DB/Workflow and authenticated full-flow evidence blocked by missing TEST_DATABASE_URL and fixture IDs
-Next: Phase 35 — Company & Persona Analysis Experiences
+Last session: 2026-08-09T04:25:20Z
+Stopped at: Phase 35/36 ship preparation after authenticated Playwright 5/5 and review-work remediation
+Next: Review and merge the Phase 35/36 pull request when CI is acceptable
 Resume file: None

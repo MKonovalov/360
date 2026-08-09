@@ -41,9 +41,9 @@
 
 ### Staff Experiences and Verification
 
-- [ ] **UX-01**: From an eligible Company or Persona record, staff can preview the resolved instruction, selected Practice Area, active-signal checklist, and effort before launching a run.
-- [ ] **UX-02**: Company and Persona records show run history, current status, result details, sources, and review state; settled results remain inspectable.
-- [x] **UX-03**: `Manage > Reviews > Agents` lets staff view and edit template instructions/default effort, changes versions on save, and activate or retire templates.
+- [x] **UX-01**: From an eligible Company or Persona record, staff can preview the resolved instruction, selected Practice Area, active-signal checklist, and effort before launching a run.
+- [x] **UX-02**: Company and Persona records show run history, current status, result details, sources, and review state; settled results remain inspectable.
+- [x] **UX-03**: `Manage > Agents` lets staff view and edit template instructions/default effort, changes versions on save, and activate or retire templates.
 - [x] **VER-01**: Automated and live verification cover lifecycle recovery, source-grounded findings, prompt-injection/tool-policy resistance, duplicate-run protection, one-review idempotency, confirmed-only aggregation, and the Company/Persona end-to-end flows.
 
 ## Future Requirements
@@ -99,8 +99,8 @@
 | REV-03 | Phase 34 | Complete |
 | REV-04 | Phase 34 | Complete |
 | REV-05 | Phase 34 | Complete |
-| UX-01 | Phase 35 | Pending |
-| UX-02 | Phase 35 | Pending |
+| UX-01 | Phase 35 | Complete |
+| UX-02 | Phase 35 | Complete |
 | UX-03 | Phase 36 | Complete |
 | VER-01 | Phase 36 | Complete |
 
@@ -111,4 +111,4 @@
 
 ---
 *Requirements defined: 2026-08-06*
-*Last updated: 2026-08-06 after v1.7 roadmap creation*
+*Last updated: 2026-08-09 after Phase 36 authenticated acceptance*
