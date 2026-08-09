@@ -302,7 +302,11 @@ describe('analysisTemplates query module', () => {
       .mockResolvedValueOnce({ rows: [{ templateVersionId: 72 }] })
       .mockResolvedValueOnce({ rows: [customAgentRow(7, 72, 2, 'Renamed agent', 'retired')] });
 
-    const result = await saveCustomAgentVersion('custom-server-key', customAgentInput({ name: 'Renamed agent' }), 'staff-editor');
+    const result = await saveCustomAgentVersion(
+      'custom-server-key',
+      { ...customAgentInput({ name: 'Renamed agent' }), outputSchema: null },
+      'staff-editor',
+    );
 
     expect(result).toMatchObject({ ok: true, kind: 'version_appended', agent: { status: 'retired' } });
     const query = flattenSql(mocks.db.execute.mock.calls[0]?.[0]);
@@ -359,7 +363,7 @@ function customAgentInput(overrides: Partial<Parameters<typeof createCustomAgent
     behaviorInstruction: 'Use evidence.',
     defaultEffort: 'standard' as const,
     outputSchema: null,
-    capabilityPresetIds: ['web-research'] as const,
+    capabilityPresetIds: ['web-research'],
     ...overrides,
   };
 }

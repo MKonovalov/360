@@ -14,6 +14,17 @@ import type {
 } from '@/lib/analysis/templateContracts';
 import { db } from '../index';
 import { analysisTemplate, analysisTemplateVersion } from '../schema';
+export {
+  createCustomAgent,
+  listManagedCustomAgents,
+  saveCustomAgentVersion,
+  setCustomAgentStatus,
+} from './customAgents';
+export type {
+  CustomAgentManagementResult,
+  CustomAgentRead,
+  CustomAgentVersionRead,
+} from './customAgents';
 
 export async function listActiveAnalysisTemplates(targetType?: AnalysisTargetType) {
   const fixedTemplateKeys = FIXED_ANALYSIS_TEMPLATES.map(({ key }) => key);

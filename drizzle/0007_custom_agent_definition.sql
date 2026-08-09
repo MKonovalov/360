@@ -3,7 +3,7 @@ ALTER TABLE "analysis_template" ADD COLUMN "kind" "analysis_template_kind" DEFAU
 ALTER TABLE "analysis_template" ADD COLUMN "practice_area_id" integer;--> statement-breakpoint
 ALTER TABLE "analysis_template" ADD CONSTRAINT "analysis_template_practice_area_id_practice_area_id_fk" FOREIGN KEY ("practice_area_id") REFERENCES "public"."practice_area"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;--> statement-breakpoint
 UPDATE "analysis_template" SET "kind" = 'fixed' WHERE "kind" IS NULL;--> statement-breakpoint
-ALTER TABLE "analysis_template" ADD CONSTRAINT "analysis_template_kind_practice_area_check" CHECK ("kind" = 'custom' OR "practice_area_id" IS NULL);--> statement-breakpoint
+ALTER TABLE "analysis_template" ADD CONSTRAINT "analysis_template_kind_practice_area_check" CHECK (("kind" = 'custom' AND "practice_area_id" IS NOT NULL) OR ("kind" = 'fixed' AND "practice_area_id" IS NULL));--> statement-breakpoint
 ALTER TABLE "analysis_template_version" ADD COLUMN "kind" "analysis_template_kind" DEFAULT 'fixed' NOT NULL;--> statement-breakpoint
 ALTER TABLE "analysis_template_version" ADD COLUMN "custom_name" text;--> statement-breakpoint
 ALTER TABLE "analysis_template_version" ADD COLUMN "description" text;--> statement-breakpoint
