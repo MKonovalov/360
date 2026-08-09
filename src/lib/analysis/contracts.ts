@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { SERVABLE_PROVIDERS } from '@/lib/models/catalog';
+import type { ModelRef } from '@/lib/models/modelRef';
 
 export const ANALYSIS_RUN_STATUSES = [
   'queued',
@@ -104,7 +106,16 @@ const safeModelIdSchema = z
   .trim()
   .min(1)
   .max(200)
-  .regex(/^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/);
+  .regex(/^(?!.*:\/\/)[a-zA-Z0-9][a-zA-Z0-9._:/-]*$/);
+
+export const modelRefSchema = z
+  .object({
+    provider: z.enum(SERVABLE_PROVIDERS),
+    modelId: safeModelIdSchema,
+  })
+  .strict();
+
+export type AnalysisModelRef = ModelRef;
 
 export const analysisRunStatusSchema = z.enum(ANALYSIS_RUN_STATUSES);
 export const analysisTargetTypeSchema = z.enum(analysisTargetTypes);
@@ -250,7 +261,7 @@ export const executionSnapshotSchema = z
   .object({
     schemaVersion: z.literal(1),
     effort: analysisEffortSchema,
-    resolvedModelChain: z.array(safeModelIdSchema).min(1).max(8),
+    resolvedModelChain: z.array(z.union([modelRefSchema, safeModelIdSchema])).min(1).max(8),
     futureBudget: budgetSchema,
     policy: z.union([policySnapshotSchema, phase33PolicySnapshotSchema]),
   })
