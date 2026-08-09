@@ -147,6 +147,7 @@ async function persistRunAndProposals(
     // FAL-05 (REG-04 seam): the model that actually served + the resolved
     // chain snapshot — agent_run is the durable audit truth (D-14).
     modelUsed: result.modelUsed,
+    modelProvider: result.modelUsedProvider,
     modelChain: result.modelChain,
   });
   await insertProposals(run.id, companyId, result.proposals);

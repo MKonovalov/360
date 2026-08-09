@@ -1,6 +1,8 @@
 import { eq } from 'drizzle-orm';
 import { db } from '../index';
 import { agentRun } from '../schema';
+import type { ModelProviderId } from '@/lib/models/catalog';
+import type { ModelRef } from '@/lib/models/modelRef';
 
 export interface CreateRunInput {
   companyId: number;
@@ -10,8 +12,9 @@ export interface CreateRunInput {
   usageTokens?: unknown;
   evidenceAppendix?: unknown;
   hypotheses?: unknown;
-  modelUsed?: string; // raw provider ID that actually served (REG-04)
-  modelChain?: string[]; // resolved ID list snapshot captured at run start (D-05)
+  modelUsed?: string; // raw model ID that actually served (REG-04)
+  modelProvider?: ModelProviderId | null;
+  modelChain?: readonly (ModelRef | string)[]; // resolved pair snapshot captured at run start (D-05)
 }
 
 // OBSV-01: persists one Analyze run's Langfuse trace linkage (traceId +
@@ -31,7 +34,8 @@ export async function createRun(input: CreateRunInput) {
       evidenceAppendix: input.evidenceAppendix,
       hypotheses: input.hypotheses,
       modelUsed: input.modelUsed,
-      modelChain: input.modelChain,
+      modelProvider: input.modelProvider,
+      modelChain: input.modelChain ? [...input.modelChain] : undefined,
     })
     .returning();
   return inserted;
