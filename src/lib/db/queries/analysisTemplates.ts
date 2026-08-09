@@ -14,6 +14,17 @@ import type {
 } from '@/lib/analysis/templateContracts';
 import { db } from '../index';
 import { analysisTemplate, analysisTemplateVersion } from '../schema';
+export {
+  createCustomAgent,
+  listManagedCustomAgents,
+  saveCustomAgentVersion,
+  setCustomAgentStatus,
+} from './customAgents';
+export type {
+  CustomAgentManagementResult,
+  CustomAgentRead,
+  CustomAgentVersionRead,
+} from './customAgents';
 
 export async function listActiveAnalysisTemplates(targetType?: AnalysisTargetType) {
   const fixedTemplateKeys = FIXED_ANALYSIS_TEMPLATES.map(({ key }) => key);
@@ -35,9 +46,16 @@ export async function listActiveAnalysisTemplates(targetType?: AnalysisTargetTyp
     )
     .where(
       targetType === undefined
-        ? and(eq(analysisTemplate.status, 'active'), inArray(analysisTemplate.key, fixedTemplateKeys))
+        ? and(
+            eq(analysisTemplate.status, 'active'),
+            eq(analysisTemplate.kind, 'fixed'),
+            eq(analysisTemplateVersion.kind, 'fixed'),
+            inArray(analysisTemplate.key, fixedTemplateKeys),
+          )
         : and(
             eq(analysisTemplate.status, 'active'),
+            eq(analysisTemplate.kind, 'fixed'),
+            eq(analysisTemplateVersion.kind, 'fixed'),
             eq(analysisTemplate.targetType, targetType),
             inArray(analysisTemplate.key, fixedTemplateKeys),
           ),
@@ -67,7 +85,13 @@ export async function getAnalysisTemplateVersion(templateVersionId: number) {
     })
     .from(analysisTemplateVersion)
     .innerJoin(analysisTemplate, eq(analysisTemplateVersion.templateId, analysisTemplate.id))
-    .where(eq(analysisTemplateVersion.id, templateVersionId));
+    .where(
+      and(
+        eq(analysisTemplateVersion.id, templateVersionId),
+        eq(analysisTemplate.kind, 'fixed'),
+        eq(analysisTemplateVersion.kind, 'fixed'),
+      ),
+    );
 
   return rows[0];
 }
@@ -119,7 +143,9 @@ export async function listManagedAnalysisTemplates(): Promise<ManagedAnalysisTem
       v.created_at AS "createdAt"
     FROM analysis_template AS t
     INNER JOIN analysis_template_version AS v ON v.template_id = t.id
-    WHERE t.key IN (${sql.join(
+    WHERE t.kind = 'fixed'
+      AND v.kind = 'fixed'
+      AND t.key IN (${sql.join(
       FIXED_ANALYSIS_TEMPLATES.map(({ key }) => sql`${key}`),
       sql`, `,
     )})
@@ -186,6 +212,8 @@ export async function saveAnalysisTemplateVersion(
       FROM analysis_template AS t
       INNER JOIN analysis_template_version AS v ON v.template_id = t.id
       WHERE t.key = ${input.templateKey}
+        AND t.kind = 'fixed'
+        AND v.kind = 'fixed'
       ORDER BY v.version DESC
       LIMIT 1
     )
@@ -233,6 +261,7 @@ export async function setAnalysisTemplateStatus(
     UPDATE analysis_template
     SET status = ${input.status}, updated_by = ${actorId}, updated_at = NOW()
     WHERE key = ${input.templateKey}
+      AND kind = 'fixed'
     RETURNING id AS "templateId"
   `);
 

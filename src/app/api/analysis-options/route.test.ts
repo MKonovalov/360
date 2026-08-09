@@ -99,6 +99,43 @@ describe('GET /api/analysis-options', () => {
     expect(mocks.listActivePracticeAreas).toHaveBeenCalledOnce();
   });
 
+  it('D-37-20/D-37-23: keeps launcher options target-scoped and strips authored custom fields', async () => {
+    mocks.listActiveAnalysisTemplates.mockResolvedValue([
+      {
+        ...{
+          templateId: 1,
+          templateVersionId: 11,
+          key: 'company-buying-signal-analysis',
+          name: 'Company Buying Signal Analysis',
+          targetType: 'company',
+          version: 1,
+          supportedEfforts: ['standard'],
+          defaultEffort: 'standard',
+        },
+        customAgentId: 'custom-opaque-1',
+        researchQuery: 'must not reach launcher options',
+      },
+    ]);
+
+    const response = await GET(new Request('http://localhost/api/analysis-options?subjectType=company'));
+    const body = await response.json();
+
+    expect(body.templates).toEqual([
+      {
+        templateId: 1,
+        templateVersionId: 11,
+        key: 'company-buying-signal-analysis',
+        name: 'Company Buying Signal Analysis',
+        targetType: 'company',
+        version: 1,
+        supportedEfforts: ['standard'],
+        defaultEffort: 'standard',
+      },
+    ]);
+    expect(JSON.stringify(body)).not.toContain('custom-opaque-1');
+    expect(JSON.stringify(body)).not.toContain('researchQuery');
+  });
+
   it.each([
     'http://localhost/api/analysis-options',
     'http://localhost/api/analysis-options?subjectType=account',

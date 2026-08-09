@@ -126,6 +126,8 @@ describe('analysis run routes', () => {
     [{ ...validBody, actorId: 'forged' }, 'invalid_input', 400],
     [{ ...validBody, status: 'completed' }, 'invalid_input', 400],
     [{ ...validBody, snapshots: {} }, 'invalid_input', 400],
+    [{ ...validBody, customAgentId: 'custom-opaque-1' }, 'invalid_input', 400],
+    [{ ...validBody, templateKey: 'custom-agent-opaque-1' }, 'invalid_input', 400],
   ])('rejects client-owned metadata %#', async (body, error, status) => {
     const response = await POST(postRequest(body));
     expect(response.status).toBe(status);

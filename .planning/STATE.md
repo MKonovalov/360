@@ -1,41 +1,39 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Agent Constructor & Buying Signal Analysis
-status: shipping
-last_updated: "2026-08-09T04:25:20Z"
+milestone: v1.8
+milestone_name: Agent Constructor
+status: pr_open
+last_updated: "2026-08-09T16:29:00.000Z"
 last_activity: 2026-08-09
 progress:
-  total_phases: 14
-  completed_phases: 10
-  total_plans: 77
-  completed_plans: 71
-  percent: 71
+  total_phases: 3
+  completed_phases: 1
+  total_plans: 5
+  completed_plans: 5
+  percent: 100
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-08-06)
+See: .planning/PROJECT.md (updated 2026-08-09)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** Phase 36 — shipping Phase 35/36 after authenticated acceptance
+**Current focus:** Phase 37 — Custom Agent Definition, Versioning & Lifecycle
 
 ## Current Position
 
-Phase: 36 of 36 (Agent Management & End-to-End Verification)
-Plan: 7 of 7
-Status: Shipping — authenticated Playwright 5/5 passed; separate database/Workflow matrix remains documented as prerequisite-gated
+Phase: 37 — Custom Agent Definition, Versioning & Lifecycle
+Plan: 5 of 05
+Status: Phase 37 shipped for review in PR #7 with database integration and baseline typecheck blockers documented
 Last activity: 2026-08-09
-
-Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 131 through v1.6
+- Current milestone plans completed: 5
 - Average duration: Not tracked consistently
 - Total execution time: Not tracked consistently
 
@@ -43,7 +41,8 @@ Progress: [██████████] 100%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 31-36 | 0 | — | — |
+| 31-36 | Historical v1.7 | — | — |
+| 37-39 | 5 | — | — |
 
 **Recent Trend:**
 
@@ -67,6 +66,11 @@ Progress: [██████████] 100%
 | Phase 36 P05 | 7m | 2 tasks | 9 files |
 | Phase 36 P06 | 10m | 2 tasks | 8 files |
 | Phase 36 P7 | 12m | 2 tasks | 3 files |
+| Phase 37 P01 | 7m | 2 tasks | 4 files |
+| Phase 37 P02 | 16m | 2 tasks | 6 files |
+| Phase 37 P03 | 8min | 2 tasks | 4 files |
+| Phase 37 P04 | 8min | 2 tasks | 8 files |
+| Phase 37 P5 | 15m | 2 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -112,6 +116,25 @@ Progress: [██████████] 100%
 - [Phase 36]: Authenticated browser evidence passed 5/5 originally in 31.2s and again after ship-review remediation in 36.9s with guarded disposable fixtures; the independent database/Workflow matrix remains prerequisite-gated.
 - [Phase 36]: Final evidence distinguishes passing deterministic/unit/build/scope gates from blocked Neon, Workflow, and authenticated browser prerequisites.
 - [Phase 36]: Optional provider/Firecrawl smoke remains non-gating and is recorded not_run with policy_or_credentials_unavailable.
+- **v1.8 scope:** `/agents` is the canonical custom-agent management route; `/reviews/agents` is explicitly excluded.
+- **v1.8 compatibility:** The two v1.7 fixed Company/Persona templates remain unchanged and backward-compatible; custom agents enter the same durable, source-grounded, whole-run review, and confirmed-only candidate pipeline.
+- **v1.8 constructor policy:** Editable fields are name/description, target type, Practice Area, instruction, supported/default effort, and lifecycle; behavior instructions remain separate from bounded structured-output configuration.
+- **v1.8 research boundary:** Exa Agent/Connect documentation informs constructor shape and guardrails, but Exa and other new providers remain out of scope; capabilities stay server-owned.
+- **v1.8 history:** Custom saves append immutable versions; historical versions and prior runs remain read-only and lifecycle changes do not mutate snapshots.
+- **Phase 37 Plan 01:** Custom create input excludes client-authored identity, actor, lifecycle, checklist, resolved instruction, budget, provider, credential, and executable tool fields.
+- **Phase 37 Plan 01:** Structured output is an optional normalized shallow object with locked bounded limits and reserved server-owned grounding/review channels.
+- **Phase 37 Plan 01:** Capability selection persists only `none` or `web-research` opaque IDs and never forces invocation.
+- [Phase 37]: Plan 02 reuses analysis_template and analysis_template_version with fixed custom discriminators to preserve run foreign keys and snapshots.
+- [Phase 37]: Custom query operations use server-generated opaque keys, append-only versions, and lifecycle-only status updates.
+- [Phase 37]: Create validates exactly one active Practice Area after staff authentication and before the retired-first mutation.
+- [Phase 37]: Custom saves load immutable target and Practice Area identity; lifecycle changes remain explicit and version-neutral.
+- [Phase 37]: Keep fixed AgentTemplateCard rendering and behavior untouched; custom agents compose after the fixed allowlist on the same /agents route.
+- [Phase 37]: Use one native create-time Practice Area selector from server-projected options and render the persisted choice read-only during edits.
+- [Phase 37]: Render only server-approved capability metadata and keep lifecycle separate from version saves so retired edits remain retired.
+- [Phase 37]: Fixed compatibility is proven at options, preview, run-input, and subject-resolution seams without widening those production consumers to custom versions.
+- [Phase 37]: The Phase 37 scope audit scans selected tracked implementation files, ignores comments, and requires positive canaries before forbidden-surface checks.
+- [Phase 37]: Missing TEST_DATABASE_URL and unrelated baseline TypeScript errors remain blocked evidence, never pass evidence.
+- [Phase 37]: Final review remediation separates strict create/edit payloads, exposes complete immutable history, matches bracketed validation paths, clears incompatible output-field state, and fences every fixed management query by kind.
 
 ### Pending Todos
 
@@ -119,11 +142,17 @@ None.
 
 ### Blockers/Concerns
 
+- v1.7 Phase 36's separate Neon/Workflow matrix remains a historical partial verification item because `TEST_DATABASE_URL` was unavailable; v1.8 must not silently reclassify it.
+- Phase 37 must define custom-agent identity/ownership, schema boundaries, and additive migration details without changing the fixed-template keys.
+- Phase 38 must preserve the v1.7 durable executor, evidence, review, and confirmed-only candidate boundaries for custom agents.
+- Phase 39 must prove adversarial fail-closed behavior and no-live-write invariants with deterministic fixtures plus authenticated `/agents`, Company, and Persona E2E.
 - Phase 31 executor selection and deployed proof are complete; detached execution may now proceed through the planned ledger gates.
 - Phase 32 planning must inventory legacy `agent_run`/proposal/review relations before selecting additive migration details.
 - Persona enablement needs explicit privacy, redaction, classification, and retention policy values before Phase 33 implementation.
 - Phase 32's original parallel seed/ledger command exposed a shared disposable-database fixture race; validation now serializes those two files without weakening assertions.
 - TEST_DATABASE_URL is missing; 36-05 database and Workflow evidence remains blocked.
+- Phase 37 canonical Neon integration remains blocked: TEST_DATABASE_URL unavailable.
+- Phase 37 repository typecheck remains blocked by three unchanged analysisProposalDerivation.test.ts baseline errors.
 
 ## Deferred Items
 
@@ -134,7 +163,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-08-09T04:25:20Z
-Stopped at: Phase 35/36 ship preparation after authenticated Playwright 5/5 and review-work remediation
-Next: Review and merge the Phase 35/36 pull request when CI is acceptable
+Last session: 2026-08-09T16:29:00.000Z
+Stopped at: Opened Phase 37 PR #7 after all five final review lanes passed
+Next: Review and merge PR #7 after Vercel Preview and repository checks settle
 Resume file: None

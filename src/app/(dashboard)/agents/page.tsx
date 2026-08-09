@@ -1,5 +1,8 @@
 import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { listManagedAnalysisTemplates } from '@/lib/db/queries/analysisTemplates';
+import { listManagedCustomAgents } from '@/lib/db/queries/analysisTemplates';
+import { listActivePracticeAreas } from '@/lib/db/queries/practiceAreas';
+import { listCapabilityPresetCards } from '@/lib/analysis/capabilityPresets';
 import { AgentManagement } from '@/components/agents/agent-management';
 
 function LoadError() {
@@ -18,10 +21,22 @@ function LoadError() {
 export default async function AgentsPage() {
   await requireStaffAccess();
 
+  let data: {
+    readonly templates: Awaited<ReturnType<typeof listManagedAnalysisTemplates>>;
+    readonly customAgents: Awaited<ReturnType<typeof listManagedCustomAgents>>;
+    readonly practiceAreas: Awaited<ReturnType<typeof listActivePracticeAreas>>;
+  } | null;
   try {
-    const templates = await listManagedAnalysisTemplates();
-    return <AgentManagement templates={templates} />;
+    const [templates, customAgents, practiceAreas] = await Promise.all([
+      listManagedAnalysisTemplates(),
+      listManagedCustomAgents(),
+      listActivePracticeAreas(),
+    ]);
+    data = { templates, customAgents, practiceAreas };
   } catch {
-    return <LoadError />;
+    data = null;
   }
+
+  if (data === null) return <LoadError />;
+  return <AgentManagement templates={data.templates} customAgents={data.customAgents} practiceAreas={data.practiceAreas.map(({ id, name, shortCode }) => ({ id, name, shortCode }))} capabilities={listCapabilityPresetCards()} />;
 }

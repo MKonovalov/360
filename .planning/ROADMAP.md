@@ -9,7 +9,8 @@
 - ✅ **v1.4 Multi-Provider AI Model Configuration** — Phases 19-22 (shipped 2026-08-03)
 - ✅ **v1.5 Additional AI Providers** — Phases 23-27 (shipped 2026-08-04)
 - ✅ **v1.6 Signals & Offerings** — Phases 28-30 (shipped 2026-08-06)
-- 🚧 **v1.7 Agent Constructor & Buying Signal Analysis** — Phases 31-36 (planned)
+- ◐ **v1.7 Agent Constructor & Buying Signal Analysis** — Phases 31-36 (fixed-template implementation/UAT complete; Phase 36 database/Workflow verification partial)
+- 🚧 **v1.8 Agent Constructor** — Phases 37-39 (planned)
 
 ## Phases
 
@@ -123,7 +124,7 @@ Full details: [`.planning/milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.m
 
 </details>
 
-### 🚧 v1.7 Agent Constructor & Buying Signal Analysis (Phases 31-36)
+### ◐ v1.7 Agent Constructor & Buying Signal Analysis (Phases 31-36)
 
 **Milestone Goal:** Staff can run source-grounded Company and Persona Buying Signal Analysis from reusable GBS templates, inspect an immutable evidence packet, and make one attributed confirm-or-dismiss decision before findings affect candidate offerings.
 
@@ -139,7 +140,7 @@ Full details: [`.planning/milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.m
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 27 → 28 → 29 → 30 → 31 → 32 → 33 → 34 → 35 → 36. Phase 31 is a hard gate before Phase 33 can promise detached execution.
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 27 → 28 → 29 → 30 → 31 → 32 → 33 → 34 → 35 → 36 → 37 → 38 → 39. Phase 31 remains the v1.7 hard gate before detached execution; Phase 37 is the v1.8 definition gate before custom execution compatibility.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|-----------------|--------|-----------|
@@ -179,6 +180,9 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 34. Whole-Run Review & Confirmed Candidates | v1.7 | 4/4 | Complete | 2026-08-08 |
 | 35. Company & Persona Analysis Experiences | v1.7 | 4/4 | Complete | 2026-08-09 |
 | 36. Agent Management & End-to-End Verification | v1.7 | 7/7 | Complete   | 2026-08-08 |
+| 37. Custom Agent Definition, Versioning & Lifecycle | v1.8 | 5/5 | Complete   | 2026-08-09 |
+| 38. Execution Compatibility & Safe Integration | v1.8 | 0/TBD | Pending | — |
+| 39. Security, Review Boundaries & End-to-End Verification | v1.8 | 0/TBD | Pending | — |
 
 ---
 
@@ -290,7 +294,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
   4. The security-matrix grep extends — `NOUSRESEARCH`/`OPENCODE` absent from client components / Server Action returns / no `NEXT_PUBLIC_*` leakage; the `SERVER_COMPONENT` exemption set covers `modelFactory.ts`'s explicit `process.env.*` reads; the non-vacuous canary stays green.
   5. Live-browser UAT confirms the 4-entry provider selector, Zen/Go endpoint captions, Hermes capability captions, and badge disambiguation across 4 providers; a live key-backed `json_schema` probe gates the `supportsStructuredOutputs` flip (RUN-06).
 
-**Plans**: TBD
+**Plans**: 5 plans
 
 ### Phase 28: Shared Data Model + Seed (v1.6, queued — see "Why queued" in the v1.6 milestone summary above)
 
@@ -409,37 +413,46 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 **UI hint**: yes
 
 ### Phase 31: Durable Executor Selection & Validation
+
 **Goal**: The app has a proven Vercel-compatible durable executor that can progress a run safely without depending on the initiating page request.
 **Depends on**: Phase 30 (v1.6 data and staff-access foundation)
 **Requirements**: RUN-03
 **Success Criteria** (what must be TRUE):
+
   1. Staff can start a controlled proof run and navigate away or reload while an independently claimed executor completes it or records a safe terminal failure.
   2. An interrupted or expired claim is recovered or safely failed without leaving a run permanently running.
   3. The selected executor proves bounded retry/lease behavior and leaves an auditable lifecycle record for the proof run.
+
 **Plans**: TBD
 
 ### Phase 32: Template, Snapshot & Run Ledger
+
 **Goal**: Staff can select an applicable reusable GBS template and create a fully auditable, immutable analysis intent before execution begins.
 **Depends on**: Phase 31 (durable executor selected and validated)
 **Requirements**: CON-01, CON-02, CON-03, CON-04, CON-05, RUN-01, RUN-02, RUN-05, RUN-06
 **Success Criteria** (what must be TRUE):
+
   1. Staff can select active Company or Persona Buying Signal Analysis templates, and incompatible subject/template pairings are rejected.
   2. A created run remains visible after navigation or reload with its queued, running, terminal, review, and actor/timestamp history preserved.
   3. Each run retains its immutable template version, resolved instruction, subject input, practice-area active-signal checklist, effort, model-chain, and policy snapshots.
   4. The active-signal checklist contains only active signals for the selected target kind and Practice Area.
   5. Duplicate active starts are rejected and failed, timed-out, invalid, and successful runs retain safe bounded-attempt audit records.
+
 **Plans**: TBD
 
 ### Phase 33: Grounded Analysis Execution & Evidence
+
 **Goal**: A durable run produces a safe, source-grounded, immutable analysis packet using the locked in-house AI and Firecrawl stack.
 **Depends on**: Phase 31 (proven executor), Phase 32 (snapshotted run ledger)
 **Requirements**: RUN-04, EVD-01, EVD-02, EVD-03, EVD-04, EVD-05
 **Success Criteria** (what must be TRUE):
+
   1. A claimed run executes through a provider-agnostic contract backed only by the existing modelFactory and Firecrawl, with no Exa provider added.
   2. A completed run exposes an immutable normalized narrative, raw audit output, timing, actual model and trace provenance, and normalized findings.
   3. Every material finding identifies a snapshotted signal and its confidence/evidence status and links to persisted, navigable sources with title, canonical URL, retrieval time, and excerpt.
   4. Unsupported, unsafe, duplicate, or unlinked evidence is rejected rather than displayed as proof.
   5. Persona inputs, results, sources, and telemetry honor the minimum-data, redaction, classification, and retention policy.
+
 **Plans**: 6 plans
 **Wave 0**
 
@@ -463,47 +476,58 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 - [x] 33-06-PLAN.md — Final automated gate, scope audit, and approved/deferred live smoke evidence (RUN-04, EVD-01..05)
 
 ### Phase 34: Whole-Run Review & Confirmed Candidates
+
 **Goal**: Staff can make one safe decision for a completed analysis, and only confirmed evidence can influence candidate offerings.
 **Depends on**: Phase 33 (completed evidence packets)
 **Requirements**: REV-01, REV-02, REV-03, REV-04, REV-05
 **Success Criteria** (what must be TRUE):
+
   1. Every successfully completed analysis appears exactly once as a run-level packet in the shared Reviews experience.
   2. A staff reviewer can Confirm or Dismiss the entire completed run once; repeat or competing attempts preserve the original attributable terminal decision and packet.
   3. Either decision leaves live Signals and signal-offering links unchanged.
   4. Company and Persona candidate-offering results include run, finding, and source provenance and derive solely from Confirmed runs through existing signal-offering links.
   5. Pending, failed, cancelled, and dismissed runs never appear in candidate-offering aggregation.
+
 **Plans**: 4 plans
 
 Plans:
+
 - [x] 34-01-PLAN.md — Additive review identity schema and closed review/candidate contracts (REV-01..03)
 - [x] 34-02-PLAN.md — Packet-required reconciliation, atomic whole-run decisions, and confirmed-only provenance projection (REV-01..05)
 - [x] 34-03-PLAN.md — Additive shared Reviews run-level UI and staff-gated Confirm/Dismiss actions (REV-01..04)
 - [ ] 34-04-PLAN.md — Scope audit, automated evidence gate, and authenticated fixture-only UAT (REV-01..05)
 
 ### Phase 35: Company & Persona Analysis Experiences
+
 **Goal**: Staff can launch, follow, and inspect trustworthy buying-signal analysis from either eligible target record.
 **Depends on**: Phase 34 (review and confirmed-only projection)
 **Requirements**: UX-01, UX-02
 **Success Criteria** (what must be TRUE):
+
   1. From an eligible Company or Persona, staff can preview the resolved instruction, selected Practice Area, active-signal checklist, and effort before starting a run.
   2. Both record types show durable run history and current status after navigation or reload.
   3. Staff can inspect settled results, normalized findings, navigable sources, provenance, and the whole-run review state from the record.
   4. Confirmed candidate offerings are visible on both record types with their evidence provenance, while non-confirmed output is excluded.
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 36: Agent Management & End-to-End Verification
+
 **Goal**: Staff can safely manage template lifecycle, and the complete analysis workflow is proven against its durability, trust, and review boundaries.
 **Depends on**: Phases 31-35
 **Requirements**: UX-03, VER-01
 **Success Criteria** (what must be TRUE):
+
   1. In `Manage > Agents`, staff can view and edit template instructions and default effort, with every save creating a new immutable version and templates being activatable or retireable.
   2. Automated verification proves lifecycle recovery, duplicate-run prevention, whole-run decision idempotency, confirmed-only aggregation, and source-grounded findings.
   3. Adversarial verification proves prompt-injection and tool-policy controls reject unsafe research content and preserve the no-write boundary.
   4. Live Company and Persona end-to-end flows prove preview, durable execution, result inspection, one whole-run decision, and confirmed-only candidate visibility.
+
 **Plans**: 7 plans
 
 Plans:
+
 - [x] 36-01-PLAN.md — Fixed-template contracts, latest/history queries, immutable version and lifecycle invariants
 - [x] 36-02-PLAN.md — Staff-gated template management Server Actions and no-live-write boundary
 - [x] 36-03-PLAN.md — `/agents` management page, two fixed template cards, editor, lifecycle, and history UI
@@ -511,4 +535,64 @@ Plans:
 - [x] 36-05-PLAN.md — Deterministic lifecycle, grounding, adversarial, review, aggregation, and scope gates
 - [x] 36-06-PLAN.md — Authenticated real-app Company/Persona E2E with deterministic executor/fixture packet
 - [x] 36-07-PLAN.md — Final automated gate, sanitized evidence ledger, and optional-smoke disposition
+
 **UI hint**: yes
+
+### 🚧 v1.8 Agent Constructor (Phases 37-39)
+
+**Milestone Goal:** Let staff create and manage custom Company/Persona-compatible agents from the canonical `/agents` surface, while preserving the two fixed v1.7 templates and the existing durable, source-grounded, whole-run review, and confirmed-only candidate boundaries.
+
+**Research-informed direction:** Keep behavior instructions separate from bounded structured-output configuration; use server-owned capabilities; validate before activation and execution; append immutable versions; snapshot the selected version before a run. Exa Agent/Connect documentation informed these patterns but does not add Exa or another provider to the v1.8 runtime.
+
+**Phase Numbering:** Continues directly from v1.7's Phase 36. v1.8 starts at Phase 37.
+
+- [x] **Phase 37: Custom Agent Definition, Versioning & Lifecycle** - Create the `/agents` constructor for custom identities and approved fields, append immutable versions, manage current/history views, enforce lifecycle transitions, and preserve the two fixed v1.7 template identities and behavior.
+- [ ] **Phase 38: Execution Compatibility & Safe Integration** - Validate target/Practice Area/signal/checklist/effort/schema/capability compatibility, snapshot custom configuration into the existing durable run path, and prove custom and fixed templates share evidence/review/candidate semantics.
+- [ ] **Phase 39: Security, Review Boundaries & End-to-End Verification** - Prove actor authorization, adversarial fail-closed behavior, no-live-write and review idempotency, confirmed-only aggregation, canonical `/agents` routing, and authenticated Company/Persona custom-agent flows.
+
+### Phase 37: Custom Agent Definition, Versioning & Lifecycle
+
+**Goal**: Staff can create and safely manage custom agent identities and immutable configuration versions from `/agents` without mutating the two fixed v1.7 templates.
+**Depends on**: Phase 36 fixed-template management baseline; v1.7 schema/query/action conventions.
+**Requirements**: AGT-01, AGT-02, AGT-03, AGT-04, VER-01, VER-02, LIFE-01, VAL-01, UX-01
+**Success Criteria** (what must be TRUE):
+
+  1. Authenticated staff can create a custom agent with stable identity, name/description, Company or Persona target type, Practice Area, instruction, supported effort values, and default effort from the server-approved contract.
+  2. Valid content/configuration saves append an immutable current version; historical versions show actor/timestamp/configuration read-only and cannot be edited or deleted.
+  3. Activate, retire, and reactivate transitions are server-authorized: retired agents cannot launch, history and existing runs remain inspectable, and reactivation uses the latest version without an unintended content rewrite.
+  4. `/agents` clearly separates custom agents from the two fixed v1.7 templates, keeps the canonical route, and reports invalid/unsupported fields before a version becomes runnable.
+
+**Plans**: 5/5 complete
+**UI hint**: yes
+
+### Phase 38: Execution Compatibility & Safe Integration
+
+**Goal**: A valid active custom agent enters the existing v1.7 analysis pipeline only after server-owned compatibility checks and an immutable run snapshot.
+**Depends on**: Phase 37 (custom identity/version/lifecycle); v1.7 Phases 31-35 (durability, evidence, review, target experiences).
+**Requirements**: VER-03, VAL-02, VAL-03, VAL-04, VAL-05, RUN-01, RUN-02
+**Success Criteria** (what must be TRUE):
+
+  1. An incompatible target type, Practice Area/signal mismatch, invalid effort, unsupported capability, or policy-invalid structured configuration is rejected before an active run is created.
+  2. A compatible launch snapshots the selected custom-agent version, resolved instruction/configuration, target input, active-signal checklist/schema, effort, model chain, and execution policy before durable execution; later edits cannot affect the run.
+  3. Custom agents execute through the existing durable executor, modelFactory, and Firecrawl/provider-agnostic contract without Exa or arbitrary provider/tool selection, with duplicate-run, bounded-attempt, recovery, and safe-error behavior preserved.
+  4. Both fixed v1.7 templates continue to launch and produce the same target-scoped evidence, run history, review, and candidate surfaces after custom-agent integration.
+
+**Plans**: TBD
+
+### Phase 39: Security, Review Boundaries & End-to-End Verification
+
+**Goal**: The constructor is proven safe and backward-compatible across management, execution, evidence, review, candidate aggregation, and authenticated Company/Persona flows.
+**Depends on**: Phases 37-38; v1.7 Phase 36 verification harness and authenticated E2E setup.
+**Requirements**: SAFE-01, SAFE-02, SAFE-03, UX-02, UX-03, E2E-01
+**Success Criteria** (what must be TRUE):
+
+  1. Automated verification proves custom-agent contracts, immutable history, lifecycle/recovery, server-derived actor authorization, target compatibility, bounded schema policy, duplicate-run protection, and fixed-template backward compatibility.
+  2. Adversarial fixtures fail closed for prompt injection, unsafe/unsupported/duplicate evidence, URL-only citations, and forbidden tool/write attempts, with live Signal, Offering, and signal-offering-link rows unchanged.
+  3. Every successful custom-agent run receives exactly one attributable whole-run Confirm/Dismiss decision; repeated or competing decisions are idempotent, and only confirmed findings appear in candidate offerings with version/finding/source provenance.
+  4. Authenticated E2E proves `/agents` create/edit/history/lifecycle plus Company and Persona custom-agent preview, launch, reload/status, result/source inspection, review, and confirmed-only candidate visibility; no `/reviews/agents` route is introduced.
+
+**Plans**: TBD
+**UI hint**: yes
+
+---
+*Roadmap for v1.8 created 2026-08-09 after research-first definition; Phases 37-39 continue from v1.7 Phase 36. All 22 v1.8 requirements map exactly once. v1.7 fixed-template history remains preserved; its separate Phase 36 database/Workflow verification matrix remains partial and is not silently reclassified.*

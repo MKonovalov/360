@@ -9,6 +9,7 @@ import {
   type AnalysisEffort,
   type ReadonlyAnalysisSnapshot,
 } from '../analysis/contracts';
+import type { BoundedOutputSchema } from '../analysis/customAgentContracts';
 
 // D-07: fixed-but-extensible enum, seeded with the 4 known signal types.
 // Adding a 5th type is a `drizzle-kit generate` migration (ALTER TYPE ... ADD VALUE),
@@ -543,6 +544,7 @@ export const analysisRetentionStatusEnum = pgEnum('analysis_retention_status', [
   'retained',
   'tombstoned',
 ]);
+export const analysisTemplateKindEnum = pgEnum('analysis_template_kind', ['fixed', 'custom']);
 
 export const analysisTemplate = pgTable(
   'analysis_template',
@@ -551,6 +553,8 @@ export const analysisTemplate = pgTable(
     key: text('key').notNull().unique('analysis_template_key_unique'),
     name: text('name').notNull(),
     targetType: analysisTargetTypeEnum('target_type').notNull(),
+    kind: analysisTemplateKindEnum('kind').notNull().default('fixed'),
+    practiceAreaId: integer('practice_area_id').references(() => practiceArea.id),
     status: catalogStatusEnum('status').notNull().default('active'),
     createdBy: text('created_by').notNull(),
     updatedBy: text('updated_by').notNull(),
@@ -566,7 +570,14 @@ export const analysisTemplateVersion = pgTable(
     id: serial('id').primaryKey(),
     templateId: integer('template_id').notNull().references(() => analysisTemplate.id),
     version: integer('version').notNull(),
-    instruction: text('instruction').notNull(),
+    kind: analysisTemplateKindEnum('kind').notNull().default('fixed'),
+    instruction: text('instruction'),
+    customName: text('custom_name'),
+    description: text('description'),
+    researchQuery: text('research_query'),
+    behaviorInstruction: text('behavior_instruction'),
+    structuredOutputSchema: jsonb('structured_output_schema').$type<BoundedOutputSchema | null>(),
+    capabilityPresetIds: jsonb('capability_preset_ids').$type<readonly string[] | null>(),
     supportedEfforts: jsonb('supported_efforts')
       .$type<readonly AnalysisEffort[]>()
       .notNull()

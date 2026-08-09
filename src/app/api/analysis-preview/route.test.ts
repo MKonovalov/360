@@ -131,6 +131,8 @@ describe('analysis preview route', () => {
     [{ subject: { type: 'company', id: 42 }, practiceAreaId: 3, actorId: 'forged' }],
     [{ subject: { type: 'company', id: 42 }, practiceAreaId: 3, model: 'forged' }],
     [{ subject: { type: 'company', id: 42 }, practiceAreaId: 3, decision: 'confirmed' }],
+    [{ subject: { type: 'company', id: 42 }, practiceAreaId: 3, customAgentId: 'custom-opaque-1' }],
+    [{ subject: { type: 'company', id: 42 }, practiceAreaId: 3, templateKey: 'custom-agent-opaque-1' }],
   ])('rejects invalid input or attempted snapshot override %#', async (body) => {
     const response = await POST(postRequest(body));
 

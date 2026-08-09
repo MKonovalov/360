@@ -160,6 +160,32 @@ describe('analysis subject and catalog resolution', () => {
     await expect(resolveAnalysisTemplateVersion(11)).resolves.toEqual({ ok: true, value: version });
   });
 
+  it('D-37-20/D-37-23: fixed resolver consumers receive only the legacy fixed read shape', async () => {
+    mocks.getAnalysisTemplateVersion.mockResolvedValue({
+      templateId: 1,
+      templateVersionId: 11,
+      key: 'company-buying-signal-analysis',
+      name: 'Company Buying Signal Analysis',
+      targetType: 'company',
+      status: 'active',
+      version: 1,
+      instruction: 'Fixed instruction',
+      supportedEfforts: ['standard'],
+      defaultEffort: 'standard',
+      futureBudget: { maxAttempts: 2, maxToolCalls: 12, maxExecutionSeconds: 300, maxSpendUsd: 2.5 },
+      isCurrent: true,
+    });
+
+    const result = await resolveAnalysisTemplateVersion(11);
+
+    expect(result).toMatchObject({ ok: true, value: { key: 'company-buying-signal-analysis', targetType: 'company' } });
+    if (result.ok) {
+      expect(result.value).not.toHaveProperty('customAgentId');
+      expect(result.value).not.toHaveProperty('researchQuery');
+      expect(result.value).not.toHaveProperty('behaviorInstruction');
+    }
+  });
+
   it('enforces required positive Practice Area identity', async () => {
     await expect(resolveActivePracticeArea(undefined)).resolves.toEqual({
       ok: false,

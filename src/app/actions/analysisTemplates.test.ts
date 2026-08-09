@@ -4,6 +4,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   requireStaffAccess: vi.fn().mockResolvedValue({ userId: 'staff_123' }),
+  listActivePracticeAreas: vi.fn().mockResolvedValue([{ id: 7, status: 'active' }]),
+  listManagedCustomAgents: vi.fn(),
+  createCustomAgent: vi.fn(),
+  saveCustomAgentVersion: vi.fn(),
+  setCustomAgentStatus: vi.fn(),
   saveAnalysisTemplateVersion: vi.fn(),
   setAnalysisTemplateStatus: vi.fn(),
 }));
@@ -13,14 +18,24 @@ vi.mock('@/lib/auth/requireStaffAccess', () => ({
   requireStaffAccess: mocks.requireStaffAccess,
 }));
 vi.mock('@/lib/db/queries/analysisTemplates', () => ({
+  listManagedCustomAgents: mocks.listManagedCustomAgents,
+  createCustomAgent: mocks.createCustomAgent,
+  saveCustomAgentVersion: mocks.saveCustomAgentVersion,
+  setCustomAgentStatus: mocks.setCustomAgentStatus,
   saveAnalysisTemplateVersion: mocks.saveAnalysisTemplateVersion,
   setAnalysisTemplateStatus: mocks.setAnalysisTemplateStatus,
+}));
+vi.mock('@/lib/db/queries/practiceAreas', () => ({
+  listActivePracticeAreas: mocks.listActivePracticeAreas,
 }));
 
 import { revalidatePath } from 'next/cache';
 import {
   saveAnalysisTemplateAction,
   setAnalysisTemplateStatusAction,
+  createCustomAgentAction,
+  saveCustomAgentAction,
+  setCustomAgentStatusAction,
 } from './analysisTemplates';
 
 const managedTemplate = {
@@ -47,6 +62,41 @@ const managedTemplate = {
   history: [],
 };
 
+const managedCustomAgent = {
+  templateId: 9,
+  customAgentId: 'custom-agent-opaque',
+  targetType: 'company' as const,
+  practiceAreaId: 7,
+  status: 'retired' as const,
+  latest: {
+    templateVersionId: 10,
+    version: 1,
+    name: 'Custom agent',
+    description: 'Description',
+    researchQuery: 'Find useful signals',
+    behaviorInstruction: 'Be precise',
+    outputSchema: null,
+    capabilityPresetIds: ['none'] as const,
+    supportedEfforts: ['standard'] as const,
+    defaultEffort: 'standard',
+    createdBy: 'staff_123',
+    createdAt: '2026-08-09T00:00:00.000Z',
+  },
+  history: [],
+};
+
+const validCustomInput = {
+  name: 'Custom agent',
+  description: 'Description',
+  targetType: 'company',
+  practiceAreaId: 7,
+  researchQuery: 'Find useful signals',
+  behaviorInstruction: 'Be precise',
+  defaultEffort: 'standard',
+  outputSchema: null,
+  capabilityPresetIds: ['none'],
+};
+
 describe('analysis template actions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -60,6 +110,10 @@ describe('analysis template actions', () => {
       kind: 'lifecycle_updated',
       template: { ...managedTemplate, status: 'retired' },
     });
+    mocks.listManagedCustomAgents.mockResolvedValue([managedCustomAgent]);
+    mocks.createCustomAgent.mockResolvedValue({ ok: true, kind: 'created', agent: managedCustomAgent });
+    mocks.saveCustomAgentVersion.mockResolvedValue({ ok: true, kind: 'version_appended', agent: managedCustomAgent });
+    mocks.setCustomAgentStatus.mockResolvedValue({ ok: true, kind: 'lifecycle_updated', agent: { ...managedCustomAgent, status: 'active' } });
   });
 
   it('gates before parsing or any query when staff access fails', async () => {
@@ -72,6 +126,159 @@ describe('analysis template actions', () => {
     ).rejects.toThrow();
     expect(mocks.saveAnalysisTemplateVersion).not.toHaveBeenCalled();
     expect(mocks.setAnalysisTemplateStatus).not.toHaveBeenCalled();
+  });
+
+  it('D-37-03 gates custom create before parsing, Practice Area lookup, or mutation', async () => {
+    mocks.requireStaffAccess.mockRejectedValueOnce(new Error('NEXT_REDIRECT: /sign-in'));
+
+    await expect(createCustomAgentAction({ forged: true })).rejects.toThrow();
+
+    expect(mocks.listActivePracticeAreas).not.toHaveBeenCalled();
+    expect(mocks.createCustomAgent).not.toHaveBeenCalled();
+  });
+
+  it('D-37-05/D-37-14/D-37-22 creates retired version 1 with exactly one approved Practice Area and server actor', async () => {
+    const result = await createCustomAgentAction(validCustomInput);
+
+    expect(result).toEqual({ ok: true, kind: 'created', agent: managedCustomAgent });
+    expect(mocks.createCustomAgent).toHaveBeenCalledWith(validCustomInput, 'staff_123');
+    expect(mocks.listActivePracticeAreas.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.createCustomAgent.mock.invocationCallOrder[0],
+    );
+    expect(revalidatePath).toHaveBeenCalledWith('/agents');
+  });
+
+  it('D-37-14 returns a field issue for an unknown or inactive Practice Area without writing', async () => {
+    mocks.listActivePracticeAreas.mockResolvedValueOnce([{ id: 8, status: 'active' }]);
+
+    const result = await createCustomAgentAction(validCustomInput);
+
+    expect(result).toMatchObject({ ok: false, reason: 'invalid_input' });
+    expect(result).toMatchObject({ issues: [{ path: 'practiceAreaId' }] });
+    expect(mocks.createCustomAgent).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('D-37-16 rejects browser-owned identity, actor, lifecycle, version, policy, and launch fields', async () => {
+    const result = await createCustomAgentAction({
+      ...validCustomInput,
+      customAgentId: 'forged-id',
+      actorId: 'user_evil',
+      status: 'active',
+      version: 99,
+      checklist: [],
+      budget: {},
+      provider: 'forged-provider',
+      credential: 'secret',
+      tool: 'forged-tool',
+      launchPracticeAreaId: 8,
+      previewPracticeAreaId: 8,
+    });
+
+    expect(result).toEqual({ ok: false, reason: 'invalid_input', issues: expect.any(Array) });
+    expect(mocks.createCustomAgent).not.toHaveBeenCalled();
+  });
+
+  it('D-37-17 saves a complete version while preserving server-owned target and Practice Area', async () => {
+    const result = await saveCustomAgentAction({
+      customAgentId: 'custom-agent-opaque',
+      name: 'Renamed agent',
+      description: 'Updated description',
+      researchQuery: 'Find newer signals',
+      behaviorInstruction: 'Remain precise',
+      outputSchema: null,
+      capabilityPresetIds: ['none'],
+      defaultEffort: 'standard',
+    });
+
+    expect(result).toEqual({ ok: true, kind: 'version_appended', agent: managedCustomAgent });
+    expect(mocks.saveCustomAgentVersion).toHaveBeenCalledWith(
+      'custom-agent-opaque',
+      {
+        name: 'Renamed agent',
+        description: 'Updated description',
+        targetType: 'company',
+        practiceAreaId: 7,
+        researchQuery: 'Find newer signals',
+        behaviorInstruction: 'Remain precise',
+        outputSchema: null,
+        capabilityPresetIds: ['none'],
+        defaultEffort: 'standard',
+      },
+      'staff_123',
+    );
+    expect(revalidatePath).toHaveBeenCalledWith('/agents');
+  });
+
+  it('D-37-05 never accepts a Practice Area override on save', async () => {
+    const result = await saveCustomAgentAction({
+      customAgentId: 'custom-agent-opaque',
+      practiceAreaId: 8,
+      name: 'Renamed agent',
+      description: 'Updated description',
+      researchQuery: 'Find newer signals',
+      behaviorInstruction: 'Remain precise',
+      outputSchema: null,
+      capabilityPresetIds: ['none'],
+      defaultEffort: 'standard',
+    });
+
+    expect(result).toMatchObject({ ok: false, reason: 'invalid_input' });
+    expect(mocks.saveCustomAgentVersion).not.toHaveBeenCalled();
+  });
+
+  it('D-37-16 changes custom lifecycle explicitly without creating a content version', async () => {
+    const result = await setCustomAgentStatusAction({
+      customAgentId: 'custom-agent-opaque',
+      status: 'active',
+    });
+
+    expect(result).toEqual({ ok: true, kind: 'lifecycle_updated', agent: { ...managedCustomAgent, status: 'active' } });
+    expect(mocks.setCustomAgentStatus).toHaveBeenCalledWith('custom-agent-opaque', 'active', 'staff_123');
+    expect(mocks.saveCustomAgentVersion).not.toHaveBeenCalled();
+    expect(revalidatePath).toHaveBeenCalledWith('/agents');
+  });
+
+  it('D-37-22 returns safe validation and conflict outcomes without raw errors', async () => {
+    mocks.saveCustomAgentVersion.mockResolvedValueOnce({ ok: false, reason: 'conflict' });
+
+    const result = await saveCustomAgentAction({
+      customAgentId: 'custom-agent-opaque',
+      name: 'Renamed agent',
+      description: 'Updated description',
+      researchQuery: 'Find newer signals',
+      behaviorInstruction: 'Remain precise',
+      outputSchema: null,
+      capabilityPresetIds: ['none'],
+      defaultEffort: 'standard',
+    });
+
+    expect(result).toEqual({ ok: false, reason: 'conflict' });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('D-37-14 reports incompatible capability selections as field issues before create', async () => {
+    const result = await createCustomAgentAction({
+      ...validCustomInput,
+      capabilityPresetIds: ['none', 'web-research'],
+    });
+
+    expect(result).toMatchObject({ ok: false, reason: 'invalid_input' });
+    expect(result).toMatchObject({ issues: [{ path: 'capabilityPresetIds' }] });
+    expect(mocks.createCustomAgent).not.toHaveBeenCalled();
+  });
+
+  it('D-37-09 redacts unexpected custom query errors', async () => {
+    mocks.setCustomAgentStatus.mockRejectedValueOnce(new Error('provider credential leaked'));
+
+    const result = await setCustomAgentStatusAction({
+      customAgentId: 'custom-agent-opaque',
+      status: 'active',
+    });
+
+    expect(result).toEqual({ ok: false, reason: 'action_failed' });
+    expect(JSON.stringify(result)).not.toContain('provider credential leaked');
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 
   it('accepts only editable content and passes the server actor to the query', async () => {
