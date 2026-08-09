@@ -15,6 +15,28 @@ config({ path: '.env.local' });
 const e2eBaseUrl = process.env.E2E_BASE_URL;
 const baseURL = e2eBaseUrl ?? 'http://localhost:3000';
 const isDeployedTarget = e2eBaseUrl ? new URL(e2eBaseUrl).hostname !== 'localhost' : false;
+const isPhase36FixtureRun = process.env.PHASE36_FIXTURE_ONLY === '1';
+const localDatabaseUrl = process.env.TEST_DATABASE_URL
+  ? (() => {
+      const url = new URL(process.env.TEST_DATABASE_URL);
+      if (isPhase36FixtureRun) {
+        if (url.hostname.startsWith('ep-') && !url.hostname.includes('-pooler.')) {
+          url.hostname = url.hostname.replace(/^ep-([^.]+)\./, 'ep-$1-pooler.');
+        }
+        url.hash = '#phase36-fixture';
+      }
+      return url.toString();
+    })()
+  : undefined;
+
+// .env.local may contain Vercel's empty `VERCEL_URL` marker after a pull. The
+// Workflow SDK treats that variable's presence as a deployed runtime and then
+// constructs the invalid origin `https://`. Local E2E must use the real dev
+// server instead; deployed-target runs keep Vercel's URL untouched.
+if (!isDeployedTarget) {
+  delete process.env.VERCEL_URL;
+  process.env.WORKFLOW_LOCAL_BASE_URL ??= baseURL;
+}
 
 export default defineConfig({
   testDir: './e2e',
@@ -30,9 +52,9 @@ export default defineConfig({
           command: 'npm run dev',
           url: 'http://localhost:3000',
           timeout: 120_000,
-          reuseExistingServer: !process.env.CI,
-          ...(process.env.TEST_DATABASE_URL
-            ? { env: { DATABASE_URL: process.env.TEST_DATABASE_URL } }
+          reuseExistingServer: !process.env.CI && !isPhase36FixtureRun,
+          ...(localDatabaseUrl
+            ? { env: { DATABASE_URL: localDatabaseUrl } }
             : {}),
         },
       }),
