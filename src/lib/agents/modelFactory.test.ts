@@ -109,6 +109,13 @@ describe('modelFactory (19-03)', () => {
     expect(model).toEqual({ provider: 'anthropic', modelId: 'm' });
   });
 
+  it('explicit provider wins for an overlapping model id and dispatches OpenCode', () => {
+    const model = instantiateModel('claude-sonnet-4-6', 'opencode');
+
+    expect(model).toEqual({ provider: 'anthropic-zen', modelId: 'claude-sonnet-4-6' });
+    expect(mocks.anthropic).not.toHaveBeenCalled();
+  });
+
   it('openrouter strict-capable id passes the id verbatim with NO second arg (flag true → SDK default strict:true)', () => {
     instantiateModel('anthropic/claude-sonnet-4.6');
 

@@ -2,8 +2,15 @@ import { anthropic, createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import type { LanguageModel } from 'ai';
-import { FAST_MODEL_ID, getProviderForModelId, getAllModels, type ModelProviderId } from '@/lib/models/catalog';
+import {
+  FAST_MODEL_ID,
+  getProviderForModelId,
+  getAllModels,
+  dedupeProviderRows,
+  type ModelProviderId,
+} from '@/lib/models/catalog';
 import catalogJson from '@/lib/models/catalog.json';
+import type { ModelRef } from '@/lib/models/modelRef';
 
 // Module-singleton (sanity-client pattern, ARCHITECTURE.md l.181). The
 // `compatibility: 'strict'` option MUST be passed EXPLICITLY — a bare
@@ -100,13 +107,10 @@ export const PROVIDER_DEFAULT_MODELS: Record<ModelProviderId, string> = {
   opencode: OPENCODE_DEFAULT_MODEL_ID,
 };
 
-// instantiateModel — the single provider-aware instantiation seam (REG-06,
-// constraint 11: the ONLY module importing provider SDKs). Dispatch is always
-// the catalog lookup (getProviderForModelId), never the settings row, never
-// client input. Raw ids pass through VERBATIM — never ~-stripped, never
-// prefix-collapsed (D-04/Pitfall 1).
-export function instantiateModel(id: string): LanguageModel {
-  const provider = getProviderForModelId(catalogJson, id);
+// Explicit provider metadata wins; the one-argument form remains catalog-
+// precedence compatible for legacy callers.
+export function instantiateModel(id: string, explicitProvider?: ModelProviderId): LanguageModel {
+  const provider = explicitProvider ?? getProviderForModelId(catalogJson, id);
   if (provider === 'anthropic') return anthropic(id);
   if (provider === 'openrouter') {
     // Anti-Pattern 1: the row lookup MUST be scoped to the openrouter row —
@@ -135,9 +139,7 @@ export function instantiateModel(id: string): LanguageModel {
     // flatten order is alphabetical (opencode before opencode-go), so this
     // scoped find returns the ZEN row first, matching the registry's Zen-wins
     // dedup.
-    const row = getAllModels(catalogJson).find(
-      (m) => m.id === id && (m.providerID === 'opencode' || m.providerID === 'opencode-go'),
-    );
+    const row = dedupeProviderRows(catalogJson, 'opencode').find((m) => m.id === id);
     // Fail-loud backstop for catalog drift; unreachable post-gate (union
     // validation + chain resolution exclude non-servable ids).
     if (!row) throw new Error(`unsupported provider for model ${id}`);
@@ -153,8 +155,10 @@ export function instantiateModel(id: string): LanguageModel {
 
 // FAL-01: raw IDs mapped to LanguageModel[] ONCE at entry — never strings,
 // never a per-attempt settings read, never re-instantiated inside the loop.
-export function instantiateChain(ids: string[]): LanguageModel[] {
-  return ids.map(instantiateModel);
+export function instantiateChain(entries: readonly (ModelRef | string)[]): LanguageModel[] {
+  return entries.map((entry) =>
+    typeof entry === 'string' ? instantiateModel(entry) : instantiateModel(entry.modelId, entry.provider),
+  );
 }
 
 // REG-05: the default chain stays the Anthropic fast path in Phase 19 because
