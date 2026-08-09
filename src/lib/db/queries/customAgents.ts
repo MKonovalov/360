@@ -7,7 +7,6 @@ import {
 } from '@/lib/analysis/contracts';
 import type {
   BoundedOutputSchema,
-  CustomAgentCreateInput,
   CustomAgentVersionInput,
 } from '@/lib/analysis/customAgentContracts';
 import { db } from '../index';
@@ -137,7 +136,7 @@ function findCustomAgent(agents: readonly CustomAgentRead[], customAgentId: stri
   return agents.find((agent) => agent.customAgentId === customAgentId);
 }
 
-function customVersionValues(input: CustomAgentCreateInput | CustomAgentVersionInput) {
+function customVersionValues(input: CustomAgentVersionInput) {
   return {
     name: input.name,
     description: input.description,
@@ -150,7 +149,7 @@ function customVersionValues(input: CustomAgentCreateInput | CustomAgentVersionI
 }
 
 export async function createCustomAgent(
-  input: CustomAgentCreateInput,
+  input: CustomAgentVersionInput,
   actorId: string,
 ): Promise<CustomAgentManagementResult> {
   const values = customVersionValues(input);

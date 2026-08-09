@@ -100,6 +100,28 @@ export const customAgentCreateSchema = baseCreateSchema;
 
 export type CustomAgentCreateInput = z.infer<typeof customAgentCreateSchema>;
 
+const customAgentSaveSchema = z
+  .object({
+    customAgentId: z.string().trim().min(1).max(120),
+    name: baseCreateSchema.shape.name,
+    description: baseCreateSchema.shape.description,
+    researchQuery: baseCreateSchema.shape.researchQuery,
+    behaviorInstruction: baseCreateSchema.shape.behaviorInstruction,
+    outputSchema: baseCreateSchema.shape.outputSchema,
+    capabilityPresetIds: baseCreateSchema.shape.capabilityPresetIds,
+    defaultEffort: baseCreateSchema.shape.defaultEffort,
+  })
+  .strict();
+
+export type CustomAgentSaveInput = z.infer<typeof customAgentSaveSchema>;
+
+export const customAgentLifecycleInputSchema = z
+  .object({
+    customAgentId: z.string().trim().min(1).max(120),
+    status: z.enum(['active', 'retired']),
+  })
+  .strict();
+
 const normalizedOutputSchemaInput = boundedOutputSchema.nullable();
 
 export const customAgentVersionSchema = z
@@ -132,6 +154,10 @@ export type CustomAgentValidationIssue = {
 
 export type CustomAgentParseResult =
   | { readonly ok: true; readonly value: CustomAgentVersionInput }
+  | { readonly ok: false; readonly issues: readonly CustomAgentValidationIssue[] };
+
+export type CustomAgentSaveParseResult =
+  | { readonly ok: true; readonly value: Omit<CustomAgentSaveInput, 'outputSchema'> & { readonly outputSchema: BoundedOutputSchema | null } }
   | { readonly ok: false; readonly issues: readonly CustomAgentValidationIssue[] };
 
 export type CustomAgentVersionInput = Omit<CustomAgentCreateInput, 'outputSchema'> & {
@@ -207,6 +233,26 @@ export function parseCustomAgentCreateInput(input: unknown): CustomAgentParseRes
     capabilityPresetIds: parsed.data.capabilityPresetIds,
   });
   if (!capabilityResult.ok) return { ok: false, issues: capabilityResult.issues };
+
+  if (parsed.data.outputSchema === null) return { ok: true, value: { ...parsed.data, outputSchema: null } };
+  const normalized = normalizeOutputSchema(parsed.data.outputSchema);
+  return normalized.value === undefined
+    ? { ok: false, issues: normalized.issues }
+    : { ok: true, value: { ...parsed.data, outputSchema: normalized.value } };
+}
+
+export function parseCustomAgentSaveInput(input: unknown): CustomAgentSaveParseResult {
+  const parsed = customAgentSaveSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, issues: zodIssues(parsed.error) };
+
+  const capabilityResult = validateCapabilitySelection({
+    targetType: 'company',
+    practiceAreaId: 1,
+    capabilityPresetIds: parsed.data.capabilityPresetIds,
+  });
+  if (!capabilityResult.ok && capabilityResult.issues.some((entry) => entry.code === 'unknown' || entry.code === 'duplicate' || entry.code === 'invalid')) {
+    return { ok: false, issues: capabilityResult.issues };
+  }
 
   if (parsed.data.outputSchema === null) return { ok: true, value: { ...parsed.data, outputSchema: null } };
   const normalized = normalizeOutputSchema(parsed.data.outputSchema);

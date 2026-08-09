@@ -193,6 +193,7 @@ describe('analysis template actions', () => {
 
     expect(result).toEqual({ ok: true, kind: 'version_appended', agent: managedCustomAgent });
     expect(mocks.saveCustomAgentVersion).toHaveBeenCalledWith(
+      'custom-agent-opaque',
       {
         name: 'Renamed agent',
         description: 'Updated description',
@@ -204,7 +205,6 @@ describe('analysis template actions', () => {
         capabilityPresetIds: ['none'],
         defaultEffort: 'standard',
       },
-      'custom-agent-opaque',
       'staff_123',
     );
     expect(revalidatePath).toHaveBeenCalledWith('/agents');
@@ -254,6 +254,30 @@ describe('analysis template actions', () => {
     });
 
     expect(result).toEqual({ ok: false, reason: 'conflict' });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('D-37-14 reports incompatible capability selections as field issues before create', async () => {
+    const result = await createCustomAgentAction({
+      ...validCustomInput,
+      capabilityPresetIds: ['none', 'web-research'],
+    });
+
+    expect(result).toMatchObject({ ok: false, reason: 'invalid_input' });
+    expect(result).toMatchObject({ issues: [{ path: 'capabilityPresetIds' }] });
+    expect(mocks.createCustomAgent).not.toHaveBeenCalled();
+  });
+
+  it('D-37-09 redacts unexpected custom query errors', async () => {
+    mocks.setCustomAgentStatus.mockRejectedValueOnce(new Error('provider credential leaked'));
+
+    const result = await setCustomAgentStatusAction({
+      customAgentId: 'custom-agent-opaque',
+      status: 'active',
+    });
+
+    expect(result).toEqual({ ok: false, reason: 'action_failed' });
+    expect(JSON.stringify(result)).not.toContain('provider credential leaked');
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
