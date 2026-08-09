@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   requireStaffAccess: vi.fn().mockResolvedValue({ userId: 'user_123' }),
   upsertModelSettings: vi.fn(),
-  getUnionServableIds: vi.fn(),
 }));
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
@@ -13,17 +12,12 @@ vi.mock('@/lib/auth/requireStaffAccess', () => ({
 vi.mock('@/lib/db/queries/userModelSettings', () => ({
   upsertModelSettings: mocks.upsertModelSettings,
 }));
-vi.mock('@/lib/models/catalog', () => ({
-  getUnionServableIds: mocks.getUnionServableIds,
-}));
-
 import { revalidatePath } from 'next/cache';
 import { saveSettingsAction } from './settings';
 
 describe('saveSettingsAction security matrix (T-17-02..06)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.getUnionServableIds.mockReturnValue(['claude-sonnet-4-6', 'anthropic/claude-sonnet-4.6']);
     mocks.upsertModelSettings.mockResolvedValue(undefined);
   });
 
@@ -43,7 +37,9 @@ describe('saveSettingsAction security matrix (T-17-02..06)', () => {
     expect(mocks.upsertModelSettings).toHaveBeenCalledWith({
       userId: 'user_123',
       primaryModel: 'claude-sonnet-4-6',
+      primaryProvider: 'anthropic',
       fallbackModels: ['anthropic/claude-sonnet-4.6'],
+      fallbackProviders: ['openrouter'],
     });
     expect(revalidatePath).toHaveBeenCalledWith('/settings');
   });
@@ -60,7 +56,9 @@ describe('saveSettingsAction security matrix (T-17-02..06)', () => {
     expect(mocks.upsertModelSettings).toHaveBeenCalledWith({
       userId: 'user_123',
       primaryModel: 'claude-sonnet-4-6',
+      primaryProvider: 'anthropic',
       fallbackModels: ['anthropic/claude-sonnet-4.6'],
+      fallbackProviders: ['openrouter'],
     });
   });
 
@@ -68,21 +66,13 @@ describe('saveSettingsAction security matrix (T-17-02..06)', () => {
     // Given — the widened 4-provider union: an anthropic id + an openrouter id +
     // a nousresearch pin + an opencode Zen id + an opencode Go-exclusive id
     // (proving the logical opencode provider spans both snapshot providerIDs at
-    // the save seam; the existing 2-provider union from beforeEach is overridden
-    // here — the mock seam itself is unchanged).
-    mocks.getUnionServableIds.mockReturnValue([
-      'claude-sonnet-4-6',
-      'anthropic/claude-sonnet-4.6',
-      'nousresearch/hermes-4-70b',
-      'deepseek-v4-flash',
-      'hy3',
-    ]);
-
     // When — an opencode primary + nousresearch fallback: a chain that was
     // impossible before v1.5.
     const result = await saveSettingsAction({
       primaryModel: 'deepseek-v4-flash',
+      primaryProvider: 'opencode',
       fallbacks: ['nousresearch/hermes-4-70b'],
+      fallbackProviders: ['nousresearch'],
     });
 
     // Then — raw ids verbatim (no prefix-strip, no translation, D-04).
@@ -90,7 +80,9 @@ describe('saveSettingsAction security matrix (T-17-02..06)', () => {
     expect(mocks.upsertModelSettings).toHaveBeenCalledWith({
       userId: 'user_123',
       primaryModel: 'deepseek-v4-flash',
+      primaryProvider: 'opencode',
       fallbackModels: ['nousresearch/hermes-4-70b'],
+      fallbackProviders: ['nousresearch'],
     });
     expect(revalidatePath).toHaveBeenCalledWith('/settings');
   });
@@ -125,7 +117,6 @@ describe('saveSettingsAction security matrix (T-17-02..06)', () => {
 
     // Then
     expect(result).toEqual({ ok: false, reason: 'invalid_model' });
-    expect(mocks.getUnionServableIds).toHaveBeenCalled();
     expect(mocks.upsertModelSettings).not.toHaveBeenCalled();
   });
 
