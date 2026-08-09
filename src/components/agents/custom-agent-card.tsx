@@ -15,7 +15,7 @@ function toEditorAgent(agent: CustomAgentRead, practiceArea: PracticeAreaOption)
     practiceAreaShortCode: practiceArea.shortCode,
     status: agent.status,
     latest: agent.latest,
-    history: agent.history.slice(1).map((version) => ({ version: version.version, createdBy: version.createdBy, createdAt: version.createdAt })),
+    history: agent.history.slice(1),
   };
 }
 

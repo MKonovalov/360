@@ -26,6 +26,8 @@ vi.mock('@/components/ui/sheet', () => {
 import { CustomAgentEditor, buildCustomAgentCreatePayload } from './custom-agent-editor';
 import type { PracticeAreaOption, SafeCapabilityPreset } from './custom-agent-editor';
 import { schemaToDraft, StructuredOutputEditor } from './structured-output-editor';
+import { CustomAgentCard } from './custom-agent-card';
+import { parseCustomAgentSaveInput } from '@/lib/analysis/customAgentContracts';
 
 const practiceAreas: readonly PracticeAreaOption[] = [
   { id: 4, name: 'GBS — Design, Build & Run', shortCode: 'GBS-DBR' },
@@ -103,6 +105,30 @@ describe('CustomAgentEditor', () => {
     expect(payload).not.toHaveProperty('customAgentId');
   });
 
+  it('builds an edit payload accepted by the strict save contract', async () => {
+    const editorModule = await import('./custom-agent-editor');
+    const buildCustomAgentSavePayload = Reflect.get(editorModule, 'buildCustomAgentSavePayload');
+
+    expect(buildCustomAgentSavePayload).toBeTypeOf('function');
+    if (typeof buildCustomAgentSavePayload !== 'function') return;
+
+    const payload = buildCustomAgentSavePayload({
+      name: 'Transformation Watcher',
+      description: 'Find transformation signals.',
+      targetType: 'company',
+      practiceAreaId: 4,
+      researchQuery: 'Find transformation signals.',
+      behaviorInstruction: 'Use grounded sources.',
+      defaultEffort: 'standard',
+      outputSchema: null,
+      capabilityPresetIds: ['web-research'],
+    });
+
+    expect(parseCustomAgentSaveInput({ customAgentId: 'custom-opaque-8', ...payload }).ok).toBe(true);
+    expect(payload).not.toHaveProperty('targetType');
+    expect(payload).not.toHaveProperty('practiceAreaId');
+  });
+
   it('shows persisted Practice Area read-only while retired edits remain retired', () => {
     const html = renderToStaticMarkup(
       <CustomAgentEditor
@@ -125,7 +151,18 @@ describe('CustomAgentEditor', () => {
             capabilityPresetIds: ['web-research'],
             defaultEffort: 'standard',
           },
-          history: [{ version: 2, createdBy: 'user_1', createdAt: '2026-08-07T00:00:00.000Z' }],
+          history: [{
+            version: 2,
+            name: 'Earlier watcher',
+            description: 'Earlier description.',
+            researchQuery: 'Earlier research query.',
+            behaviorInstruction: 'Earlier behavior.',
+            outputSchema: null,
+            capabilityPresetIds: ['none'],
+            defaultEffort: 'standard',
+            createdBy: 'user_1',
+            createdAt: '2026-08-07T00:00:00.000Z',
+          }],
         }}
       />,
     );
@@ -144,6 +181,57 @@ describe('CustomAgentEditor', () => {
     expect(html).not.toContain('Delete agent');
   });
 
+  it('renders authored configuration for every read-only historical version', () => {
+    const latest = {
+      templateVersionId: 72,
+      version: 2,
+      name: 'Current watcher',
+      description: 'Current description',
+      researchQuery: 'Current query',
+      behaviorInstruction: 'Current behavior',
+      outputSchema: null,
+      capabilityPresetIds: ['web-research'],
+      supportedEfforts: ['standard'],
+      defaultEffort: 'standard',
+      createdBy: 'user_2',
+      createdAt: '2026-08-08T00:00:00.000Z',
+    } as const;
+    const historical = {
+      ...latest,
+      templateVersionId: 71,
+      version: 1,
+      name: 'Historical watcher',
+      description: 'Historical description',
+      researchQuery: 'Historical query',
+      behaviorInstruction: 'Historical behavior',
+      capabilityPresetIds: ['none'],
+      createdBy: 'user_1',
+      createdAt: '2026-08-07T00:00:00.000Z',
+    } as const;
+    const html = renderToStaticMarkup(
+      <CustomAgentCard
+        agent={{
+          templateId: 7,
+          customAgentId: 'custom-opaque-8',
+          targetType: 'company',
+          practiceAreaId: 4,
+          status: 'retired',
+          latest,
+          history: [latest, historical],
+        }}
+        practiceArea={{ id: 4, name: 'GBS — Design, Build & Run', shortCode: 'GBS-DBR' }}
+        practiceAreas={practiceAreas}
+        capabilities={capabilities}
+      />,
+    );
+
+    expect(html).toContain('Historical watcher');
+    expect(html).toContain('Historical description');
+    expect(html).toContain('Historical query');
+    expect(html).toContain('Historical behavior');
+    expect(html).toContain('none');
+  });
+
   it('renders server field issues inline without exposing raw failures', () => {
     const html = renderToStaticMarkup(
       <CustomAgentEditor
@@ -153,7 +241,7 @@ describe('CustomAgentEditor', () => {
           { path: 'description', code: 'too_big', message: 'Description is too long' },
           { path: 'researchQuery', code: 'too_big', message: 'Research query is too long' },
           { path: 'behaviorInstruction', code: 'too_big', message: 'Behavior instruction is too long' },
-          { path: 'outputSchema.fields.0.enum', code: 'too_big', message: 'Too many enum values' },
+          { path: 'outputSchema.fields[0].enum', code: 'too_big', message: 'Too many enum values' },
         ]}
       />,
     );
@@ -196,12 +284,50 @@ describe('CustomAgentEditor', () => {
     const outputEditor = Reflect.apply(StructuredOutputEditor, undefined, [{
       fields: [{ name: 'priority', type: 'string', description: '', required: false, nullable: false }],
       onChange: () => undefined,
-      issues: [{ path: 'outputSchema.fields.0.enum', code: 'too_big', message: 'Too many enum values' }],
+      issues: [{ path: 'outputSchema.fields[0].enum', code: 'too_big', message: 'Too many enum values' }],
     }]);
     const html = renderToStaticMarkup(outputEditor);
 
     expect(html).toContain('data-output-field-error="0"');
     expect(html).toContain('Too many enum values');
+  });
+
+  it('clears incompatible options when an output field changes type', async () => {
+    const editorModule = await import('./structured-output-editor');
+    const changeOutputFieldType = Reflect.get(editorModule, 'changeOutputFieldType');
+
+    expect(changeOutputFieldType).toBeTypeOf('function');
+    if (typeof changeOutputFieldType !== 'function') return;
+
+    expect(changeOutputFieldType({
+      name: 'priority',
+      type: 'string',
+      description: '',
+      required: false,
+      nullable: false,
+      enum: ['high', 'low'],
+    }, 'number')).toEqual({
+      name: 'priority',
+      type: 'number',
+      description: '',
+      required: false,
+      nullable: false,
+    });
+    expect(changeOutputFieldType({
+      name: 'sources',
+      type: 'array',
+      description: '',
+      required: false,
+      nullable: false,
+      itemType: 'string',
+      maxItems: 5,
+    }, 'boolean')).toEqual({
+      name: 'sources',
+      type: 'boolean',
+      description: '',
+      required: false,
+      nullable: false,
+    });
   });
 
   it('retains field issues returned by a failed save for inline rendering', async () => {

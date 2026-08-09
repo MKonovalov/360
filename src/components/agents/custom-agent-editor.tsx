@@ -21,7 +21,9 @@ import { schemaToDraft, StructuredOutputEditor, type OutputFieldDraft } from './
 
 export type PracticeAreaOption = { readonly id: number; readonly name: string; readonly shortCode: string };
 export type SafeCapabilityPreset = { readonly id: string; readonly label: string; readonly purpose: string; readonly supportedTargetTypes: readonly AnalysisTargetType[]; readonly supportedPracticeAreas: 'all'; readonly limits: { readonly maxSources: number; readonly maxRequests: number }; readonly provenance: 'internal-policy'; readonly compatibilityTags: readonly string[] };
-export type CustomAgentEditorAgent = { readonly customAgentId: string; readonly targetType: AnalysisTargetType; readonly practiceAreaId: number; readonly practiceAreaName: string; readonly practiceAreaShortCode: string; readonly status: 'active' | 'retired'; readonly latest: { readonly version: number; readonly name: string; readonly description: string; readonly researchQuery: string; readonly behaviorInstruction: string; readonly outputSchema: BoundedOutputSchema | null; readonly capabilityPresetIds: readonly string[]; readonly defaultEffort: string }; readonly history: readonly { readonly version: number; readonly createdBy: string; readonly createdAt: string }[] };
+type CustomAgentVersionView = { readonly version: number; readonly name: string; readonly description: string; readonly researchQuery: string; readonly behaviorInstruction: string; readonly outputSchema: BoundedOutputSchema | null; readonly capabilityPresetIds: readonly string[]; readonly defaultEffort: string };
+type CustomAgentHistoryView = CustomAgentVersionView & { readonly createdBy: string; readonly createdAt: string };
+export type CustomAgentEditorAgent = { readonly customAgentId: string; readonly targetType: AnalysisTargetType; readonly practiceAreaId: number; readonly practiceAreaName: string; readonly practiceAreaShortCode: string; readonly status: 'active' | 'retired'; readonly latest: CustomAgentVersionView; readonly history: readonly CustomAgentHistoryView[] };
 
 type EditorProps = { readonly mode: 'create' | 'edit'; readonly practiceAreas: readonly PracticeAreaOption[]; readonly capabilities: readonly SafeCapabilityPreset[]; readonly agent?: CustomAgentEditorAgent; readonly issues?: readonly CustomAgentValidationIssue[]; readonly trigger?: React.ReactNode; readonly open?: boolean; readonly onOpenChange?: (open: boolean) => void };
 type OutputSchemaDraft = { readonly fields: readonly OutputFieldDraft[] };
@@ -29,6 +31,18 @@ type Draft = { readonly name: string; readonly description: string; readonly tar
 
 export function buildCustomAgentCreatePayload(input: Draft): Draft {
   return { ...input };
+}
+
+export function buildCustomAgentSavePayload(input: Draft): Omit<Draft, 'targetType' | 'practiceAreaId'> {
+  return {
+    name: input.name,
+    description: input.description,
+    researchQuery: input.researchQuery,
+    behaviorInstruction: input.behaviorInstruction,
+    defaultEffort: input.defaultEffort,
+    outputSchema: input.outputSchema,
+    capabilityPresetIds: input.capabilityPresetIds,
+  };
 }
 
 export function validationIssuesFromResult(
@@ -66,10 +80,12 @@ export function CustomAgentEditor({ mode, practiceAreas, capabilities, agent, is
 
   function submit(event: React.FormEvent<HTMLFormElement>): void {
     event.preventDefault();
-    const payload = buildCustomAgentCreatePayload({ name, description, targetType, practiceAreaId, researchQuery, behaviorInstruction, defaultEffort: 'standard', outputSchema: fields.length === 0 ? null : { fields }, capabilityPresetIds });
+    const draft = { name, description, targetType, practiceAreaId, researchQuery, behaviorInstruction, defaultEffort: 'standard' as const, outputSchema: fields.length === 0 ? null : { fields }, capabilityPresetIds };
     startTransition(async () => {
       try {
-        const result = mode === 'create' ? await createCustomAgentAction(payload) : await saveCustomAgentAction({ ...payload, customAgentId: agent?.customAgentId ?? '' });
+        const result = mode === 'create'
+          ? await createCustomAgentAction(buildCustomAgentCreatePayload(draft))
+          : await saveCustomAgentAction({ ...buildCustomAgentSavePayload(draft), customAgentId: agent?.customAgentId ?? '' });
         setValidationIssues(validationIssuesFromResult(result));
         if (!result.ok) {
           setFeedback('Could not save this custom agent. Review the highlighted fields and try again.');
@@ -112,7 +128,7 @@ export function CustomAgentEditor({ mode, practiceAreas, capabilities, agent, is
             <section className={sectionClass} aria-labelledby="custom-schema-heading"><h2 id="custom-schema-heading" className="text-sm font-semibold text-slate-900">Output Schema</h2><StructuredOutputEditor fields={fields} onChange={(nextFields) => setFields([...nextFields])} issues={validationIssues} />{fields.length === 0 && outputSchemaIssue ? <p role="alert" className="text-xs text-red-600">{outputSchemaIssue.message}</p> : null}</section>
             <section className={sectionClass} aria-labelledby="custom-capabilities-heading"><h2 id="custom-capabilities-heading" className="text-sm font-semibold text-slate-900">Capabilities</h2><p className="text-xs leading-5 text-slate-500">Select a server-approved capability to make available. Selection does not force invocation.</p><div className="grid gap-3">{capabilities.filter((capability) => capability.supportedTargetTypes.includes(targetType)).map((capability) => <CapabilityPresetCard key={capability.id} preset={capability} selected={capabilityPresetIds.includes(capability.id)} onSelect={() => setCapabilityPresetIds(capabilityPresetIds.includes(capability.id) ? capabilityPresetIds.filter((id) => id !== capability.id) : [...capabilityPresetIds, capability.id])} />)}</div>{fieldError('capabilityPresetIds') ? <p role="alert" className="text-xs text-red-600">{fieldError('capabilityPresetIds')?.message}</p> : null}</section>
             <section className={sectionClass} aria-labelledby="custom-review-heading"><h2 id="custom-review-heading" className="text-sm font-semibold text-slate-900">Review / Save</h2><div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700"><p><strong>Target:</strong> {targetType}</p><p><strong>Practice Area:</strong> {practiceArea?.name ?? agent?.practiceAreaName ?? 'Selected server option'}</p><p><strong>Effort:</strong> standard</p><p><strong>Output:</strong> {fields.length === 0 ? 'Narrative and findings' : `${fields.length} bounded fields`}</p><p><strong>Capabilities:</strong> {capabilityPresetIds.join(', ')}</p><p className="mt-2 font-semibold">{mode === 'create' ? 'Version 1 — Retired' : `Version ${agent?.latest.version ?? 1} · ${agent?.status === 'active' ? 'Active' : 'Retired'}`}</p></div>{feedback ? <p role="status" className="text-sm text-slate-600">{feedback}</p> : null}</section>
-            {mode === 'edit' && agent?.history.length ? <section className={sectionClass} aria-labelledby="custom-history-heading"><h2 id="custom-history-heading" className="text-sm font-semibold text-slate-900">Read-only history</h2>{agent.history.map((version) => <div key={`${version.version}-${version.createdAt}`} className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600"><span className="font-medium text-slate-800">Version {version.version}</span><Badge className="ml-2" variant="outline">Read-only</Badge><span className="ml-2">{version.createdBy} · {new Date(version.createdAt).toLocaleDateString('en')}</span></div>)}</section> : null}
+            {mode === 'edit' && agent?.history.length ? <section className={sectionClass} aria-labelledby="custom-history-heading"><h2 id="custom-history-heading" className="text-sm font-semibold text-slate-900">Read-only history</h2>{agent.history.map((version) => <div key={`${version.version}-${version.createdAt}`} className="space-y-2 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600"><div><span className="font-medium text-slate-800">Version {version.version}</span><Badge className="ml-2" variant="outline">Read-only</Badge><span className="ml-2">{version.createdBy} · {new Date(version.createdAt).toLocaleDateString('en')}</span></div><p className="font-medium text-slate-800">{version.name}</p><p>{version.description}</p><dl className="grid gap-2 sm:grid-cols-2"><div><dt className="font-medium text-slate-700">Research query</dt><dd>{version.researchQuery}</dd></div><div><dt className="font-medium text-slate-700">Behavior</dt><dd>{version.behaviorInstruction}</dd></div><div><dt className="font-medium text-slate-700">Effort</dt><dd>{version.defaultEffort}</dd></div><div><dt className="font-medium text-slate-700">Capabilities</dt><dd>{version.capabilityPresetIds.join(', ')}</dd></div></dl><div><p className="font-medium text-slate-700">Output schema</p><pre className="mt-1 overflow-x-auto whitespace-pre-wrap text-[11px]">{version.outputSchema === null ? 'Narrative and findings' : JSON.stringify(version.outputSchema, null, 2)}</pre></div></div>)}</section> : null}
           </div>
           <SheetFooter className="border-t border-slate-100"><div className="flex flex-wrap gap-2">{mode === 'edit' ? <Button type="button" variant="outline" onClick={changeLifecycle} disabled={pending}>{agent?.status === 'active' ? 'Retire custom agent' : 'Activate custom agent'}</Button> : null}<Button type="submit" disabled={pending}>{pending ? 'Saving…' : mode === 'create' ? 'Save retired agent' : 'Save new version'}</Button></div></SheetFooter>
         </form>

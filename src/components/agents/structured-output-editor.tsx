@@ -35,6 +35,21 @@ export function schemaToDraft(schema: BoundedOutputSchema | null): OutputFieldDr
   }));
 }
 
+export function changeOutputFieldType(
+  field: OutputFieldDraft,
+  type: OutputFieldDraft['type'],
+): OutputFieldDraft {
+  if (field.type === type) return field;
+  const base = {
+    name: field.name,
+    type,
+    description: field.description,
+    required: field.required,
+    nullable: field.nullable,
+  };
+  return type === 'array' ? { ...base, itemType: 'string', maxItems: 5 } : base;
+}
+
 export function StructuredOutputEditor({
   fields,
   onChange,
@@ -49,7 +64,7 @@ export function StructuredOutputEditor({
   }
 
   function issueForField(index: number): CustomAgentValidationIssue | undefined {
-    const prefix = `outputSchema.fields.${index}`;
+    const prefix = `outputSchema.fields[${index}]`;
     return issues.find((issue) => issue.path === prefix || issue.path.startsWith(`${prefix}.`));
   }
 
@@ -64,7 +79,7 @@ export function StructuredOutputEditor({
         <div key={`${field.name}-${index}`} className="rounded-md border border-slate-200 bg-slate-50 p-3" data-output-field-error={fieldIssue ? index : undefined}>
           <div className="grid gap-3 sm:grid-cols-[1fr_9rem]">
             <Input aria-label={`Output field ${index + 1} name`} value={field.name} onChange={(event) => updateField(index, { name: event.target.value })} placeholder="Field name" />
-            <select aria-label={`Output field ${index + 1} type`} value={field.type} onChange={(event) => updateField(index, { type: event.target.value as OutputFieldDraft['type'] })} className="h-8 rounded-lg border border-input bg-background px-2 text-sm">
+            <select aria-label={`Output field ${index + 1} type`} value={field.type} onChange={(event) => onChange(fields.map((candidate, fieldIndex) => fieldIndex === index ? changeOutputFieldType(candidate, event.target.value as OutputFieldDraft['type']) : candidate))} className="h-8 rounded-lg border border-input bg-background px-2 text-sm">
               {BOUNDED_OUTPUT_FIELD_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
             </select>
           </div>
