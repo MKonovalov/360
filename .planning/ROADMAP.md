@@ -554,7 +554,7 @@ Plans:
 
 **Phase Numbering:** Continues directly from v1.7's Phase 36. v1.8 starts at Phase 37.
 
-- [ ] **Phase 37: Custom Agent Definition, Versioning & Lifecycle** - Create the `/agents` constructor for custom identities and approved fields, append immutable versions, manage current/history views, enforce lifecycle transitions, and preserve the two fixed v1.7 template identities and behavior.
+- [x] **Phase 37: Custom Agent Definition, Versioning & Lifecycle** - Create the `/agents` constructor for custom identities and approved fields, append immutable versions, manage current/history views, enforce lifecycle transitions, and preserve the two fixed v1.7 template identities and behavior.
 - [ ] **Phase 38: Execution Compatibility & Safe Integration** - Validate target/Practice Area/signal/checklist/effort/schema/capability compatibility, snapshot custom configuration into the existing durable run path, and prove custom and fixed templates share evidence/review/candidate semantics.
 - [ ] **Phase 39: Security, Review Boundaries & End-to-End Verification** - Prove actor authorization, adversarial fail-closed behavior, no-live-write and review idempotency, confirmed-only aggregation, canonical `/agents` routing, and authenticated Company/Persona custom-agent flows.
 
@@ -570,7 +570,7 @@ Plans:
   3. Activate, retire, and reactivate transitions are server-authorized: retired agents cannot launch, history and existing runs remain inspectable, and reactivation uses the latest version without an unintended content rewrite.
   4. `/agents` clearly separates custom agents from the two fixed v1.7 templates, keeps the canonical route, and reports invalid/unsupported fields before a version becomes runnable.
 
-**Plans**: TBD
+**Plans**: 5/5 complete
 **UI hint**: yes
 
 ### Phase 38: Execution Compatibility & Safe Integration

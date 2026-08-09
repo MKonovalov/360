@@ -1,8 +1,8 @@
 # Phase 37 Nyquist Validation Contract
 
-**Phase:** Custom Agent Definition, Versioning & Lifecycle  
-**Validation mode:** deterministic unit/component/action tests plus guarded Neon integration; no application-source changes are made by this artifact.  
-**Database disposition:** `TEST_DATABASE_URL` is unavailable in the planning environment. Integration suites must skip/report `blocked: TEST_DATABASE_URL unavailable`; skipped DB tests are never recorded as passing evidence.  
+**Phase:** Custom Agent Definition, Versioning & Lifecycle
+**Validation mode:** deterministic unit/component/action tests plus guarded Neon integration; no application-source changes are made by this artifact.
+**Database disposition:** `TEST_DATABASE_URL` is unavailable in the planning environment. Integration suites must skip/report `blocked: TEST_DATABASE_URL unavailable`; skipped DB tests are never recorded as passing evidence.
 **Deferred evidence:** authenticated browser/E2E execution, adversarial execution proof, review/candidate proof, and runtime compatibility belong to Phases 38–39.
 
 ## Nyquist Rules

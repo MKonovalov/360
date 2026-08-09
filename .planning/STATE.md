@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Agent Constructor
-status: verifying
-last_updated: "2026-08-09T12:05:53.661Z"
+status: ready_to_ship
+last_updated: "2026-08-09T14:56:00.000Z"
 last_activity: 2026-08-09
 progress:
   total_phases: 3
-  completed_phases: 0
-  total_plans: 6
+  completed_phases: 1
+  total_plans: 5
   completed_plans: 5
-  percent: 83
+  percent: 100
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-09)
 
 Phase: 37 — Custom Agent Definition, Versioning & Lifecycle
 Plan: 5 of 05
-Status: Phase complete — ready for verification
+Status: Deterministic verification complete — ready to ship with database integration and baseline typecheck blockers documented
 Last activity: 2026-08-09
 
 ## Performance Metrics
@@ -131,9 +131,9 @@ Last activity: 2026-08-09
 - [Phase 37]: Keep fixed AgentTemplateCard rendering and behavior untouched; custom agents compose after the fixed allowlist on the same /agents route.
 - [Phase 37]: Use one native create-time Practice Area selector from server-projected options and render the persisted choice read-only during edits.
 - [Phase 37]: Render only server-approved capability metadata and keep lifecycle separate from version saves so retired edits remain retired.
-- [Phase ?]: Fixed compatibility is proven at options, preview, run-input, and subject-resolution seams without changing those production consumers.
-- [Phase ?]: The Phase 37 scope audit scans selected tracked implementation files, ignores comments, and requires positive canaries before forbidden-surface checks.
-- [Phase ?]: Missing TEST_DATABASE_URL and unrelated baseline TypeScript errors remain blocked evidence, never pass evidence.
+- [Phase 37]: Fixed compatibility is proven at options, preview, run-input, and subject-resolution seams without widening those production consumers to custom versions.
+- [Phase 37]: The Phase 37 scope audit scans selected tracked implementation files, ignores comments, and requires positive canaries before forbidden-surface checks.
+- [Phase 37]: Missing TEST_DATABASE_URL and unrelated baseline TypeScript errors remain blocked evidence, never pass evidence.
 
 ### Pending Todos
 
@@ -162,7 +162,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-08-09T12:05:40.695Z
-Stopped at: Completed 37-04-PLAN.md
-Next: Execute 37-04-PLAN.md
+Last session: 2026-08-09T14:56:00.000Z
+Stopped at: Completed 37-05-PLAN.md and ship-review remediation
+Next: Ship Phase 37 through a pull request to main
 Resume file: None
