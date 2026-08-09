@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Agent Constructor
 status: ready_to_ship
-last_updated: "2026-08-09T14:56:00.000Z"
+last_updated: "2026-08-09T15:44:00.000Z"
 last_activity: 2026-08-09
 progress:
   total_phases: 3
@@ -33,7 +33,7 @@ Last activity: 2026-08-09
 
 **Velocity:**
 
-- Total plans completed: 131 through v1.6
+- Current milestone plans completed: 5
 - Average duration: Not tracked consistently
 - Total execution time: Not tracked consistently
 
@@ -42,7 +42,7 @@ Last activity: 2026-08-09
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 31-36 | Historical v1.7 | — | — |
-| 37-39 | 0 | — | — |
+| 37-39 | 5 | — | — |
 
 **Recent Trend:**
 
@@ -134,6 +134,7 @@ Last activity: 2026-08-09
 - [Phase 37]: Fixed compatibility is proven at options, preview, run-input, and subject-resolution seams without widening those production consumers to custom versions.
 - [Phase 37]: The Phase 37 scope audit scans selected tracked implementation files, ignores comments, and requires positive canaries before forbidden-surface checks.
 - [Phase 37]: Missing TEST_DATABASE_URL and unrelated baseline TypeScript errors remain blocked evidence, never pass evidence.
+- [Phase 37]: Final review remediation separates strict create/edit payloads, exposes complete immutable history, matches bracketed validation paths, clears incompatible output-field state, and fences every fixed management query by kind.
 
 ### Pending Todos
 
@@ -162,7 +163,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-08-09T14:56:00.000Z
-Stopped at: Completed 37-05-PLAN.md and ship-review remediation
+Last session: 2026-08-09T15:44:00.000Z
+Stopped at: Completed final Phase 37 review remediation with 134 focused tests passing
 Next: Ship Phase 37 through a pull request to main
 Resume file: None

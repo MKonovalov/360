@@ -142,7 +142,7 @@ Phase 39 must own adversarial fail-closed proof, review/candidate boundaries, no
 ### Ship-review remediation evidence
 
 - The original 127-test Plan 37-05 result above remains the historical execution record.
-- The post-review focused matrix passes **131/131** tests after adding fixed-kind runtime fences, enum-preserving editor drafts, action-returned validation state, and rendered authored/nested field errors.
+- The final post-review focused matrix passes **134/134** tests after adding fixed-kind runtime and management fences, strict edit payloads, complete history inspection, enum-preserving and type-normalizing editor drafts, action-returned validation state, and contract-shaped authored/nested field errors.
 - The guarded integration result remains **1 contract passed / 5 database tests skipped** because `TEST_DATABASE_URL` is unavailable; database persistence is still blocked, not passed.
 - Scope audit remains **PASS** with 14 selected files and zero findings; production build and range diff check pass.
 - Repository typecheck remains blocked only by the same three unrelated baseline errors.
