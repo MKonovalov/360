@@ -58,7 +58,8 @@ describe('analysisTemplates query module', () => {
     expect(result).toEqual(rows);
     expect(from).toHaveBeenCalledWith(analysisTemplate);
     expect(innerJoin).toHaveBeenCalledWith(analysisTemplateVersion, expect.anything());
-    expect(flattenSql(where.mock.calls[0]?.[0])).toContain('active');
+    const whereSql = flattenSql(where.mock.calls[0]?.[0]);
+    expect(whereSql).toContain('active');
     expect(orderBy).toHaveBeenCalled();
   });
 
@@ -79,6 +80,13 @@ describe('analysisTemplates query module', () => {
     },
   );
 
+  it('limits the active launcher catalog to fixed managed template keys', () => {
+    const source = readFileSync(new URL('./analysisTemplates.ts', import.meta.url), 'utf8');
+
+    expect(source).toContain('const fixedTemplateKeys = FIXED_ANALYSIS_TEMPLATES.map(({ key }) => key);');
+    expect(source).toContain('inArray(analysisTemplate.key, fixedTemplateKeys)');
+  });
+
   it('loads immutable version metadata with its template lifecycle for validation', async () => {
     const row = {
       templateId: 1,
@@ -97,6 +105,7 @@ describe('analysisTemplates query module', () => {
         maxExecutionSeconds: 300,
         maxSpendUsd: 2.5,
       },
+      isCurrent: true,
     };
     const where = vi.fn().mockResolvedValue([row]);
     const innerJoin = vi.fn().mockReturnValue({ where });

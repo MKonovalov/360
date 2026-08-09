@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import {
   STANDARD_EXECUTION_BUDGET,
@@ -16,6 +16,7 @@ import { db } from '../index';
 import { analysisTemplate, analysisTemplateVersion } from '../schema';
 
 export async function listActiveAnalysisTemplates(targetType?: AnalysisTargetType) {
+  const fixedTemplateKeys = FIXED_ANALYSIS_TEMPLATES.map(({ key }) => key);
   return db
     .select({
       templateId: analysisTemplate.id,
@@ -34,10 +35,11 @@ export async function listActiveAnalysisTemplates(targetType?: AnalysisTargetTyp
     )
     .where(
       targetType === undefined
-        ? eq(analysisTemplate.status, 'active')
+        ? and(eq(analysisTemplate.status, 'active'), inArray(analysisTemplate.key, fixedTemplateKeys))
         : and(
             eq(analysisTemplate.status, 'active'),
             eq(analysisTemplate.targetType, targetType),
+            inArray(analysisTemplate.key, fixedTemplateKeys),
           ),
     )
     .orderBy(analysisTemplate.name, analysisTemplateVersion.version);
@@ -57,6 +59,11 @@ export async function getAnalysisTemplateVersion(templateVersionId: number) {
       supportedEfforts: analysisTemplateVersion.supportedEfforts,
       defaultEffort: analysisTemplateVersion.defaultEffort,
       futureBudget: analysisTemplateVersion.futureBudget,
+      isCurrent: sql<boolean>`analysis_template_version.version = (
+        SELECT MAX(current_version.version)
+        FROM analysis_template_version AS current_version
+        WHERE current_version.template_id = analysis_template_version.template_id
+      )`,
     })
     .from(analysisTemplateVersion)
     .innerJoin(analysisTemplate, eq(analysisTemplateVersion.templateId, analysisTemplate.id))
@@ -116,6 +123,7 @@ export async function listManagedAnalysisTemplates(): Promise<ManagedAnalysisTem
       FIXED_ANALYSIS_TEMPLATES.map(({ key }) => sql`${key}`),
       sql`, `,
     )})
+      AND t.status IN ('active', 'retired')
     ORDER BY t.name ASC, v.version DESC
   `);
 
