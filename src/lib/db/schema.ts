@@ -10,6 +10,7 @@ import {
   type ReadonlyAnalysisSnapshot,
 } from '../analysis/contracts';
 import type { BoundedOutputSchema } from '../analysis/customAgentContracts';
+import type { ModelRef } from '../models/modelRef';
 
 // D-07: fixed-but-extensible enum, seeded with the 4 known signal types.
 // Adding a 5th type is a `drizzle-kit generate` migration (ALTER TYPE ... ADD VALUE),
@@ -256,7 +257,8 @@ export const agentRun = pgTable('agent_run', {
   // D-05 (v1.3): durable "which model ran" truth (D-14) — populated by Phase 16.
   // Nullable: pre-milestone rows are NULL (backfill impossible — PITFALLS recovery).
   modelUsed: text('model_used'),
-  modelChain: jsonb('model_chain').$type<string[]>(),
+  modelProvider: text('model_provider'),
+  modelChain: jsonb('model_chain').$type<Array<ModelRef | string>>(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -296,12 +298,16 @@ export const correction = pgTable('correction', {
 // string, NO FK (Clerk is external) — same pattern as recentlyViewed.userId.
 // Model IDs are stored as the APP instantiates them ('claude-sonnet-4-6',
 // passed to anthropic()) — NEVER provider-prefixed or dated IDs (Pitfall 1).
+// Provider metadata is stored separately so overlapping catalog IDs remain
+// unambiguous while legacy rows can still be resolved by catalog precedence.
 export const userModelSettings = pgTable('user_model_settings', {
   userId: text('user_id').primaryKey(),
   primaryModel: text('primary_model').notNull(),
+  primaryProvider: text('primary_provider'),
   // text[] for a homogeneous ordered string list — direct string[] typing,
   // same precedent as company.techStack (schema.ts:61).
   fallbackModels: text('fallback_models').array().notNull().default([]),
+  fallbackProviders: text('fallback_providers').array().notNull().default([]),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -676,6 +682,7 @@ export const analysisRunResult = pgTable(
     narrative: text('narrative').notNull(),
     rawAudit: jsonb('raw_audit').notNull(),
     modelId: text('model_id'),
+    modelProvider: text('model_provider'),
     modelChain: jsonb('model_chain').notNull(),
     traceId: text('trace_id'),
     traceUrl: text('trace_url'),
