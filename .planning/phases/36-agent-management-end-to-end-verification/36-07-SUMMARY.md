@@ -3,7 +3,7 @@ phase: 36-agent-management-end-to-end-verification
 plan: 07
 subsystem: testing
 tags: [vitest, typescript, nextjs, playwright, clerk, neon, workflow, scope-audit]
-status: verification-blocked
+status: partial
 
 # Dependency graph
 requires:
@@ -44,7 +44,7 @@ completed: 2026-08-09
 
 # Phase 36 Plan 07: Final Verification Evidence Summary
 
-**Sanitized Phase 36 evidence confirms management contracts, actions, UI, navigation, build, and scope boundaries while truthfully blocking Neon/Workflow and full authenticated Company/Persona verification without test prerequisites.**
+**Sanitized Phase 36 evidence confirms management contracts, actions, UI, navigation, build, scope boundaries, and authenticated Company/Persona verification while truthfully keeping the separate Neon/Workflow matrix blocked.**
 
 ## Performance
 
@@ -56,8 +56,9 @@ completed: 2026-08-09
 
 ## Accomplishments
 
-- Ran the focused Phase 36 Vitest gate: 66 tests passed and 31 guarded database tests skipped; management contracts/actions/UI/nav and fixture-only adversarial validation passed.
+- Ran the expanded Phase 36 Vitest gate: 74 tests passed and 32 guarded database tests skipped; the final combined Phase 35/36 ship-focused gate passed 184 with 32 guarded skips.
 - Ran the production build successfully, and the selected tracked implementation scope audit plus its regression test reported zero findings.
+- Recorded authenticated Playwright 5/5 originally in 31.2s and again after ship-review remediation in 36.9s across auth setup, UX-03, Company VER-01, and Persona VER-01.
 - Recorded full-suite/typecheck baseline failures, missing `TEST_DATABASE_URL`/fixture prerequisites, Clerk state status, optional smoke disposition, and pass/blocked/not-run distinctions in the final ledgers.
 - Preserved the canonical `/agents` route under Manage and did not introduce or claim `/reviews/agents`.
 
@@ -76,7 +77,7 @@ Each task was committed atomically:
 
 ## Decisions Made
 
-- Deterministic pure/unit/build evidence is recorded as passing only where the command actually passed; guarded Neon, Workflow, no-live-write, review, aggregation, and authenticated browser evidence is blocked without prerequisites.
+- Deterministic pure/unit/build and authenticated browser evidence is recorded as passing only where the command actually passed; the independent Neon, Workflow, row-hash no-live-write, review-race, and aggregation matrix remains blocked without prerequisites.
 - The full repository suite is recorded as not passing because it contains unrelated baseline and legacy live-provider failures; it is not substituted for the focused Phase 36 gate.
 - Optional provider/Firecrawl smoke was not run as a Phase 36 gate and remains non-gating under D-36-12.
 
@@ -87,7 +88,7 @@ None - plan executed exactly as written. No application, schema, package, provid
 ## Issues Encountered
 
 - `TEST_DATABASE_URL` was unavailable, so DB/workflow and guarded fixture evidence remained blocked rather than being treated as passes.
-- `PHASE36_FIXTURE_ONLY`, `PHASE36_COMPANY_ID`, and `PHASE36_PERSONA_ID` were unavailable, so the authenticated full-flow Playwright suite stopped at its prerequisite guard. Clerk storage state existed and auth setup completed, but that is not full-flow evidence.
+- A later prerequisite-free Playwright invocation stopped at its explicit fixture guard as designed; it does not replace or invalidate the earlier user-confirmed guarded 5/5 run.
 - `npx tsc --noEmit` remains blocked by three pre-existing errors in `analysisProposalDerivation.test.ts`; TypeScript LSP is also unavailable.
 - `npm test` is not a clean repository-wide gate due to unrelated baseline failures and legacy live-provider probes. The focused Phase 36 suites were run separately and recorded accurately.
 
@@ -97,11 +98,11 @@ None introduced by this plan. Guarded integration suites and the authenticated b
 
 ## User Setup Required
 
-Provide a disposable `TEST_DATABASE_URL` distinct from production, run the guarded Phase 36 fixture reset, export sanitized `PHASE36_COMPANY_ID` and `PHASE36_PERSONA_ID`, set `PHASE36_FIXTURE_ONLY=1`, and retain the staff Clerk storage state at `e2e/.clerk/user.json`. Then rerun the blocked Workflow and authenticated Playwright commands from `36-VALIDATION.md`.
+Provide a disposable `TEST_DATABASE_URL` distinct from production and rerun the blocked Workflow/database matrix from `36-VALIDATION.md`. The authenticated browser gate is already recorded as passed and needs rerunning only when refreshed browser evidence is required.
 
 ## Next Phase Readiness
 
-The implementation and all available final evidence artifacts are ready. Phase 36 remains verification-blocked for database-authoritative lifecycle/recovery, grounding, duplicate-run, review-idempotency, confirmed-only/no-live-write, and full Company/Persona authenticated flows until the listed prerequisites are supplied.
+The implementation and authenticated Company/Persona evidence are ready. Phase 36 remains partial only for the separate database-authoritative lifecycle/recovery, grounding, duplicate-run, review-race, aggregation, and row-hash no-live-write matrix until the listed prerequisites are supplied.
 
 ## Self-Check: PASSED
 

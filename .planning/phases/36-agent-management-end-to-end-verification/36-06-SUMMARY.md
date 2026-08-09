@@ -32,7 +32,7 @@ key-files:
     - playwright.config.ts
 
 key-decisions:
-  - "Fixture mode is enabled only when PHASE36_FIXTURE_ONLY=1 and DATABASE_URL exactly equals TEST_DATABASE_URL; production mutation is fail-closed."
+- "Fixture mode is enabled only when PHASE36_FIXTURE_ONLY=1 and the marked application URL normalizes to the same disposable database identity as TEST_DATABASE_URL; production/test mismatches fail closed."
   - "The browser spec does not intercept app/API responses; determinism is injected at the existing execution dependency boundary and database evidence is queried afterward."
 
 patterns-established:
