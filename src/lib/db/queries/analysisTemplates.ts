@@ -46,9 +46,16 @@ export async function listActiveAnalysisTemplates(targetType?: AnalysisTargetTyp
     )
     .where(
       targetType === undefined
-        ? and(eq(analysisTemplate.status, 'active'), inArray(analysisTemplate.key, fixedTemplateKeys))
+        ? and(
+            eq(analysisTemplate.status, 'active'),
+            eq(analysisTemplate.kind, 'fixed'),
+            eq(analysisTemplateVersion.kind, 'fixed'),
+            inArray(analysisTemplate.key, fixedTemplateKeys),
+          )
         : and(
             eq(analysisTemplate.status, 'active'),
+            eq(analysisTemplate.kind, 'fixed'),
+            eq(analysisTemplateVersion.kind, 'fixed'),
             eq(analysisTemplate.targetType, targetType),
             inArray(analysisTemplate.key, fixedTemplateKeys),
           ),
@@ -78,7 +85,13 @@ export async function getAnalysisTemplateVersion(templateVersionId: number) {
     })
     .from(analysisTemplateVersion)
     .innerJoin(analysisTemplate, eq(analysisTemplateVersion.templateId, analysisTemplate.id))
-    .where(eq(analysisTemplateVersion.id, templateVersionId));
+    .where(
+      and(
+        eq(analysisTemplateVersion.id, templateVersionId),
+        eq(analysisTemplate.kind, 'fixed'),
+        eq(analysisTemplateVersion.kind, 'fixed'),
+      ),
+    );
 
   return rows[0];
 }

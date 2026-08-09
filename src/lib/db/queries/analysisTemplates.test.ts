@@ -134,6 +134,19 @@ describe('analysisTemplates query module', () => {
     await expect(getAnalysisTemplateVersion(999)).resolves.toBeUndefined();
   });
 
+  it('keeps fixed runtime resolution closed to custom template versions', async () => {
+    const where = vi.fn().mockResolvedValue([]);
+    const innerJoin = vi.fn().mockReturnValue({ where });
+    const from = vi.fn().mockReturnValue({ innerJoin });
+    mocks.db.select.mockReturnValue({ from });
+
+    await getAnalysisTemplateVersion(71);
+
+    const whereSql = flattenSql(where.mock.calls[0]?.[0]);
+    expect(whereSql).toContain('71');
+    expect(whereSql).toContain('fixed');
+  });
+
   it('D-36-01/D-36-04: projects one latest row and ordered read-only history per fixed template', async () => {
     const execute = vi.fn().mockResolvedValue({
       rows: [
