@@ -25,6 +25,7 @@ vi.mock('@/components/ui/sheet', () => {
 
 import { CustomAgentEditor, buildCustomAgentCreatePayload } from './custom-agent-editor';
 import type { PracticeAreaOption, SafeCapabilityPreset } from './custom-agent-editor';
+import { schemaToDraft } from './structured-output-editor';
 
 const practiceAreas: readonly PracticeAreaOption[] = [
   { id: 4, name: 'GBS — Design, Build & Run', shortCode: 'GBS-DBR' },
@@ -156,5 +157,44 @@ describe('CustomAgentEditor', () => {
     expect(html).toContain('aria-invalid="true"');
     expect(html).not.toContain('DATABASE_URL');
     expect(html).not.toContain('stack trace');
+  });
+
+  it('preserves string enum constraints when an existing schema enters edit state', () => {
+    const fields = schemaToDraft({
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        priority: {
+          type: 'string',
+          description: 'Evidence priority',
+          enum: ['high', 'medium', 'low'],
+        },
+      },
+      required: ['priority'],
+    });
+
+    expect(fields).toEqual([
+      {
+        name: 'priority',
+        type: 'string',
+        description: 'Evidence priority',
+        required: true,
+        nullable: false,
+        enum: ['high', 'medium', 'low'],
+      },
+    ]);
+  });
+
+  it('retains field issues returned by a failed save for inline rendering', async () => {
+    const editorModule = await import('./custom-agent-editor');
+    const validationIssuesFromResult = Reflect.get(editorModule, 'validationIssuesFromResult');
+    const issues = [{ path: 'researchQuery', code: 'too_big', message: 'Research query is too long' }];
+
+    expect(validationIssuesFromResult).toBeTypeOf('function');
+    if (typeof validationIssuesFromResult !== 'function') return;
+
+    expect(validationIssuesFromResult({ ok: false, reason: 'invalid_input', issues })).toEqual(issues);
+    expect(validationIssuesFromResult({ ok: false, reason: 'action_failed' })).toEqual([]);
+    expect(validationIssuesFromResult({ ok: true, kind: 'created' })).toEqual([]);
   });
 });

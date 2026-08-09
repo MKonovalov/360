@@ -3,7 +3,12 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { createCustomAgentAction, saveCustomAgentAction, setCustomAgentStatusAction } from '@/app/actions/analysisTemplates';
+import {
+  createCustomAgentAction,
+  saveCustomAgentAction,
+  setCustomAgentStatusAction,
+  type CustomAgentActionResult,
+} from '@/app/actions/analysisTemplates';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +31,13 @@ export function buildCustomAgentCreatePayload(input: Draft): Draft {
   return { ...input };
 }
 
+export function validationIssuesFromResult(
+  result: CustomAgentActionResult,
+): readonly CustomAgentValidationIssue[] {
+  if (result.ok || result.reason !== 'invalid_input') return [];
+  return result.issues ?? [];
+}
+
 function issueFor(issues: readonly CustomAgentValidationIssue[] | undefined, path: string): CustomAgentValidationIssue | undefined {
   return issues?.find((issue) => issue.path === path || issue.path.startsWith(`${path}.`));
 }
@@ -43,10 +55,11 @@ export function CustomAgentEditor({ mode, practiceAreas, capabilities, agent, is
   const [behaviorInstruction, setBehaviorInstruction] = useState(initial?.behaviorInstruction ?? '');
   const [fields, setFields] = useState<OutputFieldDraft[]>(schemaToDraft(initial?.outputSchema ?? null));
   const [capabilityPresetIds, setCapabilityPresetIds] = useState<readonly string[]>(initial?.capabilityPresetIds ?? ['none']);
+  const [validationIssues, setValidationIssues] = useState<readonly CustomAgentValidationIssue[]>(issues);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const practiceArea = practiceAreas.find((candidate) => candidate.id === practiceAreaId);
-  const fieldError = (path: string) => issueFor(issues, path);
+  const fieldError = (path: string) => issueFor(validationIssues, path);
 
   function submit(event: React.FormEvent<HTMLFormElement>): void {
     event.preventDefault();
@@ -54,6 +67,7 @@ export function CustomAgentEditor({ mode, practiceAreas, capabilities, agent, is
     startTransition(async () => {
       try {
         const result = mode === 'create' ? await createCustomAgentAction(payload) : await saveCustomAgentAction({ ...payload, customAgentId: agent?.customAgentId ?? '' });
+        setValidationIssues(validationIssuesFromResult(result));
         if (!result.ok) {
           setFeedback('Could not save this custom agent. Review the highlighted fields and try again.');
           return;

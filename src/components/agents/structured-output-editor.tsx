@@ -11,6 +11,7 @@ export type OutputFieldDraft = {
   readonly description: string;
   readonly required: boolean;
   readonly nullable: boolean;
+  readonly enum?: readonly string[];
   readonly itemType?: 'string' | 'number' | 'boolean';
   readonly maxItems?: number;
 };
@@ -23,6 +24,7 @@ export function schemaToDraft(schema: BoundedOutputSchema | null): OutputFieldDr
     description: field.description ?? '',
     required: schema.required.includes(name),
     nullable: field.nullable ?? false,
+    ...(field.enum === undefined ? {} : { enum: field.enum }),
     ...(field.items ? { itemType: field.items.type } : {}),
     ...(field.maxItems === undefined ? {} : { maxItems: field.maxItems }),
   }));
@@ -53,6 +55,17 @@ export function StructuredOutputEditor({
             </select>
           </div>
           <Textarea className="mt-3" aria-label={`Output field ${index + 1} description`} value={field.description} onChange={(event) => updateField(index, { description: event.target.value })} placeholder="What this field means" rows={2} />
+          {field.type === 'string' ? (
+            <Input
+              className="mt-3"
+              aria-label={`Output field ${index + 1} enum values`}
+              value={field.enum?.join(', ') ?? ''}
+              onChange={(event) => updateField(index, {
+                enum: event.target.value.split(',').map((value) => value.trim()).filter(Boolean),
+              })}
+              placeholder="Optional enum values, comma-separated"
+            />
+          ) : null}
           <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-600">
             <label><input type="checkbox" checked={field.required} onChange={(event) => updateField(index, { required: event.target.checked })} /> <span className="ml-1">Required</span></label>
             <label><input type="checkbox" checked={field.nullable} onChange={(event) => updateField(index, { nullable: event.target.checked })} /> <span className="ml-1">Nullable</span></label>
