@@ -14,7 +14,7 @@ export function AnalysisPreviewPanel({ preview }: { readonly preview: AnalysisPr
       </div>
       <div>
         <h3 className="text-sm font-medium text-slate-900">Signals checked</h3>
-        {preview.checklist.items.length > 0 ? <ul className="mt-1 list-disc pl-5 text-sm text-slate-600">{preview.checklist.items.map((item) => <li key={item.signalId}>{item.name}</li>)}</ul> : <p className="mt-1 text-sm text-slate-600">No active signals are configured for this Practice Area.</p>}
+        {preview.checklist.items.length > 0 ? <ul className="mt-1 max-h-40 list-disc space-y-1 overflow-y-auto pl-5 text-sm text-slate-600">{preview.checklist.items.map((item) => <li key={item.signalId}>{item.name}</li>)}</ul> : <p className="mt-1 text-sm text-slate-600">No active signals are configured for this Practice Area.</p>}
       </div>
     </section>
   );

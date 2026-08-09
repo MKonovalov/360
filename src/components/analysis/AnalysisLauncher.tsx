@@ -228,7 +228,7 @@ export function AnalysisLauncher({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{heading}</DialogTitle>
           <DialogDescription>Choose a Practice Area, inspect the resolved preview, then start the durable analysis run.</DialogDescription>
