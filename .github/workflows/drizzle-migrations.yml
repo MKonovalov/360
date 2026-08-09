@@ -1,0 +1,63 @@
+name: Drizzle migrations
+
+on:
+  pull_request:
+    paths:
+      - 'drizzle/**'
+      - 'scripts/db-push-dev.mjs'
+      - 'scripts/validate-drizzle-migrations.ts'
+      - 'scripts/validate-drizzle-migrations.test.ts'
+      - 'drizzle.config.ts'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/drizzle-migrations.yml'
+  workflow_dispatch:
+    inputs:
+      confirm_0007_baseline_repaired:
+        description: 'Confirm a DBA-reviewed, read-only verified ledger repair recorded 0007 as already applied; this job never runs 0007 SQL against the existing Production database.'
+        required: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate migration artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run db:validate
+      - run: npm run db:check
+      - run: npm test -- --run scripts/validate-drizzle-migrations.test.ts
+      - name: Reject untracked Drizzle artifacts
+        run: test -z "$(git ls-files --others --exclude-standard -- drizzle)"
+
+  migrate-production:
+    name: Apply reviewed Production migrations
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm_0007_baseline_repaired == true
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: production-migrations
+    concurrency:
+      group: arclumen-production-database
+      cancel-in-progress: false
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      NODE_ENV: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run db:validate
+      # The protected environment supplies DATABASE_URL and required reviewers.
+      # The 0007 baseline confirmation is an operator gate, not a migration skip.
+      - run: npm run db:migrate
