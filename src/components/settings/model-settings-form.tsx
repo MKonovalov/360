@@ -1,32 +1,25 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { ArrowDown, ArrowUp, Plus, X } from 'lucide-react';
 import { saveSettingsAction } from '@/app/actions/settings';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { dateFormatter } from '@/components/explorer/explorer-format';
-import { ModelPicker } from './model-picker';
+import { ModelSettingsFormSlots } from './model-settings-form-slots';
+import { ModelSettingsFormStatus } from './model-settings-form-status';
 // Type-only imports — erased at compile (T-17-09): model-picker-logic is a
 // client-safe pure module, and a type-only catalog import never reaches a
 // client bundle. ModelProviderId comes from its canonical source (catalog.ts
 // declares the union; model-picker-logic does not re-export it).
 import {
-  endpointLabel,
-  optionsForSlot,
-  primaryAfterProviderSwitch,
-  providerName,
-  resolveBadgeProvider,
+  fallbackSlotAfterProviderSwitch,
+  initialModelSlots,
+  modelAfterProviderSwitch,
+  moveFallbackSlot,
+  removeFallbackSlot,
+  settingsDraftPayload,
   staleIds as computeStaleIds,
 } from './model-picker-logic';
-import type { ServableModel } from './model-picker-logic';
+import type { ModelSlot, ServableModel } from './model-picker-logic';
 import type { ModelProviderId } from '@/lib/models/catalog';
 
 // Reason-code copy map — exactly the three codes saveSettingsAction can emit
@@ -63,14 +56,19 @@ export function ModelSettingsForm({
   // All edits stage in local draft state (D-07) — nothing persists until Save
   // (D-12). At mount the draft mirrors the saved row; the empty-state prefill
   // is the server-computed default chain head (REG-05).
-  // Initial provider = the saved primary's provider (savedChain[0] is the
-  // saved primary's chain entry — server-resolved, plan 21-03), else the
-  // REG-05 Anthropic fast path.
-  const [provider, setProvider] = useState<ModelProviderId>(
-    savedChain?.[0]?.providerID ?? 'anthropic',
-  );
-  const [primary, setPrimary] = useState<string>(saved?.primaryModel ?? defaults[provider].id);
-  const [fallbacks, setFallbacks] = useState<string[]>(saved?.fallbackModels ?? []);
+  const defaultProvider = providers[0]?.id ?? 'anthropic';
+  const savedPrimaryModel = saved?.primaryModel ?? '';
+  const savedFallbackModels = saved?.fallbackModels ?? [];
+  const initialSlots = initialModelSlots({
+    modelIds: [savedPrimaryModel, ...savedFallbackModels],
+    savedChain,
+    catalogModels: unionServableModels,
+    defaultProvider,
+  });
+  const initialPrimaryProvider = initialSlots[0]?.provider ?? defaultProvider;
+  const [primaryProvider, setPrimaryProvider] = useState<ModelProviderId>(initialPrimaryProvider);
+  const [primary, setPrimary] = useState<string>(saved?.primaryModel ?? defaults[initialPrimaryProvider].id);
+  const [fallbackSlots, setFallbackSlots] = useState<ModelSlot[]>(initialSlots.slice(1));
   const [isPending, startTransition] = useTransition();
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -80,7 +78,10 @@ export function ModelSettingsForm({
   // The saved-chain recap gate (D-21-10): records what the last successful
   // Save persisted, so the recap renders only while the draft still equals
   // it — any edit to a slot fails the equality check and hides the recap.
-  const [lastSaved, setLastSaved] = useState<{ primary: string; fallbacks: string[] } | null>(
+  const [lastSaved, setLastSaved] = useState<{
+    primary: ModelSlot;
+    fallbacks: ModelSlot[];
+  } | null>(
     null,
   );
 
@@ -95,7 +96,8 @@ export function ModelSettingsForm({
   // clears staleIds and re-enables Save — "replacing the value re-enables
   // Save" (17-UI-SPEC line 192).
   const unionIds = new Set(unionServableModels.map((m) => m.id));
-  const staleIds = computeStaleIds([primary, ...fallbacks], unionIds);
+  const fallbackModels = fallbackSlots.map((slot) => slot.model);
+  const staleIds = computeStaleIds([primary, ...fallbackModels], unionIds);
   const saveDisabled = isPending || staleIds.length > 0;
 
   function handleSave() {
@@ -111,10 +113,12 @@ export function ModelSettingsForm({
         // An unfilled fallback row carries no model — drop it before sending
         // so a transient in-progress row never trips the action's
         // invalid_model.
-        const result = await saveSettingsAction({
+        const payload = settingsDraftPayload({
           primaryModel: primary,
-          fallbacks: fallbacks.filter((id) => id !== ''),
+          primaryProvider,
+          fallbackSlots,
         });
+        const result = await saveSettingsAction(payload);
         if (result.ok) {
           setStatus('saved');
           setErrorMsg(null);
@@ -122,7 +126,13 @@ export function ModelSettingsForm({
           // clear the reset hint — the reset is moot once the primary is saved
           // (RESEARCH Open Question 2 — RESOLVED). Unfilled fallback rows are
           // dropped from the record, matching the submitted payload below.
-          setLastSaved({ primary, fallbacks: fallbacks.filter((id) => id !== '') });
+          setLastSaved({
+            primary: { model: payload.primaryModel, provider: payload.primaryProvider },
+            fallbacks: payload.fallbacks.map((model, index) => ({
+              model,
+              provider: payload.fallbackProviders[index] ?? defaultProvider,
+            })),
+          });
           setResetHint(null);
         } else {
           // D-13: the draft is preserved verbatim on failure — never reset the
@@ -148,64 +158,63 @@ export function ModelSettingsForm({
 
   function moveFallback(index: number, dir: -1 | 1) {
     markDirty();
-    setFallbacks((prev) => {
-      const target = index + dir;
-      if (target < 0 || target >= prev.length) return prev;
-      const next = [...prev];
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
+    setFallbackSlots((prev) => moveFallbackSlot(prev, index, dir));
   }
 
   function removeFallback(index: number) {
     markDirty();
-    setFallbacks((prev) => prev.filter((_, j) => j !== index));
+    setFallbackSlots((prev) => removeFallbackSlot(prev, index));
   }
 
   function addFallback() {
     markDirty();
-    setFallbacks((prev) => (prev.length >= 2 ? prev : [...prev, '']));
+    setFallbackSlots((prev) =>
+      prev.length >= 2 ? prev : [...prev, { model: '', provider: defaultProvider }],
+    );
   }
 
-  // D-21-01/03: provider switch = keep-if-valid → reset-to-provider-default.
-  function handleProviderChange(next: ModelProviderId) {
-    // A provider switch stages a new primary (draft edit) — clear stale save
-    // feedback even when keep-if-valid preserves the value (WR-01).
+  function handlePrimaryProviderChange(nextProvider: ModelProviderId) {
     markDirty();
-    // Fallbacks are NEVER touched on a provider switch (D-21-02): the chain
-    // may become cross-provider by design — the union pickers still render
-    // them verbatim.
-    const result = primaryAfterProviderSwitch(primary, next, servableByProvider, defaults);
-    setPrimary(result.primary);
-    // The reset is draft-only (D-07) — nothing persists until Save.
+    const result = modelAfterProviderSwitch({
+      currentModel: primary,
+      nextProvider,
+      servableByProvider,
+      defaults,
+    });
+    setPrimary(result.model);
+    setPrimaryProvider(nextProvider);
     if (result.resetToDefault) {
       setResetHint(
-        `Primary model reset to ${defaults[next].name} for ${
-          providers.find((p) => p.id === next)?.name ?? next
+        `Primary model reset to ${defaults[nextProvider].name} for ${
+          providers.find((p) => p.id === nextProvider)?.name ?? nextProvider
         }.`,
       );
     } else {
-      // D-26-09 (corrected, Pitfall 7): keep-if-valid preserved the primary
-      // id verbatim, but that id may still ALWAYS resolve through a
-      // different, higher-precedence provider than the one just selected
-      // (verified live: claude-sonnet-4-6 switching into opencode — it never
-      // actually re-routes). Detect this generically off the union's
-      // precedence-resolved providerID rather than hardcoding the one known
-      // id, so the hint stays correct if a future catalog refresh introduces
-      // a new overlapping id.
-      const resolvedProvider = unionServableModels.find((m) => m.id === result.primary)?.providerID;
-      if (resolvedProvider && resolvedProvider !== next) {
-        setResetHint(
-          `${unionServableModels.find((m) => m.id === result.primary)?.name ?? result.primary} stays routed through ${providerName(resolvedProvider)} — ${providers.find((p) => p.id === next)?.name ?? next}'s copy isn't used while a higher-priority provider serves the same id.`,
-        );
-      } else {
-        setResetHint(null);
-      }
+      setResetHint(null);
     }
-    setProvider(next);
-    // Pitfall 6: if the reset lands on an id a preserved fallback already
-    // holds, the server duplicate_model backstop surfaces the existing
-    // ERROR_COPY — do NOT clear the fallback (research recommendation).
+  }
+
+  function handleFallbackProviderChange(index: number, nextProvider: ModelProviderId) {
+    markDirty();
+    setFallbackSlots((prev) =>
+      prev.map((slot, slotIndex) =>
+        slotIndex === index
+          ? fallbackSlotAfterProviderSwitch({
+              slot,
+              nextProvider,
+              servableByProvider,
+              defaults,
+            })
+          : slot,
+      ),
+    );
+  }
+
+  function handleFallbackModelChange(index: number, model: string) {
+    markDirty();
+    setFallbackSlots((prev) =>
+      prev.map((slot, slotIndex) => (slotIndex === index ? { ...slot, model } : slot)),
+    );
   }
 
   const isStale = (id: string) => id !== '' && !unionIds.has(id);
@@ -219,7 +228,7 @@ export function ModelSettingsForm({
               No model configuration saved
             </p>
             <p className="text-sm text-slate-500">
-              You're currently using the default model — {defaults[provider].name} — with no
+              You're currently using the default model — {defaults[primaryProvider].name} — with no
               fallbacks. Choose a primary model below to customize.
             </p>
           </div>
@@ -235,216 +244,45 @@ export function ModelSettingsForm({
           </p>
         </div>
 
-        {/* D-21-03: the always-valued provider selector sits directly above
-            the Primary model label (SET-01). Stays a shadcn Select (D-21-06) —
-            the Combobox swap is scoped to model slots only. */}
-        <div className="flex flex-col gap-2">
-          <p className="text-[12px] font-normal leading-[1.4] text-slate-500">AI provider</p>
-          <Select value={provider} onValueChange={handleProviderChange}>
-            <SelectTrigger aria-label="AI provider" size="default">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {providers.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {/* D-21-01: the non-blocking reset hint — informational slate-600,
-              never red (it describes a successful draft reset, not an error). */}
-          {resetHint !== null ? (
-            <p className="text-[14px] font-normal leading-[1.5] text-slate-600">{resetHint}</p>
-          ) : null}
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <p className="text-[12px] font-normal leading-[1.4] text-slate-500">Primary model</p>
-          {/* D-21-06: the primary slot is a Command Combobox, provider-scoped
-              (SET-02). slotIndex -1 = the primary direction: options exclude
-              the primary id AND every fallback-chosen id (Open Question 3) so
-              Save can never hit duplicate_model. */}
-          <ModelPicker
-            id="primary-model"
-            ariaLabel="Primary model"
-            value={primary}
-            // CR-01 name seam: the primary id is excluded from its own options
-            // by optionsForSlot(slotIndex = -1) dup-chain prevention, so the
-            // trigger name resolves from the union instead (the 21-06 valueName
-            // prop the wrapper's triggerLabel prefers; a stale id yields
-            // undefined → raw-id fallback + staleLabel path unchanged).
-            valueName={unionServableModels.find((m) => m.id === primary)?.name}
-            options={optionsForSlot(primary, fallbacks, -1, servableByProvider[provider])}
-            onChange={(v) => {
-              markDirty();
-              setPrimary(v);
-              // Hint lifecycle (Open Question 2 — RESOLVED): a manual primary
-              // edit supersedes the provider-switch reset — clear the hint.
-              setResetHint(null);
-            }}
-            placeholder="Select a model…"
-            // D-26-11/SET-05: the closed trigger badge must show the TRUE
-            // resolved provider (precedence-resolved via the union list),
-            // never the raw AI Provider dropdown value — the two diverge for
-            // claude-sonnet-4-6 (always resolves anthropic) and both hermes
-            // ids (always resolve nousresearch). `?? provider` fallback
-            // preserves current behavior for the non-colliding case; the
-            // primary slot always has SOME value (never the empty-fallback
-            // sentinel the fallback picker's `?? undefined` exists for).
-            badge={resolveBadgeProvider(primary, unionServableModels, provider)}
-            grouped={false}
-            staleLabel={
-              isStale(primary)
-                ? (savedChain?.find((sc) => sc.id === primary)?.name ?? primary)
-                : null
-            }
-          />
-          {isStale(primary) ? (
-            <p className="text-[14px] font-normal leading-[1.5] text-red-600">
-              This model is no longer runnable — pick a replacement before saving.
-            </p>
-          ) : null}
-        </div>
-
-        <div className="flex flex-col gap-2 border-t border-slate-100 pt-4">
-          {/* The v1.3 sonnet-only branch (single-model message + stale-row
-              only rendering) is gone: the union servable set spans both
-              providers (337 rows — never 1), so the full fallback form always
-              renders. Stale saved fallbacks are handled by the general path
-              below — disabled stale item + red hint + remove button — keeping
-              the D-10/D-11 "stale fallback stays renderable and removable"
-              contract intact. */}
-          <p className="text-[12px] font-normal leading-[1.4] text-slate-500">
-            Fallback models
-          </p>
-          {fallbacks.map((fb, i) => (
-            <div key={i} className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                {/* D-08/D-09, client-enforced via optionsForSlot: a model
-                    chosen for one slot disappears from the others, and the
-                    primary is never a fallback option — widened to the union
-                    servable set (D-21-14). The trigger badge is required on
-                    every picker (UI-SPEC §Row Anatomy): closed-state badges
-                    disambiguate same-name models at a glance. */}
-                <ModelPicker
-                  id={`fallback-${i + 1}`}
-                  ariaLabel={`Fallback model ${i + 1}`}
-                  value={fb}
-                  options={optionsForSlot(primary, fallbacks, i, unionServableModels)}
-                  onChange={(v) => {
-                    markDirty();
-                    setFallbacks((prev) => {
-                      const next = [...prev];
-                      next[i] = v;
-                      return next;
-                    });
-                  }}
-                  placeholder="Select a fallback…"
-                  grouped
-                  badge={unionServableModels.find((m) => m.id === fb)?.providerID ?? undefined}
-                  staleLabel={
-                    isStale(fb) ? (savedChain?.find((sc) => sc.id === fb)?.name ?? fb) : null
-                  }
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Move fallback up"
-                  disabled={i === 0}
-                  onClick={() => moveFallback(i, -1)}
-                >
-                  <ArrowUp />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Move fallback down"
-                  disabled={i === fallbacks.length - 1}
-                  onClick={() => moveFallback(i, 1)}
-                >
-                  <ArrowDown />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Remove fallback"
-                  onClick={() => removeFallback(i)}
-                >
-                  <X />
-                </Button>
-              </div>
-              {isStale(fb) ? (
-                <p className="text-[14px] font-normal leading-[1.5] text-red-600">
-                  This model is no longer runnable — pick a replacement before saving.
-                </p>
-              ) : null}
-            </div>
-          ))}
-          <Button variant="outline" disabled={fallbacks.length >= 2} onClick={addFallback}>
-            <Plus className="size-4" />
-            Add fallback
-          </Button>
-        </div>
+        <ModelSettingsFormSlots
+          primaryModel={primary}
+          primaryProvider={primaryProvider}
+          fallbackSlots={fallbackSlots}
+          providers={providers}
+          servableByProvider={servableByProvider}
+          unionServableModels={unionServableModels}
+          savedChain={savedChain}
+          resetHint={resetHint}
+          isStale={isStale}
+          onPrimaryProviderChange={handlePrimaryProviderChange}
+          onPrimaryModelChange={(model) => {
+            markDirty();
+            setPrimary(model);
+            setResetHint(null);
+          }}
+          onFallbackProviderChange={handleFallbackProviderChange}
+          onFallbackModelChange={handleFallbackModelChange}
+          onMoveFallback={moveFallback}
+          onRemoveFallback={removeFallback}
+          onAddFallback={addFallback}
+        />
 
         <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
           <div className="flex items-center gap-2">
             <Button variant="default" disabled={saveDisabled} onClick={handleSave}>
               {isPending ? 'Saving…' : 'Save changes'}
             </Button>
-            {status === 'saved' &&
-            lastSaved &&
-            primary === lastSaved.primary &&
-            fallbacks.filter((f) => f !== '').join('|') === lastSaved.fallbacks.join('|') ? (
-              <div className="flex flex-col gap-1">
-                {/* CR-01: the "Saved." confirmation is now gated on the SAME
-                    draft-equals-lastSaved check as the recap below (previously
-                    it rendered unconditionally on status === 'saved', which
-                    could show a false confirmation if the draft changed while
-                    a prior save was still in flight — markDirty()'s 'saving'
-                    exemption means status stays 'saving' during that edit, but
-                    the async resolution still ran setStatus('saved') for the
-                    STALE request). The inner recap's own equality check below
-                    is now redundant-safe but left in place intentionally. */}
-                <p className="text-[14px] font-normal leading-[1.5] text-slate-600">Saved.</p>
-                {/* D-21-10: the saved-chain recap — one entry per model in the
-                    persisted chain, each with a provider badge. The badges are
-                    what disambiguate a saved cross-provider chain at a glance.
-                    Saved ids are union-validated, so the union lookup resolves
-                    their provider; names come from savedChain (server-resolved)
-                    with the raw-id fallback. The recap hides as soon as any
-                    slot is edited — the draft no longer equals lastSaved. */}
-                {lastSaved &&
-                primary === lastSaved.primary &&
-                fallbacks.filter((f) => f !== '').join('|') === lastSaved.fallbacks.join('|') ? (
-                  <p className="text-[14px] font-normal leading-[1.5] text-slate-600">
-                    Saved chain:{' '}
-                    {[primary, ...fallbacks.filter((f) => f !== '')].map((id, idx) => {
-                      // D-26-02: capture the union lookup ONCE per iteration —
-                      // the badge and the new endpoint caption both read off
-                      // the same resolved row (avoid a second .find() call).
-                      const resolved = unionServableModels.find((m) => m.id === id);
-                      return (
-                        <span key={id}>
-                          {idx > 0 ? ' → ' : null}
-                          <Badge variant="secondary">
-                            {providerName(resolved?.providerID ?? 'anthropic')}
-                          </Badge>{' '}
-                          {savedChain?.find((sc) => sc.id === id)?.name ?? id}
-                          {resolved?.endpoint ? (
-                            <span className="text-[12px] font-normal leading-[1.4] text-slate-500">
-                              {' '}· {endpointLabel(resolved.endpoint)}
-                            </span>
-                          ) : null}
-                        </span>
-                      );
-                    })}
-                  </p>
-                ) : null}
-              </div>
-            ) : status === 'error' ? (
-              <p className="text-[14px] font-normal leading-[1.5] text-red-600">{errorMsg}</p>
-            ) : null}
+            <ModelSettingsFormStatus
+              status={status}
+              errorMsg={errorMsg}
+              primaryModel={primary}
+              primaryProvider={primaryProvider}
+              fallbackModels={fallbackModels}
+              fallbackSlots={fallbackSlots}
+              lastSaved={lastSaved}
+              unionServableModels={unionServableModels}
+              savedChain={savedChain}
+            />
           </div>
         </div>
       </div>

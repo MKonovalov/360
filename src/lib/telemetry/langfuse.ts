@@ -4,6 +4,8 @@ import { LangfuseSpanProcessor } from '@langfuse/otel';
 import { LangfuseVercelAiSdkIntegration } from '@langfuse/vercel-ai-sdk';
 import { LangfuseClient } from '@langfuse/client';
 import { z } from 'zod';
+import { SERVABLE_PROVIDERS } from '@/lib/models/catalog';
+import { modelRefSchema } from '@/lib/analysis/contracts';
 import { env } from '../env';
 
 // Phase 9 observability bootstrap (D-13, D-15, D-16). No `instrumentation.ts`
@@ -20,7 +22,7 @@ const telemetryIdentifierSchema = z
   .trim()
   .min(1)
   .max(200)
-  .regex(/^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/)
+  .regex(/^(?!.*:\/\/)[a-zA-Z0-9][a-zA-Z0-9._:/-]*$/)
   .refine((value) => !/(?:sk|pk)[_-](?:live|test)|api[_-]?key|secret|token|session|clerk|database/i.test(value));
 
 const phase33MetadataSchema = z
@@ -28,7 +30,8 @@ const phase33MetadataSchema = z
     runId: z.number().int().positive(),
     targetType: z.enum(['company', 'persona']),
     modelId: telemetryIdentifierSchema,
-    modelChain: z.array(telemetryIdentifierSchema).max(8),
+    modelProvider: z.enum(SERVABLE_PROVIDERS).nullable().default(null),
+    modelChain: z.array(z.union([modelRefSchema, telemetryIdentifierSchema])).max(8).default([]),
     usedFallback: z.boolean(),
     durationMs: z.number().int().nonnegative().max(86_400_000),
     toolCallCount: z.number().int().nonnegative().max(100),

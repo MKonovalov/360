@@ -1,6 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('../db/index', () => ({ db: { execute: vi.fn() } }));
 
 import { PHASE33_DEFERRED_POLICY } from './contracts';
+import { prepareAnalysisPacket } from '../db/queries/analysisResults';
 import {
   canonicalSourceSchema,
   dedupeCanonicalSources,
@@ -37,6 +40,8 @@ const packet = {
   audit: {
     attempt: 1,
     modelId: 'model.primary',
+    modelProvider: null,
+    modelChain: [],
     toolCallCount: 1,
     sourceCount: 1,
     findingCount: 1,
@@ -52,22 +57,32 @@ describe('grounded Phase 33 contracts', () => {
     expect(groundedPacketSchema.safeParse({ ...packet, policy: PHASE33_DEFERRED_POLICY }).success).toBe(false);
   });
 
-  it('rejects model-recited catalogue names and categories', () => {
-    expect(
-      groundedPacketSchema.safeParse({
+  it('strips model-recited catalogue identity before accepting normalized snapshot identity', () => {
+    const recitedIdentity = {
+      ...finding.identity,
+      signalName: 'Model-invented signal',
+      signalCategory: 'Model-invented category',
+    } as const;
+    const prepared = prepareAnalysisPacket({
+      packet: {
         ...packet,
-        findings: [
-          {
-            ...finding,
-            identity: {
-              ...finding.identity,
-              signalName: 'Model-invented signal',
-              signalCategory: 'Model-invented category',
-            },
-          },
-        ],
-      }).success,
-    ).toBe(false);
+        findings: [{ ...finding, identity: recitedIdentity }],
+      },
+      checklistSignalIds: [7],
+    });
+
+    expect(prepared.packet.findings[0]?.identity).toEqual(finding.identity);
+
+    const snapshotIdentity = {
+      ...finding.identity,
+      signalName: 'Trusted snapshot signal',
+      signalCategory: 'Trusted snapshot category',
+    } as const;
+    const normalized = groundedPacketSchema.parse({
+      ...packet,
+      findings: [{ ...finding, identity: snapshotIdentity }],
+    });
+    expect(normalized.findings[0]?.identity).toEqual(snapshotIdentity);
   });
 
   it.each([

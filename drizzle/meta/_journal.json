@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786102381068,
+      "tag": "0001_phase32_template_snapshot_run_ledger",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786294886107,
+      "tag": "0008_phase33_34_packet_review_forward_repair",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786300658655,
+      "tag": "0009_provider_model_metadata",
+      "breakpoints": true
+    }
+  ]
+}

@@ -13,11 +13,14 @@ import {
   type NormalizedEvidenceSource,
   type ServerDerivedEvidenceResult,
 } from './evidence';
+import { SERVABLE_PROVIDERS } from '@/lib/models/catalog';
+import { modelRefSchema } from './contracts';
 
 const analysisTargetTypeSchema = z.enum(['company', 'persona']);
 const findingStatusSchema = z.enum(['strong', 'weak', 'no_evidence', 'inconclusive']);
 const confidenceSchema = z.enum(['low', 'medium', 'high']);
 const safeText = z.string().trim().min(1).max(4_000);
+const safeModelId = z.string().trim().min(1).max(120).regex(/^(?!.*:\/\/)[a-zA-Z0-9][a-zA-Z0-9._:/-]*$/);
 
 const rawFindingSchema = z
   .object({
@@ -43,7 +46,9 @@ const citationSchema = z
 const auditSchema = z
   .object({
     attempt: z.number().int().nonnegative(),
-    modelId: z.string().trim().min(1).max(120).nullable(),
+    modelId: safeModelId.nullable(),
+    modelProvider: z.enum(SERVABLE_PROVIDERS).nullable().default(null),
+    modelChain: z.array(z.union([modelRefSchema, safeModelId])).max(8).default([]),
     toolCallCount: z.number().int().nonnegative(),
     durationMs: z.number().int().nonnegative(),
     traceId: z.string().trim().min(1).max(120).nullable(),
@@ -205,6 +210,8 @@ export function normalizeAnalysisPacket(input: unknown): NormalizedAnalysisPacke
       findingId: finding.findingId,
       identity: {
         signalId: item.signalId,
+        signalName: item.name,
+        signalCategory: item.category,
         buyerRoleId: item.buyerRoleId ?? null,
       },
       status: finding.status,

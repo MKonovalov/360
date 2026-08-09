@@ -135,19 +135,19 @@ export async function persistAnalysisPacket(input: PersistenceInput): Promise<Pe
   const retention = retentionForPacket(input, prepared.packet);
   const packet = prepared.packet;
   const audit = packet.audit;
-  const modelChain = audit.modelId === null ? [] : [audit.modelId];
+  const modelChain = audit.modelChain;
 
   const result = await db.execute<PersistedResultRow>(sql`
     WITH inserted_result AS (
       INSERT INTO analysis_run_result (
         analysis_run_id, schema_version, target_type, narrative, raw_audit,
-        model_id, model_chain, trace_id, started_at, completed_at, duration_ms,
+        model_id, model_provider, model_chain, trace_id, started_at, completed_at, duration_ms,
         finding_count, source_count, link_count, packet_hash, policy_version,
         classification, expires_at
       )
       VALUES (
         ${input.runId}, ${packet.schemaVersion}, ${packet.targetType}, ${packet.narrative},
-        ${JSON.stringify(audit)}::jsonb, ${audit.modelId}, ${JSON.stringify(modelChain)}::jsonb,
+        ${JSON.stringify(audit)}::jsonb, ${audit.modelId}, ${audit.modelProvider}, ${JSON.stringify(modelChain)}::jsonb,
         ${audit.traceId}, ${new Date(input.now ?? new Date()).toISOString()},
         ${new Date((input.now ?? new Date()).getTime() + audit.durationMs).toISOString()},
         ${audit.durationMs}, ${packet.findings.length}, ${packet.sources.length}, ${packet.links.length},

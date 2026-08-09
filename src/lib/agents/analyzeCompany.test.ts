@@ -248,7 +248,9 @@ describe('analyzeCompany (09-01-03)', () => {
     expect(result.ok).toBe(true);
     // Pitfall 11: raw ids mapped to LanguageModel[] ONCE at entry via the
     // factory — never strings, never a per-attempt settings read.
-    expect(mocks.instantiateChain).toHaveBeenCalledWith(['claude-sonnet-4-6']);
+    expect(mocks.instantiateChain).toHaveBeenCalledWith([
+      { modelId: 'claude-sonnet-4-6', provider: 'anthropic' },
+    ]);
     expect(mocks.runAgent).toHaveBeenCalledWith(
       expect.objectContaining({
         models: [{ provider: 'anthropic', modelId: 'claude-sonnet-4-6' }],
@@ -300,7 +302,7 @@ describe('analyzeCompany (09-01-03)', () => {
     expect(result.modelUsed).toBe('claude-sonnet-4-6');
     expect(result.usedFallback).toBe(false);
     // The resolved snapshot at entry — doubles as the model_chain the route persists.
-    expect(result.modelChain).toEqual(['claude-sonnet-4-6']);
+    expect(result.modelChain).toEqual([{ modelId: 'claude-sonnet-4-6', provider: 'anthropic' }]);
   });
 
   it('returns not_configured naming the missing ANTHROPIC key on the default anthropic chain (D-20-01)', async () => {
@@ -332,6 +334,24 @@ describe('analyzeCompany (09-01-03)', () => {
     mocks.env.OPENROUTER_API_KEY = 'test-key'; // restore
   });
 
+  it('gates an overlapping id by its explicit provider, not catalog precedence', async () => {
+    mocks.getModelSettingsForUser.mockResolvedValue({
+      primaryModel: 'claude-sonnet-4-6',
+      primaryProvider: 'opencode',
+      fallbackModels: [],
+      fallbackProviders: [],
+    });
+    mocks.env.OPENCODE_API_KEY = undefined;
+    mocks.env.ANTHROPIC_API_KEY = undefined;
+
+    const result = await analyzeCompany(1, 'user_test');
+
+    expect(result).toEqual({ ok: false, reason: 'not_configured', missingKey: 'OPENCODE_API_KEY' });
+    expect(mocks.runAgent).not.toHaveBeenCalled();
+    mocks.env.OPENCODE_API_KEY = 'test-key';
+    mocks.env.ANTHROPIC_API_KEY = 'test-key';
+  });
+
   it('runs an openrouter-only chain with only the OPENROUTER key — ANTHROPIC not blanket-required (D-20-03/Phase 22 UAT)', async () => {
     mocks.getModelSettingsForUser.mockResolvedValue({
       primaryModel: 'anthropic/claude-sonnet-4.6',
@@ -343,7 +363,9 @@ describe('analyzeCompany (09-01-03)', () => {
 
     // openrouter-only provider set — missingProviderKey skips ANTHROPIC.
     expect(result.ok).toBe(true);
-    expect(mocks.instantiateChain).toHaveBeenCalledWith(['anthropic/claude-sonnet-4.6']);
+    expect(mocks.instantiateChain).toHaveBeenCalledWith([
+      { modelId: 'anthropic/claude-sonnet-4.6', provider: 'openrouter' },
+    ]);
     mocks.env.ANTHROPIC_API_KEY = 'test-key'; // restore
   });
 
@@ -361,7 +383,10 @@ describe('analyzeCompany (09-01-03)', () => {
 
     expect(result.ok).toBe(true);
     // The resolved cross-provider chain maps through the factory.
-    expect(mocks.instantiateChain).toHaveBeenCalledWith(['claude-sonnet-4-6', 'anthropic/claude-sonnet-4.6']);
+    expect(mocks.instantiateChain).toHaveBeenCalledWith([
+      { modelId: 'claude-sonnet-4-6', provider: 'anthropic' },
+      { modelId: 'anthropic/claude-sonnet-4.6', provider: 'openrouter' },
+    ]);
   });
 
   describe('missing — RUN-03 chain-aware gate widened to 4 providers (D-25-05)', () => {
@@ -410,7 +435,7 @@ describe('analyzeCompany (09-01-03)', () => {
       const result = await analyzeCompany(1, 'user_test');
 
       expect(result.ok).toBe(true);
-      expect(mocks.instantiateChain).toHaveBeenCalledWith(['hy3']);
+      expect(mocks.instantiateChain).toHaveBeenCalledWith([{ modelId: 'hy3', provider: 'opencode' }]);
       mocks.env.ANTHROPIC_API_KEY = 'test-key';
       mocks.env.NOUSRESEARCH_API_KEY = 'test-key'; // restore both
     });
@@ -430,7 +455,10 @@ describe('analyzeCompany (09-01-03)', () => {
       expect(result.ok).toBe(true);
       // The resolved cross-provider chain maps through the factory with all
       // four keys set — no not_configured for the mixed anthropic+nousresearch set.
-      expect(mocks.instantiateChain).toHaveBeenCalledWith(['claude-sonnet-4-6', 'nousresearch/hermes-4-70b']);
+      expect(mocks.instantiateChain).toHaveBeenCalledWith([
+        { modelId: 'claude-sonnet-4-6', provider: 'anthropic' },
+        { modelId: 'nousresearch/hermes-4-70b', provider: 'nousresearch' },
+      ]);
     });
 
     it('runs an opencode+nousresearch mixed chain when all keys are set (D-25-05)', async () => {
@@ -446,7 +474,10 @@ describe('analyzeCompany (09-01-03)', () => {
       const result = await analyzeCompany(1, 'user_test');
 
       expect(result.ok).toBe(true);
-      expect(mocks.instantiateChain).toHaveBeenCalledWith(['deepseek-v4-flash', 'nousresearch/hermes-4-70b']);
+      expect(mocks.instantiateChain).toHaveBeenCalledWith([
+        { modelId: 'deepseek-v4-flash', provider: 'opencode' },
+        { modelId: 'nousresearch/hermes-4-70b', provider: 'nousresearch' },
+      ]);
     });
   });
 

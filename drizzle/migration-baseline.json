@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "outOfBand": [
+    {
+      "path": "drizzle/0007_custom_agent_definition.sql",
+      "sha256": "eff222b28333f08a024c3328b02cd2fc2c5b45dc503e9d90507e45d74a38ecbb",
+      "status": "manual-applied",
+      "reason": "Applied and verified transactionally in Production before Drizzle migration tracking was added; do not replay this SQL."
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "failed": [
+    {
+      "sourceTag": "0002_phase33_34_correction",
+      "sqlPath": "drizzle/archive/0002_phase33_34_correction.failed.sql",
+      "sqlSha256": "944d44fbd2001fe5fd9d73bb7ba5e8791c06375b86dba8ab4b8e9f7bf7de1a34",
+      "snapshotPath": "drizzle/archive/0002_snapshot.failed.json",
+      "snapshotSha256": "c2899965d540cbf7c723155e1c2db2a9bfa5504b2d6ca26b989bc4f848ccd5ad",
+      "status": "failed-not-applied",
+      "reason": "Production execution failed at SQLSTATE 42883 and rolled back; never replay this artifact."
+    }
+  ]
+}

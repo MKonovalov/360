@@ -17,7 +17,11 @@
     "test:workflow": "node -e \"if (!process.env.TEST_DATABASE_URL) { console.error('TEST_DATABASE_URL is required'); process.exit(1); }\" && vitest run --config vitest.workflow.config.ts",
     "e2e": "playwright test",
     "models:fetch": "tsx scripts/refresh-model-catalog.ts",
-    "db:push": "drizzle-kit push"
+    "db:migrate": "drizzle-kit migrate --config=drizzle.config.ts",
+    "db:check": "drizzle-kit check --config=drizzle.config.ts",
+    "db:validate": "tsx scripts/validate-drizzle-migrations.ts",
+    "db:push": "npm run db:push:dev",
+    "db:push:dev": "node scripts/db-push-dev.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.26",

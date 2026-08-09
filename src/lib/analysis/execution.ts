@@ -4,7 +4,8 @@ import { z } from 'zod';
 import { instantiateChain } from '@/lib/agents/modelFactory';
 import { runAgent, type RunAgentInput } from '@/lib/agents/runAgent';
 import { groundedExecutionInputSchema, type GroundedExecutionInput } from './groundedContracts';
-import { phase33PolicySnapshotSchema } from './contracts';
+import { modelRefSchema, phase33PolicySnapshotSchema } from './contracts';
+import type { ModelRef } from '@/lib/models/modelRef';
 import { isPhase36FixtureMode, phase36ExecutorDependencies } from '@/lib/verification/phase36Fixtures';
 
 const groundedModelFindingSchema = z
@@ -26,7 +27,7 @@ const groundedModelOutputSchema = z
   .strict();
 
 const executionInputSchema = groundedExecutionInputSchema.extend({
-  modelChain: z.array(z.string().trim().min(1).max(120).regex(/^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/)).min(1).max(8),
+  modelChain: z.array(z.union([modelRefSchema, z.string().trim().min(1).max(120).regex(/^(?!.*:\/\/)[a-zA-Z0-9][a-zA-Z0-9._:/-]*$/)])).min(1).max(8),
 });
 
 const safeToolItemSchema = z
@@ -48,6 +49,8 @@ export type GroundedExecutionSuccess = Readonly<{
   ok: true;
   output: GroundedModelOutput;
   modelId: string;
+  modelProvider: ModelRef['provider'] | null;
+  modelChain: readonly (ModelRef | string)[];
   usedFallback: boolean;
   toolResults: readonly SafeToolItem[];
   citations: readonly Readonly<Record<string, unknown>>[];
@@ -73,7 +76,7 @@ export type GroundedExecutionResult = GroundedExecutionSuccess | GroundedExecuti
 
 export type GroundedExecutionDependencies = Readonly<{
   runAgent: (input: RunAgentInput) => Promise<RunAgentResult>;
-  instantiateChain: (ids: string[]) => LanguageModel[];
+  instantiateChain: (entries: readonly (ModelRef | string)[]) => LanguageModel[];
 }>;
 
 function buildGroundedPrompt(input: GroundedExecutionInput): string {
@@ -156,6 +159,7 @@ export class GroundedExecutionAdapter {
         company: { id: parsed.subjectId, name: parsed.subjectDisplayName },
         liveSignals: parsed.checklistSignalIds.map((signalType) => ({ signalType: String(signalType) })),
         models,
+        modelSelections: modelIds,
         prompt: buildGroundedPrompt(parsed),
         outputSchema: groundedModelOutputSchema,
         maxToolCalls: policy.limits.maxToolCalls,
@@ -170,6 +174,8 @@ export class GroundedExecutionAdapter {
         ok: true,
         output,
         modelId: run.modelUsed,
+        modelProvider: run.modelUsedProvider ?? null,
+        modelChain: modelIds,
         usedFallback: run.usedFallback,
         toolResults,
         citations: run.citations ?? [],

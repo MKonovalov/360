@@ -2,21 +2,25 @@ import { describe, expect, it } from 'vitest';
 import {
   PROVIDER_NAMES,
   endpointLabel,
+  fallbackSlotAfterProviderSwitch,
   groupByProvider,
   hermesCaptionLabel,
+  initialModelSlots,
   isHighCost,
+  modelAfterProviderSwitch,
+  moveFallbackSlot,
   optionsForSlot,
   pinnedSelection,
-  primaryAfterProviderSwitch,
   providerName,
-  resolveBadgeProvider,
+  removeFallbackSlot,
   rowCaption,
   searchValue,
+  settingsDraftPayload,
   staleIds,
   suffixLabel,
   triggerLabel,
 } from './model-picker-logic';
-import type { ServableModel } from './model-picker-logic';
+import type { ModelSlot, ServableModel } from './model-picker-logic';
 import type { ModelProviderId } from '@/lib/models/catalog';
 
 // The fixture is inline and deliberately decoupled from the committed
@@ -107,7 +111,7 @@ const opencodeGoRow: ServableModel = {
   endpoint: 'go',
 };
 
-// Union fixture spanning all 4 providers — used by resolveBadgeProvider and
+// Union fixture spanning all 4 providers — used by provider hydration and
 // the groupByProvider 4-key coverage case.
 const unionFixture4: ServableModel[] = [...fixture, nousresearchRow, opencodeZenRow, opencodeGoRow];
 
@@ -247,30 +251,6 @@ describe('rowCaption (D-26-01 composition order: endpoint -> suffix -> hermes)',
   });
 });
 
-describe('resolveBadgeProvider (D-26-11, SET-05 badge-accuracy fix)', () => {
-  it('resolves claude-sonnet-4-6 to its TRUE anthropic provider, not the opencode dropdown decoy', () => {
-    // Given the union fixture where claude-sonnet-4-6 resolves to providerID 'anthropic'
-    // When the dropdown is (incorrectly) on opencode
-    // Then the resolved badge is the TRUE provider, not the dropdown value
-    expect(resolveBadgeProvider('claude-sonnet-4-6', unionFixture4, 'opencode')).toBe('anthropic');
-  });
-
-  it('resolves the hermes id to its TRUE nousresearch provider, not the openrouter dropdown decoy', () => {
-    // Given the union fixture where nousresearch/hermes-4-70b resolves to providerID 'nousresearch'
-    // When the dropdown is (incorrectly) on openrouter
-    // Then the resolved badge is the TRUE provider, not the dropdown value
-    expect(resolveBadgeProvider('nousresearch/hermes-4-70b', unionFixture4, 'openrouter')).toBe(
-      'nousresearch',
-    );
-  });
-
-  it('falls back to the dropdown provider for a value absent from the union list (preserves current behavior)', () => {
-    // Given a dropped id no longer in the union servable set
-    // When / Then
-    expect(resolveBadgeProvider('dropped-id', unionFixture4, 'anthropic')).toBe('anthropic');
-  });
-});
-
 describe('suffixLabel (SET-07)', () => {
   it('labels a ~latest alias', () => {
     // Given / When / Then
@@ -313,22 +293,32 @@ describe('isHighCost (SET-08)', () => {
   });
 });
 
-describe('primaryAfterProviderSwitch (SET-03)', () => {
+describe('modelAfterProviderSwitch (SET-03)', () => {
   it('keeps a valid primary when it is in the new provider servable list (keep-if-valid)', () => {
     // Given the draft primary is already in the next provider's servable list
     // When the provider switches
-    const result = primaryAfterProviderSwitch('claude-sonnet-4-6', 'anthropic', servableByProvider, defaults);
+    const result = modelAfterProviderSwitch({
+      currentModel: 'claude-sonnet-4-6',
+      nextProvider: 'anthropic',
+      servableByProvider,
+      defaults,
+    });
     // Then the primary is preserved and no reset hint is needed
-    expect(result).toEqual({ primary: 'claude-sonnet-4-6', resetToDefault: false });
+    expect(result).toEqual({ model: 'claude-sonnet-4-6', resetToDefault: false });
   });
 
   it('resets to the provider default when the primary is absent from the new provider (reset-to-default)', () => {
     // Given an anthropic primary and a switch to openrouter whose servable list
     // cannot contain a bare anthropic id (disjoint id spaces, D-21-01)
     // When the provider switches
-    const result = primaryAfterProviderSwitch('claude-sonnet-4-6', 'openrouter', servableByProvider, defaults);
+    const result = modelAfterProviderSwitch({
+      currentModel: 'claude-sonnet-4-6',
+      nextProvider: 'openrouter',
+      servableByProvider,
+      defaults,
+    });
     // Then the primary resets to the openrouter default and a reset hint is due
-    expect(result).toEqual({ primary: 'anthropic/claude-sonnet-4.6', resetToDefault: true });
+    expect(result).toEqual({ model: 'anthropic/claude-sonnet-4.6', resetToDefault: true });
   });
 
   // NOTE: fallback preservation on switch (D-21-02) is NOT asserted here — it is
@@ -338,40 +328,178 @@ describe('primaryAfterProviderSwitch (SET-03)', () => {
   it('keeps a valid primary when switching into nousresearch (keep-if-valid, 4-provider fixture)', () => {
     // Given the draft primary is already in nousresearch's servable list
     // When the provider switches
-    const result = primaryAfterProviderSwitch(
-      'nousresearch/hermes-4-70b',
-      'nousresearch',
+    const result = modelAfterProviderSwitch({
+      currentModel: 'nousresearch/hermes-4-70b',
+      nextProvider: 'nousresearch',
       servableByProvider,
       defaults,
-    );
+    });
     // Then the primary is preserved
-    expect(result).toEqual({ primary: 'nousresearch/hermes-4-70b', resetToDefault: false });
+    expect(result).toEqual({ model: 'nousresearch/hermes-4-70b', resetToDefault: false });
   });
 
   it('resets to the nousresearch default when the primary is absent from its servable list', () => {
     // Given an anthropic primary and a switch to nousresearch, whose servable
     // list cannot contain a bare anthropic id
     // When the provider switches
-    const result = primaryAfterProviderSwitch('claude-sonnet-4-6', 'nousresearch', servableByProvider, defaults);
+    const result = modelAfterProviderSwitch({
+      currentModel: 'claude-sonnet-4-6',
+      nextProvider: 'nousresearch',
+      servableByProvider,
+      defaults,
+    });
     // Then the primary resets to the nousresearch default
-    expect(result).toEqual({ primary: 'nousresearch/hermes-4-70b', resetToDefault: true });
+    expect(result).toEqual({ model: 'nousresearch/hermes-4-70b', resetToDefault: true });
   });
 
   it('keeps a valid primary when switching into opencode (keep-if-valid, 4-provider fixture)', () => {
     // Given the draft primary is already in opencode's servable list (Zen row)
     // When the provider switches
-    const result = primaryAfterProviderSwitch('deepseek-v4-flash', 'opencode', servableByProvider, defaults);
+    const result = modelAfterProviderSwitch({
+      currentModel: 'deepseek-v4-flash',
+      nextProvider: 'opencode',
+      servableByProvider,
+      defaults,
+    });
     // Then the primary is preserved
-    expect(result).toEqual({ primary: 'deepseek-v4-flash', resetToDefault: false });
+    expect(result).toEqual({ model: 'deepseek-v4-flash', resetToDefault: false });
   });
 
   it('resets to the opencode default when the primary is absent from its servable list', () => {
     // Given an openrouter primary and a switch to opencode, whose servable
     // list (Zen/Go rows only, per this fixture) does not contain it
     // When the provider switches
-    const result = primaryAfterProviderSwitch('openai/o1-pro', 'opencode', servableByProvider, defaults);
+    const result = modelAfterProviderSwitch({
+      currentModel: 'openai/o1-pro',
+      nextProvider: 'opencode',
+      servableByProvider,
+      defaults,
+    });
     // Then the primary resets to the opencode default
-    expect(result).toEqual({ primary: 'claude-sonnet-4-6', resetToDefault: true });
+    expect(result).toEqual({ model: 'claude-sonnet-4-6', resetToDefault: true });
+  });
+});
+
+describe('per-slot provider state (SET-02)', () => {
+  it('hydrates primary and fallback slots from saved providers, catalog rows, and a deterministic default', () => {
+    // Given saved slots whose provider metadata is known, null, or stale
+    const modelIds = ['claude-sonnet-4-6', 'deepseek-v4-flash', 'dropped-id'];
+    const savedChain = [
+      { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', providerID: 'anthropic' as const },
+      { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash', providerID: null },
+      { id: 'dropped-id', name: 'Dropped model', providerID: null },
+    ];
+
+    // When
+    const slots = initialModelSlots({
+      modelIds,
+      savedChain,
+      catalogModels: unionFixture4,
+      defaultProvider: 'anthropic',
+    });
+
+    // Then catalog lookup resolves the known null provider, while stale model
+    // identity remains untouched and receives the deterministic fallback provider
+    expect(slots).toEqual([
+      { model: 'claude-sonnet-4-6', provider: 'anthropic' },
+      { model: 'deepseek-v4-flash', provider: 'opencode' },
+      { model: 'dropped-id', provider: 'anthropic' },
+    ]);
+  });
+
+  it('scopes model options to the selected slot provider before duplicate filtering', () => {
+    // Given a fallback slot using the OpenRouter provider
+    // When
+    const options = optionsForSlot(
+      'claude-sonnet-4-6',
+      ['openai/o1-pro'],
+      0,
+      servableByProvider.openrouter,
+    );
+
+    // Then no model from another provider can enter that slot's list
+    expect(options.every((model) => model.providerID === 'openrouter')).toBe(true);
+    expect(options.map((model) => model.id)).toContain('openai/o1-pro');
+  });
+
+  it('keeps a primary model when the next provider also serves its id', () => {
+    // Given an overlapping catalog id and the next provider's scoped rows
+    const nextProviderModels: Record<ModelProviderId, ServableModel[]> = {
+      ...servableByProvider,
+      opencode: [fixture[0], opencodeZenRow, opencodeGoRow],
+    };
+
+    // When
+    const result = modelAfterProviderSwitch({
+      currentModel: 'claude-sonnet-4-6',
+      nextProvider: 'opencode',
+      servableByProvider: nextProviderModels,
+      defaults,
+    });
+
+    // Then the primary model id is preserved
+    expect(result).toEqual({ model: 'claude-sonnet-4-6', resetToDefault: false });
+  });
+
+  it('resets a fallback model to the next provider default when its id is invalid there', () => {
+    // Given a fallback slot whose current model is not served by OpenRouter
+    const slot: ModelSlot = { model: 'claude-sonnet-4-6', provider: 'anthropic' };
+
+    // When
+    const nextSlot = fallbackSlotAfterProviderSwitch({
+      slot,
+      nextProvider: 'openrouter',
+      servableByProvider,
+      defaults,
+    });
+
+    // Then only that slot resets and its provider follows the new selection
+    expect(nextSlot).toEqual({
+      model: 'anthropic/claude-sonnet-4.6',
+      provider: 'openrouter',
+    });
+  });
+
+  it('keeps fallback provider/model pairs aligned when rows move or are removed', () => {
+    // Given two ordered fallback pairs
+    const slots: ModelSlot[] = [
+      { model: 'openai/o1-pro', provider: 'openrouter' },
+      { model: 'nousresearch/hermes-4-70b', provider: 'nousresearch' },
+    ];
+
+    // When the first row moves down, then the first row is removed
+    const moved = moveFallbackSlot(slots, 0, 1);
+    const removed = removeFallbackSlot(moved, 0);
+
+    // Then the model and provider from the same row stay together
+    expect(moved).toEqual([
+      { model: 'nousresearch/hermes-4-70b', provider: 'nousresearch' },
+      { model: 'openai/o1-pro', provider: 'openrouter' },
+    ]);
+    expect(removed).toEqual([{ model: 'openai/o1-pro', provider: 'openrouter' }]);
+  });
+
+  it('serializes provider/model pairs and drops empty fallback rows without detaching providers', () => {
+    // Given slot-local provider metadata and an unfilled row
+    const fallbackSlots: ModelSlot[] = [
+      { model: 'openai/o1-pro', provider: 'openrouter' },
+      { model: '', provider: 'anthropic' },
+    ];
+
+    // When
+    const payload = settingsDraftPayload({
+      primaryModel: 'claude-sonnet-4-6',
+      primaryProvider: 'anthropic',
+      fallbackSlots,
+    });
+
+    // Then the action receives the ordered provider/model metadata alongside ids.
+    expect(payload).toEqual({
+      primaryModel: 'claude-sonnet-4-6',
+      primaryProvider: 'anthropic',
+      fallbacks: ['openai/o1-pro'],
+      fallbackProviders: ['openrouter'],
+    });
   });
 });
 

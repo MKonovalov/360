@@ -9,14 +9,17 @@ import type { ZodType } from 'zod';
 // env-free imports (modelConfig.ts Pattern 2); constraint 11 untouched, the
 // catalog is NOT a provider SDK.
 import { getProviderForModelId } from '@/lib/models/catalog';
+import type { ModelProviderId } from '@/lib/models/catalog';
 import catalogJson from '@/lib/models/catalog.json';
+import type { ModelRef } from '@/lib/models/modelRef';
 
 export interface RunAgentInput {
   company: CompanyInput;
   liveSignals: LiveSignalInput[];
   // D-09: the ordered chain — the single-model seam is replaced by the loop
   // below; a one-element chain runs through the exact same path.
-  models?: LanguageModel[];
+  models?: readonly LanguageModel[];
+  modelSelections?: readonly (ModelRef | string)[];
   // FAL-04 per-attempt budgets (16-HUMAN-UAT gap fix): the ORIGINAL 35s/20s
   // defaults aborted real tool-loop analyses — live runs measure 43-50s
   // (webSearch steps). Each attempt is now clamped to the remaining loop
@@ -40,6 +43,19 @@ function modelIdOf(model: LanguageModel): string {
   return typeof model === 'string' ? model : model.modelId;
 }
 
+function providerOfModel(model: LanguageModel): ModelProviderId | null {
+  return getProviderForModelId(catalogJson, modelIdOf(model));
+}
+
+function providerOfSelection(
+  selection: ModelRef | string | undefined,
+  model: LanguageModel,
+): ModelProviderId | null {
+  return typeof selection === 'string' || selection === undefined
+    ? providerOfModel(model)
+    : selection.provider;
+}
+
 // runAgent — the mockable seam (09-01-01; D-16: zero live calls in tests).
 // Flat v7 generateText contract: plan L190-195's ToolLoopAgent/agent: syntax
 // is stale for ai@7, where the tool loop runs identically via stopWhen +
@@ -57,6 +73,7 @@ export async function runAgent({
   company,
   liveSignals,
   models = defaultChain(),
+  modelSelections,
   timeouts = { primaryMs: 54_000, fallbackMs: 50_000 },
   prompt,
   outputSchema: requestedOutputSchema = outputSchema,
@@ -95,8 +112,12 @@ export async function runAgent({
       // copies only own enumerable keys — a spread would silently drop them
       // and analyzeCompany's run.output.* access would throw at runtime
       // (16-HUMAN-UAT gap fix; invisible to TS + mocked tests).
+      const selectedProvider = modelSelections
+        ? providerOfSelection(modelSelections[i], models[i])
+        : undefined;
       return Object.assign(Object.create(Object.getPrototypeOf(result)), result, {
         modelUsed: modelIdOf(models[i]),
+        ...(selectedProvider === undefined ? {} : { modelUsedProvider: selectedProvider }),
         usedFallback: i > 0,
       });
     } catch (err) {
@@ -111,8 +132,10 @@ export async function runAgent({
       // 429 advance. D-20-05: mid-stream 429s classify 'input' and never
       // reach this branch (accepted + documented, no detection path).
       const cls = classifyModelError(err);
-      const from = getProviderForModelId(catalogJson, modelIdOf(models[i]));
-      const to = i + 1 < models.length ? getProviderForModelId(catalogJson, modelIdOf(models[i + 1])) : null;
+      const from = providerOfSelection(modelSelections?.[i], models[i]);
+      const to = i + 1 < models.length
+        ? providerOfSelection(modelSelections?.[i + 1], models[i + 1])
+        : null;
       const eligible = isFailoverEligible(cls) || cls === 'rate_limited';
       if (!(eligible && shouldAdvance(cls, from, to))) throw err; // Pitfall 2/3: never burn fallbacks
     }

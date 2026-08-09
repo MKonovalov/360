@@ -77,7 +77,13 @@ async function main() {
   // collision — it resolves unambiguously to 'opencode'
   // (getProviderForModelId(catalogJson, 'big-pickle') === 'opencode'), making
   // it the only id that genuinely proves OpenCode-only isolation.
-  await upsertModelSettings({ userId, primaryModel: 'big-pickle', fallbackModels: [] });
+  await upsertModelSettings({
+    userId,
+    primaryModel: 'big-pickle',
+    primaryProvider: 'opencode',
+    fallbackModels: [],
+    fallbackProviders: [],
+  });
 
   // The real run entry — the chain-aware env gate (FAL-04 / D-20-01/02) must
   // pass with ONLY OPENCODE_API_KEY set in the child env.

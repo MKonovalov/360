@@ -33,6 +33,7 @@ describe('Phase 33 Langfuse metadata', () => {
       runId: 42,
       targetType: 'persona',
       modelId: 'model.primary',
+      modelProvider: null,
       modelChain: ['model.primary', 'model.fallback'],
       usedFallback: true,
       durationMs: 1200,

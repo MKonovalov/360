@@ -58,6 +58,10 @@ export function opencodeSlugToModelId(slug: string): string | null {
 // spanning the `opencode` + `opencode-go` snapshot providerIDs (REG-03).
 export type ModelProviderId = 'anthropic' | 'openrouter' | 'nousresearch' | 'opencode';
 
+export function isModelProviderId(value: string): value is ModelProviderId {
+  return SERVABLE_PROVIDERS.some((provider) => provider === value);
+}
+
 // Research Pattern 1: per-provider gate shape. A present `allowlist` gates by
 // id; a present `npm` gates by `api.npm` value; neither means the full active
 // set (openrouter, D-02).

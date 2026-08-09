@@ -68,7 +68,13 @@ async function main() {
 
   // D-07 pinned concrete OpenRouter default slug, OpenRouter-only chain — no
   // Anthropic id anywhere in the chain (the child env strips ANTHROPIC_API_KEY).
-  await upsertModelSettings({ userId, primaryModel: 'anthropic/claude-sonnet-4.6', fallbackModels: [] });
+  await upsertModelSettings({
+    userId,
+    primaryModel: 'anthropic/claude-sonnet-4.6',
+    primaryProvider: 'openrouter',
+    fallbackModels: [],
+    fallbackProviders: [],
+  });
 
   // The real run entry — the chain-aware env gate (FAL-04 / D-20-01/02) must
   // pass with ONLY OPENROUTER_API_KEY set in the child env.

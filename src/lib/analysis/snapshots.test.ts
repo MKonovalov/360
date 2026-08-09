@@ -40,6 +40,17 @@ function createInput(type: AnalysisTargetType = 'company') {
 }
 
 describe('buildAnalysisSnapshots', () => {
+  it('freezes explicit provider/model pairs in the execution snapshot', () => {
+    const input = {
+      ...createInput(),
+      resolvedModelChain: [{ modelId: 'claude-sonnet-4-6', provider: 'opencode' as const }],
+    };
+
+    const result = buildAnalysisSnapshots(input);
+
+    expect(result.executionSnapshot.resolvedModelChain).toEqual(input.resolvedModelChain);
+  });
+
   it.each(['company', 'persona'] as const)(
     'builds validated scalar identities and immutable snapshots for a %s',
     (type) => {

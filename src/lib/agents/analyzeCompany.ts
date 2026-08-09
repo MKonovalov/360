@@ -13,6 +13,7 @@ import { resolveModelChain, classifyModelError } from './modelConfig';
 // the catalog is NOT a provider SDK.
 import { getProviderForModelId, type ModelProviderId } from '@/lib/models/catalog';
 import catalogJson from '@/lib/models/catalog.json';
+import type { ModelRef } from '@/lib/models/modelRef';
 import type { CompanyInput, DerivedEvidenceAppendix, LiveSignalInput, ProposalSignal, RunOutput } from './types';
 
 // analyzeCompany — the Analyze orchestration (ANLZ-01/05, 09-01-03 anchor).
@@ -34,7 +35,8 @@ export type AnalyzeResult =
       // served + the resolved chain snapshot + the D-05 fallback flag — the
       // route persists these (model_used/model_chain) and surfaces usedFallback.
       modelUsed: string;
-      modelChain: string[];
+      modelUsedProvider: ModelProviderId | null;
+      modelChain: ModelRef[];
       usedFallback: boolean;
     }
   | {
@@ -54,10 +56,10 @@ export type AnalyzeResult =
 // mapping (OPENCODE_API_KEY) is free, no special-casing. Unknown ids (null
 // provider) are skipped — the union servable gate upstream (resolveModelChain)
 // already excludes non-servable ids.
-export function missingProviderKey(modelChain: string[]): string | null {
+export function missingProviderKey(modelChain: readonly (ModelRef | string)[]): string | null {
   const providers = new Set(
     modelChain
-      .map((id) => getProviderForModelId(catalogJson, id))
+      .map((entry) => typeof entry === 'string' ? getProviderForModelId(catalogJson, entry) : entry.provider)
       .filter((p): p is ModelProviderId => p !== null),
   );
   if (providers.has('anthropic') && !env.ANTHROPIC_API_KEY) return 'ANTHROPIC_API_KEY';
@@ -109,6 +111,7 @@ export async function analyzeCompany(companyId: number, userId: string): Promise
       // Pitfall 11: raw IDs mapped to LanguageModel[] ONCE at entry — never
       // strings, never a per-attempt settings read.
       models: instantiateChain(modelChain),
+      modelSelections: modelChain,
     });
   } catch (err) {
     if (isMisconfigurationError(err)) return { ok: false, reason: 'not_configured' };
@@ -161,6 +164,9 @@ export async function analyzeCompany(companyId: number, userId: string): Promise
     proposals,
     // FAL-05: the audit identity survives from the loop return (Pitfall 5).
     modelUsed: run.modelUsed,
+    modelUsedProvider: run.modelUsedProvider
+      ?? modelChain.find((ref) => ref.modelId === run.modelUsed)?.provider
+      ?? null,
     modelChain,
     usedFallback: run.usedFallback,
   };

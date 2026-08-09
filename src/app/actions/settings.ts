@@ -1,11 +1,9 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { z } from 'zod';
 import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { upsertModelSettings } from '@/lib/db/queries/userModelSettings';
-import { getUnionServableIds } from '@/lib/models/catalog';
-import catalogJson from '@/lib/models/catalog.json';
+import { validateSettingsInput } from '@/lib/models/modelSettings';
 
 // Server Action controller for the Settings form (SET-06/SET-07). The order is
 // IMMUTABLE (17-UI-SPEC): requireStaffAccess() FIRST — Server Actions gate
@@ -24,40 +22,19 @@ import catalogJson from '@/lib/models/catalog.json';
 
 export type SettingsActionResult = { ok: true } | { ok: false; reason: string };
 
-// The client sends `fallbacks`; the DB column is `fallbackModels` — the map
-// happens at the upsert call below. Cap 2 matches SET-04 / Phase 16 D-10.
-const settingsInputSchema = z.object({
-  primaryModel: z.string(),
-  fallbacks: z.array(z.string()).max(2),
-});
-
 export async function saveSettingsAction(input: unknown): Promise<SettingsActionResult> {
   const { userId } = await requireStaffAccess();
 
-  const parsed = settingsInputSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, reason: 'invalid_model' };
+  const parsed = validateSettingsInput(input);
+  if (!parsed.ok) return parsed;
 
   try {
-    const servableIds = getUnionServableIds(catalogJson);
-    const all = [parsed.data.primaryModel, ...parsed.data.fallbacks];
-    if (!all.every((id) => servableIds.includes(id))) {
-      return { ok: false, reason: 'invalid_model' };
-    }
-
-    // D-08/D-09 backstop: reject primary∈fallbacks and repeated fallbacks even
-    // if the client gates are bypassed — the DB can never hold a
-    // self-referencing or duplicate chain (T-17-04).
-    if (
-      parsed.data.fallbacks.includes(parsed.data.primaryModel) ||
-      new Set(parsed.data.fallbacks).size !== parsed.data.fallbacks.length
-    ) {
-      return { ok: false, reason: 'duplicate_model' };
-    }
-
     await upsertModelSettings({
       userId,
-      primaryModel: parsed.data.primaryModel,
-      fallbackModels: parsed.data.fallbacks,
+      primaryModel: parsed.value.primaryModel,
+      primaryProvider: parsed.value.primaryProvider,
+      fallbackModels: parsed.value.fallbacks,
+      fallbackProviders: parsed.value.fallbackProviders,
     });
 
     revalidatePath('/settings');
