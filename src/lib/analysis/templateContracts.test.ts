@@ -58,6 +58,23 @@ describe('template management contracts', () => {
     ).toBe(false);
   });
 
+  it('D-37-20/D-37-23: keeps custom identities outside the fixed management contract', () => {
+    const result = templateManagementInputSchema.safeParse({
+      operation: 'content',
+      templateKey: 'custom-agent-opaque-1',
+      instruction: 'Custom authored instruction',
+      defaultEffort: 'standard',
+      researchQuery: 'Custom query',
+      capabilityPresetIds: ['web-research'],
+    });
+
+    expect(result.success).toBe(false);
+    expect(FIXED_ANALYSIS_TEMPLATES.map((template) => template.key)).toEqual([
+      'company-buying-signal-analysis',
+      'persona-buying-signal-analysis',
+    ]);
+  });
+
   it.each(['active', 'retired'] as const)('D-36-06: accepts lifecycle status %s', (status) => {
     expect(
       templateManagementInputSchema.safeParse({

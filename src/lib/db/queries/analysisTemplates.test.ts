@@ -89,6 +89,7 @@ describe('analysisTemplates query module', () => {
 
     expect(source).toContain('const fixedTemplateKeys = FIXED_ANALYSIS_TEMPLATES.map(({ key }) => key);');
     expect(source).toContain('inArray(analysisTemplate.key, fixedTemplateKeys)');
+    expect(source).not.toContain('listManagedCustomAgents()');
   });
 
   it('loads immutable version metadata with its template lifecycle for validation', async () => {
