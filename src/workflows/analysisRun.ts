@@ -140,6 +140,8 @@ async function normalizeGroundedPacket(
       audit: {
         attempt: run.attempt,
         modelId: execution.modelId,
+        modelProvider: execution.modelProvider,
+        modelChain: execution.modelChain,
         toolCallCount: execution.toolResults.length,
         durationMs: execution.durationMs,
         traceId: null,
@@ -182,6 +184,7 @@ async function recordTelemetryAfterPersistence(
       runId: run.id,
       targetType: run.subjectType,
       modelId: execution.modelId,
+      modelProvider: execution.modelProvider,
       modelChain: run.executionSnapshot.resolvedModelChain,
       usedFallback: execution.usedFallback,
       durationMs: execution.durationMs,
