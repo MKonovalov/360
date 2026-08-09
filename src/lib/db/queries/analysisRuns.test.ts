@@ -12,6 +12,7 @@ import {
   ACTIVE_RUN_STATUSES,
   createAnalysisRun,
   getAnalysisRun,
+  listAnalysisRunsForSubject,
   listAnalysisRunEvents,
   transitionAnalysisRun,
   type AnalysisRunEventRow,
@@ -26,6 +27,7 @@ function flattenSql(value: unknown): string {
   if ('queryChunks' in record && Array.isArray(record.queryChunks)) {
     return record.queryChunks.map(flattenSql).join('');
   }
+  if ('name' in record) return String(record.name);
   if ('brand' in record || 'value' in record) return String(record.value);
   return '';
 }
@@ -41,6 +43,16 @@ function selectOrderedRows(...rows: readonly unknown[]) {
   const where = vi.fn().mockReturnValue({ orderBy });
   mocks.db.select.mockReturnValue({ from: vi.fn().mockReturnValue({ where }) });
   return orderBy;
+}
+
+function selectHistoryRows(...rows: readonly unknown[]) {
+  const orderBy = vi.fn().mockResolvedValue(rows);
+  const where = vi.fn().mockReturnValue({ orderBy });
+  const secondJoin = vi.fn().mockReturnValue({ where });
+  const firstJoin = vi.fn().mockReturnValue({ leftJoin: secondJoin });
+  const from = vi.fn().mockReturnValue({ leftJoin: firstJoin });
+  mocks.db.select.mockReturnValue({ from });
+  return { where, orderBy };
 }
 
 function executeRows(...rows: readonly unknown[]) {
@@ -213,6 +225,56 @@ describe('analysis run ledger guards', () => {
     vi.clearAllMocks();
     selectRows();
     expect(await getAnalysisRun(999)).toBeUndefined();
+  });
+
+  it('lists every subject-scoped lifecycle row newest first without writing or reconciling', async () => {
+    const dismissedRun: AnalysisRunRow = {
+      ...runRow,
+      id: 8,
+      status: 'dismissed',
+      subjectType: 'company',
+      subjectId: 42,
+      createdAt: new Date('2026-08-08T12:00:00.000Z'),
+      updatedAt: new Date('2026-08-08T12:00:00.000Z'),
+      safeReason: null,
+    };
+    const queuedRun: AnalysisRunRow = {
+      ...runRow,
+      id: 7,
+      status: 'queued',
+      subjectType: 'company',
+      subjectId: 42,
+    };
+    const { where, orderBy } = selectHistoryRows(
+      {
+        run: dismissedRun,
+        review: {
+          decision: 'dismissed',
+          decidedBy: 'user_staff',
+          decidedAt: new Date('2026-08-08T12:01:00.000Z'),
+        },
+        result: { id: 19, packetHash: 'b'.repeat(64) },
+      },
+      { run: queuedRun, review: null, result: null },
+    );
+
+    const rows = await listAnalysisRunsForSubject({ targetType: 'company', subjectId: 42 });
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({
+      runId: 8,
+      status: 'dismissed',
+      targetType: 'company',
+      subjectId: 42,
+      review: { decision: 'dismissed', decidedBy: 'user_staff' },
+      packetProjection: { resultId: 19, packetHash: 'b'.repeat(64) },
+    });
+    expect(rows[1]).toMatchObject({ runId: 7, status: 'queued', review: null, packetProjection: null });
+    expect(flattenSql(where.mock.calls[0]?.[0])).toContain('subject_type');
+    expect(flattenSql(where.mock.calls[0]?.[0])).toContain('subject_id');
+    expect(orderBy).toHaveBeenCalled();
+    expect(mocks.db.execute).not.toHaveBeenCalled();
+    expect(mocks.db.insert).not.toHaveBeenCalled();
   });
 
   it('orders event history deterministically by timestamp then id', async () => {
