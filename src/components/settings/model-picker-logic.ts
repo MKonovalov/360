@@ -112,20 +112,117 @@ export function isHighCost(costInput: number, threshold = 50): boolean {
   return costInput >= threshold;
 }
 
-// D-21-01: keep-if-valid → reset-to-provider-default. The reset is DRAFT-ONLY —
-// this pure function returns the new primary value; the form's state update is
-// what stages it (D-07). Fallback preservation (D-21-02) is a form-state concern
-// (the draft's fallbacks array is untouched here), never this reducer's.
-export function primaryAfterProviderSwitch(
-  currentPrimary: string,
-  nextProvider: ModelProviderId,
-  servableByProvider: Record<ModelProviderId, ServableModel[]>,
-  defaults: Record<ModelProviderId, { id: string; name: string }>,
-): { primary: string; resetToDefault: boolean } {
-  const valid = servableByProvider[nextProvider].some((m) => m.id === currentPrimary);
+export type ModelSlot = {
+  readonly model: string;
+  readonly provider: ModelProviderId;
+};
+
+type SavedChainEntry = {
+  readonly id: string;
+  readonly name: string;
+  readonly providerID: ModelProviderId | null;
+};
+
+export function initialModelSlots({
+  modelIds,
+  savedChain,
+  catalogModels,
+  defaultProvider,
+}: {
+  readonly modelIds: readonly string[];
+  readonly savedChain: readonly SavedChainEntry[] | null;
+  readonly catalogModels: readonly ServableModel[];
+  readonly defaultProvider: ModelProviderId;
+}): ModelSlot[] {
+  return modelIds.map((model, index) => ({
+    model,
+    provider:
+      savedChain?.[index]?.providerID ??
+      catalogModels.find((candidate) => candidate.id === model)?.providerID ??
+      defaultProvider,
+  }));
+}
+
+// D-21-01: every slot uses keep-if-valid → reset-to-provider-default. The form
+// owns the draft state; this pure reducer only returns the next model value.
+export function modelAfterProviderSwitch({
+  currentModel,
+  nextProvider,
+  servableByProvider,
+  defaults,
+}: {
+  readonly currentModel: string;
+  readonly nextProvider: ModelProviderId;
+  readonly servableByProvider: Readonly<Record<ModelProviderId, readonly ServableModel[]>>;
+  readonly defaults: Readonly<Record<ModelProviderId, { readonly id: string; readonly name: string }>>;
+}): { model: string; resetToDefault: boolean } {
+  const valid = servableByProvider[nextProvider].some((m) => m.id === currentModel);
   return valid
-    ? { primary: currentPrimary, resetToDefault: false }
-    : { primary: defaults[nextProvider].id, resetToDefault: true };
+    ? { model: currentModel, resetToDefault: false }
+    : { model: defaults[nextProvider].id, resetToDefault: true };
+}
+
+export function fallbackSlotAfterProviderSwitch({
+  slot,
+  nextProvider,
+  servableByProvider,
+  defaults,
+}: {
+  readonly slot: ModelSlot;
+  readonly nextProvider: ModelProviderId;
+  readonly servableByProvider: Readonly<Record<ModelProviderId, readonly ServableModel[]>>;
+  readonly defaults: Readonly<Record<ModelProviderId, { readonly id: string; readonly name: string }>>;
+}): ModelSlot {
+  const next = modelAfterProviderSwitch({
+    currentModel: slot.model,
+    nextProvider,
+    servableByProvider,
+    defaults,
+  });
+  return { model: next.model, provider: nextProvider };
+}
+
+export function moveFallbackSlot(
+  slots: readonly ModelSlot[],
+  index: number,
+  direction: -1 | 1,
+): ModelSlot[] {
+  const target = index + direction;
+  const current = slots[index];
+  const destination = slots[target];
+  if (!current || !destination) return [...slots];
+
+  const next = [...slots];
+  next[index] = destination;
+  next[target] = current;
+  return next;
+}
+
+export function removeFallbackSlot(slots: readonly ModelSlot[], index: number): ModelSlot[] {
+  return slots.filter((_, slotIndex) => slotIndex !== index);
+}
+
+export function settingsDraftPayload({
+  primaryModel,
+  primaryProvider,
+  fallbackSlots,
+}: {
+  readonly primaryModel: string;
+  readonly primaryProvider: ModelProviderId;
+  readonly fallbackSlots: readonly ModelSlot[];
+}): {
+  primaryModel: string;
+  primaryProvider: ModelProviderId;
+  fallbacks: string[];
+  fallbackProviders: ModelProviderId[];
+} {
+  const filledFallbacks = fallbackSlots.filter((slot) => slot.model !== '');
+  return {
+    primaryModel,
+    primaryProvider,
+    fallbacks: filledFallbacks.map((slot) => slot.model),
+    fallbackProviders: filledFallbacks.map((slot) => slot.provider),
+  };
 }
 
 // D-21-14: union-wide staleness. '' is an in-progress fallback row, never stale
@@ -152,9 +249,9 @@ export function groupByProvider(models: ServableModel[]): Record<ModelProviderId
 // duplicate_model.
 export function optionsForSlot(
   primary: string,
-  fallbacks: string[],
+  fallbacks: readonly string[],
   slotIndex: number,
-  models: ServableModel[],
+  models: readonly ServableModel[],
 ): ServableModel[] {
   return models.filter(
     (m) => m.id !== primary && !fallbacks.some((f, j) => j !== slotIndex && f === m.id),
@@ -204,22 +301,4 @@ export function pinnedSelection(
   // data-checked; no pin needed.
   if (options.some((m) => m.id === value)) return null;
   return { name: valueName, onlyModel: options.length === 0 };
-}
-
-// D-26-11/SET-05: the primary trigger badge must show the row's TRUE
-// resolved provider, not the raw dropdown selection — verified real
-// collisions where the two diverge: claude-sonnet-4-6 (dropdown may say
-// opencode, but PROVIDER_PRECEDENCE always resolves it to anthropic) and
-// both hermes ids (dropdown may say openrouter, always resolves to
-// nousresearch). Resolves from the union list, whose providerID is already
-// precedence-resolved (getProviderForModelId) — the same source every OTHER
-// badge site (fallback triggers, saved-chain recap, union rows) already
-// uses. Falls back to the dropdown provider for the empty/stale/
-// single-provider case, preserving current behavior there.
-export function resolveBadgeProvider(
-  value: string,
-  unionModels: ServableModel[],
-  fallbackProvider: ModelProviderId,
-): ModelProviderId {
-  return unionModels.find((m) => m.id === value)?.providerID ?? fallbackProvider;
 }
