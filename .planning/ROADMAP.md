@@ -180,7 +180,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 34. Whole-Run Review & Confirmed Candidates | v1.7 | 4/4 | Complete | 2026-08-08 |
 | 35. Company & Persona Analysis Experiences | v1.7 | 4/4 | Complete | 2026-08-09 |
 | 36. Agent Management & End-to-End Verification | v1.7 | 7/7 | Complete   | 2026-08-08 |
-| 37. Custom Agent Definition, Versioning & Lifecycle | v1.8 | 0/TBD | Pending | — |
+| 37. Custom Agent Definition, Versioning & Lifecycle | v1.8 | 1/5 | In Progress|  |
 | 38. Execution Compatibility & Safe Integration | v1.8 | 0/TBD | Pending | — |
 | 39. Security, Review Boundaries & End-to-End Verification | v1.8 | 0/TBD | Pending | — |
 
@@ -294,7 +294,14 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
   4. The security-matrix grep extends — `NOUSRESEARCH`/`OPENCODE` absent from client components / Server Action returns / no `NEXT_PUBLIC_*` leakage; the `SERVER_COMPONENT` exemption set covers `modelFactory.ts`'s explicit `process.env.*` reads; the non-vacuous canary stays green.
   5. Live-browser UAT confirms the 4-entry provider selector, Zen/Go endpoint captions, Hermes capability captions, and badge disambiguation across 4 providers; a live key-backed `json_schema` probe gates the `supportsStructuredOutputs` flip (RUN-06).
 
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+- [x] 37-01-PLAN.md — Custom-agent contracts, bounded schema policy, and capability presets
+- [ ] 37-02-PLAN.md — Additive identity/version persistence and lifecycle query layer
+- [ ] 37-03-PLAN.md — Staff-gated custom-agent Server Actions and validation outcomes
+- [ ] 37-04-PLAN.md — Unified `/agents` custom creation/edit/history/lifecycle UX
+- [ ] 37-05-PLAN.md — Fixed-template regression matrix and Phase 37 scope/final gates
 
 ### Phase 28: Shared Data Model + Seed (v1.6, queued — see "Why queued" in the v1.6 milestone summary above)
 

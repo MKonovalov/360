@@ -15,8 +15,8 @@ Requirements for creating and safely managing custom agents from the canonical `
 ### Agent Creation and Configuration
 
 - [ ] **AGT-01**: Staff can create a custom agent from `/agents` with a stable identity, name, and description.
-- [ ] **AGT-02**: Staff can configure a custom agent for exactly one supported target type — Company or Persona — and one Practice Area.
-- [ ] **AGT-03**: Staff can configure the agent's behavior instruction, supported effort values, and default effort from the server-approved policy.
+- [x] **AGT-02**: Staff can configure a custom agent for exactly one supported target type — Company or Persona — and one Practice Area.
+- [x] **AGT-03**: Staff can configure the agent's behavior instruction, supported effort values, and default effort from the server-approved policy.
 - [ ] **AGT-04**: The `/agents` surface distinguishes custom agents from the two fixed v1.7 Company and Persona templates without changing the fixed templates' keys, behavior, or launch compatibility.
 
 ### Immutable Versioning and Lifecycle
@@ -28,7 +28,7 @@ Requirements for creating and safely managing custom agents from the canonical `
 
 ### Validation and Execution Compatibility
 
-- [ ] **VAL-01**: Server-side validation rejects missing, malformed, oversized, or unsupported custom-agent fields before a version can become current or runnable.
+- [x] **VAL-01**: Server-side validation rejects missing, malformed, oversized, or unsupported custom-agent fields before a version can become current or runnable.
 - [ ] **VAL-02**: The system rejects a run when a custom agent's target type is incompatible with the selected Company or Persona record, before creating an active run.
 - [ ] **VAL-03**: A runnable custom agent resolves only active Signals for its configured target type and Practice Area, and the resolved checklist/schema is snapshotted with the run.
 - [ ] **VAL-04**: Effort, execution limits, model-chain resolution, research capabilities, and tool/provider access remain server-owned and compatible with the existing v1.7 executor; staff-authored configuration cannot select arbitrary providers or tools.
@@ -89,14 +89,14 @@ Deferred beyond v1.8; these are acknowledged but not in the current roadmap.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | AGT-01 | Phase 37 | Pending |
-| AGT-02 | Phase 37 | Pending |
-| AGT-03 | Phase 37 | Pending |
+| AGT-02 | Phase 37 | Complete |
+| AGT-03 | Phase 37 | Complete |
 | AGT-04 | Phase 37 | Pending |
 | VER-01 | Phase 37 | Pending |
 | VER-02 | Phase 37 | Pending |
 | VER-03 | Phase 38 | Pending |
 | LIFE-01 | Phase 37 | Pending |
-| VAL-01 | Phase 37 | Pending |
+| VAL-01 | Phase 37 | Complete |
 | VAL-02 | Phase 38 | Pending |
 | VAL-03 | Phase 38 | Pending |
 | VAL-04 | Phase 38 | Pending |

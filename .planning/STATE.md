@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Agent Constructor
-status: planning
-last_updated: "2026-08-09T09:43:15.034Z"
-last_activity: 2026-08-09
+status: In Progress
+last_updated: "2026-08-09T11:06:57.038Z"
+last_activity: 2026-08-09 — Milestone v1.8 started
 progress:
   total_phases: 3
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 5
+  completed_plans: 1
+  percent: 20
 ---
 
 # Project State
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-08-09)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-08-09 — Milestone v1.8 started
+Phase: 37 — Custom Agent Definition, Versioning & Lifecycle
+Plan: 01 of 05
+Status: In Progress
+Last activity: 2026-08-09 — Completed 37-01-PLAN.md
 
 ## Performance Metrics
 
@@ -66,6 +66,7 @@ Last activity: 2026-08-09 — Milestone v1.8 started
 | Phase 36 P05 | 7m | 2 tasks | 9 files |
 | Phase 36 P06 | 10m | 2 tasks | 8 files |
 | Phase 36 P7 | 12m | 2 tasks | 3 files |
+| Phase 37 P01 | 7m | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -116,6 +117,9 @@ Last activity: 2026-08-09 — Milestone v1.8 started
 - **v1.8 constructor policy:** Editable fields are name/description, target type, Practice Area, instruction, supported/default effort, and lifecycle; behavior instructions remain separate from bounded structured-output configuration.
 - **v1.8 research boundary:** Exa Agent/Connect documentation informs constructor shape and guardrails, but Exa and other new providers remain out of scope; capabilities stay server-owned.
 - **v1.8 history:** Custom saves append immutable versions; historical versions and prior runs remain read-only and lifecycle changes do not mutate snapshots.
+- **Phase 37 Plan 01:** Custom create input excludes client-authored identity, actor, lifecycle, checklist, resolved instruction, budget, provider, credential, and executable tool fields.
+- **Phase 37 Plan 01:** Structured output is an optional normalized shallow object with locked bounded limits and reserved server-owned grounding/review channels.
+- **Phase 37 Plan 01:** Capability selection persists only `none` or `web-research` opaque IDs and never forces invocation.
 
 ### Pending Todos
 
@@ -142,7 +146,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-08-09T09:43:15Z
-Stopped at: v1.8 milestone definition after research-first approval
-Next: Discuss and plan Phase 37 — Custom Agent Definition, Versioning & Lifecycle
+Last session: 2026-08-09T11:06:57.030Z
+Stopped at: Completed 37-01-PLAN.md
+Next: Execute 37-02-PLAN.md
 Resume file: None
