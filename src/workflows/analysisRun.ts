@@ -9,6 +9,7 @@ import {
   type AnalysisRunRow,
 } from '@/lib/db/queries/analysisRuns';
 import { persistAnalysisPacket } from '@/lib/db/queries/analysisResults';
+import { reconcileCompletedRunForReview } from '@/lib/db/queries/analysisReviews';
 import { buildPhase33TelemetryMetadata, recordPhase33Telemetry } from '@/lib/telemetry/langfuse';
 
 const WORKFLOW_ACTOR_ID = 'workflow-executor';
@@ -49,7 +50,10 @@ export async function analysisRun(applicationRunId: number): Promise<AnalysisRun
 
       await recordTelemetryAfterPersistence(applicationRunId, execution.execution, normalized.packet);
       const completed = await completePersistedRun(applicationRunId);
-      if (completed.ok) return { applicationRunId, terminalStatus: 'completed' };
+      if (completed.ok) {
+        await reconcileCompletedRun(applicationRunId);
+        return { applicationRunId, terminalStatus: 'completed' };
+      }
     }
     return await observeAuthoritativeState(applicationRunId);
   }
@@ -132,7 +136,7 @@ async function normalizeGroundedPacket(
         content: item.snippet,
         retrievedAt: new Date().toISOString(),
       })),
-      citations: [],
+      citations: execution.citations,
       audit: {
         attempt: run.attempt,
         modelId: execution.modelId,
@@ -207,6 +211,11 @@ async function completePersistedRun(applicationRunId: number) {
     safeReason: 'completed',
     attempt: 1,
   });
+}
+
+async function reconcileCompletedRun(applicationRunId: number) {
+  'use step';
+  return reconcileCompletedRunForReview({ runId: applicationRunId });
 }
 
 async function recordFailure(applicationRunId: number, safeReason: 'execution_failed' | 'timed_out') {

@@ -39,7 +39,9 @@ const safeToolItemSchema = z
 
 type SafeToolItem = z.infer<typeof safeToolItemSchema>;
 type GroundedModelOutput = z.infer<typeof groundedModelOutputSchema>;
-type RunAgentResult = Awaited<ReturnType<typeof runAgent>>;
+type RunAgentResult = Awaited<ReturnType<typeof runAgent>> & Readonly<{
+  citations?: readonly Readonly<Record<string, unknown>>[];
+}>;
 type StepLike = Readonly<{ toolResults?: readonly { toolName?: string; output?: unknown }[] }>;
 
 export type GroundedExecutionSuccess = Readonly<{
@@ -48,6 +50,7 @@ export type GroundedExecutionSuccess = Readonly<{
   modelId: string;
   usedFallback: boolean;
   toolResults: readonly SafeToolItem[];
+  citations: readonly Readonly<Record<string, unknown>>[];
   usage: Readonly<Record<string, unknown>>;
   durationMs: number;
 }>;
@@ -169,6 +172,7 @@ export class GroundedExecutionAdapter {
         modelId: run.modelUsed,
         usedFallback: run.usedFallback,
         toolResults,
+        citations: run.citations ?? [],
         usage: z.record(z.string(), z.unknown()).parse(run.usage),
         durationMs: Date.now() - startedAt,
       };
