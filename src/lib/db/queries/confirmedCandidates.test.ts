@@ -11,7 +11,11 @@ import {
   isEligibleCandidateEvidence,
   normalizeCandidateEvidence,
 } from '@/lib/analysis/reviewContracts';
-import { listConfirmedCandidateOfferings } from './confirmedCandidates';
+import { confirmedCandidateDisplayRowSchema } from '@/lib/analysis/experienceContracts';
+import {
+  listConfirmedCandidateOfferings,
+  listConfirmedCandidateOfferingsForSubject,
+} from './confirmedCandidates';
 
 function flattenSql(value: unknown): string {
   if (value === null || value === undefined) return '';
@@ -35,6 +39,7 @@ const CANDIDATE_ROW = {
   targetType: 'company',
   subjectId: 42,
   offeringId: 77,
+  offeringName: 'GBS transformation',
   analysisRunId: 3,
   resultId: 9,
   packetHash: PACKET_HASH,
@@ -183,5 +188,28 @@ describe('listConfirmedCandidateOfferings', () => {
       status: 'retired',
     });
     expect(confirmedCandidateEvidenceSchema.parse(candidates[0])).toEqual(candidates[0]);
+  });
+
+  it('constrains candidate reads by target discriminator and subject ID in SQL', async () => {
+    executeRows({ ...CANDIDATE_ROW });
+    const companyRows = await listConfirmedCandidateOfferingsForSubject({ targetType: 'company', subjectId: 42 });
+    const companySql = flattenSql(mocks.db.execute.mock.calls[0][0]);
+
+    executeRows({ ...CANDIDATE_ROW, targetType: 'persona', signalType: 'persona', linkSignalType: 'persona' });
+    const personaRows = await listConfirmedCandidateOfferingsForSubject({ targetType: 'persona', subjectId: 42 });
+    const personaSql = flattenSql(mocks.db.execute.mock.calls[1][0]);
+
+    expect(confirmedCandidateDisplayRowSchema.parse(companyRows[0]).offeringName).toBe('GBS transformation');
+    expect(confirmedCandidateDisplayRowSchema.parse(personaRows[0]).targetType).toBe('persona');
+    expect(companySql).toContain('run.subject_type');
+    expect(companySql).toContain('run.subject_id');
+    expect(companySql).toContain('company');
+    expect(companySql).toContain('42');
+    expect(personaSql).toContain('run.subject_type');
+    expect(personaSql).toContain('run.subject_id');
+    expect(personaSql).toContain('persona');
+    expect(personaSql).toContain('42');
+    expect(companySql).toContain('offering.name');
+    expect(mocks.db.execute).toHaveBeenCalledTimes(2);
   });
 });
