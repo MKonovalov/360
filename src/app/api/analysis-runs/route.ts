@@ -129,6 +129,7 @@ function resolutionErrorResponse(reason: AnalysisResolutionReason): Response {
     case 'practice_area_not_found':
       return Response.json({ error: reason }, { status: 404 });
     case 'template_not_active':
+    case 'template_version_not_current':
     case 'subject_type_mismatch':
       return Response.json({ error: reason }, { status: 409 });
   }

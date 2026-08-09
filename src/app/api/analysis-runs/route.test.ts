@@ -143,6 +143,7 @@ describe('analysis run routes', () => {
 
   it.each([
     ['template', 'template_not_active', 409],
+    ['template', 'template_version_not_current', 409],
     ['template', 'template_version_not_found', 404],
     ['subject', 'subject_type_mismatch', 409],
     ['subject', 'subject_not_found', 404],
