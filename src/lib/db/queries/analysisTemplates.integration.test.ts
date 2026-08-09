@@ -1,7 +1,27 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+
+const migrationSql = readFileSync(
+  new URL('../../../../drizzle/0007_custom_agent_definition.sql', import.meta.url),
+  'utf8',
+);
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 const describeWithDatabase = testDatabaseUrl ? describe : describe.skip;
+
+describe('custom agent migration contract', () => {
+  it('is additive and leaves run snapshot tables untouched', () => {
+    expect(migrationSql).toContain('analysis_template_kind');
+    expect(migrationSql).toContain('practice_area_id');
+    expect(migrationSql).toContain('research_query');
+    expect(migrationSql).toContain('behavior_instruction');
+    expect(migrationSql).toContain('structured_output_schema');
+    expect(migrationSql).toContain('capability_preset_ids');
+    expect(migrationSql).toContain("UPDATE analysis_template SET kind = 'fixed'");
+    expect(migrationSql).not.toMatch(/ALTER TABLE\s+"?analysis_run"?\s+(DROP|ALTER|DELETE)/i);
+    expect(migrationSql).not.toMatch(/analysis_run_snapshot/i);
+  });
+});
 
 describeWithDatabase('analysis template management database boundary', () => {
   let dbModule: typeof import('@/lib/db');
@@ -131,5 +151,28 @@ describeWithDatabase('analysis template management database boundary', () => {
     expect(newVersions).toHaveLength(1);
     appendedVersionIds.push(newVersions[0]?.templateVersionId ?? 0);
     expect(new Set(current.history.map((version) => version.version)).size).toBe(current.history.length);
+  });
+
+  it('preserves fixed identity kinds and existing run snapshot references after migration', async () => {
+    const fixedRows = await dbModule.db
+      .select({
+        id: schema.analysisTemplate.id,
+        key: schema.analysisTemplate.key,
+        kind: schema.analysisTemplate.kind,
+        practiceAreaId: schema.analysisTemplate.practiceAreaId,
+      })
+      .from(schema.analysisTemplate);
+
+    expect(fixedRows.filter((row) => row.key.endsWith('-analysis'))).toHaveLength(2);
+    expect(fixedRows.filter((row) => row.key.endsWith('-analysis')).every((row) => row.kind === 'fixed')).toBe(true);
+    expect(fixedRows.filter((row) => row.key.endsWith('-analysis')).every((row) => row.practiceAreaId === null)).toBe(true);
+
+    const snapshotReferences = await dbModule.db
+      .select({ templateId: schema.analysisRun.templateId, templateVersionId: schema.analysisRun.templateVersionId })
+      .from(schema.analysisRun);
+    for (const reference of snapshotReferences) {
+      expect(reference.templateId).toBeGreaterThan(0);
+      expect(reference.templateVersionId).toBeGreaterThan(0);
+    }
   });
 });
