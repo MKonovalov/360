@@ -42,7 +42,7 @@ yarn-error.log*
 .playwright-mcp/
 .planning/debug/
 .planning/quick/
-drizzle/
+# Drizzle SQL, journal, snapshots, and baseline metadata are migration source.
 skills-lock.json
 
 # Playwright e2e (generated output + auth state — never commit)
