@@ -21,14 +21,22 @@ function LoadError() {
 export default async function AgentsPage() {
   await requireStaffAccess();
 
+  let data: {
+    readonly templates: Awaited<ReturnType<typeof listManagedAnalysisTemplates>>;
+    readonly customAgents: Awaited<ReturnType<typeof listManagedCustomAgents>>;
+    readonly practiceAreas: Awaited<ReturnType<typeof listActivePracticeAreas>>;
+  } | null;
   try {
     const [templates, customAgents, practiceAreas] = await Promise.all([
       listManagedAnalysisTemplates(),
       listManagedCustomAgents(),
       listActivePracticeAreas(),
     ]);
-    return <AgentManagement templates={templates} customAgents={customAgents} practiceAreas={practiceAreas.map(({ id, name, shortCode }) => ({ id, name, shortCode }))} capabilities={listCapabilityPresetCards()} />;
+    data = { templates, customAgents, practiceAreas };
   } catch {
-    return <LoadError />;
+    data = null;
   }
+
+  if (data === null) return <LoadError />;
+  return <AgentManagement templates={data.templates} customAgents={data.customAgents} practiceAreas={data.practiceAreas.map(({ id, name, shortCode }) => ({ id, name, shortCode }))} capabilities={listCapabilityPresetCards()} />;
 }
