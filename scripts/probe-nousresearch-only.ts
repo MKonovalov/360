@@ -71,7 +71,13 @@ async function main() {
   // child env strips ANTHROPIC_API_KEY, OPENROUTER_API_KEY, OPENCODE_API_KEY).
   // Raw catalog id verbatim, matching NOUSRESEARCH_DEFAULT_MODEL_ID
   // (modelFactory.ts).
-  await upsertModelSettings({ userId, primaryModel: 'nousresearch/hermes-4-70b', fallbackModels: [] });
+  await upsertModelSettings({
+    userId,
+    primaryModel: 'nousresearch/hermes-4-70b',
+    primaryProvider: 'nousresearch',
+    fallbackModels: [],
+    fallbackProviders: [],
+  });
 
   // The real run entry — the chain-aware env gate (FAL-04 / D-20-01/02) must
   // pass with ONLY NOUSRESEARCH_API_KEY set in the child env.
