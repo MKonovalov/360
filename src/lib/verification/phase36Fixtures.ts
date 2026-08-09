@@ -1,6 +1,9 @@
+import { createHash } from 'node:crypto';
+
 import { buildPhase33AnalysisSnapshots, type BuiltAnalysisSnapshots } from '@/lib/analysis/snapshots';
 import { type GroundedExecutionDependencies } from '@/lib/analysis/execution';
 import { type AnalysisTargetType } from '@/lib/analysis/contracts';
+import { parseFixtureDatabaseUrl } from './databaseIdentity';
 
 export const PHASE36_TARGETS = ['company', 'persona'] as const satisfies readonly AnalysisTargetType[];
 
@@ -111,7 +114,7 @@ export function createPhase36Fixture(targetType: AnalysisTargetType): Phase36Fix
     retrievedAt: '2026-08-09T00:00:00.000Z',
   };
   const findingId = `phase36-${targetType}-finding`;
-  const contentHash = 'c'.repeat(64);
+  const contentHash = createHash('sha256').update(source.snippet, 'utf8').digest('hex');
   const packetInput = {
     checklistSnapshot: built.checklistSnapshot,
     targetType,
@@ -135,6 +138,7 @@ export function createPhase36Fixture(targetType: AnalysisTargetType): Phase36Fix
       modelUsed: 'phase36.fixture',
       usedFallback: false,
       usage: {},
+      citations: packetInput.citations,
       steps: [{ toolResults: [{ toolName: 'webSearch', output: [source] }] }],
     }),
   };
@@ -158,10 +162,12 @@ export function createPhase36Fixture(targetType: AnalysisTargetType): Phase36Fix
 }
 
 export function isPhase36FixtureMode(): boolean {
-  const testDatabaseUrl = process.env.TEST_DATABASE_URL;
-  return process.env.PHASE36_FIXTURE_ONLY === '1'
-    && Boolean(testDatabaseUrl)
-    && process.env.DATABASE_URL === testDatabaseUrl;
+  if (process.env.PHASE36_FIXTURE_ONLY !== '1') return false;
+  const databaseUrl = parseFixtureDatabaseUrl(process.env.DATABASE_URL);
+  const testDatabaseUrl = parseFixtureDatabaseUrl(process.env.TEST_DATABASE_URL);
+  if (!databaseUrl || !testDatabaseUrl) return false;
+  return databaseUrl.marker === 'phase36-fixture'
+    && databaseUrl.identity === testDatabaseUrl.identity;
 }
 
 export function phase36ExecutorDependencies(targetType: AnalysisTargetType): GroundedExecutionDependencies {
