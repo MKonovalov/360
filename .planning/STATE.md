@@ -3,15 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Agent Constructor
 status: executing
-stopped_at: Completed 37-02-PLAN.md
-last_updated: "2026-08-09T11:26:13.484Z"
+last_updated: "2026-08-09T13:34:00Z"
 last_activity: 2026-08-09
 progress:
   total_phases: 17
   completed_phases: 10
   total_plans: 83
-  completed_plans: 73
-  percent: 59
+  completed_plans: 74
+  percent: 60
 ---
 
 # Project State
@@ -26,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-08-09)
 ## Current Position
 
 Phase: 37 — Custom Agent Definition, Versioning & Lifecycle
-Plan: 2 of 05
+Plan: 3 of 05
 Status: Ready to execute
 Last activity: 2026-08-09
 
@@ -69,6 +68,7 @@ Last activity: 2026-08-09
 | Phase 36 P7 | 12m | 2 tasks | 3 files |
 | Phase 37 P01 | 7m | 2 tasks | 4 files |
 | Phase 37 P02 | 16m | 2 tasks | 6 files |
+| Phase 37 P03 | 8min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -124,6 +124,8 @@ Last activity: 2026-08-09
 - **Phase 37 Plan 01:** Capability selection persists only `none` or `web-research` opaque IDs and never forces invocation.
 - [Phase 37]: Plan 02 reuses analysis_template and analysis_template_version with fixed custom discriminators to preserve run foreign keys and snapshots.
 - [Phase 37]: Custom query operations use server-generated opaque keys, append-only versions, and lifecycle-only status updates.
+- [Phase 37]: Create validates exactly one active Practice Area after staff authentication and before the retired-first mutation.
+- [Phase 37]: Custom saves load immutable target and Practice Area identity; lifecycle changes remain explicit and version-neutral.
 
 ### Pending Todos
 
@@ -150,7 +152,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-08-09T11:26:13.478Z
-Stopped at: Completed 37-02-PLAN.md
-Next: Execute 37-03-PLAN.md
+Last session: 2026-08-09T13:34:00Z
+Stopped at: Completed 37-03-PLAN.md
+Next: Execute 37-04-PLAN.md
 Resume file: None
