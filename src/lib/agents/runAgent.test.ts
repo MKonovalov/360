@@ -184,7 +184,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     });
 
     expect(mocks.generateText).toHaveBeenCalledTimes(2);
-    expect(mocks.generateText.mock.calls[1][0].timeout).toEqual({ totalMs: 50000 });
+    expect(mocks.generateText.mock.calls[1][0].timeout).toEqual({ totalMs: 280000 });
     expect(result).toEqual({ ...resolvedRun, modelUsed: 'm1', usedFallback: true });
   });
 
@@ -243,7 +243,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     expect(mocks.generateText).toHaveBeenCalledTimes(2);
   });
 
-  it('per-attempt { totalMs } budgets: 54s primary, 50s fallback, clamped to loop wall (FAL-04)', async () => {
+  it('per-attempt { totalMs } budgets: 290s primary, 280s fallback, clamped to loop wall (FAL-04)', async () => {
     mocks.generateText.mockRejectedValueOnce(apiErr(404)).mockResolvedValueOnce(resolvedRun);
 
     await runAgent({
@@ -252,14 +252,14 @@ describe('runAgent failover loop (FAL-03/04)', () => {
       models: ['m1', 'm1'],
     });
 
-    expect(mocks.generateText.mock.calls[0][0].timeout).toEqual({ totalMs: 54000 });
-    expect(mocks.generateText.mock.calls[1][0].timeout).toEqual({ totalMs: 50000 });
+    expect(mocks.generateText.mock.calls[0][0].timeout).toEqual({ totalMs: 290000 });
+    expect(mocks.generateText.mock.calls[1][0].timeout).toEqual({ totalMs: 280000 });
   });
 
-  it('every attempt is clamped to the remaining loop budget — chain length cannot blow the 60s wall (WR-03)', async () => {
-    // A 3-model chain: attempt 0 gets the 54s cap, attempts 1-2 shrink as the
-    // wall budget is consumed — never a static 20s that would silently total
-    // 94s across three attempts.
+  it('every attempt is clamped to the remaining loop budget — chain length cannot blow the 290s wall (WR-03)', async () => {
+    // A 3-model chain: attempt 0 gets the 290s cap, attempts 1-2 shrink as the
+    // wall budget is consumed — never a static 280s that would silently total
+    // 840s across three attempts.
     mocks.generateText
       .mockRejectedValueOnce(apiErr(500))
       .mockRejectedValueOnce(apiErr(500))
@@ -272,7 +272,7 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     });
 
     const timeouts = mocks.generateText.mock.calls.map((c) => c[0].timeout.totalMs);
-    expect(timeouts[0]).toBeLessThanOrEqual(54000);
+    expect(timeouts[0]).toBeLessThanOrEqual(290000);
     expect(timeouts[1]).toBeLessThanOrEqual(timeouts[0]);
     expect(timeouts[2]).toBeLessThanOrEqual(timeouts[1]);
   });
