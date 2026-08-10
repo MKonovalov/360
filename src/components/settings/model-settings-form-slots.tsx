@@ -77,7 +77,7 @@ export function ModelSettingsFormSlots({
               if (provider) onPrimaryProviderChange(provider);
             }}
           >
-            <SelectTrigger id="primary-provider" aria-label="Primary AI Provider" size="default">
+            <SelectTrigger id="primary-provider" aria-label="Primary AI Provider" size="default" className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
