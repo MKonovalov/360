@@ -207,6 +207,12 @@ export class GroundedExecutionAdapter {
         traceUrl: traceUrl ?? null,
       };
     } catch (error) {
+      // TEMP DIAGNOSTIC (round 2 — the prepareStep/toolChoice:none fix did
+      // not resolve run #32; re-instrumenting to see the NEW real error
+      // rather than guess again). Remove once root-caused.
+      console.error('[GroundedExecutionAdapter] execute() threw (round2):', error instanceof Error
+        ? { name: error.name, message: error.message, stack: error.stack?.slice(0, 3000) }
+        : error);
       return { ok: false, failureReason: mapFailure(error), durationMs: Date.now() - startedAt };
     }
   }
