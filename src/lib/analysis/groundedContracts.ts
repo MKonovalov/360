@@ -37,13 +37,22 @@ const sourceClassSchema = z.enum(['public_biz', 'personal_data', 'restricted']);
 export const groundedExecutionPolicySchema = phase33PolicySnapshotSchema;
 export type GroundedExecutionPolicy = Phase33PolicySnapshot;
 
+export const checklistSignalItemSchema = z
+  .object({
+    signalId: z.number().int().positive(),
+    name: z.string().trim().min(1).max(200),
+    category: z.string().trim().min(1).max(120),
+    description: z.string().trim().min(1).max(2_000),
+  })
+  .strict();
+
 export const groundedExecutionInputSchema = z
   .object({
     runId: z.number().int().positive(),
     targetType: analysisTargetTypeSchema,
     subjectId: z.number().int().positive(),
     subjectDisplayName: safeTextSchema.max(200),
-    checklistSignalIds: z.array(z.number().int().positive()).max(100),
+    checklist: z.array(checklistSignalItemSchema).max(100),
     policy: groundedExecutionPolicySchema,
   })
   .strict();

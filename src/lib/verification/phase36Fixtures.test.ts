@@ -32,7 +32,12 @@ describe('Phase 36 deterministic verification fixtures', () => {
       targetType: fixture.targetType,
       subjectId: fixture.subjectId,
       subjectDisplayName: fixture.subjectSnapshot.displayName,
-      checklistSignalIds: [fixture.signalId],
+      checklist: fixture.built.checklistSnapshot.items.map((item) => ({
+        signalId: item.signalId,
+        name: item.name,
+        category: item.category,
+        description: item.description,
+      })),
       modelChain: ['phase36.fixture'],
       policy: fixture.policy,
     });
@@ -55,7 +60,12 @@ describe('Phase 36 deterministic verification fixtures', () => {
         targetType,
         subjectId: fixture.subjectId,
         subjectDisplayName: fixture.subjectSnapshot.displayName,
-        checklistSignalIds: [fixture.signalId],
+        checklist: fixture.built.checklistSnapshot.items.map((item) => ({
+          signalId: item.signalId,
+          name: item.name,
+          category: item.category,
+          description: item.description,
+        })),
         modelChain: ['phase36.fixture'],
         policy: PHASE33_DEFERRED_POLICY,
       });
@@ -108,7 +118,12 @@ describe('Phase 36 deterministic verification fixtures', () => {
       targetType: fixture.targetType,
       subjectId: fixture.subjectId,
       subjectDisplayName: fixture.subjectSnapshot.displayName,
-      checklistSignalIds: [fixture.signalId],
+      checklist: fixture.built.checklistSnapshot.items.map((item) => ({
+        signalId: item.signalId,
+        name: item.name,
+        category: item.category,
+        description: item.description,
+      })),
       modelChain: ['phase36.fixture'],
       policy: fixture.policy,
     });

@@ -100,7 +100,12 @@ async function executeGroundedAnalysis(applicationRunId: number): Promise<Execut
       targetType: run.subjectType,
       subjectId: run.subjectId,
       subjectDisplayName: run.subjectSnapshot.displayName,
-      checklistSignalIds: run.checklistSnapshot.items.map((item) => item.signalId),
+      checklist: run.checklistSnapshot.items.map((item) => ({
+        signalId: item.signalId,
+        name: item.name,
+        category: item.category,
+        description: item.description,
+      })),
       modelChain: run.executionSnapshot.resolvedModelChain,
       policy: run.executionSnapshot.policy,
     });

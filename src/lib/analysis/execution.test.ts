@@ -57,6 +57,13 @@ const validRun = {
   steps: [],
 };
 
+const checklist = [{
+  signalId: 1,
+  name: 'New CFO',
+  category: 'executive_change',
+  description: 'Company announced a new CFO.',
+}] as const;
+
 describe('GroundedExecutionAdapter', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -79,7 +86,7 @@ describe('GroundedExecutionAdapter', () => {
       targetType: 'company',
       subjectId: 7,
       subjectDisplayName: 'Acme Corp',
-      checklistSignalIds: [1, 2],
+      checklist,
       modelChain: ['model.primary'],
       policy: PHASE33_DEFERRED_POLICY,
     });
@@ -102,7 +109,7 @@ describe('GroundedExecutionAdapter', () => {
       targetType: 'persona',
       subjectId: 7,
       subjectDisplayName: 'Jane Doe',
-      checklistSignalIds: [1],
+      checklist,
       modelChain: ['model.primary'],
       policy: PHASE33_DEFERRED_POLICY,
     });
@@ -118,7 +125,7 @@ describe('GroundedExecutionAdapter', () => {
       targetType: 'company',
       subjectId: 7,
       subjectDisplayName: 'Acme Corp',
-      checklistSignalIds: [1],
+      checklist,
       modelChain: ['model.primary', 'model.fallback'],
       policy: approvedPolicy,
     });
@@ -141,7 +148,7 @@ describe('GroundedExecutionAdapter', () => {
       targetType: 'company',
       subjectId: 7,
       subjectDisplayName: 'Acme Corp',
-      checklistSignalIds: [1],
+      checklist,
       modelChain: ['model.primary'],
       policy: approvedPolicy,
     });
@@ -163,7 +170,7 @@ describe('GroundedExecutionAdapter', () => {
       targetType: 'company',
       subjectId: 7,
       subjectDisplayName: 'Acme Corp',
-      checklistSignalIds: [1],
+      checklist,
       modelChain: ['model.primary'],
       policy: approvedPolicy,
     });
@@ -180,7 +187,7 @@ describe('GroundedExecutionAdapter', () => {
       targetType: 'company',
       subjectId: 7,
       subjectDisplayName: 'Acme Corp',
-      checklistSignalIds: [1],
+      checklist,
       modelChain: ['model.primary', 'model.fallback'],
       policy: PHASE33_STANDARD_APPROVED_POLICY,
     });
@@ -190,7 +197,7 @@ describe('GroundedExecutionAdapter', () => {
     expect(mocks.runAgent.mock.calls[0]?.[0]).toMatchObject({ maxToolCalls: 12 });
   });
 
-  it('includes JSON in the grounded prompt for structured-output providers', async () => {
+  it('includes JSON, the current date, and semantic checklist details in the grounded prompt', async () => {
     const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });
 
     await adapter.execute({
@@ -198,14 +205,17 @@ describe('GroundedExecutionAdapter', () => {
       targetType: 'company',
       subjectId: 7,
       subjectDisplayName: 'Acme Corp',
-      checklistSignalIds: [1],
+      checklist,
       modelChain: ['model.primary'],
       policy: approvedPolicy,
     });
 
     const prompt = mocks.runAgent.mock.calls[0]?.[0]?.prompt;
+    const today = new Date().toISOString().slice(0, 10);
     expect(typeof prompt).toBe('string');
     expect(/json/i.test(prompt)).toBe(true);
+    expect(prompt).toContain(`Today's date: ${today}.`);
+    expect(prompt).toContain('- 1: New CFO (executive_change) — Company announced a new CFO.');
   });
 
   it('fails persona runs cleanly under the standard approved policy until a persona policy exists', async () => {
@@ -219,7 +229,7 @@ describe('GroundedExecutionAdapter', () => {
       targetType: 'persona',
       subjectId: 7,
       subjectDisplayName: 'Jane Doe',
-      checklistSignalIds: [1],
+      checklist,
       modelChain: ['model.primary'],
       policy: PHASE33_STANDARD_APPROVED_POLICY,
     });
@@ -234,7 +244,7 @@ describe('GroundedExecutionAdapter', () => {
       targetType: 'company',
       subjectId: 7,
       subjectDisplayName: 'Acme Corp',
-      checklistSignalIds: [1],
+      checklist,
       modelChain: ['model.primary'],
       policy: approvedPolicy,
     } as const;
