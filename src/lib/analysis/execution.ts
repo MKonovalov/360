@@ -179,6 +179,13 @@ export class GroundedExecutionAdapter {
             fallbackMs: policy.limits.maxExecutionSeconds * 1000,
           },
         }),
+        {
+          input: {
+            runId: parsed.subjectId,
+            targetType: parsed.targetType,
+            modelChain: modelIds,
+          },
+        },
       );
       const output = groundedModelOutputSchema.parse(run.output);
       const toolResults = safeToolResults(run.steps, policy.limits);

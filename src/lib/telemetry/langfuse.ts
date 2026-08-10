@@ -110,6 +110,7 @@ export function initLangfuse(): void {
 export async function runWithPhase33Trace<T>(
   name: string,
   fn: () => Promise<T>,
+  options?: { readonly input?: unknown; readonly metadata?: Record<string, unknown> },
 ): Promise<{ readonly result: T; readonly traceId: string | null }> {
   // D-16 — test runs execute the callback directly and never register or call
   // Langfuse. D-15 — missing keys retain the same zero-observability behavior.
@@ -126,6 +127,7 @@ export async function runWithPhase33Trace<T>(
       name,
       async (span) => {
         callbackStarted = true;
+        span.update({ input: options?.input, metadata: options?.metadata });
         const result = await fn();
         callbackResult = { result, traceId: span.traceId };
         return callbackResult;
