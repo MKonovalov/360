@@ -31,9 +31,9 @@ export function getFirecrawlClient(): Firecrawl {
 
 // webSearchTool — the agent's only tool (T-09-02: fetched content enters ONLY
 // as tool-call results). Firecrawl v4 returns a union of SearchResultWeb |
-// Document in `res.web`; both shapes map to the { url, title, snippet } triple
-// the D-02 appendix and the citation gate consume. Tool errors surface to the
-// AI SDK tool loop (do NOT swallow).
+// Document in `res.web`; known fields from both shapes map to the { url, title,
+// snippet } triple the D-02 appendix and citation gate consume. Tool errors
+// surface to the AI SDK tool loop (do NOT swallow).
 export const webSearchTool = tool({
   description:
     'Search the public web for evidence of buying-intent signals about a company. Returns up to 5 ranked results with URL, title and snippet.',
@@ -65,19 +65,23 @@ function readWebResults(response: unknown): readonly unknown[] {
   return web;
 }
 
-function normalizeSearchResult(result: unknown): { url: string; title: string; snippet: string } {
+export function normalizeSearchResult(result: unknown): { url: string; title: string; snippet: string } {
   const candidate = z.record(z.string(), z.unknown()).safeParse(result);
   if (!candidate.success) throw new Error('invalid_firecrawl_result');
-  const allowedKeys = new Set(['url', 'title', 'description', 'summary', 'metadata']);
-  if (Object.keys(candidate.data).some((key) => !allowedKeys.has(key))) throw new Error('invalid_firecrawl_result');
   const metadata = z.record(z.string(), z.unknown()).safeParse(candidate.data.metadata);
   const metadataRecord = metadata.success ? metadata.data : {};
   const url = typeof candidate.data.url === 'string' ? candidate.data.url : metadataRecord.url;
   const title = typeof candidate.data.title === 'string' ? candidate.data.title : metadataRecord.title;
-  const snippet = typeof candidate.data.description === 'string' ? candidate.data.description : candidate.data.summary;
-  if (typeof url !== 'string' || typeof title !== 'string' || typeof snippet !== 'string') throw new Error('invalid_firecrawl_result');
+  const rawSnippet =
+    typeof candidate.data.description === 'string'
+      ? candidate.data.description
+      : typeof candidate.data.summary === 'string'
+        ? candidate.data.summary
+        : candidate.data.markdown;
+  if (typeof url !== 'string' || typeof title !== 'string' || typeof rawSnippet !== 'string') throw new Error('invalid_firecrawl_result');
   if (!isSafePublicHttpsUrl(url)) throw new Error('unsupported_source');
-  if (title.length > WEB_SEARCH_LIMITS.maxTitleLength || snippet.length > WEB_SEARCH_LIMITS.maxSnippetLength) throw new Error('invalid_firecrawl_result');
+  if (title.length > WEB_SEARCH_LIMITS.maxTitleLength) throw new Error('invalid_firecrawl_result');
+  const snippet = rawSnippet.slice(0, WEB_SEARCH_LIMITS.maxSnippetLength);
   return { url, title, snippet };
 }
 

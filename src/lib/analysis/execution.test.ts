@@ -276,6 +276,7 @@ describe('GroundedExecutionAdapter', () => {
     expect(mocks.firecrawlClient.search).toHaveBeenCalledWith('Acme cost pressure', { limit: 5 });
 
     mocks.firecrawlClient.search.mockResolvedValueOnce({ web: [{ url: 'https://example.com', title: 'Example', description: 'Evidence', unexpected: true }] });
-    await expect(webSearchTool.execute({ query: 'Acme' }, { toolCallId: 'test', messages: [], context: {} })).rejects.toThrow('invalid_firecrawl_result');
+    const tolerated = await webSearchTool.execute({ query: 'Acme' }, { toolCallId: 'test', messages: [], context: {} });
+    expect(tolerated).toEqual([{ url: 'https://example.com', title: 'Example', snippet: 'Evidence' }]);
   });
 });
