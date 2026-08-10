@@ -318,20 +318,22 @@ describe('analyzeCompany (09-01-03)', () => {
     mocks.env.ANTHROPIC_API_KEY = 'test-key';
   });
 
-  it('returns not_configured naming the missing OPENROUTER key for a mixed chain (D-20-01/02)', async () => {
+  it('returns not_configured naming the missing NOUSRESEARCH key for a mixed chain (D-20-01/02)', async () => {
     // Real snapshot ids: claude-sonnet-4-6 (anthropic) + anthropic/claude-sonnet-4.6
-    // (openrouter) — real resolveModelChain + real getProviderForModelId resolve both.
+    // (nousresearch — the widened-gate precedence flip, post-widening
+    // amendment: nousresearch outranks openrouter for this dual-listed id) —
+    // real resolveModelChain + real getProviderForModelId resolve both.
     mocks.getModelSettingsForUser.mockResolvedValue({
       primaryModel: 'claude-sonnet-4-6',
       fallbackModels: ['anthropic/claude-sonnet-4.6'],
     });
-    mocks.env.OPENROUTER_API_KEY = undefined;
+    mocks.env.NOUSRESEARCH_API_KEY = undefined;
 
     const result = await analyzeCompany(1, 'user_test');
 
-    expect(result).toEqual({ ok: false, reason: 'not_configured', missingKey: 'OPENROUTER_API_KEY' });
+    expect(result).toEqual({ ok: false, reason: 'not_configured', missingKey: 'NOUSRESEARCH_API_KEY' });
     expect(mocks.runAgent).not.toHaveBeenCalled();
-    mocks.env.OPENROUTER_API_KEY = 'test-key'; // restore
+    mocks.env.NOUSRESEARCH_API_KEY = 'test-key'; // restore
   });
 
   it('gates an overlapping id by its explicit provider, not catalog precedence', async () => {
@@ -352,7 +354,7 @@ describe('analyzeCompany (09-01-03)', () => {
     mocks.env.ANTHROPIC_API_KEY = 'test-key';
   });
 
-  it('runs an openrouter-only chain with only the OPENROUTER key — ANTHROPIC not blanket-required (D-20-03/Phase 22 UAT)', async () => {
+  it('runs a nousresearch-only chain with only the NOUSRESEARCH key — ANTHROPIC not blanket-required (D-20-03/Phase 22 UAT)', async () => {
     mocks.getModelSettingsForUser.mockResolvedValue({
       primaryModel: 'anthropic/claude-sonnet-4.6',
       fallbackModels: [],
@@ -361,10 +363,11 @@ describe('analyzeCompany (09-01-03)', () => {
 
     const result = await analyzeCompany(1, 'user_test');
 
-    // openrouter-only provider set — missingProviderKey skips ANTHROPIC.
+    // nousresearch-only provider set (widened-gate precedence flip, this id
+    // now resolves to nousresearch not openrouter) — missingProviderKey skips ANTHROPIC.
     expect(result.ok).toBe(true);
     expect(mocks.instantiateChain).toHaveBeenCalledWith([
-      { modelId: 'anthropic/claude-sonnet-4.6', provider: 'openrouter' },
+      { modelId: 'anthropic/claude-sonnet-4.6', provider: 'nousresearch' },
     ]);
     mocks.env.ANTHROPIC_API_KEY = 'test-key'; // restore
   });
@@ -376,16 +379,17 @@ describe('analyzeCompany (09-01-03)', () => {
     });
     mocks.instantiateChain.mockReturnValue([
       { provider: 'anthropic', modelId: 'claude-sonnet-4-6' },
-      { provider: 'openrouter', modelId: 'anthropic/claude-sonnet-4.6' },
+      { provider: 'nousresearch', modelId: 'anthropic/claude-sonnet-4.6' },
     ]);
 
     const result = await analyzeCompany(1, 'user_test');
 
     expect(result.ok).toBe(true);
-    // The resolved cross-provider chain maps through the factory.
+    // The resolved cross-provider chain maps through the factory (anthropic +
+    // nousresearch — the widened-gate precedence flip).
     expect(mocks.instantiateChain).toHaveBeenCalledWith([
       { modelId: 'claude-sonnet-4-6', provider: 'anthropic' },
-      { modelId: 'anthropic/claude-sonnet-4.6', provider: 'openrouter' },
+      { modelId: 'anthropic/claude-sonnet-4.6', provider: 'nousresearch' },
     ]);
   });
 

@@ -7,7 +7,6 @@ import {
   LoadAPIKeyError,
 } from 'ai';
 import {
-  ANTHROPIC_ALLOWLIST,
   FAST_MODEL_ID,
   getUnionServableIds,
   type ModelProviderId,

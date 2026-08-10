@@ -116,22 +116,27 @@ describe('modelFactory (19-03)', () => {
     expect(mocks.anthropic).not.toHaveBeenCalled();
   });
 
-  it('openrouter strict-capable id passes the id verbatim with NO second arg (flag true → SDK default strict:true)', () => {
-    instantiateModel('anthropic/claude-sonnet-4.6');
-
-    expect(mocks.openrouter).toHaveBeenCalledWith('anthropic/claude-sonnet-4.6');
-    // Snapshot flag true → option omitted; SDK defaults structuredOutputs.strict:true
-    expect(mocks.openrouter.mock.calls[0].length).toBe(1);
+  // REWORKED (post-widening amendment): both ids below now carry an active
+  // nousresearch portal-mirror row, and nousresearch outranks openrouter in
+  // PROVIDER_PRECEDENCE, so they dispatch nousresearch, never openrouter —
+  // the confirmed intended consequence of the literal full-active-set
+  // widening (Option B). nousresearch(id) never takes a second arg (the D-08
+  // strict-flag branch is openrouter-only), so these now prove the
+  // widened-gate dispatch itself rather than the strict-flag logic.
+  it('anthropic/claude-sonnet-4.6 dispatches nousresearch, not openrouter (widened-gate precedence flip)', () => {
+    expect(instantiateModel('anthropic/claude-sonnet-4.6')).toEqual({
+      provider: 'nousresearch',
+      modelId: 'anthropic/claude-sonnet-4.6',
+    });
+    expect(mocks.openrouter).not.toHaveBeenCalled();
   });
 
-  it('D-08 flag path: non-strict model gets { structuredOutputs: { strict: false } } explicitly', () => {
-    // qwen advertises response_format but NOT structured_outputs (research
-    // l.50) — the precise distinction the snapshot flag gates on.
-    instantiateModel('qwen/qwen3-235b-a22b');
-
-    expect(mocks.openrouter).toHaveBeenCalledWith('qwen/qwen3-235b-a22b', {
-      structuredOutputs: { strict: false },
+  it('qwen/qwen3-235b-a22b dispatches nousresearch, not openrouter (widened-gate precedence flip)', () => {
+    expect(instantiateModel('qwen/qwen3-235b-a22b')).toEqual({
+      provider: 'nousresearch',
+      modelId: 'qwen/qwen3-235b-a22b',
     });
+    expect(mocks.openrouter).not.toHaveBeenCalled();
   });
 
   it('FAIL-LOUD backstop: unknown id throws "unsupported provider for model"', () => {
@@ -143,17 +148,19 @@ describe('modelFactory (19-03)', () => {
   });
 
   it('instantiateChain maps once, preserves order, dispatches each id exactly once (FAL-01)', () => {
+    // anthropic/claude-sonnet-4.6 dispatches nousresearch now (widened-gate
+    // precedence flip), never openrouter — order/uniqueness is verified via
+    // the returned chain shape instead of cross-mock invocationCallOrder
+    // (nousresearch's dispatch closure isn't the same trackable vi.fn()).
     const chain = instantiateChain(['claude-sonnet-4-6', 'anthropic/claude-sonnet-4.6']);
 
     expect(mocks.anthropic).toHaveBeenCalledTimes(1);
     expect(mocks.anthropic).toHaveBeenCalledWith('claude-sonnet-4-6');
-    expect(mocks.openrouter).toHaveBeenCalledTimes(1);
-    expect(mocks.openrouter).toHaveBeenCalledWith('anthropic/claude-sonnet-4.6');
-    // Order preserved: anthropic dispatched before openrouter.
-    expect(mocks.anthropic.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.openrouter.mock.invocationCallOrder[0],
-    );
-    expect(chain).toHaveLength(2);
+    expect(mocks.openrouter).not.toHaveBeenCalled();
+    expect(chain).toEqual([
+      { provider: 'anthropic', modelId: 'm' },
+      { provider: 'nousresearch', modelId: 'anthropic/claude-sonnet-4.6' },
+    ]);
   });
 
   it('defaultChain stays the Anthropic fast path in Phase 19 (D-11)', () => {
@@ -286,11 +293,18 @@ describe('dispatch (RUN-02)', () => {
     });
   });
 
-  it('claude-sonnet-5 → anthropic-zen (opencode row is Zen + anthropic npm; NOT in ANTHROPIC_ALLOWLIST)', () => {
+  it('claude-sonnet-5 → anthropic direct (widened anthropic gate outranks the opencode row)', () => {
+    // The outer describe's beforeEach sets a STICKY mocks.anthropic.mockReturnValue
+    // ({provider:'anthropic', modelId:'m'}) that clearAllMocks() never resets
+    // (only mockReset() does) — it persists into this sibling describe block,
+    // so the mocked anthropic() call always returns the literal 'm', not the
+    // real id passed in. Assert the call args (real id) separately from the
+    // static return shape.
     expect(instantiateModel('claude-sonnet-5')).toEqual({
-      provider: 'anthropic-zen',
-      modelId: 'claude-sonnet-5',
+      provider: 'anthropic',
+      modelId: 'm',
     });
+    expect(mocks.anthropic).toHaveBeenCalledWith('claude-sonnet-5');
   });
 
   it('deepseek-v4-flash → opencode-zen (dual-listed, both rows openai-compatible; Zen wins)', () => {

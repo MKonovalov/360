@@ -17,15 +17,6 @@ export function getAllModels(catalog: ModelCatalog): CatalogModel[] {
   return Object.values(catalog.providers).flat();
 }
 
-// D-02/D-03: THE GATE — hand-curated, roster-verified raw provider IDs.
-// Roster re-verify (GET /v1/models) executed 2026-08-02 (D-01): claude-sonnet-4-6
-// VERIFIED present; undated claude-haiku-4-5 STILL ABSENT — only the dated
-// claude-haiku-4-5-20251001 form exists and an exact-id match is required for
-// the undated form to count → the allowlist stays sonnet-only (D-02), no
-// invented or dated IDs (Pitfall 6). Adding a model = code change + deploy +
-// roster re-verify (standing maintenance).
-export const ANTHROPIC_ALLOWLIST: readonly string[] = ['claude-sonnet-4-6'];
-
 // D-07 fast-model default (REG-05 no-settings chain). VERIFIED against the
 // live Anthropic API on 2026-08-01 (GET /v1/models): the originally-planned
 // string 'claude-sonnet-4-20250514' returns 404 not_found_error — that dated
@@ -67,15 +58,6 @@ export function isModelProviderId(value: string): value is ModelProviderId {
 // set (openrouter, D-02).
 export type ProviderGate = { allowlist?: readonly string[]; npm?: readonly string[] };
 
-// D-23-05: NousResearch servable set = the curated Hermes-4 pair — concrete
-// pins, never `~latest` aliases (D-07 "never `~`/`:free`/auto in pins"
-// doctrine). The rows land in the snapshot in Phase 24 and must be
-// roster-verified there (D-02).
-export const NOUSRESEARCH_ALLOWLIST: readonly string[] = [
-  'nousresearch/hermes-4-70b',
-  'nousresearch/hermes-4-405b',
-];
-
 // D-23-01: OpenCode servable gate is data-driven by `api.npm` — the 49-row
 // count (30 chat + 19 Claude) falls out of the data; GPT-5 (`@ai-sdk/openai`)
 // and Gemini (`@ai-sdk/google`) rows self-exclude forever; new chat/Claude
@@ -85,16 +67,18 @@ export const OPENCODE_NPM_GATE: readonly string[] = [
   '@ai-sdk/anthropic',
 ];
 
-// D-02/D-03: per-provider gates as DATA. anthropic = the hand-curated sonnet
-// allowlist (D-03, REG-04); openrouter = full catalog — the absence of an
-// allowlist means all active openrouter rows are servable (D-02/SET-07: the
-// `~latest`/`:free` rows are INCLUDED; labels land in Phase 21);
-// nousresearch = the curated Hermes-4 allowlist (REG-04: curated, NOT the
-// 292-row portal roster); opencode = the npm-value gate (D-23-01).
+// D-02/D-03: per-provider gates as DATA. anthropic and nousresearch are now
+// full-active-set (openrouter-style, D-02) — the absence of an allowlist
+// means every active row for that provider is servable, `~latest`/`:free`
+// rows included (SET-07: labels land in Phase 21). This widening supersedes
+// the earlier hand-curated allowlists (D-03/D-23-05): the precedence array
+// below (anthropic first, nousresearch before openrouter) is what keeps
+// dual-listed ids resolving to the intended direct provider, not the gate.
+// opencode = the npm-value gate (D-23-01), the only remaining non-empty gate.
 export const PROVIDER_GATES: Record<ModelProviderId, ProviderGate> = {
-  anthropic: { allowlist: ANTHROPIC_ALLOWLIST },
+  anthropic: {}, // full active set (17 rows, D-02 openrouter-style)
   openrouter: {},
-  nousresearch: { allowlist: NOUSRESEARCH_ALLOWLIST },
+  nousresearch: {}, // full active set (292 rows incl. ~latest aliases)
   opencode: { npm: OPENCODE_NPM_GATE },
 };
 
@@ -167,14 +151,15 @@ export function getUnionServableIds(catalog: ModelCatalog): string[] {
 // openrouter AND vercel) and a bare m.id === id find() returns the
 // opencode/vercel row (sorts first). Resolution checks membership in the
 // SERVABLE set (getServableIdsForProvider), never raw row existence, so (a)
-// the resolver is order-independent of snapshot row order, (b) Phase-24's
-// ~265 non-allowlisted nousresearch snapshot rows resolve to openrouter (not
-// nousresearch) — the exact silent-swap class this phase exists to prevent,
-// (c) claude-sonnet-5 → opencode and big-pickle → opencode are DELIBERATE
-// consequences (both are npm-gated servable under opencode; neither is in the
-// anthropic allowlist), (d) the D-23-07 ranking (nousresearch BEFORE
-// openrouter) is load-bearing — openrouter's full-catalog gate serves the
-// hermes mirror rows.
+// the resolver is order-independent of snapshot row order, (b) now that
+// anthropic/nousresearch are full-active-set gates, all 292 nousresearch
+// snapshot rows resolve to nousresearch (not openrouter) — the exact
+// silent-swap class this phase exists to prevent, (c) claude-sonnet-5 →
+// anthropic and big-pickle → opencode are DELIBERATE consequences (anthropic
+// wins dual-listed claude ids via precedence order; big-pickle has no
+// anthropic row so falls through to its npm-gated opencode row), (d) the
+// D-23-07 ranking (nousresearch BEFORE openrouter) is load-bearing —
+// openrouter's full-catalog gate serves the hermes mirror rows.
 export function getProviderForModelId(catalog: ModelCatalog, id: string): ModelProviderId | null {
   for (const provider of PROVIDER_PRECEDENCE) {
     if (getServableIdsForProvider(catalog, provider).includes(id)) return provider;

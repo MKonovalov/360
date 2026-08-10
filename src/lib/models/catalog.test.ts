@@ -10,8 +10,6 @@ import {
   PROVIDER_PRECEDENCE,
   SNAPSHOT_PROVIDER_IDS,
   PROVIDER_GATES,
-  ANTHROPIC_ALLOWLIST,
-  NOUSRESEARCH_ALLOWLIST,
   OPENCODE_NPM_GATE,
   FAST_MODEL_ID,
   SERVABLE_PROVIDERS,
@@ -243,8 +241,11 @@ describe('opencodeSlugToModelId', () => {
 });
 
 describe('getServableIdsForProvider', () => {
-  it('returns the allowlist ∩ active anthropic ids — the opencode dual row, dated and non-allowlisted ids never leak (CAT-03)', () => {
-    expect(getServableIdsForProvider(fixture, 'anthropic')).toEqual(['claude-sonnet-4-6']);
+  it('returns the full active anthropic fixture set (no allowlist)', () => {
+    expect(getServableIdsForProvider(fixture, 'anthropic')).toEqual([
+      'claude-sonnet-4-6',
+      'claude-haiku-4-5-20251001',
+    ]);
   });
 
   it('returns the full active openrouter catalog when no allowlist is set (D-02) — the deprecated :free row and the hermes mirrors are included as active openrouter rows', () => {
@@ -255,9 +256,27 @@ describe('getServableIdsForProvider', () => {
     ]);
   });
 
-  it('committed snapshot: anthropic servable set is exactly the allowlist, slash-free (CAT-03)', () => {
+  it('committed snapshot: anthropic servable set is the full active set, no allowlist (CAT-03)', () => {
     const ids = getServableIdsForProvider(catalogJson, 'anthropic');
-    expect(ids).toEqual(['claude-sonnet-4-6']);
+    expect(ids).toEqual([
+      'claude-fable-5',
+      'claude-haiku-4-5',
+      'claude-haiku-4-5-20251001',
+      'claude-opus-4-5',
+      'claude-opus-4-5-20251101',
+      'claude-opus-4-6',
+      'claude-opus-4-6-fast',
+      'claude-opus-4-7',
+      'claude-opus-4-7-fast',
+      'claude-opus-4-8',
+      'claude-opus-4-8-fast',
+      'claude-opus-5',
+      'claude-opus-5-fast',
+      'claude-sonnet-4-5',
+      'claude-sonnet-4-5-20250929',
+      'claude-sonnet-4-6',
+      'claude-sonnet-5',
+    ]);
     expect(ids.every((id) => !id.includes('/'))).toBe(true);
   });
 
@@ -269,7 +288,7 @@ describe('getServableIdsForProvider', () => {
     expect(ids.every((id) => id.includes('/'))).toBe(true);
   });
 
-  it('REG-04: nousresearch servable set is the allowlist ∩ fixture — the hermes pins, never the openrouter mirrors', () => {
+  it('REG-04: nousresearch servable set is the full active fixture set — the hermes pins, never the openrouter mirrors', () => {
     expect(getServableIdsForProvider(fixture, 'nousresearch')).toEqual([
       'nousresearch/hermes-4-70b',
       'nousresearch/hermes-4-405b',
@@ -290,6 +309,7 @@ describe('getUnionServableIds', () => {
   it('returns the deduped union of per-provider servable ids', () => {
     expect(getUnionServableIds(fixture)).toEqual([
       'claude-sonnet-4-6',
+      'claude-haiku-4-5-20251001',
       'anthropic/claude-sonnet-4.6',
       'nousresearch/hermes-4-70b',
       'nousresearch/hermes-4-405b',
@@ -304,12 +324,12 @@ describe('getUnionServableIds', () => {
     expect(new Set(union).size).toBe(union.length);
     // The Set-union (never the sum) is required because claude-sonnet-4-6 is
     // servable under BOTH anthropic and opencode (the phase's own
-    // regression-lock overlap) — the sum double-counts it (1+40=41) while the
-    // deduped union holds 40 slash-free ids. The formula is drift-proof: a new
-    // bare-id provider or a new servable id updates the count structurally; a
-    // hardcoded 1 would fail now and silently rot later. Provider-aware slash
+    // regression-lock overlap) — the sum double-counts every overlapping id
+    // while the deduped union holds the true slash-free count. The formula is
+    // drift-proof: a new bare-id provider or a new servable id updates the
+    // count structurally, never a hardcoded number. Provider-aware slash
     // contract: anthropic + opencode bare, openrouter vendor/model, and since
-    // the Phase 24 refresh the nousresearch pins are vendor/model too
+    // the widened gate now all 292 nousresearch rows are vendor/model too
     // (slashed, so excluded from the slash-free count).
     const expectedSlashFree = new Set([
       ...getServableIdsForProvider(catalogJson, 'anthropic'),
@@ -338,6 +358,9 @@ describe('getProviderForModelId', () => {
     expect(getProviderForModelId(fixture, 'unknown-id')).toBeNull();
   });
 
+  // D-23-07 lock, now the general precedence rule (post-widening amendment):
+  // nousresearch outranks openrouter for EVERY dual-listed id, not just the
+  // hermes pair — these assertions stay hermes-specific for fixture coverage.
   it('D-23-07 hermes precedence over the openrouter mirror: hermes-4-70b → nousresearch (nousresearch outranks openrouter)', () => {
     expect(getProviderForModelId(fixture, 'nousresearch/hermes-4-70b')).toBe('nousresearch');
   });
@@ -368,48 +391,47 @@ describe('getProviderForModelId', () => {
     expect(getProviderForModelId(catalogJson, 'claude-sonnet-4-6')).toBe('anthropic');
   });
 
-  it('SNAPSHOT CANARY: anthropic/claude-sonnet-4.6 → openrouter despite the triple kilo/openrouter/vercel rows', () => {
-    expect(getProviderForModelId(catalogJson, 'anthropic/claude-sonnet-4.6')).toBe('openrouter');
+  // REWORKED (post-widening amendment): the nousresearch portal mirror also
+  // carries this vendor/model id (one of the 261 dual-listed ids), and
+  // nousresearch outranks openrouter in PROVIDER_PRECEDENCE — this is the
+  // confirmed intended consequence of the literal full-active-set widening
+  // (Option B), not a regression.
+  it('SNAPSHOT CANARY: anthropic/claude-sonnet-4.6 → nousresearch (nousresearch outranks openrouter for dual-listed ids, widened-gate precedence flip)', () => {
+    expect(getProviderForModelId(catalogJson, 'anthropic/claude-sonnet-4.6')).toBe('nousresearch');
   });
 
-  // REWORKED (never deleted): claude-sonnet-5 is NOT in the anthropic
-  // sonnet-only allowlist, but its opencode Claude row is npm-gated
-  // (@ai-sdk/anthropic) servable — the old 'anthropic' assertion locked raw
-  // row existence, which was only correct while opencode wasn't servable
-  // (servable-membership semantic change, research Pitfall 2).
-  it('SNAPSHOT CANARY: claude-sonnet-5 → opencode (reworked — raw-row anthropic was only correct pre-opencode; now servable-membership wins)', () => {
-    expect(getProviderForModelId(catalogJson, 'claude-sonnet-5')).toBe('opencode');
+  // REWORKED (never deleted): the anthropic gate is now full-active-set
+  // (widened from the sonnet-only allowlist), so claude-sonnet-5's anthropic
+  // row is servable directly — anthropic-first precedence wins the
+  // dual-listed id over its also-servable opencode row.
+  it('SNAPSHOT CANARY: claude-sonnet-5 → anthropic (widened anthropic gate outranks the opencode row via precedence)', () => {
+    expect(getProviderForModelId(catalogJson, 'claude-sonnet-5')).toBe('anthropic');
   });
 
-  it('SNAPSHOT CANARY: anthropic/claude-sonnet-5 → openrouter (the openrouter + vercel dual pair — the vercel row must NOT win)', () => {
-    expect(getProviderForModelId(catalogJson, 'anthropic/claude-sonnet-5')).toBe('openrouter');
+  it('SNAPSHOT CANARY: anthropic/claude-sonnet-5 → nousresearch (nousresearch outranks openrouter for dual-listed ids, widened-gate precedence flip)', () => {
+    expect(getProviderForModelId(catalogJson, 'anthropic/claude-sonnet-5')).toBe('nousresearch');
   });
 
   it('SNAPSHOT CANARY: big-pickle → opencode (its opencode row is npm-gated servable under servable-membership resolution)', () => {
     expect(getProviderForModelId(catalogJson, 'big-pickle')).toBe('opencode');
   });
 
-  it('Pitfall 5 boundary (D-23-07 — rows landed in Phase 24): the committed snapshot now carries the nousresearch roster, so the live hermes pins resolve through the gate (D-24-11 re-lock)', () => {
-    expect(getServableIdsForProvider(catalogJson, 'nousresearch')).toEqual([
-      'nousresearch/hermes-4-70b',
-      'nousresearch/hermes-4-405b',
-    ]);
+  it('Pitfall 5 boundary (D-23-07 — rows landed in Phase 24): the nousresearch gate is now full-active-set, so the servable set is all 292 rows including the hermes pins and a ~latest alias', () => {
+    const ids = getServableIdsForProvider(catalogJson, 'nousresearch');
+    expect(ids).toHaveLength(292);
+    expect(ids).toEqual(expect.arrayContaining(['nousresearch/hermes-4-70b', 'nousresearch/hermes-4-405b']));
+    expect(ids.some((id) => /^~/.test(id))).toBe(true);
   });
 });
 
 describe('PROVIDER_GATES / SERVABLE_PROVIDERS / PROVIDER_PRECEDENCE', () => {
-  it('anthropic gate is the ANTHROPIC_ALLOWLIST and openrouter has no allowlist (full catalog, D-02)', () => {
-    expect(PROVIDER_GATES.anthropic.allowlist).toBe(ANTHROPIC_ALLOWLIST);
+  it('anthropic gate has no allowlist — full active set (D-02 openrouter-style widening)', () => {
+    expect(PROVIDER_GATES.anthropic.allowlist).toBeUndefined();
     expect(PROVIDER_GATES.openrouter.allowlist).toBeUndefined();
   });
 
-  it('D-23-05: nousresearch gate is the hermes pins — never ~latest aliases (D-07 "never ~/:free/auto in pins" doctrine)', () => {
-    expect(PROVIDER_GATES.nousresearch.allowlist).toEqual(NOUSRESEARCH_ALLOWLIST);
-    expect(NOUSRESEARCH_ALLOWLIST).toEqual([
-      'nousresearch/hermes-4-70b',
-      'nousresearch/hermes-4-405b',
-    ]);
-    expect(NOUSRESEARCH_ALLOWLIST.every((id) => !id.includes('~'))).toBe(true);
+  it('D-23-05: nousresearch gate has no allowlist — full active set, including ~latest aliases', () => {
+    expect(PROVIDER_GATES.nousresearch.allowlist).toBeUndefined();
   });
 
   it('D-23-01: opencode gate is the npm-value allowlist (@ai-sdk/openai-compatible + @ai-sdk/anthropic)', () => {
@@ -526,10 +548,9 @@ describe('NOUSRESEARCH (D-24-12): committed snapshot + fixture dual-canary — 2
   });
 
   it('D-23-05/D-24-12: the hermes pins resolve through the servable gate — dual-canary redundancy with the flipped boundary canary is intentional', () => {
-    expect(getServableIdsForProvider(catalogJson, 'nousresearch')).toEqual([
-      'nousresearch/hermes-4-70b',
-      'nousresearch/hermes-4-405b',
-    ]);
+    const ids = getServableIdsForProvider(catalogJson, 'nousresearch');
+    expect(ids).toHaveLength(NOUS_COUNT);
+    expect(ids).toEqual(expect.arrayContaining(['nousresearch/hermes-4-70b', 'nousresearch/hermes-4-405b']));
   });
 
   it('CAT-02/Pitfall 2: pricing ×1e6 — hermes pins 0.05/0.2 and 0.09/0.37 per-MTok with context 131072 (live-verified 2026-08-04)', () => {
@@ -559,12 +580,12 @@ describe('NOUSRESEARCH (D-24-12): committed snapshot + fixture dual-canary — 2
     expect(rows.find((m) => m.id === 'qwen/qwen3.8-max')?.family).toBe('qwen3.8');
   });
 
-  it('D-24-08/12: exactly 11 ~latest alias rows ship verbatim and their ids are self-excluded from servable (the allowlist pins concrete ids — D-23-05/D-07 "never ~ in pins")', () => {
+  it('D-24-08/12: exactly 11 ~latest alias rows ship verbatim and are servable (the widened full-active-set gate excludes nothing, superseding the old allowlist-pins self-exclusion doctrine)', () => {
     const rows = catalogJson.providers.nousresearch;
     const latestIds = rows.filter((m) => /^~/.test(m.id)).map((m) => m.id);
     expect(latestIds).toHaveLength(LATEST_ALIAS_COUNT);
     const servable = getServableIdsForProvider(catalogJson, 'nousresearch');
-    expect(latestIds.filter((id) => servable.includes(id))).toEqual([]);
+    expect(latestIds.every((id) => servable.includes(id))).toBe(true);
   });
 
   it('fixture dual-canary: the fixture hermes-4-70b row carries the live-verified facts (cost 0.05/0.2, structuredOutputs false, family hermes) and the pins resolve through the gate (redundant with REG-04 — the D-24-12 group states the facts REG-04 does not)', () => {
@@ -576,13 +597,6 @@ describe('NOUSRESEARCH (D-24-12): committed snapshot + fixture dual-canary — 2
       'nousresearch/hermes-4-70b',
       'nousresearch/hermes-4-405b',
     ]);
-  });
-});
-
-describe('ANTHROPIC_ALLOWLIST', () => {
-  it('contains only roster-verified undated raw IDs per the D-02 gate (sonnet-only — 2026-08-02 re-verify: undated haiku-4-5 still absent)', () => {
-    expect(ANTHROPIC_ALLOWLIST).toEqual(['claude-sonnet-4-6']);
-    expect(ANTHROPIC_ALLOWLIST.every((id) => !/-20\d{6}/.test(id))).toBe(true);
   });
 });
 

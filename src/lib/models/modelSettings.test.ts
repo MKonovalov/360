@@ -77,7 +77,9 @@ describe('model settings provider resolution', () => {
         primaryModel: 'claude-sonnet-4-6',
         primaryProvider: 'anthropic',
         fallbacks: ['anthropic/claude-sonnet-4.6'],
-        fallbackProviders: ['openrouter'],
+        // nousresearch outranks openrouter for dual-listed ids (widened-gate
+        // precedence flip, post-widening amendment).
+        fallbackProviders: ['nousresearch'],
       },
     });
   });

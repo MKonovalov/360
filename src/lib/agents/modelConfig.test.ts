@@ -247,7 +247,9 @@ describe('resolveModelChain', () => {
       ),
     ).toEqual([
       { modelId: 'claude-sonnet-4-6', provider: 'anthropic' },
-      { modelId: 'anthropic/claude-sonnet-4.6', provider: 'openrouter' },
+      // nousresearch outranks openrouter for dual-listed ids (widened-gate
+      // precedence flip, post-widening amendment).
+      { modelId: 'anthropic/claude-sonnet-4.6', provider: 'nousresearch' },
     ]);
   });
 

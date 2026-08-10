@@ -39,7 +39,9 @@ describe('saveSettingsAction security matrix (T-17-02..06)', () => {
       primaryModel: 'claude-sonnet-4-6',
       primaryProvider: 'anthropic',
       fallbackModels: ['anthropic/claude-sonnet-4.6'],
-      fallbackProviders: ['openrouter'],
+      // nousresearch outranks openrouter for dual-listed ids (widened-gate
+      // precedence flip, post-widening amendment).
+      fallbackProviders: ['nousresearch'],
     });
     expect(revalidatePath).toHaveBeenCalledWith('/settings');
   });
@@ -58,7 +60,7 @@ describe('saveSettingsAction security matrix (T-17-02..06)', () => {
       primaryModel: 'claude-sonnet-4-6',
       primaryProvider: 'anthropic',
       fallbackModels: ['anthropic/claude-sonnet-4.6'],
-      fallbackProviders: ['openrouter'],
+      fallbackProviders: ['nousresearch'],
     });
   });
 
