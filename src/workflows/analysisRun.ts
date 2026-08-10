@@ -1,5 +1,10 @@
 import { FatalError } from 'workflow';
 
+// Platform: Vercel Hobby permits 300s with fluid compute; the workflow step
+// must export maxDuration explicitly — without it, the step defaults to 60s
+// (killing the agent loop's 290s budget before it can complete).
+export const maxDuration = 300;
+
 import { GroundedExecutionAdapter, type GroundedExecutionResult } from '@/lib/analysis/execution';
 import { normalizeAnalysisPacket, AnalysisPacketValidationError, type NormalizedAnalysisPacket } from '@/lib/analysis/results';
 import { type AnalysisRunStatus } from '@/lib/analysis/contracts';
