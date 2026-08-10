@@ -29,7 +29,7 @@ const approvedPolicy = {
   policyVersion: 'approved-v1',
   limits: {
     maxAttempts: 2,
-    maxToolCalls: 4,
+    maxToolCalls: 12,
     maxExecutionSeconds: 30,
     maxSources: 5,
     maxSourceBytes: 20_000,
@@ -44,7 +44,7 @@ const approvedPolicy = {
   networkAccess: true,
   writesAllowed: false,
   effectiveMaxAttempts: 2,
-  effectiveMaxToolCalls: 4,
+  effectiveMaxToolCalls: 12,
   effectiveMaxExecutionSeconds: 30,
   effectiveMaxSpendUsd: 1,
 } as const;
@@ -132,7 +132,7 @@ describe('GroundedExecutionAdapter', () => {
 
     expect(result).toMatchObject({ ok: true, modelId: 'model.primary', usedFallback: false });
     expect(mocks.instantiateChain).toHaveBeenCalledWith(['model.primary', 'model.fallback']);
-    expect(mocks.runAgent.mock.calls[0]?.[0]).toMatchObject({ maxToolCalls: 4, models: ['model-object'] });
+    expect(mocks.runAgent.mock.calls[0]?.[0]).toMatchObject({ maxToolCalls: 12, models: ['model-object'] });
   });
 
   it('returns trace linkage from the execution seam when the observation creates a trace', async () => {
@@ -194,7 +194,7 @@ describe('GroundedExecutionAdapter', () => {
 
     expect(result).toMatchObject({ ok: true, modelId: 'model.primary', usedFallback: false });
     expect(mocks.runAgent).toHaveBeenCalled();
-    expect(mocks.runAgent.mock.calls[0]?.[0]).toMatchObject({ maxToolCalls: 4 });
+    expect(mocks.runAgent.mock.calls[0]?.[0]).toMatchObject({ maxToolCalls: 12 });
   });
 
   it('includes JSON, the current date, and semantic checklist details in the grounded prompt', async () => {

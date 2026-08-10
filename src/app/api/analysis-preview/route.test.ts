@@ -37,7 +37,7 @@ const template = {
   ...templateOption,
   status: 'active' as const,
   instruction: 'Assess buying signals.',
-  futureBudget: { maxAttempts: 2, maxToolCalls: 4, maxExecutionSeconds: 300, maxSpendUsd: 2.5 },
+  futureBudget: { maxAttempts: 2, maxToolCalls: 12, maxExecutionSeconds: 300, maxSpendUsd: 2.5 },
 };
 const subject = { type: 'company' as const, id: 42, displayName: 'Acme' };
 const practiceArea = { id: 3, name: 'GBS', shortCode: 'GBS' };

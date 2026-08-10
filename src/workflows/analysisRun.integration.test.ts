@@ -217,7 +217,7 @@ describe('analysis run scalar durable grounded handoff', () => {
 
     expect(row?.executionSnapshot.futureBudget).toEqual({
       maxAttempts: 2,
-      maxToolCalls: 4,
+      maxToolCalls: 12,
       maxExecutionSeconds: 300,
       maxSpendUsd: 2.5,
     });

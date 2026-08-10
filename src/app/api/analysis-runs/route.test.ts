@@ -55,7 +55,7 @@ const template = {
   instruction: 'private execution instruction',
   supportedEfforts: ['standard'],
   defaultEffort: 'standard',
-  futureBudget: { maxAttempts: 2, maxToolCalls: 4, maxExecutionSeconds: 300, maxSpendUsd: 2.5 },
+  futureBudget: { maxAttempts: 2, maxToolCalls: 12, maxExecutionSeconds: 300, maxSpendUsd: 2.5 },
 };
 const subject = { type: 'company', id: 7, displayName: 'Acme' };
 const practiceArea = { id: 3, name: 'GBS', shortCode: 'GBS' };
@@ -105,7 +105,7 @@ describe('analysis run routes', () => {
       createdBy: 'user_staff', templateId: 1, templateVersionId: 11, subjectType: 'company', subjectId: 7, practiceAreaId: 3,
       executionSnapshot: expect.objectContaining({
         effort: 'standard', resolvedModelChain: ['model-primary', 'model-fallback'],
-        futureBudget: { maxAttempts: 2, maxToolCalls: 4, maxExecutionSeconds: 300, maxSpendUsd: 2.5 },
+        futureBudget: { maxAttempts: 2, maxToolCalls: 12, maxExecutionSeconds: 300, maxSpendUsd: 2.5 },
         policy: expect.objectContaining({ schemaVersion: 1, mode: 'phase33_grounded', executionEnabled: true, personaExecutionEnabled: false, failureReason: null }),
        }),
        policySnapshot: expect.objectContaining({ schemaVersion: 1, mode: 'phase33_grounded', executionEnabled: true, personaExecutionEnabled: false, failureReason: null }),

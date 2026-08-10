@@ -52,7 +52,7 @@ const managedTemplate = {
     defaultEffort: 'standard' as const,
     futureBudget: {
       maxAttempts: 2,
-      maxToolCalls: 4,
+      maxToolCalls: 12,
       maxExecutionSeconds: 300,
       maxSpendUsd: 2.5,
     },

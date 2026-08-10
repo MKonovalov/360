@@ -276,7 +276,7 @@ describeWithDatabase('analysis run ledger boundaries', () => {
     const run = result.run;
     expect(run.executionSnapshot.futureBudget).toEqual({
       maxAttempts: 2,
-      maxToolCalls: 4,
+      maxToolCalls: 12,
       maxExecutionSeconds: 300,
       maxSpendUsd: 2.5,
     });
