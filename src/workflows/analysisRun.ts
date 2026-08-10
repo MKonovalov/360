@@ -153,7 +153,7 @@ async function normalizeGroundedPacket(
         modelChain: execution.modelChain,
         toolCallCount: execution.toolResults.length,
         durationMs: execution.durationMs,
-        traceId: null,
+        traceId: execution.traceId ?? null,
       },
     });
     return { ok: true as const, packet, applicationRunId };
@@ -203,7 +203,7 @@ async function recordTelemetryAfterPersistence(
       packetSchemaVersion: packet.schemaVersion,
       policyVersion: run.policySnapshot.mode === 'phase33_grounded' ? run.policySnapshot.policyVersion : null,
       traceId: packet.audit.traceId,
-      traceUrl: null,
+      traceUrl: execution.traceUrl ?? null,
     });
     await recordPhase33Telemetry(metadata);
   } catch (error: unknown) {

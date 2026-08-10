@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { instantiateChain } from '@/lib/agents/modelFactory';
 import { runAgent, type RunAgentInput } from '@/lib/agents/runAgent';
+import { getTraceUrl, runWithPhase33Trace } from '@/lib/telemetry/langfuse';
 import { groundedExecutionInputSchema, type GroundedExecutionInput } from './groundedContracts';
 import { modelRefSchema, phase33PolicySnapshotSchema } from './contracts';
 import type { ModelRef } from '@/lib/models/modelRef';
@@ -56,6 +57,8 @@ export type GroundedExecutionSuccess = Readonly<{
   citations: readonly Readonly<Record<string, unknown>>[];
   usage: Readonly<Record<string, unknown>>;
   durationMs: number;
+  traceId: string | null;
+  traceUrl: string | null;
 }>;
 
 export type GroundedExecutionFailure = Readonly<{
@@ -155,21 +158,27 @@ export class GroundedExecutionAdapter {
     try {
       const modelIds = parsed.modelChain.slice(0, policy.limits.maxAttempts);
       const models = dependencies.instantiateChain(modelIds);
-      const run = await dependencies.runAgent({
-        company: { id: parsed.subjectId, name: parsed.subjectDisplayName },
-        liveSignals: parsed.checklistSignalIds.map((signalType) => ({ signalType: String(signalType) })),
-        models,
-        modelSelections: modelIds,
-        prompt: buildGroundedPrompt(parsed),
-        outputSchema: groundedModelOutputSchema,
-        maxToolCalls: policy.limits.maxToolCalls,
-        timeouts: {
-          primaryMs: policy.limits.maxExecutionSeconds * 1000,
-          fallbackMs: policy.limits.maxExecutionSeconds * 1000,
-        },
-      });
+      // Keep the observation at this seam so every current and future custom
+      // agent version routed through execute inherits one parent trace.
+      const { result: run, traceId } = await runWithPhase33Trace(
+        'analyze-company',
+        () => dependencies.runAgent({
+          company: { id: parsed.subjectId, name: parsed.subjectDisplayName },
+          liveSignals: parsed.checklistSignalIds.map((signalType) => ({ signalType: String(signalType) })),
+          models,
+          modelSelections: modelIds,
+          prompt: buildGroundedPrompt(parsed),
+          outputSchema: groundedModelOutputSchema,
+          maxToolCalls: policy.limits.maxToolCalls,
+          timeouts: {
+            primaryMs: policy.limits.maxExecutionSeconds * 1000,
+            fallbackMs: policy.limits.maxExecutionSeconds * 1000,
+          },
+        }),
+      );
       const output = groundedModelOutputSchema.parse(run.output);
       const toolResults = safeToolResults(run.steps, policy.limits);
+      const traceUrl = traceId ? await getTraceUrl(traceId).catch(() => undefined) : undefined;
       return {
         ok: true,
         output,
@@ -181,6 +190,8 @@ export class GroundedExecutionAdapter {
         citations: run.citations ?? [],
         usage: z.record(z.string(), z.unknown()).parse(run.usage),
         durationMs: Date.now() - startedAt,
+        traceId,
+        traceUrl: traceUrl ?? null,
       };
     } catch (error) {
       return { ok: false, failureReason: mapFailure(error), durationMs: Date.now() - startedAt };

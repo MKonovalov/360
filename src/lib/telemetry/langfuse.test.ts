@@ -1,16 +1,30 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  startActiveObservation: vi.fn(),
+}));
+
+vi.mock('@langfuse/tracing', () => ({ startActiveObservation: mocks.startActiveObservation }));
 
 process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test';
 process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ??= 'pk_test_placeholder';
 process.env.CLERK_SECRET_KEY ??= 'sk_test_placeholder';
 
 let buildPhase33TelemetryMetadata: typeof import('./langfuse').buildPhase33TelemetryMetadata;
+let runWithPhase33Trace: typeof import('./langfuse').runWithPhase33Trace;
 
 beforeAll(async () => {
-  ({ buildPhase33TelemetryMetadata } = await import('./langfuse'));
+  ({ buildPhase33TelemetryMetadata, runWithPhase33Trace } = await import('./langfuse'));
 });
 
 describe('Phase 33 Langfuse metadata', () => {
+  it('runs the callback without registering an observation in test mode', async () => {
+    const result = await runWithPhase33Trace('analyze-company', async () => 'completed');
+
+    expect(result).toEqual({ result: 'completed', traceId: null });
+    expect(mocks.startActiveObservation).not.toHaveBeenCalled();
+  });
+
   it('keeps only allowlisted identifiers and bounded counts', () => {
     const metadata = buildPhase33TelemetryMetadata({
       runId: 42,

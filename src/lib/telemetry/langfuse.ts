@@ -3,15 +3,16 @@ import { NodeSDK } from '@opentelemetry/sdk-node';
 import { LangfuseSpanProcessor } from '@langfuse/otel';
 import { LangfuseVercelAiSdkIntegration } from '@langfuse/vercel-ai-sdk';
 import { LangfuseClient } from '@langfuse/client';
+import { startActiveObservation } from '@langfuse/tracing';
 import { z } from 'zod';
 import { SERVABLE_PROVIDERS } from '@/lib/models/catalog';
 import { modelRefSchema } from '@/lib/analysis/contracts';
 import { env } from '../env';
 
 // Phase 9 observability bootstrap (D-13, D-15, D-16). No `instrumentation.ts`
-// (D-13): initLangfuse() is the single explicit entry point, called once by
-// the Analyze route at startup. All keys optional (D-15): unset keys degrade
-// to a no-op here, and the Analyze action surfaces "not configured" instead.
+// (D-13): initLangfuse() is the single explicit entry point, called by the
+// Analyze route or the live execution seam. All keys optional (D-15): unset
+// keys degrade to a no-op here, and the Analyze action surfaces "not configured" instead.
 // Tests never register telemetry (D-16) — the NODE_ENV guard must stay first.
 
 let langfuseClient: LangfuseClient | undefined;
@@ -59,9 +60,8 @@ export function buildPhase33TelemetryMetadata(input: unknown): Phase33TelemetryM
 }
 
 // Lazy client accessor shared by initLangfuse, getTraceUrl and the reject
-// mirror. initLangfuse() runs only inside the Analyze route handler — Server
-// Action invocations (rejectProposalAction) reach this module on cold starts
-// without it, so the mirror must self-bootstrap the client or silently drop
+// mirror. Server Action invocations (rejectProposalAction) reach this module on
+// cold starts without it, so the mirror must self-bootstrap the client or silently drop
 // the annotation. Same D-15/D-16 semantics as before: unset keys or tests
 // return undefined (no-op), never a crash.
 function getLangfuseClient(): LangfuseClient | undefined {
@@ -105,6 +105,39 @@ export function initLangfuse(): void {
   registerTelemetry(new LangfuseVercelAiSdkIntegration());
 
   getLangfuseClient();
+}
+
+export async function runWithPhase33Trace<T>(
+  name: string,
+  fn: () => Promise<T>,
+): Promise<{ readonly result: T; readonly traceId: string | null }> {
+  // D-16 — test runs execute the callback directly and never register or call
+  // Langfuse. D-15 — missing keys retain the same zero-observability behavior.
+  if (process.env.NODE_ENV === 'test') return { result: await fn(), traceId: null };
+  if (!env.LANGFUSE_PUBLIC_KEY || !env.LANGFUSE_SECRET_KEY) {
+    return { result: await fn(), traceId: null };
+  }
+
+  let callbackResult: { readonly result: T; readonly traceId: string | null } | undefined;
+  let callbackStarted = false;
+  try {
+    initLangfuse();
+    const observed = await startActiveObservation(
+      name,
+      async (span) => {
+        callbackStarted = true;
+        const result = await fn();
+        callbackResult = { result, traceId: span.traceId };
+        return callbackResult;
+      },
+      { asType: 'span' },
+    );
+    return { result: observed.result, traceId: observed.traceId ?? null };
+  } catch (error: unknown) {
+    if (callbackResult) return callbackResult;
+    if (!callbackStarted) return { result: await fn(), traceId: null };
+    throw error;
+  }
 }
 
 export async function getTraceUrl(traceId: string): Promise<string | undefined> {

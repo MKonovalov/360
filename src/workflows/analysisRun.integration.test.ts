@@ -15,6 +15,18 @@ import type { CreateAnalysisRunInput } from '@/lib/db/queries/analysisRuns';
 // practice areas). Fixture template/version/practice-area rows are created
 // here so the suite never depends on the seed script having run.
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
+process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test';
+process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ??= 'pk_test_placeholder';
+process.env.CLERK_SECRET_KEY ??= 'sk_test_placeholder';
+
+describe('analysis run telemetry in test mode', () => {
+  it('keeps the execution trace ID null without registering LangFuse', async () => {
+    const { runWithPhase33Trace } = await import('@/lib/telemetry/langfuse');
+    const observed = await runWithPhase33Trace('analyze-company', async () => 'completed');
+
+    expect(observed).toEqual({ result: 'completed', traceId: null });
+  });
+});
 
 describe('analysis run scalar durable grounded handoff', () => {
   let dbModule: typeof import('@/lib/db');

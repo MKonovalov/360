@@ -2,11 +2,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   runAgent: vi.fn(),
+  runWithPhase33Trace: vi.fn(),
+  getTraceUrl: vi.fn(),
   instantiateChain: vi.fn(),
   firecrawlClient: { search: vi.fn() },
 }));
 
 vi.mock('@/lib/agents/runAgent', () => ({ runAgent: mocks.runAgent }));
+vi.mock('@/lib/telemetry/langfuse', () => ({
+  getTraceUrl: mocks.getTraceUrl,
+  runWithPhase33Trace: mocks.runWithPhase33Trace,
+}));
 vi.mock('@/lib/agents/modelFactory', () => ({ instantiateChain: mocks.instantiateChain }));
 vi.mock('@/lib/env', () => ({ env: { FIRECRAWL_API_KEY: 'test-key' } }));
 vi.mock('firecrawl', () => ({ Firecrawl: vi.fn(function Firecrawl() { return mocks.firecrawlClient; }) }));
@@ -56,6 +62,11 @@ describe('GroundedExecutionAdapter', () => {
     vi.clearAllMocks();
     mocks.instantiateChain.mockReturnValue(['model-object']);
     mocks.runAgent.mockResolvedValue(validRun);
+    mocks.runWithPhase33Trace.mockImplementation(async (_name: string, fn: () => Promise<unknown>) => ({
+      result: await fn(),
+      traceId: null,
+    }));
+    mocks.getTraceUrl.mockResolvedValue(undefined);
   });
 
   it('fails closed before model or tool dispatch when policy approval is deferred', async () => {
@@ -115,6 +126,50 @@ describe('GroundedExecutionAdapter', () => {
     expect(result).toMatchObject({ ok: true, modelId: 'model.primary', usedFallback: false });
     expect(mocks.instantiateChain).toHaveBeenCalledWith(['model.primary', 'model.fallback']);
     expect(mocks.runAgent.mock.calls[0]?.[0]).toMatchObject({ maxToolCalls: 4, models: ['model-object'] });
+  });
+
+  it('returns trace linkage from the execution seam when the observation creates a trace', async () => {
+    mocks.runWithPhase33Trace.mockImplementationOnce(async (_name: string, fn: () => Promise<unknown>) => ({
+      result: await fn(),
+      traceId: 'trace-42',
+    }));
+    mocks.getTraceUrl.mockResolvedValueOnce('https://cloud.langfuse.com/trace/trace-42');
+    const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });
+
+    const result = await adapter.execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklistSignalIds: [1],
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      traceId: 'trace-42',
+      traceUrl: 'https://cloud.langfuse.com/trace/trace-42',
+    });
+    expect(mocks.runWithPhase33Trace).toHaveBeenCalledTimes(1);
+    expect(mocks.runWithPhase33Trace.mock.calls[0]?.[0]).toBe('analyze-company');
+  });
+
+  it('keeps trace linkage null when the test-environment wrapper is a no-op', async () => {
+    const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });
+
+    const result = await adapter.execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklistSignalIds: [1],
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+    });
+
+    expect(result).toMatchObject({ ok: true, traceId: null, traceUrl: null });
+    expect(mocks.getTraceUrl).not.toHaveBeenCalled();
   });
 
   it('executes a company run end-to-end with the production standard approved policy', async () => {
