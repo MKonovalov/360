@@ -180,7 +180,7 @@ describe.skipIf(!testDatabaseUrl)('Phase 32 live schema metadata', () => {
     const version = versionResult.rows[0];
     expect(version?.supportedEfforts).toEqual(['standard']);
     expect(version?.defaultEffort).toBe('standard');
-    expect(version?.futureBudget).toEqual({ maxAttempts: 2, maxToolCalls: 12, maxExecutionSeconds: 300, maxSpendUsd: 2.5 });
+    expect(version?.futureBudget).toEqual({ maxAttempts: 2, maxToolCalls: 4, maxExecutionSeconds: 300, maxSpendUsd: 2.5 });
 
     const templateSnapshot = JSON.stringify({ schemaVersion: 1, templateId, templateVersionId: version?.id, templateKey: fixtureKey, templateName: 'Phase 32 integration template', targetType: 'company', version: 1, resolvedInstruction: 'Analyze the snapshotted subject.', effort: 'standard' });
     const subjectSnapshot = JSON.stringify({ type: 'company', id: 424242, displayName: 'Concurrent fixture' });

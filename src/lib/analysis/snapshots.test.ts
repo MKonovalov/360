@@ -94,7 +94,7 @@ describe('buildAnalysisSnapshots', () => {
     expect(result.checklistSnapshot.items).toEqual([]);
     expect(result.executionSnapshot.futureBudget).toEqual({
       maxAttempts: 2,
-      maxToolCalls: 12,
+      maxToolCalls: 4,
       maxExecutionSeconds: 300,
       maxSpendUsd: 2.5,
     });

@@ -37,7 +37,7 @@ describe('Phase 32 analysis contracts', () => {
     expect(supportedEfforts).toEqual(['standard']);
     expect(STANDARD_EXECUTION_BUDGET).toEqual({
       maxAttempts: 2,
-      maxToolCalls: 12,
+      maxToolCalls: 4,
       maxExecutionSeconds: 300,
       maxSpendUsd: 2.5,
     });

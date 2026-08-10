@@ -194,7 +194,7 @@ describe('GroundedExecutionAdapter', () => {
 
     expect(result).toMatchObject({ ok: true, modelId: 'model.primary', usedFallback: false });
     expect(mocks.runAgent).toHaveBeenCalled();
-    expect(mocks.runAgent.mock.calls[0]?.[0]).toMatchObject({ maxToolCalls: 12 });
+    expect(mocks.runAgent.mock.calls[0]?.[0]).toMatchObject({ maxToolCalls: 4 });
   });
 
   it('includes JSON, the current date, and semantic checklist details in the grounded prompt', async () => {

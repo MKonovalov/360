@@ -59,7 +59,7 @@ export type AnalysisEffort = (typeof supportedEfforts)[number];
 
 export const STANDARD_EXECUTION_BUDGET = Object.freeze({
   maxAttempts: 2,
-  maxToolCalls: 12,
+  maxToolCalls: 4,
   maxExecutionSeconds: 300,
   maxSpendUsd: 2.5,
 });
@@ -199,7 +199,7 @@ export const templateSnapshotSchema = z
 const budgetSchema = z
   .object({
     maxAttempts: z.literal(2),
-    maxToolCalls: z.literal(12),
+    maxToolCalls: z.literal(4),
     maxExecutionSeconds: z.literal(300),
     maxSpendUsd: z.literal(2.5),
   })

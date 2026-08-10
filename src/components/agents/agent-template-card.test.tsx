@@ -31,7 +31,7 @@ const makeTemplate = (
     defaultEffort: 'standard',
     futureBudget: {
       maxAttempts: 2,
-      maxToolCalls: 12,
+      maxToolCalls: 4,
       maxExecutionSeconds: 300,
       maxSpendUsd: 2.5,
     },

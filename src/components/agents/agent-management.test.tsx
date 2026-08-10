@@ -30,7 +30,7 @@ const fixedTemplate = (key: ManagedAnalysisTemplateRead['key'], targetType: Mana
     instruction: 'Fixed instruction',
     supportedEfforts: ['standard'],
     defaultEffort: 'standard',
-    futureBudget: { maxAttempts: 2, maxToolCalls: 12, maxExecutionSeconds: 300, maxSpendUsd: 2.5 },
+    futureBudget: { maxAttempts: 2, maxToolCalls: 4, maxExecutionSeconds: 300, maxSpendUsd: 2.5 },
     createdBy: 'seed-script',
     createdAt: '2026-08-08T00:00:00.000Z',
   },
