@@ -168,6 +168,12 @@ async function normalizeGroundedPacket(
     });
     return { ok: true as const, packet, applicationRunId };
   } catch (error: unknown) {
+    // TEMP DIAGNOSTIC (round 3 — execute() now succeeds after the
+    // prepareStep fix; the failure moved to this normalize step, which
+    // ALSO swallows its real error into a coarse 'invalid_packet').
+    console.error('[normalizeGroundedPacket] threw:', error instanceof Error
+      ? { name: error.name, message: error.message, reason: (error as { reason?: unknown }).reason }
+      : error);
     if (error instanceof AnalysisPacketValidationError) return { ok: false as const, reason: error.reason };
     return { ok: false as const, reason: 'invalid_packet' as const };
   }
