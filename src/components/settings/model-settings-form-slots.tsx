@@ -88,9 +88,7 @@ export function ModelSettingsFormSlots({
               ))}
             </SelectContent>
           </Select>
-          {resetHint !== null ? (
-            <p className="text-[14px] font-normal leading-[1.5] text-slate-600">{resetHint}</p>
-          ) : null}
+          
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col gap-2">

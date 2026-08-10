@@ -183,15 +183,7 @@ export function ModelSettingsForm({
     });
     setPrimary(result.model);
     setPrimaryProvider(nextProvider);
-    if (result.resetToDefault) {
-      setResetHint(
-        `Primary model reset to ${defaults[nextProvider].name} for ${
-          providers.find((p) => p.id === nextProvider)?.name ?? nextProvider
-        }.`,
-      );
-    } else {
-      setResetHint(null);
-    }
+    setResetHint(null);
   }
 
   function handleFallbackProviderChange(index: number, nextProvider: ModelProviderId) {
