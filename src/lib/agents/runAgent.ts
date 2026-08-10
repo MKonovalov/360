@@ -90,12 +90,24 @@ export async function runAgent({
     const remainingMs = Math.max(0, LOOP_BUDGET_MS - elapsedMs);
     const attemptMs = i === 0 ? timeouts.primaryMs : timeouts.fallbackMs;
     const totalMs = Math.min(attemptMs, remainingMs);
+    // AI_NoOutputGeneratedError root cause (verified via production logs,
+    // run #31): stopWhen only cuts the agentic loop short — it does NOT force
+    // a finalization turn. A model that never voluntarily emits
+    // finish_reason 'stop' (observed: every generation returns 'tool_call')
+    // hits the step-count limit still mid-tool-call, so run.output has
+    // nothing to return. prepareStep forces toolChoice 'none' on the LAST
+    // allowed step (0-indexed stepNumber, matches stopWhen's threshold) so
+    // that step MUST answer in text/schema form instead of requesting more
+    // tools, guaranteeing Output.object() has something to parse.
+    const finalStepCount = Math.max(1, Math.min(12, maxToolCalls + 1));
     try {
       const result = await generateText({
         model: models[i],
         tools: { webSearch: webSearchTool },
         prompt: prompt ?? buildAnalyzePrompt(company, liveSignals),
-        stopWhen: isStepCount(Math.max(1, Math.min(12, maxToolCalls + 1))),
+        stopWhen: isStepCount(finalStepCount),
+        prepareStep: ({ stepNumber }) =>
+          stepNumber >= finalStepCount - 1 ? { toolChoice: 'none' as const } : undefined,
         output: Output.object({ schema: requestedOutputSchema }),
         // FAL-04 why-comment (house convention): { totalMs } is the TOTAL
         // budget for this call INCLUDING the SDK's own retries + backoff

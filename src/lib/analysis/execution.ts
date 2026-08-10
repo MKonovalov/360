@@ -207,14 +207,6 @@ export class GroundedExecutionAdapter {
         traceUrl: traceUrl ?? null,
       };
     } catch (error) {
-      // TEMP DIAGNOSTIC (remove after root-causing the execution_failed spike):
-      // the catch here silently swallows the real error into a coarse
-      // failureReason enum — logging it once to Vercel's function logs so we
-      // can see the actual thrown error (message/name/stack) without leaking
-      // it into the DB-persisted safe audit trail.
-      console.error('[GroundedExecutionAdapter] execute() threw:', error instanceof Error
-        ? { name: error.name, message: error.message, stack: error.stack?.slice(0, 3000) }
-        : error);
       return { ok: false, failureReason: mapFailure(error), durationMs: Date.now() - startedAt };
     }
   }
