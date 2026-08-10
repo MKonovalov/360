@@ -181,10 +181,12 @@ export class GroundedExecutionAdapter {
         }),
         {
           input: {
-            runId: parsed.subjectId,
+            runId: parsed.runId,
             targetType: parsed.targetType,
+            subjectId: parsed.subjectId,
             modelChain: modelIds,
           },
+          sessionId: `run-${parsed.runId}`,
         },
       );
       const output = groundedModelOutputSchema.parse(run.output);

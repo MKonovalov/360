@@ -4,6 +4,7 @@ import { LangfuseSpanProcessor } from '@langfuse/otel';
 import { LangfuseVercelAiSdkIntegration } from '@langfuse/vercel-ai-sdk';
 import { LangfuseClient } from '@langfuse/client';
 import { startActiveObservation } from '@langfuse/tracing';
+import { propagateAttributes } from '@langfuse/tracing';
 import { z } from 'zod';
 import { SERVABLE_PROVIDERS } from '@/lib/models/catalog';
 import { modelRefSchema } from '@/lib/analysis/contracts';
@@ -110,7 +111,7 @@ export function initLangfuse(): void {
 export async function runWithPhase33Trace<T>(
   name: string,
   fn: () => Promise<T>,
-  options?: { readonly input?: unknown; readonly metadata?: Record<string, unknown> },
+  options?: { readonly input?: unknown; readonly metadata?: Record<string, unknown>; readonly sessionId?: string },
 ): Promise<{ readonly result: T; readonly traceId: string | null }> {
   // D-16 — test runs execute the callback directly and never register or call
   // Langfuse. D-15 — missing keys retain the same zero-observability behavior.
@@ -121,9 +122,8 @@ export async function runWithPhase33Trace<T>(
 
   let callbackResult: { readonly result: T; readonly traceId: string | null } | undefined;
   let callbackStarted = false;
-  try {
-    initLangfuse();
-    const observed = await startActiveObservation(
+  const observe = () =>
+    startActiveObservation(
       name,
       async (span) => {
         callbackStarted = true;
@@ -134,6 +134,12 @@ export async function runWithPhase33Trace<T>(
       },
       { asType: 'span' },
     );
+
+  try {
+    initLangfuse();
+    const observed = await (options?.sessionId
+      ? propagateAttributes({ sessionId: options.sessionId }, observe)
+      : observe());
     return { result: observed.result, traceId: observed.traceId ?? null };
   } catch (error: unknown) {
     if (callbackResult) return callbackResult;
