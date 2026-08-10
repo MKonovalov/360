@@ -124,6 +124,39 @@ export function ModelSettingsFormSlots({
             </p>
           ) : null}
         </div>
+
+        <div aria-hidden="true" className="flex shrink-0 items-center gap-2 sm:pb-0 max-sm:hidden">
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled
+            tabIndex={-1}
+            aria-hidden
+            className="invisible pointer-events-none"
+          >
+            <ArrowUp />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled
+            tabIndex={-1}
+            aria-hidden
+            className="invisible pointer-events-none"
+          >
+            <ArrowDown />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled
+            tabIndex={-1}
+            aria-hidden
+            className="invisible pointer-events-none"
+          >
+            <X />
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-2 border-t border-slate-100 pt-4">
