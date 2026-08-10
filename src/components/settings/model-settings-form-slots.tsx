@@ -65,63 +65,65 @@ export function ModelSettingsFormSlots({
 
   return (
     <>
-      <div className="flex flex-col gap-2">
-        <label htmlFor="primary-provider" className="text-[12px] font-normal leading-[1.4] text-slate-500">
-          Primary AI Provider
-        </label>
-        <Select
-          value={primaryProvider}
-          onValueChange={(value) => {
-            const provider = providers.find((option) => option.id === value)?.id;
-            if (provider) onPrimaryProviderChange(provider);
-          }}
-        >
-          <SelectTrigger id="primary-provider" aria-label="Primary AI Provider" size="default">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {providers.map((provider) => (
-              <SelectItem key={provider.id} value={provider.id}>
-                {provider.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {resetHint !== null ? (
-          <p className="text-[14px] font-normal leading-[1.5] text-slate-600">{resetHint}</p>
-        ) : null}
-      </div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <label htmlFor="primary-provider" className="text-[12px] font-normal leading-[1.4] text-slate-500">
+            Primary AI Provider
+          </label>
+          <Select
+            value={primaryProvider}
+            onValueChange={(value) => {
+              const provider = providers.find((option) => option.id === value)?.id;
+              if (provider) onPrimaryProviderChange(provider);
+            }}
+          >
+            <SelectTrigger id="primary-provider" aria-label="Primary AI Provider" size="default">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {providers.map((provider) => (
+                <SelectItem key={provider.id} value={provider.id}>
+                  {provider.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {resetHint !== null ? (
+            <p className="text-[14px] font-normal leading-[1.5] text-slate-600">{resetHint}</p>
+          ) : null}
+        </div>
 
-      <div className="flex flex-col gap-2">
-        <label htmlFor="primary-model" className="text-[12px] font-normal leading-[1.4] text-slate-500">
-          Primary AI Model
-        </label>
-        <ModelPicker
-          id="primary-model"
-          ariaLabel="Primary AI Model"
-          value={primaryModel}
-          valueName={unionServableModels.find((model) => model.id === primaryModel)?.name}
-          options={optionsForSlot(
-            primaryModel,
-            fallbackModels,
-            -1,
-            servableByProvider[primaryProvider],
-          )}
-          onChange={onPrimaryModelChange}
-          placeholder="Select a model…"
-          badge={primaryProvider}
-          grouped={false}
-          staleLabel={
-            isStale(primaryModel)
-              ? (savedChain?.find((slot) => slot.id === primaryModel)?.name ?? primaryModel)
-              : null
-          }
-        />
-        {isStale(primaryModel) ? (
-          <p className="text-[14px] font-normal leading-[1.5] text-red-600">
-            This model is no longer runnable — pick a replacement before saving.
-          </p>
-        ) : null}
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <label htmlFor="primary-model" className="text-[12px] font-normal leading-[1.4] text-slate-500">
+            Primary AI Model
+          </label>
+          <ModelPicker
+            id="primary-model"
+            ariaLabel="Primary AI Model"
+            value={primaryModel}
+            valueName={unionServableModels.find((model) => model.id === primaryModel)?.name}
+            options={optionsForSlot(
+              primaryModel,
+              fallbackModels,
+              -1,
+              servableByProvider[primaryProvider],
+            )}
+            onChange={onPrimaryModelChange}
+            placeholder="Select a model…"
+            badge={primaryProvider}
+            grouped={false}
+            staleLabel={
+              isStale(primaryModel)
+                ? (savedChain?.find((slot) => slot.id === primaryModel)?.name ?? primaryModel)
+                : null
+            }
+          />
+          {isStale(primaryModel) ? (
+            <p className="text-[14px] font-normal leading-[1.5] text-red-600">
+              This model is no longer runnable — pick a replacement before saving.
+            </p>
+          ) : null}
+        </div>
       </div>
 
       <div className="flex flex-col gap-2 border-t border-slate-100 pt-4">
