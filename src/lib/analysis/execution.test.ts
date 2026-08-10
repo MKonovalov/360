@@ -135,6 +135,24 @@ describe('GroundedExecutionAdapter', () => {
     expect(mocks.runAgent.mock.calls[0]?.[0]).toMatchObject({ maxToolCalls: 12 });
   });
 
+  it('includes JSON in the grounded prompt for structured-output providers', async () => {
+    const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });
+
+    await adapter.execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklistSignalIds: [1],
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+    });
+
+    const prompt = mocks.runAgent.mock.calls[0]?.[0]?.prompt;
+    expect(typeof prompt).toBe('string');
+    expect(/json/i.test(prompt)).toBe(true);
+  });
+
   it('fails persona runs cleanly under the standard approved policy until a persona policy exists', async () => {
     const adapter = new GroundedExecutionAdapter({
       runAgent: vi.fn(),
