@@ -34,9 +34,41 @@ function createInput(type: AnalysisTargetType = 'company') {
       targetType: type,
       practiceAreaId: 7,
       practiceAreaName: 'GBS',
-      items: [],
+    items: [],
     },
     resolvedModelChain: ['model.primary', 'model.fallback'],
+  };
+}
+
+function createCustomInput() {
+  const input = createInput();
+  return {
+    ...input,
+    template: {
+      ...input.template,
+      templateId: 30,
+      templateVersionId: 31,
+      templateKey: 'custom-agent-opaque-1',
+      templateName: 'Cost pressure scout',
+      version: 2,
+      resolvedInstruction: 'Use the snapshotted behavior instruction.',
+      custom: {
+        schemaVersion: 1 as const,
+        customAgentId: 'custom-agent-opaque-1',
+        templateVersionId: 31,
+        version: 2,
+        name: 'Cost pressure scout',
+        description: 'Find public evidence of cost pressure.',
+        researchQuery: 'Find recent public evidence.',
+        behaviorInstruction: 'Use only grounded evidence.',
+        capabilityPresetIds: ['web-research'],
+        outputSchema: {
+          type: 'object' as const,
+          properties: { riskScore: { type: 'number' as const, nullable: true } },
+          required: ['riskScore'],
+        },
+      },
+    },
   };
 }
 
@@ -228,5 +260,55 @@ describe('buildAnalysisSnapshots', () => {
     expect(Object.isFrozen(result.executionSnapshot.resolvedModelChain)).toBe(true);
     expect(Reflect.set(result.templateSnapshot, 'resolvedInstruction', 'mutated-result')).toBe(false);
     expect(Reflect.set(result.executionSnapshot.resolvedModelChain, 0, 'mutated-result-model')).toBe(false);
+  });
+
+  it('snapshots custom identity, configuration, output storage, and all mutable replay inputs', () => {
+    const input = createCustomInput();
+    const result = buildPhase33AnalysisSnapshots(input, PHASE33_STANDARD_APPROVED_POLICY);
+
+    expect(result.templateSnapshot.custom).toEqual(input.template.custom);
+    expect(result.executionSnapshot.customOutputSchema).toEqual({
+      schemaVersion: 1,
+      storage: 'analysis_run_result.raw_audit.customOutput',
+      fields: input.template.custom.outputSchema,
+    });
+    expect(result.executionSnapshot.policy).toEqual(PHASE33_STANDARD_APPROVED_POLICY);
+
+    input.template.custom.behaviorInstruction = 'mutated behavior';
+    input.template.custom.outputSchema.properties.riskScore.nullable = false;
+    input.subject.displayName = 'Mutated subject';
+    (input.checklist.items as Array<{
+      signalId: number;
+      status: 'active';
+      name: string;
+      category: string;
+      description: string;
+    }>).push({
+      signalId: 99,
+      status: 'active',
+      name: 'Mutated signal',
+      category: 'Financial',
+      description: 'Must not enter the replay snapshot.',
+    });
+    input.resolvedModelChain[0] = 'mutated-model';
+
+    expect(result.templateSnapshot.custom?.behaviorInstruction).toBe('Use only grounded evidence.');
+    const customOutputSchema = result.executionSnapshot.customOutputSchema;
+    expect(customOutputSchema).not.toBeNull();
+    if (customOutputSchema !== null && customOutputSchema !== undefined) {
+      expect(customOutputSchema.fields?.properties.riskScore.type).toBe('number');
+    }
+    expect(result.subjectSnapshot.displayName).toBe('Example Company');
+    expect(result.checklistSnapshot.items).toHaveLength(0);
+    expect(result.executionSnapshot.resolvedModelChain[0]).not.toBe('mutated-model');
+    expect(Object.isFrozen(result.templateSnapshot.custom)).toBe(true);
+    expect(Object.isFrozen(customOutputSchema?.fields?.properties)).toBe(true);
+  });
+
+  it('keeps fixed snapshots byte-compatible by omitting custom fields', () => {
+    const result = buildPhase33AnalysisSnapshots(createInput());
+
+    expect(result.templateSnapshot).not.toHaveProperty('custom');
+    expect(result.executionSnapshot).not.toHaveProperty('customOutputSchema');
   });
 });

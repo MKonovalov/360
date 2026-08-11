@@ -87,6 +87,17 @@ export function buildPhase33AnalysisSnapshots(
       resolvedModelChain: validatedInput.resolvedModelChain,
       futureBudget: STANDARD_EXECUTION_BUDGET,
       policy,
+      ...(validatedInput.template.custom === undefined
+        ? {}
+        : {
+            customOutputSchema: validatedInput.template.custom.outputSchema === null
+              ? null
+              : {
+                  schemaVersion: 1 as const,
+                  storage: 'analysis_run_result.raw_audit.customOutput' as const,
+                  fields: validatedInput.template.custom.outputSchema,
+                },
+          }),
     },
     policy,
     templateVersionId: validatedInput.template.templateVersionId,
