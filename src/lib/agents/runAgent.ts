@@ -113,7 +113,7 @@ export async function runAgent({
         prompt: prompt ?? buildAnalyzePrompt(company, liveSignals),
         stopWhen: isStepCount(finalStepCount),
         prepareStep: ({ stepNumber }) =>
-          stepNumber >= finalStepCount - 1 ? { toolChoice: 'none' as const } : undefined,
+          stepNumber >= finalStepCount - 1 ? { toolChoice: 'none' as const, activeTools: [] } : undefined,
         output: Output.object({ schema: requestedOutputSchema }),
         // FAL-04 why-comment (house convention): { totalMs } is the TOTAL
         // budget for this call INCLUDING the SDK's own retries + backoff

@@ -153,7 +153,7 @@ describe('runAgent (09-01-01)', () => {
   it('accepts an injected grounded prompt without changing the provider loop', async () => {
     await runAgent({ company, liveSignals: [], prompt: 'safe grounded prompt' });
 
-    expect(mocks.generateText.mock.calls[0][0].prompt).toBe('safe grounded prompt');
+    expect({ prompt: mocks.generateText.mock.calls[0][0].prompt, earlier: mocks.generateText.mock.calls[0][0].prepareStep({ stepNumber: 10 }), final: mocks.generateText.mock.calls[0][0].prepareStep({ stepNumber: 11 }) }).toEqual({ prompt: 'safe grounded prompt', earlier: undefined, final: { toolChoice: 'none', activeTools: [] } });
   });
 });
 
