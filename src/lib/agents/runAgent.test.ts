@@ -441,6 +441,16 @@ describe('buildAnalyzePrompt (Test 3)', () => {
     expect(prompt).toMatch(/fabricat/i);
     expect(prompt).toMatch(/URL|url/i);
   });
+
+  it('includes the generated output schema contract for generic JSON-mode providers', () => {
+    const prompt = buildAnalyzePrompt(company, []);
+
+    expect(prompt).toContain('"properties"');
+    expect(prompt).toContain('"proposals"');
+    expect(prompt).toContain('"keyUncertainties"');
+    expect(prompt).toContain('"evidenceAppendix"');
+    expect(prompt).toContain('"default":[]');
+  });
 });
 
 // D-20-08 (VER-01 gap): isOpenRouterPlatformRateLimit is diagnostics-only — the

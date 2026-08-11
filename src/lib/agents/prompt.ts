@@ -1,4 +1,10 @@
-import type { CompanyInput, LiveSignalInput } from './types';
+import { zodToJsonSchema } from 'zod-to-json-schema';
+
+import { outputSchema, type CompanyInput, type LiveSignalInput } from './types';
+
+const outputSchemaJson = JSON.stringify(
+  zodToJsonSchema(outputSchema, { $refStrategy: 'none' }),
+);
 
 // Pure, dependency-free prompt builder (D-07 lean). The model receives ONLY
 // this text plus webSearch tool results — fetched content is never spliced
@@ -42,5 +48,8 @@ Rules:
 - If you find no credible signals, return an empty proposals list.
 - You have a 60-second budget — search lean, do not go on multi-page dives.
 
-Produce the analysis as structured JSON matching the provided output schema.`;
+Produce the analysis as structured JSON matching the provided output schema.
+
+Output JSON Schema:
+${outputSchemaJson}`;
 }

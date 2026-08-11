@@ -1,10 +1,16 @@
-import { APICallError, generateText, isStepCount, Output, type LanguageModel } from 'ai';
+import {
+  APICallError,
+  generateText,
+  isStepCount,
+  Output,
+  type FlexibleSchema,
+  type LanguageModel,
+} from 'ai';
 import { buildAnalyzePrompt } from './prompt';
 import { webSearchTool } from './tools';
 import { outputSchema, type CompanyInput, type LiveSignalInput } from './types';
 import { classifyModelError, isFailoverEligible, shouldAdvance } from './modelConfig';
 import { defaultChain } from './modelFactory';
-import type { ZodType } from 'zod';
 // D-20-07: provider identity for the hop decision is catalog-derived — static,
 // env-free imports (modelConfig.ts Pattern 2); constraint 11 untouched, the
 // catalog is NOT a provider SDK.
@@ -28,7 +34,7 @@ export interface RunAgentInput {
   // early 5xx) leaves ~280s for a complete fallback analysis.
   timeouts?: { primaryMs: number; fallbackMs: number };
   prompt?: string;
-  outputSchema?: ZodType;
+  outputSchema?: FlexibleSchema;
   maxToolCalls?: number;
 }
 
