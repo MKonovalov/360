@@ -4,6 +4,7 @@ import { ANALYSIS_RUN_STATUSES } from './contracts';
 import {
   analysisPreviewInputSchema,
   analysisPreviewResponseSchema,
+  analysisRunLaunchInputSchema,
   analysisRunHistoryRowSchema,
   confirmedCandidateDisplayRowSchema,
 } from './experienceContracts';
@@ -57,6 +58,24 @@ const candidate = {
 };
 
 describe('Phase 35 experience contracts', () => {
+  it('parses fixed and custom launch selections without accepting authored execution fields', () => {
+    expect(analysisRunLaunchInputSchema.parse({
+      subject: { type: 'company', id: 42 },
+      practiceAreaId: 3,
+      selection: { kind: 'fixed', templateVersionId: 11 },
+    }).selection).toEqual({ kind: 'fixed', templateVersionId: 11 });
+    expect(analysisRunLaunchInputSchema.parse({
+      subject: { type: 'company', id: 42 },
+      practiceAreaId: 3,
+      selection: { kind: 'custom', customAgentId: 'agent-opaque', templateVersionId: 12 },
+    }).selection).toEqual({ kind: 'custom', customAgentId: 'agent-opaque', templateVersionId: 12 });
+    expect(analysisRunLaunchInputSchema.safeParse({
+      subject: { type: 'company', id: 42 },
+      practiceAreaId: 3,
+      selection: { kind: 'custom', customAgentId: 'agent-opaque', templateVersionId: 12, modelChain: ['forged'] },
+    }).success).toBe(false);
+  });
+
   it('accepts only a subject and practice-area identifier as preview input', () => {
     expect(
       analysisPreviewInputSchema.parse({

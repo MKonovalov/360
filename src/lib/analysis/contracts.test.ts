@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   ANALYSIS_RUN_STATUSES,
   analysisSnapshotSchema,
+  analysisAgentSelectionSchema,
+  customOutputSchemaSnapshotSchema,
+  parseAnalysisModelOutput,
   analysisSubjectSchema,
   analysisRunStatusSchema,
   boundedAttemptSchema,
@@ -221,5 +224,61 @@ describe('Phase 32 analysis contracts', () => {
     expect(safeOutcomeSchema.safeParse({ ok: false, reason: 'private_reasoning', attempts: 1 }).success).toBe(
       false,
     );
+  });
+
+  it('accepts only opaque fixed or custom launch selections', () => {
+    expect(analysisAgentSelectionSchema.parse({ kind: 'fixed', templateVersionId: 11 })).toEqual({
+      kind: 'fixed',
+      templateVersionId: 11,
+    });
+    expect(analysisAgentSelectionSchema.parse({
+      kind: 'custom',
+      customAgentId: 'custom-agent-opaque-1',
+      templateVersionId: 42,
+    })).toEqual({
+      kind: 'custom',
+      customAgentId: 'custom-agent-opaque-1',
+      templateVersionId: 42,
+    });
+
+    for (const input of [
+      { kind: 'custom', customAgentId: 'agent', templateVersionId: 42, behaviorInstruction: 'forged' },
+      { kind: 'custom', customAgentId: 'agent', templateVersionId: 42, provider: 'forged' },
+      { kind: 'fixed', templateVersionId: 11, actorId: 'forged' },
+      { kind: 'custom', customAgentId: 'agent' },
+    ]) {
+      expect(analysisAgentSelectionSchema.safeParse(input).success).toBe(false);
+    }
+  });
+
+  it('preserves fixed output envelope and requires additive custom output only for custom runs', () => {
+    const fixed = { narrative: 'summary', findings: [] };
+    expect(parseAnalysisModelOutput(fixed)).toEqual(fixed);
+    expect(() => parseAnalysisModelOutput({ ...fixed, custom: {} })).toThrow();
+
+    const customSchema = {
+      type: 'object' as const,
+      properties: { riskScore: { type: 'number' as const } },
+      required: ['riskScore'],
+    };
+    expect(parseAnalysisModelOutput({ ...fixed, custom: { riskScore: 3 } }, customSchema)).toEqual({
+      ...fixed,
+      custom: { riskScore: 3 },
+    });
+    expect(() => parseAnalysisModelOutput({ ...fixed, custom: {} }, customSchema)).toThrow();
+    expect(() => parseAnalysisModelOutput({ ...fixed, custom: { riskScore: 3, evidence: 'forged' } }, customSchema)).toThrow();
+  });
+
+  it('locks the sole custom output persistence path', () => {
+    expect(customOutputSchemaSnapshotSchema.parse({
+      schemaVersion: 1,
+      storage: 'analysis_run_result.raw_audit.customOutput',
+      fields: { type: 'object', properties: {}, required: [] },
+    }).storage).toBe('analysis_run_result.raw_audit.customOutput');
+    expect(customOutputSchemaSnapshotSchema.safeParse({
+      schemaVersion: 1,
+      storage: 'other.path',
+      fields: { type: 'object', properties: {}, required: [] },
+    }).success).toBe(false);
   });
 });

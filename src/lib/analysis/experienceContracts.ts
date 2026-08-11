@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import {
   analysisEffortSchema,
+  analysisAgentSelectionSchema,
   analysisRunStatusSchema,
   analysisSubjectSchema,
   analysisTargetTypeSchema,
@@ -19,6 +20,15 @@ const safeNameSchema = z.string().trim().min(1).max(500);
 const serverTimestampSchema = z.string().datetime({ offset: true });
 const safeReasonSchema = z.string().trim().min(1).max(500);
 const packetHashSchema = z.string().regex(/^[a-f0-9]{64}$/);
+
+export const analysisRunLaunchInputSchema = z
+  .object({
+    subject: analysisSubjectSchema,
+    practiceAreaId: positiveIdSchema,
+    selection: analysisAgentSelectionSchema,
+  })
+  .strict();
+export type AnalysisRunLaunchInput = z.infer<typeof analysisRunLaunchInputSchema>;
 
 const previewTemplateSchema = z
   .object({

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { SERVABLE_PROVIDERS } from '@/lib/models/catalog';
 import type { ModelRef } from '@/lib/models/modelRef';
+import type { BoundedOutputSchema, NormalizedOutputField } from './customAgentContracts';
 
 export const ANALYSIS_RUN_STATUSES = [
   'queued',
@@ -185,6 +186,74 @@ export const analysisSubjectSchema = z.discriminatedUnion('type', [
 ]);
 export type AnalysisSubject = z.infer<typeof analysisSubjectSchema>;
 
+const opaqueIdentitySchema = z.string().trim().min(1).max(120);
+
+export const analysisAgentSelectionSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('fixed'),
+    templateVersionId: positiveIdSchema,
+  }).strict(),
+  z.object({
+    kind: z.literal('custom'),
+    customAgentId: opaqueIdentitySchema,
+    templateVersionId: positiveIdSchema,
+  }).strict(),
+]);
+export type AnalysisAgentSelection = z.infer<typeof analysisAgentSelectionSchema>;
+
+const customTemplateSnapshotSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    customAgentId: opaqueIdentitySchema,
+    templateVersionId: positiveIdSchema,
+    version: positiveIdSchema,
+    name: safeNameSchema,
+    description: z.string().trim().min(1).max(500),
+    researchQuery: z.string().trim().min(1).max(4_000),
+    behaviorInstruction: z.string().trim().min(1).max(8_000),
+    capabilityPresetIds: z.array(z.string().trim().min(1).max(64)).max(2),
+    outputSchema: z.custom<BoundedOutputSchema>((value) => boundedOutputSchemaForContract.safeParse(value).success).nullable(),
+  })
+  .strict();
+
+export type CustomTemplateSnapshot = z.infer<typeof customTemplateSnapshotSchema>;
+
+const boundedOutputFieldForContract = (field: NormalizedOutputField): z.ZodType<unknown> => {
+  const primitive = field.type === 'string'
+    ? z.string()
+    : field.type === 'number'
+      ? z.number()
+      : field.type === 'boolean'
+        ? z.boolean()
+        : z.array(field.items?.type === 'string' ? z.string() : field.items?.type === 'number' ? z.number() : z.boolean()).max(field.maxItems ?? 20);
+  return field.nullable === true ? primitive.nullable() : primitive;
+};
+
+const boundedOutputSchemaForContract = z
+  .object({
+    type: z.literal('object'),
+    properties: z.record(z.string(), z.unknown()),
+    required: z.array(z.string()),
+  })
+  .strict()
+  .superRefine((schema, context) => {
+    for (const [name, field] of Object.entries(schema.properties)) {
+      if (!field || typeof field !== 'object' || Array.isArray(field)) {
+        context.addIssue({ code: 'custom', path: ['properties', name], message: 'invalid_output_field' });
+      }
+    }
+  });
+
+export const customOutputSchemaSnapshotSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    storage: z.literal('analysis_run_result.raw_audit.customOutput'),
+    fields: z.custom<BoundedOutputSchema>((value) => boundedOutputSchemaForContract.safeParse(value).success),
+  })
+  .strict();
+
+export type CustomOutputSchemaSnapshot = z.infer<typeof customOutputSchemaSnapshotSchema>;
+
 export const subjectSnapshotSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('company'), id: positiveIdSchema, displayName: safeNameSchema }).strict(),
   z.object({ type: z.literal('persona'), id: positiveIdSchema, displayName: safeNameSchema }).strict(),
@@ -193,7 +262,8 @@ export const subjectSnapshotSchema = z.discriminatedUnion('type', [
 export const templateSnapshotSchema = z
   .object({ schemaVersion: z.literal(1), templateId: positiveIdSchema, templateVersionId: positiveIdSchema,
     templateKey: safeSlugSchema, templateName: safeNameSchema, targetType: analysisTargetTypeSchema,
-    version: positiveIdSchema, resolvedInstruction: z.string().trim().min(1).max(20_000), effort: analysisEffortSchema })
+    version: positiveIdSchema, resolvedInstruction: z.string().trim().min(1).max(20_000), effort: analysisEffortSchema,
+    custom: customTemplateSnapshotSchema.optional() })
   .strict();
 
 const budgetSchema = z
@@ -314,6 +384,7 @@ export const executionSnapshotSchema = z
     resolvedModelChain: z.array(z.union([modelRefSchema, safeModelIdSchema])).min(1).max(8),
     futureBudget: budgetSchema,
     policy: z.union([policySnapshotSchema, phase33PolicySnapshotSchema]),
+    customOutputSchema: customOutputSchemaSnapshotSchema.nullable().optional(),
   })
   .strict();
 
@@ -351,6 +422,33 @@ export const analysisSnapshotSchema = z
 
 export type AnalysisSnapshot = z.infer<typeof analysisSnapshotSchema>;
 export type ReadonlyAnalysisSnapshot = DeepReadonly<AnalysisSnapshot>;
+
+const fixedModelOutputSchema = z
+  .object({ narrative: z.string().trim().min(1).max(12_000), findings: z.array(z.unknown()).max(100) })
+  .strict();
+
+function outputSchemaForModel(schema: BoundedOutputSchema): z.ZodType<unknown> {
+  const shape: Record<string, z.ZodType<unknown>> = {};
+  for (const [name, field] of Object.entries(schema.properties)) {
+    const valueSchema = boundedOutputFieldForContract(field);
+    shape[name] = schema.required.includes(name) ? valueSchema : valueSchema.optional();
+  }
+  return z.object(shape).strict();
+}
+
+export type AnalysisModelOutput =
+  | z.infer<typeof fixedModelOutputSchema>
+  | (z.infer<typeof fixedModelOutputSchema> & { readonly custom: Readonly<Record<string, unknown>> });
+
+export function parseAnalysisModelOutput(input: unknown, customOutputSchema?: BoundedOutputSchema): AnalysisModelOutput {
+  if (customOutputSchema === undefined) return fixedModelOutputSchema.parse(input);
+  const parsed = z.object({
+    narrative: z.string().trim().min(1).max(12_000),
+    findings: z.array(z.unknown()).max(100),
+    custom: outputSchemaForModel(customOutputSchema),
+  }).strict().parse(input);
+  return parsed;
+}
 
 export const safeOutcomeReasons = [
   'invalid_input',
