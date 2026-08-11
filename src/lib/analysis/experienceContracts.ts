@@ -53,6 +53,7 @@ export const analysisPreviewInputSchema = z
   .object({
     subject: analysisSubjectSchema,
     practiceAreaId: positiveIdSchema,
+    selection: analysisAgentSelectionSchema.optional(),
   })
   .strict();
 export type AnalysisPreviewInput = z.infer<typeof analysisPreviewInputSchema>;
@@ -65,6 +66,13 @@ export const analysisPreviewResponseSchema = z
     practiceArea: previewPracticeAreaSchema,
     checklist: checklistSnapshotSchema,
     effort: analysisEffortSchema,
+    selection: analysisAgentSelectionSchema.optional(),
+    capabilities: z.array(z.object({
+      id: z.string().trim().min(1).max(64),
+      label: safeNameSchema,
+      purpose: safeNameSchema,
+    }).strict()).optional(),
+    outputSchema: z.object({ fieldCount: z.number().int().nonnegative().max(12) }).strict().nullable().optional(),
   })
   .strict()
   .superRefine((preview, context) => {

@@ -1,70 +1,57 @@
-import { deriveActiveChecklist } from '@/lib/analysis/checklist';
 import {
   analysisPreviewInputSchema,
   analysisPreviewResponseSchema,
 } from '@/lib/analysis/experienceContracts';
-import {
-  resolveActivePracticeArea,
-  resolveAnalysisSubject,
-  resolveAnalysisTemplateVersion,
-  type AnalysisResolutionReason,
-} from '@/lib/analysis/subjects';
+import { resolveAnalysisLaunch } from '@/lib/analysis/compatibility';
+import { analysisAgentSelectionSchema, PHASE33_STANDARD_APPROVED_POLICY } from '@/lib/analysis/contracts';
+import { isPhase36FixtureMode, PHASE36_APPROVED_POLICY } from '@/lib/verification/phase36Fixtures';
 import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { listActiveAnalysisTemplates } from '@/lib/db/queries/analysisTemplates';
+import { listCapabilityPresetCards } from '@/lib/analysis/capabilityPresets';
 
 export async function POST(request: Request): Promise<Response> {
-  await requireStaffAccess();
+  const { userId } = await requireStaffAccess();
 
   let input: unknown;
   try {
     input = await request.json();
   } catch (error: unknown) {
-    if (error instanceof SyntaxError) {
-      return Response.json({ error: 'invalid_input' }, { status: 400 });
-    }
+    if (error instanceof SyntaxError) return Response.json({ error: 'invalid_input' }, { status: 400 });
     throw error;
   }
 
   const parsed = analysisPreviewInputSchema.safeParse(input);
-  if (!parsed.success) {
-    return Response.json({ error: 'invalid_input' }, { status: 400 });
-  }
+  if (!parsed.success) return Response.json({ error: 'invalid_input' }, { status: 400 });
 
-  const targetType = parsed.data.subject.type;
-  const compatibleTemplates = await listActiveAnalysisTemplates(targetType);
-  if (compatibleTemplates.length === 0) {
-    return Response.json({ error: 'template_not_found' }, { status: 404 });
+  let selection = parsed.data.selection;
+  if (selection === undefined) {
+    const templates = await listActiveAnalysisTemplates(parsed.data.subject.type);
+    const template = templates[0];
+    if (template === undefined) return Response.json({ error: 'template_not_found' }, { status: 404 });
+    selection = { kind: 'fixed', templateVersionId: template.templateVersionId };
   }
-  const templateIds = new Set(compatibleTemplates.map((template) => template.templateId));
-  if (templateIds.size !== 1) {
-    return Response.json({ error: 'template_configuration_invalid' }, { status: 409 });
-  }
+  const selectionInput = analysisAgentSelectionSchema.safeParse(selection);
+  if (!selectionInput.success) return Response.json({ error: 'invalid_input' }, { status: 400 });
 
-  const templateOption = compatibleTemplates.reduce((latest, candidate) =>
-    candidate.version > latest.version ? candidate : latest,
-  );
-  if (!templateOption) {
-    return Response.json({ error: 'template_not_found' }, { status: 404 });
-  }
-  if (templateOption.targetType !== targetType) {
-    return Response.json({ error: 'subject_type_mismatch' }, { status: 409 });
-  }
-  const templateResolution = await resolveAnalysisTemplateVersion(templateOption.templateVersionId);
-  if (!templateResolution.ok) return resolutionErrorResponse(templateResolution.reason);
-  if (templateResolution.value.targetType !== targetType) {
-    return Response.json({ error: 'subject_type_mismatch' }, { status: 409 });
-  }
+  const policy = isPhase36FixtureMode() ? PHASE36_APPROVED_POLICY : PHASE33_STANDARD_APPROVED_POLICY;
+  const resolved = await resolveAnalysisLaunch({
+    userId,
+    subject: parsed.data.subject,
+    practiceAreaId: parsed.data.practiceAreaId,
+    selection: selectionInput.data,
+    policy,
+  });
+  if (!resolved.ok) return resolutionErrorResponse(resolved.reason);
 
-  const subjectResolution = await resolveAnalysisSubject(parsed.data.subject, targetType);
-  if (!subjectResolution.ok) return resolutionErrorResponse(subjectResolution.reason);
-
-  const practiceAreaResolution = await resolveActivePracticeArea(parsed.data.practiceAreaId);
-  if (!practiceAreaResolution.ok) return resolutionErrorResponse(practiceAreaResolution.reason);
-
-  const checklist = await deriveActiveChecklist(subjectResolution.value.type, practiceAreaResolution.value);
-  const template = templateResolution.value;
+  const { template } = resolved.value;
+  const capabilities = template.custom === undefined
+    ? []
+    : listCapabilityPresetCards()
+      .filter((card) => template.custom?.latest.capabilityPresetIds.includes(card.id))
+      .map((card) => ({ id: card.id, label: card.label, purpose: card.purpose }));
+  const outputSchema = template.custom?.latest.outputSchema;
   const preview = analysisPreviewResponseSchema.parse({
-    subject: subjectResolution.value,
+    subject: resolved.value.subject,
     template: {
       templateId: template.templateId,
       templateVersionId: template.templateVersionId,
@@ -74,40 +61,21 @@ export async function POST(request: Request): Promise<Response> {
       version: template.version,
     },
     instruction: template.instruction,
-    practiceArea: practiceAreaResolution.value,
-    checklist,
-    effort: 'standard',
+    practiceArea: resolved.value.practiceArea,
+    checklist: resolved.value.checklist,
+    effort: template.effort,
+    selection: selectionInput.data,
+    capabilities,
+    outputSchema: outputSchema === undefined || outputSchema === null
+      ? null
+      : { fieldCount: Object.keys(outputSchema.properties).length },
   });
-
   return Response.json(preview, { status: 200 });
 }
 
-function resolutionErrorResponse(reason: AnalysisResolutionReason): Response {
-  switch (reason) {
-    case 'invalid_input':
-    case 'practice_area_required':
-      return Response.json({ error: reason }, { status: 400 });
-    case 'template_version_not_found':
-    case 'subject_not_found':
-    case 'practice_area_not_found':
-      return Response.json({ error: reason }, { status: 404 });
-    case 'template_not_active':
-    case 'template_version_not_current':
-    case 'subject_type_mismatch':
-      return Response.json({ error: reason }, { status: 409 });
-    default:
-      return assertNeverResolutionReason(reason);
-  }
-}
-
-function assertNeverResolutionReason(reason: never): never {
-  throw new AnalysisPreviewResolutionInvariantError(reason);
-}
-
-class AnalysisPreviewResolutionInvariantError extends Error {
-  readonly name = 'AnalysisPreviewResolutionInvariantError';
-
-  constructor(readonly reason: never) {
-    super(`Unexpected analysis preview resolution reason: ${String(reason)}`);
-  }
+function resolutionErrorResponse(reason: string): Response {
+  const status = reason.endsWith('_not_found') || reason === 'custom_agent_not_found' ? 404
+    : reason === 'invalid_input' || reason === 'practice_area_required' ? 400
+      : 409;
+  return Response.json({ error: reason }, { status });
 }
