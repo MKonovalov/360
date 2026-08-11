@@ -212,7 +212,7 @@ describe('GroundedExecutionAdapter', () => {
 
     const prompt = mocks.runAgent.mock.calls[0]?.[0]?.prompt;
     const today = new Date().toISOString().slice(0, 10);
-    expect(typeof prompt).toBe('string');
+    expect(prompt).toContain('Output JSON Schema:');
     expect(/json/i.test(prompt)).toBe(true);
     expect(prompt).toContain(`Today's date: ${today}.`);
     expect(prompt).toContain('- 1: New CFO (executive_change) — Company announced a new CFO.');
