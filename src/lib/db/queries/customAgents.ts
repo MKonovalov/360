@@ -36,6 +36,15 @@ export type CustomAgentRead = {
   readonly history: readonly CustomAgentVersionRead[];
 };
 
+export type CustomAgentLaunchRead = {
+  readonly templateId: number;
+  readonly customAgentId: string;
+  readonly targetType: AnalysisTargetType;
+  readonly practiceAreaId: number;
+  readonly status: 'active' | 'retired';
+  readonly latest: CustomAgentVersionRead;
+};
+
 export type CustomAgentManagementResult =
   | { readonly ok: true; readonly kind: 'created' | 'version_appended' | 'lifecycle_updated'; readonly agent: CustomAgentRead }
   | { readonly ok: false; readonly reason: 'not_found' | 'conflict' | 'invalid_transition' };
@@ -130,6 +139,104 @@ export async function listManagedCustomAgents(): Promise<CustomAgentRead[]> {
     ORDER BY t.id ASC, v.version DESC
   `);
   return groupCustomAgents(result.rows);
+}
+
+export async function listActiveCustomAgentOptions(
+  targetType: AnalysisTargetType,
+  practiceAreaId: number,
+): Promise<readonly CustomAgentLaunchRead[]> {
+  const result = await db.execute<CustomAgentQueryRow>(sql`
+    SELECT
+      t.id AS "templateId",
+      t.key AS "customAgentId",
+      t.target_type AS "targetType",
+      t.practice_area_id AS "practiceAreaId",
+      t.status,
+      v.id AS "templateVersionId",
+      v.version,
+      v.custom_name AS "name",
+      v.description,
+      v.research_query AS "researchQuery",
+      v.behavior_instruction AS "behaviorInstruction",
+      v.structured_output_schema AS "outputSchema",
+      v.capability_preset_ids AS "capabilityPresetIds",
+      v.supported_efforts AS "supportedEfforts",
+      v.default_effort AS "defaultEffort",
+      v.created_by AS "createdBy",
+      v.created_at AS "createdAt"
+    FROM analysis_template AS t
+    INNER JOIN analysis_template_version AS v ON v.template_id = t.id
+    WHERE t.kind = 'custom'
+      AND t.status = 'active'
+      AND t.target_type = ${targetType}
+      AND t.practice_area_id = ${practiceAreaId}
+      AND v.kind = 'custom'
+      AND v.version = (
+        SELECT MAX(current_version.version)
+        FROM analysis_template_version AS current_version
+        WHERE current_version.template_id = t.id
+          AND current_version.kind = 'custom'
+      )
+    ORDER BY t.id ASC
+  `);
+  return result.rows.map((row) => ({
+    templateId: row.templateId,
+    customAgentId: row.customAgentId,
+    targetType: row.targetType,
+    practiceAreaId: row.practiceAreaId,
+    status: row.status,
+    latest: toCustomVersionRead(row),
+  }));
+}
+
+export async function getActiveCustomAgentLaunchVersion(
+  customAgentId: string,
+  templateVersionId: number,
+): Promise<CustomAgentLaunchRead | undefined> {
+  const result = await db.execute<CustomAgentQueryRow>(sql`
+    SELECT
+      t.id AS "templateId",
+      t.key AS "customAgentId",
+      t.target_type AS "targetType",
+      t.practice_area_id AS "practiceAreaId",
+      t.status,
+      v.id AS "templateVersionId",
+      v.version,
+      v.custom_name AS "name",
+      v.description,
+      v.research_query AS "researchQuery",
+      v.behavior_instruction AS "behaviorInstruction",
+      v.structured_output_schema AS "outputSchema",
+      v.capability_preset_ids AS "capabilityPresetIds",
+      v.supported_efforts AS "supportedEfforts",
+      v.default_effort AS "defaultEffort",
+      v.created_by AS "createdBy",
+      v.created_at AS "createdAt"
+    FROM analysis_template AS t
+    INNER JOIN analysis_template_version AS v ON v.template_id = t.id
+    WHERE t.key = ${customAgentId}
+      AND t.kind = 'custom'
+      AND t.status = 'active'
+      AND v.id = ${templateVersionId}
+      AND v.kind = 'custom'
+      AND v.version = (
+        SELECT MAX(current_version.version)
+        FROM analysis_template_version AS current_version
+        WHERE current_version.template_id = t.id
+          AND current_version.kind = 'custom'
+      )
+  `);
+  const row = result.rows[0];
+  return row === undefined
+    ? undefined
+    : {
+        templateId: row.templateId,
+        customAgentId: row.customAgentId,
+        targetType: row.targetType,
+        practiceAreaId: row.practiceAreaId,
+        status: row.status,
+        latest: toCustomVersionRead(row),
+      };
 }
 
 function findCustomAgent(agents: readonly CustomAgentRead[], customAgentId: string): CustomAgentRead | undefined {
