@@ -1,75 +1,54 @@
 import { start } from 'workflow/api';
 import { z } from 'zod';
 
-import { deriveActiveChecklist } from '@/lib/analysis/checklist';
-import { analysisSubjectSchema, PHASE33_STANDARD_APPROVED_POLICY } from '@/lib/analysis/contracts';
+import { analysisRunLaunchInputSchema } from '@/lib/analysis/experienceContracts';
+import { resolveAnalysisLaunch } from '@/lib/analysis/compatibility';
 import { buildPhase33AnalysisSnapshots } from '@/lib/analysis/snapshots';
+import { PHASE33_STANDARD_APPROVED_POLICY } from '@/lib/analysis/contracts';
 import { isPhase36FixtureMode, PHASE36_APPROVED_POLICY } from '@/lib/verification/phase36Fixtures';
-import {
-  resolveActivePracticeArea,
-  resolveAnalysisSubject,
-  resolveAnalysisTemplateVersion,
-  type AnalysisResolutionReason,
-} from '@/lib/analysis/subjects';
-import { resolveModelChain } from '@/lib/agents/modelConfig';
 import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
-import {
-  createAnalysisRun,
-  transitionAnalysisRun,
-} from '@/lib/db/queries/analysisRuns';
-import { getModelSettingsForUser } from '@/lib/db/queries/userModelSettings';
+import { createAnalysisRun, transitionAnalysisRun } from '@/lib/db/queries/analysisRuns';
 import { analysisRun } from '@/workflows/analysisRun';
 
-const createAnalysisRunSchema = z
-  .object({
-    templateVersionId: z.number().int().positive(),
-    subject: analysisSubjectSchema,
-    practiceAreaId: z.number().int().positive().optional(),
-  })
-  .strict();
+const legacyFixedInputSchema = z.object({
+  templateVersionId: z.number().int().positive(),
+  subject: z.object({ type: z.enum(['company', 'persona']), id: z.number().int().positive() }).strict(),
+  practiceAreaId: z.number().int().positive(),
+}).strict();
 
 const DISPATCH_ACTOR_ID = 'analysis-run-dispatch';
 
-export async function POST(request: Request) {
+export async function POST(request: Request): Promise<Response> {
   const { userId } = await requireStaffAccess();
-
-  let input: unknown;
+  let body: unknown;
   try {
-    input = await request.json();
+    body = await request.json();
   } catch (error: unknown) {
-    if (error instanceof SyntaxError) {
-      return Response.json({ error: 'invalid_input' }, { status: 400 });
-    }
+    if (error instanceof SyntaxError) return Response.json({ error: 'invalid_input' }, { status: 400 });
     throw error;
   }
 
-  const parsed = createAnalysisRunSchema.safeParse(input);
-  if (!parsed.success) {
-    return Response.json({ error: 'invalid_input' }, { status: 400 });
-  }
+  const launch = analysisRunLaunchInputSchema.safeParse(body);
+  const legacy = launch.success ? undefined : legacyFixedInputSchema.safeParse(body);
+  const input = launch.success
+    ? launch.data
+    : legacy?.success
+      ? {
+          subject: legacy.data.subject,
+          practiceAreaId: legacy.data.practiceAreaId,
+          selection: { kind: 'fixed' as const, templateVersionId: legacy.data.templateVersionId },
+        }
+      : undefined;
+  if (input === undefined) return Response.json({ error: 'invalid_input' }, { status: 400 });
 
-  const templateResolution = await resolveAnalysisTemplateVersion(parsed.data.templateVersionId);
-  if (!templateResolution.ok) return resolutionErrorResponse(templateResolution.reason);
+  const policy = isPhase36FixtureMode() ? PHASE36_APPROVED_POLICY : PHASE33_STANDARD_APPROVED_POLICY;
+  const resolved = await resolveAnalysisLaunch({ ...input, userId, policy });
+  if (!resolved.ok) return resolutionErrorResponse(resolved.reason);
 
-  const subjectResolution = await resolveAnalysisSubject(
-    parsed.data.subject,
-    templateResolution.value.targetType,
-  );
-  if (!subjectResolution.ok) return resolutionErrorResponse(subjectResolution.reason);
-
-  const practiceAreaResolution = await resolveActivePracticeArea(parsed.data.practiceAreaId);
-  if (!practiceAreaResolution.ok) return resolutionErrorResponse(practiceAreaResolution.reason);
-
-  const checklist = await deriveActiveChecklist(
-    subjectResolution.value.type,
-    practiceAreaResolution.value,
-  );
-  const modelSettings = await getModelSettingsForUser(userId);
-  const resolvedModelChain = resolveModelChain(modelSettings);
-  const template = templateResolution.value;
+  const { template } = resolved.value;
   const snapshotInput = {
     template: {
-      schemaVersion: 1,
+      schemaVersion: 1 as const,
       templateId: template.templateId,
       templateVersionId: template.templateVersionId,
       templateKey: template.key,
@@ -77,30 +56,34 @@ export async function POST(request: Request) {
       targetType: template.targetType,
       version: template.version,
       resolvedInstruction: template.instruction,
-      effort: 'standard',
+      effort: template.effort,
+      ...(template.custom === undefined ? {} : {
+        custom: {
+          schemaVersion: 1 as const,
+          customAgentId: template.custom.customAgentId,
+          templateVersionId: template.custom.latest.templateVersionId,
+          version: template.custom.latest.version,
+          name: template.custom.latest.name,
+          description: template.custom.latest.description,
+          researchQuery: template.custom.latest.researchQuery,
+          behaviorInstruction: template.custom.latest.behaviorInstruction,
+          capabilityPresetIds: template.custom.latest.capabilityPresetIds,
+          outputSchema: template.custom.latest.outputSchema,
+        },
+      }),
     },
-    subject: subjectResolution.value,
-    checklist,
-    resolvedModelChain,
+    subject: resolved.value.subject,
+    checklist: resolved.value.checklist,
+    resolvedModelChain: resolved.value.resolvedModelChain,
   };
-  const snapshots = isPhase36FixtureMode()
-    ? buildPhase33AnalysisSnapshots(snapshotInput, PHASE36_APPROVED_POLICY)
-    : buildPhase33AnalysisSnapshots(snapshotInput, PHASE33_STANDARD_APPROVED_POLICY);
-
-  const created = await createAnalysisRun({
-    ...snapshots,
-    createdBy: userId,
-  });
-  if (!created.ok) {
-    return Response.json({ error: 'active_run_exists' }, { status: 409 });
-  }
+  const snapshots = buildPhase33AnalysisSnapshots(snapshotInput, resolved.value.policy);
+  const created = await createAnalysisRun({ ...snapshots, createdBy: userId });
+  if (!created.ok) return Response.json({ error: 'active_run_exists' }, { status: 409 });
 
   const applicationRunId = created.run.id;
   try {
     await start(analysisRun, [applicationRunId]);
   } catch {
-    // The application row is already product truth; persist a safe terminal
-    // event without retaining or returning executor/provider diagnostics.
     await transitionAnalysisRun({
       runId: applicationRunId,
       expectedStatus: 'queued',
@@ -110,27 +93,14 @@ export async function POST(request: Request) {
       safeReason: 'dispatch_failed',
       attempt: 0,
     });
-    return Response.json(
-      { error: 'dispatch_failed', applicationRunId },
-      { status: 502 },
-    );
+    return Response.json({ error: 'dispatch_failed', applicationRunId }, { status: 502 });
   }
-
   return Response.json({ applicationRunId }, { status: 201 });
 }
 
-function resolutionErrorResponse(reason: AnalysisResolutionReason): Response {
-  switch (reason) {
-    case 'invalid_input':
-    case 'practice_area_required':
-      return Response.json({ error: reason }, { status: 400 });
-    case 'template_version_not_found':
-    case 'subject_not_found':
-    case 'practice_area_not_found':
-      return Response.json({ error: reason }, { status: 404 });
-    case 'template_not_active':
-    case 'template_version_not_current':
-    case 'subject_type_mismatch':
-      return Response.json({ error: reason }, { status: 409 });
-  }
+function resolutionErrorResponse(reason: string): Response {
+  const status = reason.endsWith('_not_found') || reason === 'custom_agent_not_found' ? 404
+    : reason === 'invalid_input' || reason === 'practice_area_required' ? 400
+      : 409;
+  return Response.json({ error: reason }, { status });
 }
