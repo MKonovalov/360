@@ -138,7 +138,13 @@ async function normalizeGroundedPacket(
 ) {
   'use step';
   const run = await getAnalysisRun(applicationRunId);
-  if (!run || run.status !== 'running') return { ok: false as const, reason: 'invalid_packet' as const };
+  if (!run || run.status !== 'running') {
+    // TEMP DIAGNOSTIC (round 4 — round 3 showed neither execute() nor the
+    // catch block below threw; this early-return guard is the remaining
+    // silent path, checking whether it's a status race).
+    console.error('[normalizeGroundedPacket] early-return guard hit:', { found: !!run, status: run?.status });
+    return { ok: false as const, reason: 'invalid_packet' as const };
+  }
   try {
     const packet = normalizeAnalysisPacket({
       checklistSnapshot: run.checklistSnapshot,
