@@ -104,6 +104,17 @@ describe('custom agent contracts', () => {
     if (!result.ok) expect(result.issues).toContainEqual(expect.objectContaining({ path: 'outputSchema.fields[0].enum' }));
   });
 
+  it.each(['grounding', 'evidence', 'citation', 'source', 'finding', 'review', 'candidate', 'signal', 'policy'])
+    ('rejects server-owned output channel collision: %s', (reserved) => {
+      const result = parseCustomAgentCreateInput({
+        ...validCreateInput,
+        outputSchema: { fields: [{ name: `${reserved}Details`, type: 'string' }] },
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.issues).toContainEqual(expect.objectContaining({ code: 'reserved_field' }));
+    });
+
   it('D-37-11: exposes an immutable version handoff without runtime authority', () => {
     const result = customAgentVersionSchema.safeParse({
       customAgentId: 'custom-agent-opaque-1',

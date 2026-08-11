@@ -201,6 +201,59 @@ export const analysisAgentSelectionSchema = z.discriminatedUnion('kind', [
 ]);
 export type AnalysisAgentSelection = z.infer<typeof analysisAgentSelectionSchema>;
 
+const boundedOutputFieldForContract = (field: NormalizedOutputField): z.ZodType<unknown> => {
+  const primitive = field.type === 'string'
+    ? z.string().max(4_000)
+    : field.type === 'number'
+      ? z.number().finite()
+      : field.type === 'boolean'
+        ? z.boolean()
+        : z.array(field.items?.type === 'string' ? z.string().max(4_000) : field.items?.type === 'number' ? z.number().finite() : z.boolean()).max(field.maxItems ?? 20);
+  const withEnum = field.enum === undefined || field.type !== 'string'
+    ? primitive
+    : z.string().max(4_000).refine((value) => field.enum?.includes(value) === true, 'enum_value');
+  return field.nullable === true ? withEnum.nullable() : withEnum;
+};
+
+const boundedOutputSchemaForContract = z
+  .object({
+    type: z.literal('object'),
+    properties: z.record(z.string().min(1).max(64), z.object({
+      type: z.enum(['string', 'number', 'boolean', 'array']),
+      description: z.string().max(300).optional(),
+      nullable: z.boolean().optional(),
+      enum: z.array(z.string().min(1).max(64)).max(10).optional(),
+      items: z.object({ type: z.enum(['string', 'number', 'boolean']) }).strict().optional(),
+      maxItems: z.number().int().min(1).max(20).optional(),
+    }).strict()),
+    required: z.array(z.string().min(1).max(64)).max(12),
+  })
+  .strict()
+  .superRefine((schema, context) => {
+    for (const [name, field] of Object.entries(schema.properties)) {
+      if (['grounding', 'evidence', 'citation', 'source', 'finding', 'review', 'candidate', 'signal', 'policy'].some((reserved) => name.toLowerCase().includes(reserved))) {
+        context.addIssue({ code: 'custom', path: ['properties', name], message: 'reserved_output_field' });
+      }
+      if (field.type === 'array' && (field.items === undefined || field.maxItems === undefined)) {
+        context.addIssue({ code: 'custom', path: ['properties', name], message: 'array_bounds_required' });
+      }
+      if (field.type !== 'array' && (field.items !== undefined || field.maxItems !== undefined)) {
+        context.addIssue({ code: 'custom', path: ['properties', name], message: 'array_bounds_invalid' });
+      }
+      if (field.type !== 'string' && field.enum !== undefined) {
+        context.addIssue({ code: 'custom', path: ['properties', name], message: 'enum_requires_string' });
+      }
+    }
+    for (const required of schema.required) {
+      if (!(required in schema.properties)) {
+        context.addIssue({ code: 'custom', path: ['required'], message: 'required_field_missing' });
+      }
+    }
+    if (Buffer.byteLength(JSON.stringify(schema), 'utf8') > 16 * 1024) {
+      context.addIssue({ code: 'custom', path: [], message: 'schema_too_large' });
+    }
+  });
+
 const customTemplateSnapshotSchema = z
   .object({
     schemaVersion: z.literal(1),
@@ -212,43 +265,17 @@ const customTemplateSnapshotSchema = z
     researchQuery: z.string().trim().min(1).max(4_000),
     behaviorInstruction: z.string().trim().min(1).max(8_000),
     capabilityPresetIds: z.array(z.string().trim().min(1).max(64)).max(2),
-    outputSchema: z.custom<BoundedOutputSchema>((value) => boundedOutputSchemaForContract.safeParse(value).success).nullable(),
+    outputSchema: boundedOutputSchemaForContract.nullable(),
   })
   .strict();
 
 export type CustomTemplateSnapshot = z.infer<typeof customTemplateSnapshotSchema>;
 
-const boundedOutputFieldForContract = (field: NormalizedOutputField): z.ZodType<unknown> => {
-  const primitive = field.type === 'string'
-    ? z.string()
-    : field.type === 'number'
-      ? z.number()
-      : field.type === 'boolean'
-        ? z.boolean()
-        : z.array(field.items?.type === 'string' ? z.string() : field.items?.type === 'number' ? z.number() : z.boolean()).max(field.maxItems ?? 20);
-  return field.nullable === true ? primitive.nullable() : primitive;
-};
-
-const boundedOutputSchemaForContract = z
-  .object({
-    type: z.literal('object'),
-    properties: z.record(z.string(), z.unknown()),
-    required: z.array(z.string()),
-  })
-  .strict()
-  .superRefine((schema, context) => {
-    for (const [name, field] of Object.entries(schema.properties)) {
-      if (!field || typeof field !== 'object' || Array.isArray(field)) {
-        context.addIssue({ code: 'custom', path: ['properties', name], message: 'invalid_output_field' });
-      }
-    }
-  });
-
 export const customOutputSchemaSnapshotSchema = z
   .object({
     schemaVersion: z.literal(1),
     storage: z.literal('analysis_run_result.raw_audit.customOutput'),
-    fields: z.custom<BoundedOutputSchema>((value) => boundedOutputSchemaForContract.safeParse(value).success),
+    fields: boundedOutputSchemaForContract.nullable(),
   })
   .strict();
 
@@ -446,7 +473,11 @@ export function parseAnalysisModelOutput(input: unknown, customOutputSchema?: Bo
     narrative: z.string().trim().min(1).max(12_000),
     findings: z.array(z.unknown()).max(100),
     custom: outputSchemaForModel(customOutputSchema),
-  }).strict().parse(input);
+  }).strict().superRefine((value, context) => {
+    if (Buffer.byteLength(JSON.stringify(value.custom), 'utf8') > 16 * 1024) {
+      context.addIssue({ code: 'custom', path: ['custom'], message: 'custom_output_too_large' });
+    }
+  }).parse(input);
   return parsed;
 }
 

@@ -267,6 +267,11 @@ describe('Phase 32 analysis contracts', () => {
     });
     expect(() => parseAnalysisModelOutput({ ...fixed, custom: {} }, customSchema)).toThrow();
     expect(() => parseAnalysisModelOutput({ ...fixed, custom: { riskScore: 3, evidence: 'forged' } }, customSchema)).toThrow();
+    expect(() => parseAnalysisModelOutput({ ...fixed, custom: { riskScore: 3.5 } }, {
+      type: 'object',
+      properties: { riskScore: { type: 'number' }, labels: { type: 'array', items: { type: 'string' }, maxItems: 1 } },
+      required: ['riskScore', 'labels'],
+    })).toThrow();
   });
 
   it('locks the sole custom output persistence path', () => {
@@ -279,6 +284,11 @@ describe('Phase 32 analysis contracts', () => {
       schemaVersion: 1,
       storage: 'other.path',
       fields: { type: 'object', properties: {}, required: [] },
+    }).success).toBe(false);
+    expect(customOutputSchemaSnapshotSchema.safeParse({
+      schemaVersion: 1,
+      storage: 'analysis_run_result.raw_audit.customOutput',
+      fields: { type: 'object', properties: { evidence: { type: 'string' } }, required: [] },
     }).success).toBe(false);
   });
 });

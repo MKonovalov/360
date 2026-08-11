@@ -192,7 +192,7 @@ function normalizeOutputSchema(input: z.infer<typeof authoredOutputSchema>): { v
     if (field.type !== 'string' && field.enum !== undefined) {
       issues.push(issue(`${path}.enum`, 'invalid_type', 'Enums are supported only for string fields'));
     }
-    if (field.name.toLowerCase().includes('grounding') || field.name.toLowerCase().includes('citation') || field.name.toLowerCase().includes('evidence') || field.name.toLowerCase().includes('review') || field.name.toLowerCase().includes('candidate')) {
+    if (['grounding', 'evidence', 'citation', 'source', 'finding', 'review', 'candidate', 'signal', 'policy'].some((reserved) => field.name.toLowerCase().includes(reserved))) {
       issues.push(issue(`${path}.name`, 'reserved_field', 'This output channel is server-owned'));
     }
     if (properties[field.name] !== undefined) {
