@@ -577,7 +577,32 @@ Plans:
   3. Custom agents execute through the existing durable executor, modelFactory, and Firecrawl/provider-agnostic contract without Exa or arbitrary provider/tool selection, with duplicate-run, bounded-attempt, recovery, and safe-error behavior preserved.
   4. Both fixed v1.7 templates continue to launch and produce the same target-scoped evidence, run history, review, and candidate surfaces after custom-agent integration.
 
-**Plans**: TBD
+**Plans:** 6 plans
+**Wave 1**
+
+- [ ] 38-01-PLAN.md — Contract and JSONB snapshot compatibility boundary
+- [ ] 38-02-PLAN.md — Server compatibility resolver and authoritative launch gate
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 38-03-PLAN.md — Practice Area-first launcher with fixed default and explicit custom choice
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 38-04-PLAN.md — Bounded custom-output adapter and normalization handoff
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 38-05-PLAN.md — Scalar Workflow reload and existing result CTE persistence
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 38-06-PLAN.md — Scope audit, evidence ledger, and Phase 39 handoff
+
+**Cross-cutting constraints:**
+- Fixed and custom launches converge through the existing durable executor, run ledger, grounded packet, review, and confirmed-only candidate paths.
+- Custom output is additive and cannot author grounding, evidence, citation, review, or candidate authority.
+- Compatibility and execution policy remain server-owned; the browser submits only opaque selection and target/Practice Area identity.
 
 ### Phase 39: Security, Review Boundaries & End-to-End Verification
 
