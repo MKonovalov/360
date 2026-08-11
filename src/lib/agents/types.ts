@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 // Single source of truth for the agent's structured-output shapes (D-01).
 // airsRules.ts re-exports these (plan 09-01 L158 — keep ONE source of truth
@@ -13,17 +13,28 @@ export const signalStrengthValues = ['low', 'medium', 'high'] as const;
 export const reliabilitySchema = z.enum(['R1', 'R2', 'R3']);
 export const confidenceSchema = z.enum(['C1', 'C2', 'C3']);
 
-export const proposalSignalSchema = z.object({
-  signalType: z.enum(signalTypeValues),
-  strength: z.enum(signalStrengthValues),
-  detectedAt: z.string(), // ISO date
-  evidenceUrl: z.string().url(),
-  reliability: reliabilitySchema,
-  confidence: confidenceSchema,
-  evidenceSnippet: z.string(),
-  reasoning: z.string(),
-});
-export type ProposalSignal = z.infer<typeof proposalSignalSchema>;
+export const proposalSignalSchema = z
+  .object({
+    signalType: z.enum(signalTypeValues),
+    strength: z.enum(signalStrengthValues),
+    detectedAt: z.string(), // ISO date
+    evidenceUrl: z.string().url(),
+    reliability: reliabilitySchema,
+    confidence: confidenceSchema,
+    evidenceSnippet: z.string(),
+    reasoning: z.string(),
+    signalId: z.number().int().positive().optional(),
+    signalRecordType: z.enum(['company', 'persona']).optional(),
+    demonstrated: z.boolean().default(true),
+  })
+  .refine(
+    (value) => (value.signalId === undefined) === (value.signalRecordType === undefined),
+    { path: ['signalRecordType'], message: 'signalId and signalRecordType must be provided together' },
+  );
+type ParsedProposalSignal = z.infer<typeof proposalSignalSchema>;
+export type ProposalSignal = Omit<ParsedProposalSignal, 'demonstrated'> & {
+  demonstrated?: boolean;
+};
 
 // Model-facing appendix shape (D-02: the model's recited appendix is always
 // DISCARDED — the gate validates the server-derived one below).
@@ -49,11 +60,15 @@ export type DerivedEvidenceAppendix = z.infer<typeof derivedEvidenceAppendixSche
 // results (never model-recited) — the every_citation_must_resolve gate checks
 // proposal evidenceUrls against it (T-09-03).
 export const outputSchema = z.object({
-  proposals: z.array(proposalSignalSchema).min(0),
-  keyUncertainties: z.array(z.string()),
-  evidenceAppendix: evidenceAppendixSchema,
+  proposals: z.array(proposalSignalSchema).min(0).default([]),
+  // Free generic-JSON providers can omit these descriptive arrays. Defaults
+  // preserve honest absence: no uncertainty or evidence is invented.
+  keyUncertainties: z.array(z.string()).default([]),
+  evidenceAppendix: evidenceAppendixSchema.default([]),
 });
-export type RunOutput = z.infer<typeof outputSchema>;
+export type RunOutput = Omit<z.infer<typeof outputSchema>, 'proposals'> & {
+  proposals: ProposalSignal[];
+};
 
 // Minimal structural company shape the agent seam consumes. DB $inferSelect
 // rows satisfy this via structural typing (id/name are the only required

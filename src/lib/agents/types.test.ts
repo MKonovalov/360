@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { proposalSignalSchema } from './types';
+import { outputSchema, proposalSignalSchema } from './types';
 
 describe('proposal agent contract', () => {
   it('defaults demonstrated proposals and preserves the catalogue signal id', () => {
@@ -47,5 +47,19 @@ describe('proposal agent contract', () => {
         reasoning: 'The source supports the selected catalogue signal.',
       }).success,
     ).toBe(false);
+  });
+
+  it('defaults omitted analysis arrays to honest empty arrays', () => {
+    const parsed = outputSchema.safeParse({});
+
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data).toEqual({ proposals: [], keyUncertainties: [], evidenceAppendix: [] });
+  });
+
+  it('rejects malformed non-empty proposal entries', () => {
+    const parsed = outputSchema.safeParse({ proposals: [{ signalType: 'cost_pressure' }] });
+
+    expect(parsed.success).toBe(false);
   });
 });
