@@ -96,6 +96,28 @@ describe('validateRunArtifacts (AIRS gate port, D-03)', () => {
     expect(validateRunArtifacts(input)).toEqual({ valid: true, errors: [] });
   });
 
+  it('allows omitted key uncertainties only for a no-intent analysis with no proposals', () => {
+    const input = validInput();
+    input.proposals = [];
+    input.keyUncertainties = [];
+    input.verdict = 'no_intent';
+
+    expect(validateRunArtifacts(input)).toEqual({ valid: true, errors: [] });
+  });
+
+  it('still rejects an empty-proposal analysis with the wrong verdict when uncertainties are omitted', () => {
+    const input = validInput();
+    input.proposals = [];
+    input.keyUncertainties = [];
+    input.verdict = 'active';
+
+    const result = validateRunArtifacts(input);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toEqual([
+      "verdict: no proposals present but verdict is 'active' (must be 'no_intent')",
+    ]);
+  });
+
   it('errors are human-readable strings in "path: message" shape', () => {
     const input = validInput();
     input.proposals[0] = {

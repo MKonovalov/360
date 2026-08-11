@@ -6,8 +6,8 @@
 //
 // FAILS CLOSED: every rule returns a list of violations; validateRunArtifacts
 // in validateReport.ts rejects when any rule reports a violation (Pitfall 4).
-import { z } from 'zod';
-import { reliabilitySchema, confidenceSchema, outputSchema } from '../agents/types';
+import { z } from 'zod/v3';
+import { reliabilitySchema, confidenceSchema, outputSchema, type RunOutput } from '../agents/types';
 
 // ── Hybrid artifact shapes (D-01) ─────────────────────────────────────────
 // Single source of truth is src/lib/agents/types.ts (plan 09-01 L158) — the
@@ -32,7 +32,7 @@ export type Verdict = z.infer<typeof verdictSchema>;
 // The full artifact set the gate validates: agent output (outputSchema) plus
 // the run record's lightweight verdict (D-04 — required by the
 // empty_signals_implies_no_intent rule, mirroring validate_report.py §11).
-export type RunArtifactsInput = z.infer<typeof outputSchema> & {
+export type RunArtifactsInput = RunOutput & {
   verdict: Verdict;
 };
 
@@ -106,9 +106,11 @@ export function checkNoR3C3OnStrongClaims(input: RunArtifactsInput): string[] {
   return violations;
 }
 
-// key_uncertainties non-empty — the run must surface what it does not know.
+// key_uncertainties is required when proposals exist. A no-intent result has
+// nothing to qualify, and free generic-JSON providers may omit this optional-
+// in-practice field; its schema default is therefore an honest empty array.
 export function checkKeyUncertaintiesNonEmpty(input: RunArtifactsInput): string[] {
-  if (input.keyUncertainties.length === 0) {
+  if (input.proposals.length > 0 && input.keyUncertainties.length === 0) {
     return ['keyUncertainties: must not be empty'];
   }
   return [];
