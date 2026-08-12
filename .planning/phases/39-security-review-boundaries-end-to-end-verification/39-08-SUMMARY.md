@@ -47,13 +47,14 @@ Final Phase 39 evidence ledger, scope canaries, requirement/decision traceabilit
 - **PASS** `npx tsc --noEmit --pretty false`.
 - **BLOCKED** Phase 38 cumulative audit reports the existing `normalizeAnalysisPacketWithQuarantine` packet-path canary; no Phase 38 code was changed.
 - **PASS** canonical preflight, DB check, DB migration validation, and Workflow lane.
-- **PASS** lifecycle browser evidence after scoped E2E correction: runtime instrumentation observed successful save/refresh responses and the corrected guarded Chromium run completed `3 passed (29.2s)`. The separate Company/Persona invocation remains blocked/not-run and is not promoted by this lifecycle-only rerun.
+- **BLOCKED** Company authenticated browser lane: real Chromium reached durable launch, but the provider returned a rate-limit error and the run status became `failed` before source/review/candidate/count assertions.
+- **BLOCKED** Persona authenticated browser lane: real Chromium reached launcher selection, but the existing Company-targeted custom agent was not offered for Persona; no Persona run was started.
 - **NOT-RUN** optional live provider smoke; non-gating.
 
 ## Requirement Disposition
 
 - **PASS:** SAFE-01, SAFE-02, SAFE-03, UX-02, and D-39-01 through D-39-11, including the now-passing DB checks; browser-dependent portions remain qualified.
-- **BLOCKED:** UX-03, E2E-01, and D-39-12 through D-39-15 because authenticated browser execution was not reached.
+- **BLOCKED:** UX-03, E2E-01, and D-39-13 through D-39-15 because authenticated browser journeys remain incomplete. D-39-12 retains PASS from the prior lifecycle run.
 
 ## Deviations from Plan
 
@@ -86,7 +87,7 @@ None introduced. Blocked infrastructure lanes are evidence limitations, not stub
 
 ## Final Disposition
 
-**BLOCKED.** Phase 39 has passing disposable DB/Workflow evidence and complete traceability artifacts, but cannot sign off E2E-01 until the authenticated `/agents` and Company/Persona browser journeys complete without assertion failures.
+**BLOCKED.** Phase 39 has passing disposable DB/Workflow evidence and complete traceability artifacts, but cannot sign off E2E-01 until Company execution is successful and the Persona-compatible authenticated journey completes.
 
 ## Self-Check: PASSED
 

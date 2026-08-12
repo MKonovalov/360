@@ -36,8 +36,8 @@ Added guarded real-app Playwright coverage for the `/agents` custom-agent lifecy
 ### Task 2 — Company/Persona durable review journeys
 
 - **Implementation:** `e2e/phase39-security-review.spec.ts`
-- **Evidence:** BLOCKED / NOT-RUN. Canonical preflight and the actual `PHASE39_FIXTURE_ONLY=1` reset passed. The Company invocation could not locate the custom-agent option in the launcher; the Persona invocation was not run because the serial lane stopped on the Company failure.
-- **Playwright result:** BLOCKED Company (browser started; custom-agent option assertion timed out at `e2e/phase39-security-review.spec.ts:67`); NOT-RUN Persona.
+- **Evidence:** BLOCKED. Canonical preflight and the actual `PHASE39_FIXTURE_ONLY=1` reset passed. The Company browser reached durable launch, but the fixture execution called the configured provider and ended `failed` after a provider rate-limit error, so source/review/candidate and count assertions did not complete.
+- **Playwright result:** BLOCKED Company (authenticated Chromium started; launch completed; status polling observed `failed` after provider `429`); Persona was run separately and BLOCKED because the existing Company-targeted custom agent is not offered for the Persona target.
 
 ## Verification Evidence
 
@@ -47,14 +47,13 @@ The required sequence was preserved for each task:
 2. `tsx src/lib/verification/databaseIdentity.ts --phase39-preflight` passed.
 3. `tsx e2e/phase39-fixture-reset.ts` passed and returned disposable fixture IDs (`companyId=210`, `personaId=23`, `practiceAreaId=226`).
 4. Canonical preflight immediately before each Playwright invocation passed.
-5. Playwright was invoked only after successful preflight. The lifecycle browser started and exposed a deterministic Edit dialog failure; the separate Company browser invocation started and exposed a dependent retired-agent option failure; Persona did not run because the suite is serial.
+5. Playwright was invoked only after successful preflight. Company and Persona were each launched in fresh project-owned dev-server runs. Company reached real durable execution and was blocked by the provider rate limit; Persona reached real Chromium launcher selection and was blocked by target compatibility.
 
 ## Blocked Evidence
 
 ```text
-BLOCKED lifecycle_assertion post_save_version_2 line=111 browser_started
-BLOCKED company_assertion custom_agent_option line=67 browser_started
-NOT-RUN persona_serial_dependency company_invocation_failed
+BLOCKED company_execution provider_rate_limit browser_started status=failed
+BLOCKED persona_target_compatibility custom_agent_not_offered browser_started
 ```
 
 No claim of authenticated browser pass evidence is made. `STATE.md` and `ROADMAP.md` were intentionally not modified.
@@ -68,8 +67,8 @@ None.
 ### Blockers
 
 1. **Lifecycle assertion corrected:** The browser evidence showed the save and refresh succeeded; the test had asserted history on the wrong surface and later reused stale locators after refreshed DOM replacement. The test now asserts version 2 on the stable card and version 1/history in a newly opened current Sheet, with lifecycle actions performed through that Sheet.
-2. **Company journey blocked:** The separate guarded invocation could not locate the custom-agent option because the preceding lifecycle attempt did not reactivate the agent.
-3. **Persona journey not run:** The Playwright suite is serial and stopped after the Company assertion failure.
+2. **Company journey blocked:** The custom-agent launch reached the application workflow, but the configured provider returned a rate-limit error and the persisted run status became `failed`.
+3. **Persona journey blocked:** The real launcher did not offer the Company-targeted custom agent for a Persona subject; the separately invoked Persona run therefore did not start an analysis.
 
 ## Known Stubs
 
