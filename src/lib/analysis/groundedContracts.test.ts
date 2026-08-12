@@ -12,6 +12,7 @@ import {
   groundedPacketSchema,
   validateCustomOutput,
   validateGroundedPacket,
+  GROUNDED_QUARANTINE_REASONS,
 } from './groundedContracts';
 
 const source = {
@@ -55,6 +56,15 @@ const packet = {
 } as const;
 
 describe('grounded Phase 33 contracts', () => {
+  it('exposes only safe quarantine reason codes for optional findings', () => {
+    expect(GROUNDED_QUARANTINE_REASONS).toEqual([
+      'unsupported_source',
+      'invalid_excerpt',
+      'unsafe_research_content',
+      'invalid_packet',
+    ]);
+  });
+
   it('accepts a safe packet only when finding identity is snapshotted', () => {
     expect(validateGroundedPacket(packet, [7])).toEqual(packet);
     expect(groundedPacketSchema.safeParse({ ...packet, policy: PHASE33_DEFERRED_POLICY }).success).toBe(false);

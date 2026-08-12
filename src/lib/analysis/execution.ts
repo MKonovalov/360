@@ -148,7 +148,8 @@ function safeToolResults(
   let sourceBytes = 0;
   for (const step of steps) {
     for (const result of step.toolResults ?? []) {
-      if (result.toolName !== 'webSearch' || !Array.isArray(result.output)) continue;
+      if (result.toolName !== 'webSearch') throw new Error('invalid_tool_policy');
+      if (!Array.isArray(result.output)) throw new Error('invalid_tool_policy');
       for (const item of result.output) {
         const parsed = safeToolItemSchema.safeParse(item);
         if (!parsed.success) throw new Error('invalid_tool_policy');
@@ -199,6 +200,9 @@ export class GroundedExecutionAdapter {
           failureReason: parsed.targetType === 'persona' ? 'persona_policy_unavailable' : 'policy_unavailable',
           durationMs: Date.now() - startedAt,
         };
+      }
+      if (policy.writesAllowed) {
+        return { ok: false, failureReason: 'invalid_tool_policy', durationMs: Date.now() - startedAt };
       }
       if (parsed.targetType === 'persona' && !policy.personaExecutionEnabled) {
         return { ok: false, failureReason: 'persona_policy_unavailable', durationMs: Date.now() - startedAt };

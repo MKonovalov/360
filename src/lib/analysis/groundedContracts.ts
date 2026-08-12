@@ -25,6 +25,13 @@ export const GROUNDED_FAILURE_REASONS = [
   'invalid_packet',
 ] as const;
 
+export const GROUNDED_QUARANTINE_REASONS = [
+  'unsupported_source',
+  'invalid_excerpt',
+  'unsafe_research_content',
+  'invalid_packet',
+] as const;
+
 const safeIdentifierSchema = z.string().trim().min(1).max(120).regex(/^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/);
 const safeModelIdSchema = z.string().trim().min(1).max(200).regex(/^(?!.*:\/\/)[a-zA-Z0-9][a-zA-Z0-9._:/-]*$/);
 const safeTextSchema = z
@@ -137,6 +144,10 @@ export const safeAuditSchema = z
     durationMs: z.number().int().nonnegative(),
     traceId: safeIdentifierSchema.nullable(),
     failureReason: z.enum(GROUNDED_FAILURE_REASONS).nullable(),
+    quarantine: z.object({
+      count: z.number().int().positive(),
+      reasons: z.array(z.enum(GROUNDED_QUARANTINE_REASONS)).min(1).max(4),
+    }).strict().optional(),
   })
   .strict();
 
@@ -186,6 +197,11 @@ export type CanonicalSource = z.infer<typeof canonicalSourceSchema>;
 export type FindingSourceLink = z.infer<typeof findingSourceLinkSchema>;
 export type GroundedPacket = z.infer<typeof groundedPacketSchema>;
 export type SafeAudit = z.infer<typeof safeAuditSchema>;
+export type GroundedQuarantineReason = (typeof GROUNDED_QUARANTINE_REASONS)[number];
+export type GroundedQuarantine = Readonly<{
+  readonly count: number;
+  readonly reasons: readonly GroundedQuarantineReason[];
+}>;
 
 export function validateGroundedPacket(input: unknown, checklistSignalIds: readonly number[]): GroundedPacket {
   const packet = groundedPacketSchema.parse(input);
