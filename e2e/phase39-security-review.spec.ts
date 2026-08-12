@@ -23,6 +23,7 @@ function requirePrerequisites(): void {
   if (!existsSync('e2e/.clerk/user.json')) throw new Error('e2e/.clerk/user.json is required for Phase 39 authenticated UAT');
   fixtureId('PHASE39_COMPANY_ID');
   fixtureId('PHASE39_PERSONA_ID');
+  fixtureId('PHASE39_PRACTICE_AREA_ID');
 }
 
 function subjects(): Readonly<Record<SubjectType, Subject>> {
@@ -94,11 +95,11 @@ test.describe('Phase 39 authenticated security-review journeys', () => {
     await create.getByRole('textbox', { name: 'Name' }).fill(customAgentName);
     await create.getByRole('textbox', { name: 'Description' }).fill(customAgentDescription);
     await create.getByRole('combobox', { name: 'Target type' }).selectOption('company');
-    await create.getByRole('combobox', { name: 'Practice Area' }).selectOption('Phase 39 E2E GBS');
+    await create.getByRole('combobox', { name: 'Practice Area' }).selectOption(String(fixtureId('PHASE39_PRACTICE_AREA_ID')));
     await create.getByRole('textbox', { name: 'Research query' }).fill('Find durable Phase 39 evidence for cost pressure.');
     await create.getByRole('textbox', { name: 'Behavior instruction' }).fill('Return only source-backed findings.');
     await create.getByRole('button', { name: 'Save retired agent', exact: true }).click();
-    const card = page.locator('[data-custom-agent-id]').filter({ hasText: customAgentName });
+    const card = page.locator('[data-custom-agent-id]').filter({ hasText: customAgentName }).last();
     await expect(card).toContainText('Retired');
     await expect(card).toContainText('Current version 1');
 
