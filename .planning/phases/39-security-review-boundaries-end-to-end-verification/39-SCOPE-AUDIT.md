@@ -2,7 +2,7 @@
 
 ## Final Disposition
 
-**BLOCKED:** scope canaries and deterministic evidence are present, but DB/Workflow/browser prerequisites are unavailable. No blocked lane is represented as PASS.
+**BLOCKED:** scope canaries, DB/Workflow evidence, and deterministic evidence are present, but authenticated browser assertions remain blocked. No blocked lane is represented as PASS.
 
 ## Positive Canaries
 
@@ -17,7 +17,7 @@
 
 ## Requirement Audit
 
-SAFE-01, SAFE-02, SAFE-03, and UX-02 have focused deterministic evidence in Plans 39-01 through 39-06. UX-03 and E2E-01 remain **BLOCKED** because Plan 39-07 browser assertions did not start and Plan 39-08's canonical preflight failed. D-39-01 through D-39-11 are contract-level PASS with database qualification; D-39-12 through D-39-15 remain BLOCKED for the same browser prerequisite.
+SAFE-01, SAFE-02, SAFE-03, and UX-02 have focused deterministic evidence in Plans 39-01 through 39-06. UX-03 and E2E-01 remain **BLOCKED** because authenticated browser assertions failed after Clerk setup. D-39-01 through D-39-11 are PASS with DB checks now evidenced; D-39-12 through D-39-15 remain BLOCKED for the browser assertion prerequisite.
 
 ## Exclusions
 
@@ -28,4 +28,4 @@ SAFE-01, SAFE-02, SAFE-03, and UX-02 have focused deterministic evidence in Plan
 
 ## Audit Limitation
 
-The existing Phase 38 cumulative audit reports one packet-path canary (`normalizeAnalysisPacketWithQuarantine`). It is retained as BLOCKED rather than weakened or relabeled; Plan 39-08 does not modify Phase 38 code.
+The planned `scripts/phase38-scope-audit.ts` entrypoint is absent. The existing Phase 38 cumulative packet-path canary (`normalizeAnalysisPacketWithQuarantine`) is retained as BLOCKED rather than weakened or relabeled; Plan 39-08 does not modify Phase 38 code.

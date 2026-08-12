@@ -4,7 +4,7 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 
 ## Final Disposition
 
-**BLOCKED:** deterministic/unit, artifact, build, and prior-summary evidence is complete; disposable database, Workflow, and authenticated browser lanes remain blocked by the canonical Phase 39 database preflight. E2E-01 therefore cannot be signed off as complete.
+**BLOCKED:** deterministic/unit, artifact, build, disposable database preflight, schema checks, migration validation, and Workflow evidence passed. Authenticated browser journeys remain blocked by UI assertions; E2E-01 therefore cannot be signed off as complete.
 
 ## Prior Summary Readability
 
@@ -20,12 +20,12 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 | `npm run test:artifacts` | PASS | Exit 0; migration/artifact suite completed. |
 | `npm run build` | PASS | Exit 0; Next production build completed. |
 | Phase 33 scope audit | PASS | `npm exec tsx scripts/phase33-scope-audit.ts`; zero findings. |
-| Phase 38 scope audit | BLOCKED | Audit reports one existing packet-path canary (`normalizeAnalysisPacketWithQuarantine`); this is a pre-existing cumulative-scope finding, not silently passed. |
-| Phase 39 canonical database preflight | BLOCKED | `PHASE39_FIXTURE_ONLY=1 npm exec tsx src/lib/verification/databaseIdentity.ts -- --phase39-preflight` exited 2 because the local database environment is not a valid marked disposable PostgreSQL setup. |
-| `npm run db:check` | NOT-RUN | Dependent database command was not invoked after the failed canonical preflight. |
-| `npm run db:validate` | NOT-RUN | Dependent database command was not invoked after the failed canonical preflight. |
-| `npm run test:workflow` | NOT-RUN | Dependent Workflow command was not invoked after the failed canonical preflight. |
-| `npm run e2e -- e2e/phase39-security-review.spec.ts` | NOT-RUN | Dependent Playwright command was not invoked after the failed canonical preflight. Prior Plan 39-07 browser lane remains BLOCKED/NOT-RUN due to the existing Next dev-server process. |
+| Phase 38 scope audit | BLOCKED | The planned `scripts/phase38-scope-audit.ts` entrypoint does not exist; the existing cumulative packet-path canary remains unresolved and is not silently passed. |
+| Phase 39 canonical database preflight | PASS | `.env.local` was loaded in-process, `#phase39-fixture` was injected only into `TEST_DATABASE_URL`, and normalized identities passed. Credentials were not printed or persisted. |
+| `npm run db:check` | PASS | Canonical preflight immediately preceded the command; Drizzle reported `Everything's fine`. |
+| `npm run db:validate` | PASS | Canonical preflight immediately preceded the command; 4 journaled migrations and documented baseline exceptions validated. |
+| `npm run test:workflow` | PASS | Canonical preflight immediately preceded the command; 2 files and 14 tests passed. |
+| `npm run e2e -- e2e/phase39-security-review.spec.ts` | BLOCKED | Canonical preflight and fixture reset passed; Clerk setup passed, but `/agents` timed out locating `Edit custom agent`, so Company/Persona tests were not run. |
 | Optional live provider status | NOT-RUN | Non-gating provider smoke was not invoked. |
 
 ## Requirement and Decision Traceability
@@ -51,11 +51,11 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 - **PASS:** Phase 39 fixtures retain `writesAllowed: false`.
 - **PASS:** append-only D-39-05 implementation is represented by review-event history plus latest-effective projection; prior attribution is not overwritten.
 - **PASS:** no new dependency or unrelated route was added by Plan 39-08.
-- **BLOCKED:** database-backed count/no-write and browser exclusions cannot be independently re-proven in this environment; they remain blocked rather than inferred from unit tests.
+- **BLOCKED:** browser exclusions and authenticated no-write journeys cannot be independently re-proven after the browser assertion failure; they remain blocked rather than inferred from database/unit evidence.
 
 ## Commands and Boundary Notes
 
 - Non-DB gates were run directly as authorized by the plan.
 - Every attempted DB/Workflow/E2E lane had the exact canonical preflight immediately before it with `PHASE39_FIXTURE_ONLY=1` inherited.
-- The failed preflight prevented dependent commands from running.
+- The canonical preflight passed for every executed DB/Workflow/E2E lane; the E2E wrapper still remains BLOCKED because browser assertions failed.
 - `STATE.md` and `ROADMAP.md` were not modified.

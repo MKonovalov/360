@@ -18,7 +18,7 @@ key_files:
     - src/lib/verification/phase39ScopeAudit.test.ts
   modified: []
 decisions:
-  - Final disposition is BLOCKED because canonical disposable database preflight failed and dependent DB/Workflow/E2E lanes were not run.
+  - Final disposition is BLOCKED because DB/Workflow lanes now pass but authenticated browser assertions fail before the required journeys complete.
   - Blocked and not-run evidence is never promoted to PASS; E2E-01 and UX-03 remain blocked.
   - STATE.md and ROADMAP.md remain untouched as explicitly required.
 metrics:
@@ -34,7 +34,7 @@ Final Phase 39 evidence ledger, scope canaries, requirement/decision traceabilit
 
 1. Read and audited all seven prior Phase 39 summaries and current route/fixture code.
 2. Ran non-DB final gates: full tests, artifact checks, production build, Phase 33 audit, and focused Phase 39 scope audit.
-3. Invoked the exact canonical preflight immediately before each attempted DB, Workflow, and E2E lane; failed preflight blocked all dependent commands.
+3. Loaded `.env.local` in-process, injected `#phase39-fixture` only into `TEST_DATABASE_URL`, and invoked the exact canonical preflight immediately before each DB, Workflow, and E2E lane.
 4. Added positive non-vacuous canaries for `/agents`, absent `/reviews/agents`, fixture identity, writes-disabled policy, append-only projection, and status-qualified evidence rows.
 
 ## Verification
@@ -46,13 +46,13 @@ Final Phase 39 evidence ledger, scope canaries, requirement/decision traceabilit
 - **PASS** `npm test -- --run src/lib/verification/phase39ScopeAudit.test.ts` — 3 tests.
 - **PASS** `npx tsc --noEmit --pretty false`.
 - **BLOCKED** Phase 38 cumulative audit reports the existing `normalizeAnalysisPacketWithQuarantine` packet-path canary; no Phase 38 code was changed.
-- **BLOCKED/NOT-RUN** DB check, DB validation, Workflow, and Phase 39 Playwright lanes because canonical preflight exited 2 for unavailable valid distinct marked PostgreSQL identities.
-- **BLOCKED/NOT-RUN** authenticated browser evidence, consistent with 39-07's server-start blocker; no browser pass is claimed.
+- **PASS** canonical preflight, DB check, DB migration validation, and Workflow lane.
+- **BLOCKED/NOT-RUN** authenticated browser evidence: Clerk setup passed, but `/agents` timed out locating `Edit custom agent`; Company/Persona journeys did not run.
 - **NOT-RUN** optional live provider smoke; non-gating.
 
 ## Requirement Disposition
 
-- **PASS at deterministic contract level:** SAFE-01, SAFE-02, SAFE-03, UX-02, and D-39-01 through D-39-11, with database-backed portions explicitly qualified as blocked.
+- **PASS:** SAFE-01, SAFE-02, SAFE-03, UX-02, and D-39-01 through D-39-11, including the now-passing DB checks; browser-dependent portions remain qualified.
 - **BLOCKED:** UX-03, E2E-01, and D-39-12 through D-39-15 because authenticated browser execution was not reached.
 
 ## Deviations from Plan
@@ -86,7 +86,7 @@ None introduced. Blocked infrastructure lanes are evidence limitations, not stub
 
 ## Final Disposition
 
-**BLOCKED.** Phase 39 has honest deterministic evidence and complete traceability artifacts, but cannot sign off E2E-01 until a valid distinct marked disposable PostgreSQL environment and authenticated browser lane are available.
+**BLOCKED.** Phase 39 has passing disposable DB/Workflow evidence and complete traceability artifacts, but cannot sign off E2E-01 until the authenticated `/agents` and Company/Persona browser journeys complete without assertion failures.
 
 ## Self-Check: PASSED
 
