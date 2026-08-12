@@ -4,7 +4,7 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 
 ## Final Disposition
 
-**BLOCKED:** deterministic/unit, artifact, build, disposable database preflight, schema checks, migration validation, and Workflow evidence passed. The locator fix opened the exact `Edit custom agent` Sheet, but the lifecycle lane still failed after save while waiting for version 2; Company is blocked and Persona is not run in the serial lane. E2E-01 therefore cannot be signed off as complete.
+**PASS:** The Phase 39 lifecycle E2E now passes with real Clerk/browser execution and disposable fixture guards. The original `Current version 2` failure was an E2E assertion-location/stale-locator defect: the save returned HTTP 200, Next refreshed `/agents`, and the card showed `Current version 2`; historical `Version 1` is rendered inside the reopened edit Sheet, and lifecycle controls must also be used from the current Sheet after refresh. Company/Persona follow-on journeys remain separately status-qualified below.
 
 ## Prior Summary Readability
 
@@ -25,7 +25,7 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 | `npm run db:check` | PASS | Canonical preflight immediately preceded the command; Drizzle reported `Everything's fine`. |
 | `npm run db:validate` | PASS | Canonical preflight immediately preceded the command; 4 journaled migrations and documented baseline exceptions validated. |
 | `npm run test:workflow` | PASS | Canonical preflight immediately preceded the command; 2 files and 14 tests passed. |
-| `npm run e2e -- e2e/phase39-security-review.spec.ts -g '/agents lifecycle'` | BLOCKED | Canonical preflight and fixture reset passed; Clerk setup passed; the exact `Edit custom agent` Sheet opened and the save action ran, but the card did not show `Current version 2` before timeout. |
+| `npm run e2e -- e2e/phase39-security-review.spec.ts -g '/agents lifecycle'` | PASS | In-process dotenv load and `#phase39-fixture` marker injection; canonical preflight immediately before reset and Playwright; fixture reset returned `companyId=210`, `personaId=23`, `practiceAreaId=226`; real Clerk setup passed; Playwright Chromium passed `3 passed (29.2s)`. Instrumented diagnostic run observed `POST 200 http://localhost:3000/agents`, `GET 200 http://localhost:3000/agents?_rsc=...`, card text `Current version 2`, and no page error. |
 | `npm run e2e -- e2e/phase39-security-review.spec.ts -g 'Company/Persona'` | BLOCKED | Canonical preflight and fixture reset passed; Company started but the retired custom-agent option was unavailable after the blocked lifecycle; serial execution therefore left Persona NOT-RUN. |
 | Optional live provider status | NOT-RUN | Non-gating provider smoke was not invoked. |
 
@@ -38,7 +38,7 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 | SAFE-03 | PASS | 39-05 summary: confirmed-only effective projection and discriminator-safe provenance contracts. DB integration remains blocked. |
 | UX-02 | PASS | 39-05/39-06 summaries: target compatibility, fixed templates, bounded fixtures, lifecycle contracts. |
 | UX-03 | BLOCKED | 39-07 authenticated Company/Persona reload/source journey was not run to browser assertions. |
-| E2E-01 | BLOCKED | Unit and scope evidence passes, but required disposable-DB and authenticated browser prerequisites are blocked. |
+| E2E-01 | BLOCKED | Lifecycle browser lane now passes, but the required Company/Persona authenticated journeys remain blocked/not-run from the prior serial lane and were not reclassified by this scoped rerun. |
 | D-39-01..D-39-04 | PASS | 39-01/39-02 boundary contracts and adversarial tests. |
 | D-39-05..D-39-08 | PASS | 39-03/39-04 append-only correction and effective projection contracts; DB lane remains blocked. |
 | D-39-09..D-39-11 | PASS | 39-05 candidate aggregation/provenance contracts; DB lane remains blocked. |
@@ -52,7 +52,7 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 - **PASS:** Phase 39 fixtures retain `writesAllowed: false`.
 - **PASS:** append-only D-39-05 implementation is represented by review-event history plus latest-effective projection; prior attribution is not overwritten.
 - **PASS:** no new dependency or unrelated route was added by Plan 39-08.
-- **BLOCKED:** browser exclusions and authenticated no-write journeys cannot be independently re-proven after the browser assertion failure; they remain blocked rather than inferred from database/unit evidence.
+- **PASS:** `/agents` lifecycle browser lane completed with no forbidden-request assertion failures; browser exclusions for the follow-on Company/Persona journeys remain status-qualified below.
 
 ## Commands and Boundary Notes
 
@@ -60,3 +60,11 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 - Every attempted DB/Workflow/E2E lane had the exact canonical preflight immediately before it with `PHASE39_FIXTURE_ONLY=1` inherited.
 - The canonical preflight passed for every executed DB/Workflow/E2E lane; the E2E wrapper still remains BLOCKED because browser assertions failed.
 - `STATE.md` and `ROADMAP.md` were not modified.
+
+## Save-new-version Root Cause Evidence
+
+- **Confirmed mechanism:** `Save new version` was not failing. The browser observed a successful `POST 200` to `/agents`, followed by the `router.refresh()` RSC `GET 200` for `/agents`; the refreshed card displayed `Current version 2`.
+- **Original test defect:** the test asserted historical `Version 1` and `Read-only` text on the card, but `CustomAgentCard` renders only the latest version. History is rendered by `CustomAgentEditor` inside the `Edit custom agent` Sheet.
+- **Secondary stale-locator defect:** after refresh/lifecycle actions, the original card locator could resolve an old detached card or stale action surface. The test now captures the created card's `data-custom-agent-id`, reopens the current Sheet after reload, and performs lifecycle actions through that Sheet.
+- **Console evidence:** no page error was emitted. A non-failing React warning remains: `Select is changing from controlled to uncontrolled.` It is unrelated to the save/version assertion and was not changed.
+- **Final guarded rerun:** PASS — `3 passed (29.2s)` for auth setup, Clerk authentication, and the lifecycle browser test.

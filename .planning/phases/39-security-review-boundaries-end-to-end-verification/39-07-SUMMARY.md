@@ -30,8 +30,8 @@ Added guarded real-app Playwright coverage for the `/agents` custom-agent lifecy
 ### Task 1 — `/agents` lifecycle journey
 
 - **Implementation:** `e2e/phase39-security-review.spec.ts`
-- **Evidence:** BLOCKED. Canonical preflight and the actual `PHASE39_FIXTURE_ONLY=1` reset passed. The lifecycle invocation reached the authenticated browser, closed the create dialog with the exact accessible `Close` button, located the created card, opened the Sheet with its stable exact accessible name `Edit custom agent`, and then failed waiting for the post-save card to show `Current version 2`.
-- **Playwright result:** BLOCKED (browser started; lifecycle assertion failed at `e2e/phase39-security-review.spec.ts:111`).
+- **Evidence:** PASS after scoped E2E correction. Canonical preflight and the actual `PHASE39_FIXTURE_ONLY=1` reset passed. Runtime instrumentation observed the save `POST 200`, the refresh `GET 200` RSC response, and the card's `Current version 2`; no page error occurred. The original assertion was wrong because history is rendered inside the edit Sheet, not the card. The rerun also corrected stale card/Sheet locators after `router.refresh()`.
+- **Playwright result:** PASS — guarded Chromium run completed `3 passed (29.2s)`.
 
 ### Task 2 — Company/Persona durable review journeys
 
@@ -67,7 +67,7 @@ None.
 
 ### Blockers
 
-1. **Lifecycle assertion blocked:** After the locator fix, the browser created the disposable custom agent, closed the still-open create dialog, rendered its card, opened the exact `Edit custom agent` Sheet, saved the new version, and then timed out waiting for the card's `Current version 2` update.
+1. **Lifecycle assertion corrected:** The browser evidence showed the save and refresh succeeded; the test had asserted history on the wrong surface and later reused stale locators after refreshed DOM replacement. The test now asserts version 2 on the stable card and version 1/history in a newly opened current Sheet, with lifecycle actions performed through that Sheet.
 2. **Company journey blocked:** The separate guarded invocation could not locate the custom-agent option because the preceding lifecycle attempt did not reactivate the agent.
 3. **Persona journey not run:** The Playwright suite is serial and stopped after the Company assertion failure.
 
