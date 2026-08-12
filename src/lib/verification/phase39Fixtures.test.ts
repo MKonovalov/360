@@ -1,14 +1,46 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   createPhase39Fixture,
+  isPhase39FixtureMode,
   PHASE39_APPROVED_POLICY,
   PHASE39_TARGETS,
   resolvePhase39Lifecycle,
   shouldCreatePhase39Run,
 } from './phase39Fixtures';
+import { GroundedExecutionAdapter } from '@/lib/analysis/execution';
 
 describe('Phase 39 deterministic fixtures', () => {
+  it.each([
+    {
+      name: 'marked isolated database',
+      flag: '1',
+      databaseUrl: 'postgresql://fixture:fixture@ep-app.example.test/db#phase39-fixture',
+      testDatabaseUrl: 'postgresql://fixture:fixture@ep-test.example.test/db#phase39-fixture',
+      expected: true,
+    },
+    {
+      name: 'bare flag without marker',
+      flag: '1',
+      databaseUrl: 'postgresql://fixture:fixture@ep-app.example.test/db',
+      testDatabaseUrl: 'postgresql://fixture:fixture@ep-test.example.test/db',
+      expected: false,
+    },
+    {
+      name: 'marked production identity',
+      flag: '1',
+      databaseUrl: 'postgresql://fixture:fixture@ep-test.example.test/db#phase39-fixture',
+      testDatabaseUrl: 'postgresql://fixture:fixture@ep-test-pooler.example.test/db#phase39-fixture',
+      expected: false,
+    },
+  ])('$name selects Phase 39 mode only for the canonical isolated identity', ({ flag, databaseUrl, testDatabaseUrl, expected }) => {
+    vi.stubEnv('PHASE39_FIXTURE_ONLY', flag);
+    vi.stubEnv('DATABASE_URL', databaseUrl);
+    vi.stubEnv('TEST_DATABASE_URL', testDatabaseUrl);
+
+    expect(isPhase39FixtureMode()).toBe(expected);
+  });
+
   it('builds immutable, writes-disabled Company and Persona fixtures', () => {
     const fixtures = PHASE39_TARGETS.map(createPhase39Fixture);
 
@@ -28,6 +60,32 @@ describe('Phase 39 deterministic fixtures', () => {
     expect(execution.output.findings).toHaveLength(1);
     expect(execution.steps[0]?.toolResults[0]?.toolName).toBe('webSearch');
     expect(execution.output.findings[0]?.signalId).toBe(fixture.signalId);
+  });
+
+  it('selects the Phase 39 executor and policy in guarded fixture mode', async () => {
+    vi.stubEnv('PHASE39_FIXTURE_ONLY', '1');
+    vi.stubEnv('DATABASE_URL', 'postgresql://fixture:fixture@ep-app.example.test/db#phase39-fixture');
+    vi.stubEnv('TEST_DATABASE_URL', 'postgresql://fixture:fixture@ep-test.example.test/db#phase39-fixture');
+    const fixture = createPhase39Fixture('company');
+    const execution = await new GroundedExecutionAdapter({
+      instantiateChain: () => { throw new Error('production executor selected'); },
+      runAgent: async () => { throw new Error('production executor selected'); },
+    }).execute({
+      runId: fixture.runId,
+      targetType: fixture.targetType,
+      subjectId: fixture.subjectId,
+      subjectDisplayName: fixture.subjectSnapshot.displayName,
+      checklist: fixture.built.checklistSnapshot.items.map((item) => ({
+        signalId: item.signalId,
+        name: item.name,
+        category: item.category,
+        description: item.description,
+      })),
+      modelChain: ['phase39.fixture'],
+      policy: PHASE39_APPROVED_POLICY,
+    });
+
+    expect(execution).toMatchObject({ ok: true, modelId: 'phase39.fixture' });
   });
 
   it('keeps duplicate active-run creation closed while allowing a terminal recovery run', () => {

@@ -12,6 +12,7 @@ import { customOutputSchemaSnapshotSchema, modelRefSchema, phase33PolicySnapshot
 import type { BoundedOutputSchema } from './customAgentContracts';
 import type { ModelRef } from '@/lib/models/modelRef';
 import { isPhase36FixtureMode, phase36ExecutorDependencies } from '@/lib/verification/phase36Fixtures';
+import { isPhase39FixtureMode, phase39ExecutorDependencies } from '@/lib/verification/phase39Fixtures';
 import { safeToolResults, type SafeToolItem } from './executionSafety';
 
 const groundedModelFindingSchema = zodV3
@@ -155,9 +156,11 @@ export class GroundedExecutionAdapter {
       const parsed = executionInputSchema.parse(input);
       const policy = phase33PolicySnapshotSchema.parse(parsed.policy);
       const customSchema = parsed.customOutputSchema ?? null;
-      const dependencies = isPhase36FixtureMode()
-        ? phase36ExecutorDependencies(parsed.targetType)
-        : this.dependencies;
+      const dependencies = isPhase39FixtureMode()
+        ? phase39ExecutorDependencies(parsed.targetType)
+        : isPhase36FixtureMode()
+          ? phase36ExecutorDependencies(parsed.targetType)
+          : this.dependencies;
       if (policy.mode === 'phase33_policy_deferred') {
         return {
           ok: false,

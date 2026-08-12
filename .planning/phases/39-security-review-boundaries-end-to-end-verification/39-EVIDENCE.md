@@ -4,7 +4,7 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 
 ## Final Disposition
 
-**BLOCKED:** The Phase 39 lifecycle E2E is independently evidenced as PASS in the latest 39-07 rerun, and the deterministic/DB/Workflow gates below remain PASS. Final Phase 39 sign-off remains BLOCKED because Company execution persisted `failed` after provider rate limiting and the Persona-target journey did not start because no compatible persona-target custom agent was offered. The final disposition does not promote either follow-on lane to PASS.
+**BLOCKED:** The runtime wiring defect is fixed and focused regression/build gates pass. Guarded fixture reset and lifecycle E2E pass with the real app/API path, but the required Company/Persona lane remains blocked because the Company custom agent was not offered by the fixture data before launch; Persona did not start. No follow-on lane is promoted to PASS.
 
 ## Prior Summary Readability
 
@@ -26,7 +26,8 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 | `npm run db:validate` | PASS | Canonical preflight immediately preceded the command; 4 journaled migrations and documented baseline exceptions validated. |
 | `npm run test:workflow` | PASS | Canonical preflight immediately preceded the command; 2 files and 14 tests passed. |
 | `npm run e2e -- e2e/phase39-security-review.spec.ts -g '/agents lifecycle'` | PASS | In-process dotenv load and `#phase39-fixture` marker injection; canonical preflight immediately before reset and Playwright; fixture reset returned `companyId=210`, `personaId=23`, `practiceAreaId=226`; real Clerk setup passed; Playwright Chromium passed `3 passed (29.2s)`. Instrumented diagnostic run observed `POST 200 http://localhost:3000/agents`, `GET 200 http://localhost:3000/agents?_rsc=...`, card text `Current version 2`, and no page error. |
-| `npm run e2e -- e2e/phase39-security-review.spec.ts -g 'Company|Persona'` | BLOCKED | Latest guarded rerun: canonical preflight and fixture reset passed after applying the existing journaled `0010_phase39_review_corrections` migration. Company reached durable launch but provider rate limiting persisted run status `failed`; Persona was blocked because the Company-targeted custom agent was not offered for a Persona target. |
+| `npm run e2e -- e2e/phase39-security-review.spec.ts -g 'Company|Persona'` | BLOCKED | Guarded rerun used dotenv-loaded `.env.local`, in-process `#phase39-fixture` marker injection, canonical preflight immediately before reset and Playwright, and fixture IDs `companyId=210`, `personaId=23`, `practiceAreaId=226`. Company launch was blocked before execution because the expected Company custom agent was not offered; Persona was not run. |
+| Phase 39 runtime wiring regression tests | PASS | `phase39Fixtures.test.ts`, `phase39Adversarial.test.ts`, and `execution.test.ts`: 49 tests passed. Guarded mode requires the Phase 39 marker on both normalized app/test identities, uses `createPhase39Fixture(targetType).executorDependencies`, and selects `PHASE39_APPROVED_POLICY` in the analysis-run route. |
 | Optional live provider status | NOT-RUN | Non-gating provider smoke was not invoked. |
 
 ## Requirement and Decision Traceability
@@ -59,6 +60,7 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 - Non-DB gates were run directly as authorized by the plan.
 - Every attempted DB/Workflow/E2E lane had the exact canonical preflight immediately before it with `PHASE39_FIXTURE_ONLY=1` inherited.
 - The canonical preflight passed immediately before every executed DB/Workflow/E2E lane. The fixture reset blocker was disposable-database drift: the repository already contained the intended append-only relation in migration `0010`, schema, and snapshot, but the fixture database had not applied that journaled migration. Applying it restored reset compatibility; no migration/schema/reset source change was made.
+- The runtime wiring defect was the Phase 36-only selection in the grounded adapter and analysis-run policy route. Phase 39 now has an explicit marker-plus-normalized-identity guard, fixture executor selection, and server-owned approved policy selection; the real authenticated app/API/Workflow path remains intact.
 - `STATE.md` and `ROADMAP.md` were not modified.
 
 ## Save-new-version Root Cause Evidence

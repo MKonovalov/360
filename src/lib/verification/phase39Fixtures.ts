@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { buildPhase33AnalysisSnapshots, type BuiltAnalysisSnapshots } from '@/lib/analysis/snapshots';
 import { type GroundedExecutionDependencies } from '@/lib/analysis/execution';
 import { type AnalysisTargetType } from '@/lib/analysis/contracts';
+import { parseFixtureDatabaseUrl } from './databaseIdentity';
 
 export const PHASE39_TARGETS = ['company', 'persona'] as const satisfies readonly AnalysisTargetType[];
 
@@ -172,6 +173,20 @@ export function isPhase39Compatible(input: Readonly<{
     && input.templateKey === PHASE39_FIXED_TEMPLATE_KEYS[input.targetType]
     && input.practiceAreaId === (input.targetType === 'company' ? 39_090 : 39_091)
     && input.schemaVersion === 1;
+}
+
+export function isPhase39FixtureMode(): boolean {
+  if (process.env.PHASE39_FIXTURE_ONLY !== '1') return false;
+  const databaseUrl = parseFixtureDatabaseUrl(process.env.DATABASE_URL);
+  const testDatabaseUrl = parseFixtureDatabaseUrl(process.env.TEST_DATABASE_URL);
+  if (!databaseUrl || !testDatabaseUrl) return false;
+  return databaseUrl.marker === 'phase39-fixture'
+    && testDatabaseUrl.marker === 'phase39-fixture'
+    && databaseUrl.identity !== testDatabaseUrl.identity;
+}
+
+export function phase39ExecutorDependencies(targetType: AnalysisTargetType): GroundedExecutionDependencies {
+  return createPhase39Fixture(targetType).executorDependencies;
 }
 
 export function shouldCreatePhase39Run(input: Readonly<{ readonly activeRunIds: readonly number[]; readonly requestedRunId: number }>): boolean {
