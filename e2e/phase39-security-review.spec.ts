@@ -8,8 +8,8 @@ type Counts = Readonly<{ companySignals: number; personaSignals: number; links: 
 
 const forbiddenRequest = /firecrawl|(?:exa|perplexity|tavily|serpapi|brave-search)|\/api\/(?:companies|personas)\/\d+\/analyze|\/api\/(?:agent-runs|signal-proposals)/i;
 const customAgentNames: Readonly<Record<SubjectType, string>> = {
-  company: `Phase 39 E2E Company Agent ${Date.now()}`,
-  persona: `Phase 39 E2E Persona Agent ${Date.now()}`,
+  company: 'Phase 39 E2E Company Agent',
+  persona: 'Phase 39 E2E Persona Agent',
 };
 const customAgentDescription = 'Disposable custom agent for authenticated Phase 39 browser verification.';
 

@@ -2,7 +2,7 @@
 
 ## Final disposition
 
-**BLOCKED:** deterministic, disposable database, migration, and Workflow evidence passes; lifecycle authenticated browser evidence is PASS, while the required Company and Persona follow-on journeys remain BLOCKED for explicit provider/target blockers.
+**BLOCKED:** deterministic, disposable database, migration, and Workflow evidence passes; lifecycle authenticated browser evidence is PASS. Company/Persona follow-on journeys remain BLOCKED after the real Company review path exposed and received local fixes for proven SQL defects, while the final guarded run still failed to expose the expected custom-agent option and Persona did not run.
 
 ## Evidence contract
 
@@ -18,4 +18,4 @@ The canonical `/agents` route is present. No `/reviews/agents` route exists. Pha
 
 ## Gate limitation
 
-The exact canonical preflight passed immediately before each executed DB, Workflow, and E2E lane with `.env.local` loaded in-process and the fixture marker injected only into `TEST_DATABASE_URL`. The latest lifecycle evidence is PASS. A later local reset attempt stopped on missing relation `analysis_run_review_event`, so no dependent E2E command was run from that attempt. Company/Persona remain status-qualified by the successful 39-07 reruns, and the missing Phase 38 script entrypoint is retained as BLOCKED.
+The exact canonical preflight passed immediately before each executed DB, Workflow, and E2E lane with `.env.local` loaded in-process and the fixture marker injected only into `TEST_DATABASE_URL`. The latest lifecycle evidence is PASS. Company reached durable execution and review in an earlier guarded run; the review SQL defects were fixed locally, but the final guarded rerun still did not expose the expected Company custom-agent option, so Persona was not run. The missing Phase 38 script entrypoint is retained as BLOCKED.

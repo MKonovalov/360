@@ -4,7 +4,7 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 
 ## Final Disposition
 
-**BLOCKED:** The runtime wiring defect is fixed and focused regression/build gates pass. Guarded fixture reset and lifecycle E2E pass with the real app/API path, but the required Company/Persona lane remains blocked because the Company custom agent was not offered by the fixture data before launch; Persona did not start. No follow-on lane is promoted to PASS.
+**BLOCKED:** Guarded fixture reset and lifecycle E2E pass with the real app/API path. Company/Persona execution reached the real launch/review path, but the Company review correction exposed and was locally fixed for two proven SQL defects; the rerun still blocked before the custom-agent option became available, so Persona did not start. No follow-on lane is promoted to PASS.
 
 ## Prior Summary Readability
 
@@ -26,7 +26,7 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 | `npm run db:validate` | PASS | Canonical preflight immediately preceded the command; 4 journaled migrations and documented baseline exceptions validated. |
 | `npm run test:workflow` | PASS | Canonical preflight immediately preceded the command; 2 files and 14 tests passed. |
 | `npm run e2e -- e2e/phase39-security-review.spec.ts -g '/agents lifecycle'` | PASS | In-process dotenv load and `#phase39-fixture` marker injection; canonical preflight immediately before reset and Playwright; fixture reset returned `companyId=210`, `personaId=23`, `practiceAreaId=226`; real Clerk setup passed; Playwright Chromium passed `3 passed (29.2s)`. Instrumented diagnostic run observed `POST 200 http://localhost:3000/agents`, `GET 200 http://localhost:3000/agents?_rsc=...`, card text `Current version 2`, and no page error. |
-| `npm run e2e -- e2e/phase39-security-review.spec.ts -g 'Company|Persona'` | BLOCKED | Guarded rerun used dotenv-loaded `.env.local`, in-process `#phase39-fixture` marker injection, canonical preflight immediately before reset and Playwright, and fixture IDs `companyId=210`, `personaId=23`, `practiceAreaId=226`. Company launch was blocked before execution because the expected Company custom agent was not offered; Persona was not run. |
+| `npm run e2e -- e2e/phase39-security-review.spec.ts -g 'Company|Persona'` | BLOCKED | Guarded reruns used dotenv-loaded `.env.local`, in-process `#phase39-fixture` marker injection, canonical preflight immediately before reset and Playwright, and fixture IDs `companyId=210`, `personaId=23`, `practiceAreaId=226`. Company reached durable execution and review; the first review attempt exposed SQL enum/column defects, fixed locally. The final rerun remained blocked before the custom-agent option became available; Persona was not run. |
 | Phase 39 runtime wiring regression tests | PASS | `phase39Fixtures.test.ts`, `phase39Adversarial.test.ts`, and `execution.test.ts`: 49 tests passed. Guarded mode requires the Phase 39 marker on both normalized app/test identities, uses `createPhase39Fixture(targetType).executorDependencies`, and selects `PHASE39_APPROVED_POLICY` in the analysis-run route. |
 | Optional live provider status | NOT-RUN | Non-gating provider smoke was not invoked. |
 
@@ -61,6 +61,7 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 - Every attempted DB/Workflow/E2E lane had the exact canonical preflight immediately before it with `PHASE39_FIXTURE_ONLY=1` inherited.
 - The canonical preflight passed immediately before every executed DB/Workflow/E2E lane. The fixture reset blocker was disposable-database drift: the repository already contained the intended append-only relation in migration `0010`, schema, and snapshot, but the fixture database had not applied that journaled migration. Applying it restored reset compatibility; no migration/schema/reset source change was made.
 - The runtime wiring defect was the Phase 36-only selection in the grounded adapter and analysis-run policy route. Phase 39 now has an explicit marker-plus-normalized-identity guard, fixture executor selection, and server-owned approved policy selection; the real authenticated app/API/Workflow path remains intact.
+- Proven review-path SQL defects were fixed in `analysisReviews.ts`: the review decision enum is explicitly cast to `analysis_run_status`, and the corrected projection selects the current effective sequence/expected event rather than nonexistent projection columns. Full tests, typecheck, and build pass after these fixes.
 - `STATE.md` and `ROADMAP.md` were not modified.
 
 ## Save-new-version Root Cause Evidence

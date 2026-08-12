@@ -425,7 +425,7 @@ export async function transitionReviewDecision(
     ),
     updated_run AS (
       UPDATE analysis_run AS run
-      SET status = event.decision,
+      SET status = event.decision::text::analysis_run_status,
         terminal_at = COALESCE(run.terminal_at, event.decided_at),
         updated_at = event.decided_at
       FROM inserted_event AS event
@@ -434,8 +434,8 @@ export async function transitionReviewDecision(
     )
     SELECT 'corrected'::text AS kind, projection.id AS "eventId",
       projection.analysis_run_id AS "runId", projection.result_id AS "resultId",
-      projection.sequence, projection.prior_decision AS "priorDecision",
-      projection.decision, projection.expected_prior_event_id AS "expectedPriorEventId",
+      projection.effective_sequence AS sequence, NULL::analysis_review_decision AS "priorDecision",
+      projection.decision, ${expectedPriorEventId} AS "expectedPriorEventId",
       projection.decided_by AS "decidedBy", projection.decided_at AS "decidedAt",
       projection.packet_hash AS "packetHash", NULL::integer AS "effectiveEventId",
       NULL::integer AS "effectiveSequence", NULL::text AS reason

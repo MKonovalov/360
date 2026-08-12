@@ -2,7 +2,7 @@
 
 ## Final Disposition
 
-**BLOCKED:** scope canaries, deterministic evidence, DB/Workflow evidence, and lifecycle browser evidence are present, but required Company/Persona browser journeys remain blocked. No blocked or not-run lane is represented as PASS.
+**BLOCKED:** scope canaries, deterministic evidence, DB/Workflow evidence, and lifecycle browser evidence are present, but required Company/Persona browser journeys remain blocked after the real Company review path exposed and received local SQL fixes; the final guarded rerun still did not expose the expected custom-agent option and Persona did not run. No blocked or not-run lane is represented as PASS.
 
 ## Positive Canaries
 
@@ -28,4 +28,4 @@ SAFE-01, SAFE-02, SAFE-03, and UX-02 have focused deterministic evidence in Plan
 
 ## Audit Limitation
 
-The planned `scripts/phase38-scope-audit.ts` entrypoint is absent. The existing Phase 38 cumulative packet-path canary (`normalizeAnalysisPacketWithQuarantine`) is retained as BLOCKED rather than weakened or relabeled; Plan 39-08 does not modify Phase 38 code. A latest local Phase 39 fixture-reset attempt also stopped on missing relation `analysis_run_review_event`; this was not converted into a browser result or PASS.
+The planned `scripts/phase38-scope-audit.ts` entrypoint is absent. The existing Phase 38 cumulative packet-path canary (`normalizeAnalysisPacketWithQuarantine`) is retained as BLOCKED rather than weakened or relabeled; Plan 39-08 does not modify Phase 38 code. The latest Phase 39 fixture reset passed; the final Company/Persona browser rerun remained blocked at custom-agent option discovery, and this was not converted into a browser result or PASS.

@@ -29,7 +29,13 @@ const localDatabaseUrl = process.env.TEST_DATABASE_URL
       return url.toString();
     })()
   : undefined;
-
+const localApplicationDatabaseUrl = process.env.DATABASE_URL
+  ? (() => {
+      const url = new URL(process.env.DATABASE_URL);
+      if (isPhase39FixtureRun) url.hash = '#phase39-fixture';
+      return url.toString();
+    })()
+  : undefined;
 // .env.local may contain Vercel's empty `VERCEL_URL` marker after a pull. The
 // Workflow SDK treats that variable's presence as a deployed runtime and then
 // constructs the invalid origin `https://`. Local E2E must use the real dev
@@ -55,7 +61,13 @@ export default defineConfig({
           timeout: 120_000,
            reuseExistingServer: !process.env.CI && !isPhase36FixtureRun && !isPhase39FixtureRun,
           ...(localDatabaseUrl
-            ? { env: { DATABASE_URL: localDatabaseUrl } }
+            ? {
+                env: {
+                  DATABASE_URL: localDatabaseUrl,
+                  TEST_DATABASE_URL: localApplicationDatabaseUrl ?? localDatabaseUrl,
+                  ...(isPhase39FixtureRun ? { PHASE39_FIXTURE_ONLY: '1' } : {}),
+                },
+              }
             : {}),
         },
       }),
