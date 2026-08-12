@@ -1,12 +1,12 @@
-import catalogJson from './catalog.json';
+import catalogJson from './catalog.json' with { type: 'json' };
 
 // D-24-03: the snapshot is grouped { generatedAt, providers: { <providerID>: [...] } }
 // instead of the flat { generatedAt, models: [...] } — CatalogModel is derived through
 // the providers record (grouping key = the row's own providerID string, D-24-05).
 export type CatalogModel = (typeof catalogJson)['providers'] extends Record<string, infer R>
   ? R extends readonly (infer M)[]
-    ? M
-    : never
+  ? M
+  : never
   : never;
 export type ModelCatalog = { generatedAt: string; providers: Record<string, CatalogModel[]> };
 
