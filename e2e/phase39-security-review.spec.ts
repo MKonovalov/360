@@ -71,11 +71,13 @@ async function launchCustomAgent(page: Page, subject: Subject): Promise<number> 
   await openLauncher(page, subject);
   await selectCustomAgent(page);
   const preview = page.getByRole('region', { name: 'Analysis preview' });
-  await expect(preview).toContainText(customAgentName);
+  await expect(preview).toContainText('Phase 39 E2E Custom Agent');
   await expect(preview).toContainText('Resolved instruction');
   await expect(preview).toContainText('Signals checked');
   await page.getByRole('button', { name: 'Start analysis', exact: true }).click();
-  const status = page.getByRole('status');
+  const dialog = page.getByRole('dialog', { name: subject.heading, exact: true });
+  await expect(dialog.getByRole('button', { name: 'Starting…', exact: true })).toHaveCount(0, { timeout: 30_000 });
+  const status = dialog.getByRole('status');
   await expect(status).toContainText(/Analysis run #\d+ started/);
   const match = (await status.textContent())?.match(/Analysis run #(\d+) started/);
   expect(match).toBeTruthy();
