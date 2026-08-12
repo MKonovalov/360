@@ -6,9 +6,16 @@ import { LangfuseClient } from '@langfuse/client';
 import { startActiveObservation } from '@langfuse/tracing';
 import { propagateAttributes } from '@langfuse/tracing';
 import { z } from 'zod';
+import type { ReadableSpan } from '@opentelemetry/sdk-trace';
 import { SERVABLE_PROVIDERS } from '@/lib/models/catalog';
 import { modelRefSchema } from '@/lib/analysis/contracts';
 import { env } from '../env';
+import {
+  buildSafeObservationInput,
+  buildSafeObservationOutput,
+  sanitizeAiObservationAttributes,
+  telemetryIdentifierSchema,
+} from './langfuseSafe';
 
 // Phase 9 observability bootstrap (D-13, D-15, D-16). No `instrumentation.ts`
 // (D-13): initLangfuse() is the single explicit entry point, called by the
@@ -18,14 +25,7 @@ import { env } from '../env';
 
 let langfuseClient: LangfuseClient | undefined;
 let initialized = false;
-
-const telemetryIdentifierSchema = z
-  .string()
-  .trim()
-  .min(1)
-  .max(200)
-  .regex(/^(?!.*:\/\/)[a-zA-Z0-9][a-zA-Z0-9._:/-]*$/)
-  .refine((value) => !/(?:sk|pk)[_-](?:live|test)|api[_-]?key|secret|token|session|clerk|database/i.test(value));
+let langfuseSpanProcessor: LangfuseSpanProcessor | undefined;
 
 const phase33MetadataSchema = z
   .object({
@@ -43,7 +43,6 @@ const phase33MetadataSchema = z
     policyVersion: z.string().trim().min(1).max(120).nullable(),
     traceId: telemetryIdentifierSchema.nullable(),
     traceUrl: z
-      .string()
       .url()
       .max(2_048)
       .refine((value) => {
@@ -55,6 +54,15 @@ const phase33MetadataSchema = z
   .strip();
 
 export type Phase33TelemetryMetadata = z.infer<typeof phase33MetadataSchema>;
+
+class PrivacySafeLangfuseSpanProcessor extends LangfuseSpanProcessor {
+  override onEnd(span: ReadableSpan): void {
+    const isAiSpan = span.instrumentationScope.name === 'ai'
+      || Object.keys(span.attributes).some((key) => key.startsWith('gen_ai.'));
+    if (isAiSpan) sanitizeAiObservationAttributes(span.attributes);
+    super.onEnd(span);
+  }
+}
 
 export function buildPhase33TelemetryMetadata(input: unknown): Phase33TelemetryMetadata {
   return phase33MetadataSchema.parse(input);
@@ -94,11 +102,12 @@ export function initLangfuse(): void {
   // its own — that lives on `ai`).
   const sdk = new NodeSDK({
     spanProcessors: [
-      new LangfuseSpanProcessor({
+      (langfuseSpanProcessor = new PrivacySafeLangfuseSpanProcessor({
         publicKey: env.LANGFUSE_PUBLIC_KEY,
         secretKey: env.LANGFUSE_SECRET_KEY,
         baseUrl,
-      }),
+        exportMode: 'immediate',
+      })),
     ],
   });
   sdk.start();
@@ -111,7 +120,12 @@ export function initLangfuse(): void {
 export async function runWithPhase33Trace<T>(
   name: string,
   fn: () => Promise<T>,
-  options?: { readonly input?: unknown; readonly metadata?: Record<string, unknown>; readonly sessionId?: string },
+  options?: {
+    readonly input?: unknown;
+    readonly metadata?: unknown;
+    readonly output?: (result: T) => unknown;
+    readonly sessionId?: string;
+  },
 ): Promise<{ readonly result: T; readonly traceId: string | null }> {
   // D-16 — test runs execute the callback directly and never register or call
   // Langfuse. D-15 — missing keys retain the same zero-observability behavior.
@@ -127,10 +141,21 @@ export async function runWithPhase33Trace<T>(
       name,
       async (span) => {
         callbackStarted = true;
-        span.update({ input: options?.input, metadata: options?.metadata });
-        const result = await fn();
-        callbackResult = { result, traceId: span.traceId };
-        return callbackResult;
+        span.update({
+          input: buildSafeObservationInput(name, options?.input),
+          metadata: buildSafeObservationInput(name, options?.metadata),
+        });
+        try {
+          const result = await fn();
+          span.update({
+            output: buildSafeObservationOutput(options?.output?.(result)),
+          });
+          callbackResult = { result, traceId: span.traceId };
+          return callbackResult;
+        } catch (error: unknown) {
+          span.update({ output: { schemaVersion: 1, status: 'failed' } });
+          throw error;
+        }
       },
       { asType: 'span' },
     );
@@ -145,6 +170,17 @@ export async function runWithPhase33Trace<T>(
     if (callbackResult) return callbackResult;
     if (!callbackStarted) return { result: await fn(), traceId: null };
     throw error;
+  } finally {
+    await flushLangfuse();
+  }
+}
+
+async function flushLangfuse(): Promise<void> {
+  try {
+    await langfuseSpanProcessor?.forceFlush();
+  } catch (error: unknown) {
+    if (error instanceof Error) return;
+    return;
   }
 }
 
@@ -168,7 +204,7 @@ export async function recordPhase33Telemetry(input: unknown): Promise<void> {
   if (!client) return;
 
   try {
-    await client.score.create({
+    client.score.create({
       traceId: metadata.traceId,
       name: 'phase33_run',
       value: 1,
@@ -193,7 +229,7 @@ export async function mirrorCorrectionAnnotation(
   // yields (score.create only enqueues; delivery needs flush()).
   const client = getLangfuseClient();
   if (!client) return;
-  await client.score.create({
+  client.score.create({
     traceId,
     name: 'correction',
     value: 0,
