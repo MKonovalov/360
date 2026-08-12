@@ -36,7 +36,7 @@ Added guarded real-app Playwright coverage for the `/agents` custom-agent lifecy
 ### Task 2 — Company/Persona durable review journeys
 
 - **Implementation:** `e2e/phase39-security-review.spec.ts`
-- **Evidence:** BLOCKED. Canonical preflight and the actual `PHASE39_FIXTURE_ONLY=1` reset passed. The Company browser reached durable launch, but the fixture execution called the configured provider and ended `failed` after a provider rate-limit error, so source/review/candidate and count assertions did not complete.
+- **Evidence:** BLOCKED. Canonical preflight and the actual `PHASE39_FIXTURE_ONLY=1` reset passed after applying the already-journaled `0010_phase39_review_corrections.sql` migration to the disposable fixture database. The Company browser reached durable launch, but the fixture execution called the configured provider and ended `failed` after a provider rate-limit error, so source/review/candidate and count assertions did not complete.
 - **Playwright result:** BLOCKED Company (authenticated Chromium started; launch completed; status polling observed `failed` after provider `429`); Persona was run separately and BLOCKED because the existing Company-targeted custom agent is not offered for the Persona target.
 
 ## Verification Evidence
@@ -45,7 +45,7 @@ The required sequence was preserved for each task:
 
 1. `PHASE39_FIXTURE_ONLY=1` marker set.
 2. `tsx src/lib/verification/databaseIdentity.ts --phase39-preflight` passed.
-3. `tsx e2e/phase39-fixture-reset.ts` passed and returned disposable fixture IDs (`companyId=210`, `personaId=23`, `practiceAreaId=226`).
+3. `tsx e2e/phase39-fixture-reset.ts` passed after the existing journaled migration was applied and returned disposable fixture IDs (`companyId=210`, `personaId=23`, `practiceAreaId=226`).
 4. Canonical preflight immediately before each Playwright invocation passed.
 5. Playwright was invoked only after successful preflight. Company and Persona were each launched in fresh project-owned dev-server runs. Company reached real durable execution and was blocked by the provider rate limit; Persona reached real Chromium launcher selection and was blocked by target compatibility.
 

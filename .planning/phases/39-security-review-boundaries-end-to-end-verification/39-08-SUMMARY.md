@@ -34,8 +34,9 @@ Final Phase 39 evidence ledger, scope canaries, requirement/decision traceabilit
 
 1. Read and audited all seven prior Phase 39 summaries and current route/fixture code.
 2. Ran non-DB final gates: full tests, artifact checks, production build, TypeScript, Phase 33 audit, and focused Phase 39 scope audit.
-3. Loaded `.env.local` in-process, injected `#phase39-fixture` only into `TEST_DATABASE_URL`, and invoked the exact canonical preflight immediately before each DB, Workflow, and attempted fixture/E2E lane.
-4. Added positive non-vacuous canaries for `/agents`, absent `/reviews/agents`, fixture identity, writes-disabled policy, append-only projection, and status-qualified evidence rows.
+3. Loaded `.env.local` in-process, injected `#phase39-fixture` only into `TEST_DATABASE_URL`, and invoked the exact canonical preflight immediately before each DB, Workflow, and fixture/E2E lane.
+4. Confirmed the reset blocker was disposable-database drift, not a missing repository artifact: `analysis_run_review_event` is present in the schema, migration `0010_phase39_review_corrections.sql`, and snapshot; applying the existing journaled migration restored the relation without changing migration/schema/reset code.
+5. Added positive non-vacuous canaries for `/agents`, absent `/reviews/agents`, fixture identity, writes-disabled policy, append-only projection, and status-qualified evidence rows.
 
 ## Verification
 
@@ -50,7 +51,7 @@ Final Phase 39 evidence ledger, scope canaries, requirement/decision traceabilit
 - **PASS** lifecycle authenticated browser lane: latest 39-07 rerun completed `3 passed (29.2s)` with real Clerk/Chromium execution and version-history/lifecycle assertions.
 - **BLOCKED** Company authenticated browser lane: real Chromium reached durable launch, but the provider returned a rate-limit error and the persisted run status became `failed` before source/review/candidate/count assertions.
 - **BLOCKED** Persona authenticated browser lane: the existing Company-targeted custom agent was not offered for a Persona target; no Persona run was started.
-- **BLOCKED** latest local fixture reset attempt: canonical preflight passed, but reset stopped on missing relation `analysis_run_review_event`; no dependent E2E command was invoked from that attempt.
+- **PASS** latest local fixture reset: canonical preflight passed, the existing journaled migration `0010_phase39_review_corrections` was applied, and reset returned `companyId=210`, `personaId=23`, `practiceAreaId=226`, `companySignalId=350`, `personaSignalId=167`.
 - **NOT-RUN** optional live provider smoke; non-gating.
 
 ## Requirement Disposition
@@ -89,7 +90,7 @@ None introduced. Blocked infrastructure lanes are evidence limitations, not stub
 
 ## Final Disposition
 
-**BLOCKED.** Phase 39 has passing disposable DB/Workflow evidence, a passing lifecycle E2E, and complete traceability artifacts, but cannot sign off E2E-01 until Company execution succeeds without provider rate limiting and the Persona-compatible authenticated journey completes.
+**BLOCKED.** Phase 39 has passing disposable DB/Workflow evidence, a passing fixture reset, a passing lifecycle E2E, and complete traceability artifacts, but cannot sign off E2E-01 until Company execution succeeds without provider rate limiting and the Persona-compatible authenticated journey completes.
 
 ## Self-Check: PASSED
 
