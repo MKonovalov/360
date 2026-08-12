@@ -114,6 +114,11 @@ export async function runAgent({
         prepareStep: ({ stepNumber }) =>
           stepNumber >= finalStepCount - 1 ? { toolChoice: 'none' as const, activeTools: [] } : undefined,
         output: Output.object({ schema: requestedOutputSchema }),
+        telemetry: {
+          functionId: 'arclumen-analysis-agent',
+          recordInputs: false,
+          recordOutputs: false,
+        },
         // FAL-04 why-comment (house convention): { totalMs } is the TOTAL
         // budget for this call INCLUDING the SDK's own retries + backoff
         // (verified: mergeAbortSignals feeds the retry loop's abort signal).
