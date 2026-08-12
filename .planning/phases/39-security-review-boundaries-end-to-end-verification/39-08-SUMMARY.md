@@ -18,7 +18,7 @@ key_files:
     - src/lib/verification/phase39ScopeAudit.test.ts
   modified: []
 decisions:
-  - Final disposition is BLOCKED because lifecycle E2E passes, but Company execution is blocked by provider rate limiting/persisted failed status and Persona is blocked by missing persona-target custom-agent compatibility.
+  - Final disposition is BLOCKED because lifecycle E2E passes, but the required Company/Persona lane is blocked before execution because the Company custom agent is not offered by the fixture data; Persona is not run.
   - Blocked and not-run evidence is never promoted to PASS; E2E-01 and UX-03 remain blocked.
   - STATE.md and ROADMAP.md remain untouched as explicitly required.
 metrics:
@@ -29,6 +29,14 @@ metrics:
 # Phase 39 Plan 08: Final Evidence and Scope Audit Summary
 
 Final Phase 39 evidence ledger, scope canaries, requirement/decision traceability, and honest blocked-lane disposition.
+
+## Runtime Wiring Defect Follow-up
+
+- **PASS:** Guarded Phase 39 mode requires `PHASE39_FIXTURE_ONLY=1`, the canonical `phase39-fixture` marker on both normalized database identities, and distinct normalized identities.
+- **PASS:** Grounded execution selects `createPhase39Fixture(targetType).executorDependencies` only in guarded mode; analysis-run and preview routes select server-owned `PHASE39_APPROVED_POLICY` there.
+- **PASS:** Focused regression suite: 49 tests passed. LSP diagnostics, `tsc --noEmit`, and `npm run build` passed.
+- **PASS:** Dotenv-loaded preflight, fixture reset, and lifecycle Playwright lane: `3 passed`.
+- **BLOCKED:** Company/Persona Playwright lane: Company custom agent was not offered by fixture data before launch; Persona did not run.
 
 ## Tasks Completed
 
@@ -49,8 +57,7 @@ Final Phase 39 evidence ledger, scope canaries, requirement/decision traceabilit
 - **BLOCKED** Phase 38 cumulative audit reports the existing `normalizeAnalysisPacketWithQuarantine` packet-path canary; no Phase 38 code was changed.
 - **PASS** canonical preflight, DB check, DB migration validation, and Workflow lane.
 - **PASS** lifecycle authenticated browser lane: latest 39-07 rerun completed `3 passed (29.2s)` with real Clerk/Chromium execution and version-history/lifecycle assertions.
-- **BLOCKED** Company authenticated browser lane: real Chromium reached durable launch, but the provider returned a rate-limit error and the persisted run status became `failed` before source/review/candidate/count assertions.
-- **BLOCKED** Persona authenticated browser lane: the existing Company-targeted custom agent was not offered for a Persona target; no Persona run was started.
+- **BLOCKED** Company/Persona authenticated browser lane: the Company custom agent was not offered by fixture data before launch; Persona was not started.
 - **PASS** latest local fixture reset: canonical preflight passed, the existing journaled migration `0010_phase39_review_corrections` was applied, and reset returned `companyId=210`, `personaId=23`, `practiceAreaId=226`, `companySignalId=350`, `personaSignalId=167`.
 - **NOT-RUN** optional live provider smoke; non-gating.
 
