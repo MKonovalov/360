@@ -7,7 +7,7 @@ type Subject = Readonly<{ type: SubjectType; id: number; path: string; heading: 
 type Counts = Readonly<{ companySignals: number; personaSignals: number; links: number }>;
 
 const forbiddenRequest = /firecrawl|(?:exa|perplexity|tavily|serpapi|brave-search)|\/api\/(?:companies|personas)\/\d+\/analyze|\/api\/(?:agent-runs|signal-proposals)/i;
-const customAgentName = 'Phase 39 E2E Custom Agent';
+const customAgentName = `Phase 39 E2E Custom Agent ${Date.now()}`;
 const customAgentDescription = 'Disposable custom agent for authenticated Phase 39 browser verification.';
 
 function fixtureId(name: string): number {
@@ -99,30 +99,41 @@ test.describe('Phase 39 authenticated security-review journeys', () => {
     await create.getByRole('textbox', { name: 'Research query' }).fill('Find durable Phase 39 evidence for cost pressure.');
     await create.getByRole('textbox', { name: 'Behavior instruction' }).fill('Return only source-backed findings.');
     await create.getByRole('button', { name: 'Save retired agent', exact: true }).click();
-    await page.getByRole('button', { name: 'Close', exact: true }).click();
+    await create.getByRole('button', { name: 'Close', exact: true }).click();
     const card = page.locator('[data-custom-agent-id]').filter({ hasText: customAgentName }).last();
-    await expect(card).toContainText('Retired');
-    await expect(card).toContainText('Current version 1');
+    const customAgentId = await card.getAttribute('data-custom-agent-id');
+    expect(customAgentId).toBeTruthy();
+    const stableCard = page.locator(`[data-custom-agent-id="${customAgentId}"]`);
+    await expect(stableCard).toContainText('Retired');
+    await expect(stableCard).toContainText('Current version 1');
 
-    await card.getByRole('button', { name: 'Edit custom agent', exact: true }).click();
+    await stableCard.getByRole('button', { name: 'Edit custom agent', exact: true }).click();
     const edit = page.getByRole('dialog', { name: 'Edit custom agent', exact: true });
     await edit.getByRole('textbox', { name: 'Description' }).fill(`${customAgentDescription} edited`);
     await edit.getByRole('button', { name: 'Save new version', exact: true }).click();
-    await expect(card).toContainText('Current version 2');
+    await expect(stableCard).toContainText('Current version 2');
     await page.reload();
-    await expect(card).toContainText('Version 1');
-    await expect(card).toContainText('Read-only');
-
-    await card.getByRole('button', { name: 'Activate custom agent', exact: true }).click();
-    await expect(card).toContainText('Active');
-    await card.getByRole('button', { name: 'Retire custom agent', exact: true }).click();
-    await expect(card).toContainText('Retired');
+    await stableCard.getByRole('button', { name: 'Edit custom agent', exact: true }).click();
+    const reloadedEdit = page.getByRole('dialog', { name: 'Edit custom agent', exact: true });
+    await expect(reloadedEdit).toContainText('Version 1');
+    await expect(reloadedEdit).toContainText('Read-only');
+    await reloadedEdit.getByRole('button', { name: 'Activate custom agent', exact: true }).click();
+    await reloadedEdit.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(stableCard).toContainText('Active');
+    await stableCard.getByRole('button', { name: 'Edit custom agent', exact: true }).click();
+    const activeEdit = page.getByRole('dialog', { name: 'Edit custom agent', exact: true });
+    await activeEdit.getByRole('button', { name: 'Retire custom agent', exact: true }).click();
+    await activeEdit.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(stableCard).toContainText('Retired');
     await openLauncher(page, subjects().company);
     await expect(page.getByRole('option', { name: /Custom · Phase 39 E2E Custom Agent/ })).toHaveCount(0);
-    await page.getByRole('button', { name: 'Close', exact: true }).click();
+    await page.getByRole('dialog', { name: subjects().company.heading, exact: true }).getByRole('button', { name: 'Close', exact: true }).first().click();
     await page.goto('/agents');
-    await card.getByRole('button', { name: 'Activate custom agent', exact: true }).click();
-    await expect(card).toContainText('Active');
+    await stableCard.getByRole('button', { name: 'Edit custom agent', exact: true }).click();
+    const retiredEdit = page.getByRole('dialog', { name: 'Edit custom agent', exact: true });
+    await retiredEdit.getByRole('button', { name: 'Activate custom agent', exact: true }).click();
+    await retiredEdit.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(stableCard).toContainText('Active');
     await page.goto('/reviews/agents');
     await expect(page).toHaveURL(/\/reviews\/agents$/);
     await expect(page.getByText(/404|not found/i)).toBeVisible();
