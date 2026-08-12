@@ -13,8 +13,10 @@ import {
 } from '@/lib/analysis/reviewContracts';
 import {
   decideAnalysisRun,
+  getEffectiveReviewProjection,
   listRunReviewItems,
   reconcileCompletedRunForReview,
+  transitionReviewDecision,
 } from './analysisReviews';
 
 function flattenSql(value: unknown): string {
@@ -392,5 +394,141 @@ describe('listRunReviewItems', () => {
     const items = await listRunReviewItems();
 
     expect(items).toEqual([]);
+  });
+});
+
+describe('transitionReviewDecision', () => {
+  it('returns a corrected append-only event and includes the advisory lock and expected-event guard', async () => {
+    const decidedAt = new Date('2026-08-08T11:00:00.000Z');
+    executeRows({
+      kind: 'corrected',
+      eventId: 12,
+      runId: 1,
+      resultId: 7,
+      sequence: 2,
+      priorDecision: 'confirmed',
+      decision: 'dismissed',
+      expectedPriorEventId: 11,
+      decidedBy: ACTOR,
+      decidedAt: decidedAt.toISOString(),
+      packetHash: PACKET_HASH,
+    });
+
+    const result = await transitionReviewDecision(
+      { runId: 1, decision: 'dismissed', expectedPriorEventId: 11 },
+      ACTOR,
+      { decidedAt },
+    );
+
+    expect(result).toEqual({
+      kind: 'corrected',
+      event: {
+        eventId: 12,
+        runId: 1,
+        resultId: 7,
+        sequence: 2,
+        priorDecision: 'confirmed',
+        decision: 'dismissed',
+        expectedPriorEventId: 11,
+        decidedBy: ACTOR,
+        decidedAt: decidedAt.toISOString(),
+        packetHash: PACKET_HASH,
+      },
+    });
+
+    const sqlText = flattenSql(mocks.db.execute.mock.calls[0][0]);
+    expect(sqlText).toContain('pg_advisory_xact_lock');
+    expect(sqlText).toContain('replay');
+    expect(sqlText).toContain('expected_prior_event_id');
+    expect(sqlText).toContain('INSERT INTO analysis_run_review_event');
+    expect(sqlText).toContain('ON CONFLICT (analysis_run_id) DO UPDATE');
+  });
+
+  it('replays the same transition without appending another event', async () => {
+    executeRows({
+      kind: 'replayed',
+      runId: 1,
+      resultId: 7,
+      decision: 'confirmed',
+      decidedBy: ACTOR,
+      decidedAt: '2026-08-08T10:00:00.000Z',
+      packetHash: PACKET_HASH,
+      effectiveEventId: 11,
+      effectiveSequence: 1,
+    });
+
+    const result = await transitionReviewDecision(
+      { runId: 1, decision: 'confirmed', expectedPriorEventId: 0 },
+      ACTOR,
+    );
+
+    expect(result.kind).toBe('replayed');
+    expect(mocks.db.execute).toHaveBeenCalledTimes(1);
+    expect(flattenSql(mocks.db.execute.mock.calls[0][0])).toContain('replay');
+  });
+
+  it('returns a reloadable conflict without writing when the expected event is stale', async () => {
+    executeRows({
+      kind: 'conflict',
+      runId: 1,
+      resultId: 7,
+      decision: 'confirmed',
+      decidedBy: 'user_first',
+      decidedAt: '2026-08-08T10:00:00.000Z',
+      packetHash: PACKET_HASH,
+      effectiveEventId: 11,
+      effectiveSequence: 1,
+      expectedPriorEventId: 3,
+    });
+
+    const result = await transitionReviewDecision(
+      { runId: 1, decision: 'dismissed', expectedPriorEventId: 3 },
+      ACTOR,
+    );
+
+    expect(result).toEqual({
+      kind: 'conflict',
+      projection: {
+        runId: 1,
+        resultId: 7,
+        decision: 'confirmed',
+        decidedBy: 'user_first',
+        decidedAt: '2026-08-08T10:00:00.000Z',
+        packetHash: PACKET_HASH,
+        effectiveEventId: 11,
+        effectiveSequence: 1,
+      },
+      expectedPriorEventId: 3,
+    });
+    expect(flattenSql(mocks.db.execute.mock.calls[0][0])).toContain('NOT EXISTS (SELECT 1 FROM inserted_event)');
+  });
+
+  it('rejects ineligible runs without attempting an insert', async () => {
+    executeRows({ kind: 'not_eligible', reason: 'not_pending_review' });
+    const result = await transitionReviewDecision(
+      { runId: 1, decision: 'confirmed', expectedPriorEventId: 0 },
+      ACTOR,
+    );
+    expect(result).toEqual({ kind: 'not_eligible', reason: 'not_pending_review' });
+    expect(flattenSql(mocks.db.execute.mock.calls[0][0])).toContain('status');
+  });
+});
+
+describe('getEffectiveReviewProjection', () => {
+  it('reads the effective projection rather than reconstructing it from audit events', async () => {
+    executeRows({
+      runId: 1,
+      resultId: 7,
+      decision: 'dismissed',
+      decidedBy: ACTOR,
+      decidedAt: '2026-08-08T11:00:00.000Z',
+      packetHash: PACKET_HASH,
+      effectiveEventId: 12,
+      effectiveSequence: 2,
+    });
+    const result = await getEffectiveReviewProjection(1);
+    expect(result?.effectiveEventId).toBe(12);
+    expect(flattenSql(mocks.db.execute.mock.calls[0][0])).toContain('FROM analysis_run_review');
+    expect(flattenSql(mocks.db.execute.mock.calls[0][0])).not.toContain('analysis_run_review_event AS event');
   });
 });

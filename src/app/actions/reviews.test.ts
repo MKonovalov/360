@@ -7,7 +7,8 @@ const mocks = vi.hoisted(() => ({
   acceptProposal: vi.fn(),
   getProposalById: vi.fn(),
   rejectProposal: vi.fn(),
-  decideAnalysisRun: vi.fn(),
+  getEffectiveReviewProjection: vi.fn(),
+  transitionReviewDecision: vi.fn(),
 }));
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
@@ -22,7 +23,8 @@ vi.mock('@/lib/db/queries/corrections', () => ({
   rejectProposal: mocks.rejectProposal,
 }));
 vi.mock('@/lib/db/queries/analysisReviews', () => ({
-  decideAnalysisRun: mocks.decideAnalysisRun,
+  getEffectiveReviewProjection: mocks.getEffectiveReviewProjection,
+  transitionReviewDecision: mocks.transitionReviewDecision,
 }));
 
 import { revalidatePath } from 'next/cache';
@@ -170,7 +172,22 @@ const decidedOutcome = (overrides: Record<string, unknown> = {}) => ({
 describe('whole-run review actions (v1.7)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.decideAnalysisRun.mockResolvedValue(decidedOutcome());
+    mocks.getEffectiveReviewProjection.mockResolvedValue(undefined);
+    mocks.transitionReviewDecision.mockResolvedValue({
+      kind: 'corrected',
+      event: {
+        eventId: 12,
+        runId: 7,
+        resultId: 10,
+        sequence: 1,
+        priorDecision: null,
+        decision: 'confirmed',
+        expectedPriorEventId: 0,
+        decidedBy: 'user_123',
+        decidedAt: '2026-08-08T00:00:00.000Z',
+        packetHash: PACKET_HASH,
+      },
+    });
   });
 
   it('confirms a run: staff gate first, server-derived actor only, decision query only, and revalidates /reviews', async () => {
@@ -181,13 +198,13 @@ describe('whole-run review actions (v1.7)', () => {
     expect(result).toEqual(decidedOutcome());
     // actor identity is the Clerk userId returned by requireStaffAccess — the
     // browser supplies runId + decision only (T-34-09, D-34-02).
-    expect(mocks.decideAnalysisRun).toHaveBeenCalledWith(
-      { runId: 7, decision: 'confirmed' },
+    expect(mocks.transitionReviewDecision).toHaveBeenCalledWith(
+      { runId: 7, decision: 'confirmed', expectedPriorEventId: 0 },
       'user_123',
     );
     expect(
       mocks.requireStaffAccess.mock.invocationCallOrder[0] <
-        mocks.decideAnalysisRun.mock.invocationCallOrder[0]
+        mocks.transitionReviewDecision.mock.invocationCallOrder[0]
     ).toBe(true);
     expect(revalidatePath).toHaveBeenCalledWith('/reviews');
   });
@@ -198,7 +215,7 @@ describe('whole-run review actions (v1.7)', () => {
 
     // When / Then
     await expect(confirmRunAction({ runId: 7, decision: 'confirmed' })).rejects.toThrow();
-    expect(mocks.decideAnalysisRun).not.toHaveBeenCalled();
+    expect(mocks.transitionReviewDecision).not.toHaveBeenCalled();
   });
 
   it('rejects a non-positive run id before any DB call', async () => {
@@ -207,7 +224,7 @@ describe('whole-run review actions (v1.7)', () => {
 
     // Then
     expect(result).toEqual({ ok: false, reason: 'invalid_input' });
-    expect(mocks.decideAnalysisRun).not.toHaveBeenCalled();
+    expect(mocks.transitionReviewDecision).not.toHaveBeenCalled();
   });
 
   it('rejects a non-closed decision before any DB call', async () => {
@@ -216,7 +233,7 @@ describe('whole-run review actions (v1.7)', () => {
 
     // Then
     expect(result).toEqual({ ok: false, reason: 'invalid_input' });
-    expect(mocks.decideAnalysisRun).not.toHaveBeenCalled();
+    expect(mocks.transitionReviewDecision).not.toHaveBeenCalled();
   });
 
   it('never lets the confirm action carry a dismissed decision to the query', async () => {
@@ -225,7 +242,7 @@ describe('whole-run review actions (v1.7)', () => {
 
     // Then
     expect(result).toEqual({ ok: false, reason: 'invalid_input' });
-    expect(mocks.decideAnalysisRun).not.toHaveBeenCalled();
+    expect(mocks.transitionReviewDecision).not.toHaveBeenCalled();
   });
 
   it('never accepts actor, packet, or timestamp fields from the browser', async () => {
@@ -241,14 +258,24 @@ describe('whole-run review actions (v1.7)', () => {
 
     // Then — the strict input schema rejects the extra keys before the query.
     expect(result).toEqual({ ok: false, reason: 'invalid_input' });
-    expect(mocks.decideAnalysisRun).not.toHaveBeenCalled();
+    expect(mocks.transitionReviewDecision).not.toHaveBeenCalled();
   });
 
   it('replays the persisted original winner on a retry and revalidates', async () => {
     // Given — a retry/competing attempt returns the stored decision.
-    mocks.decideAnalysisRun.mockResolvedValue(
-      decidedOutcome({ decidedBy: 'user_first', replayed: true }),
-    );
+    mocks.transitionReviewDecision.mockResolvedValue({
+      kind: 'replayed',
+      projection: {
+        runId: 7,
+        resultId: 10,
+        decision: 'confirmed',
+        decidedBy: 'user_first',
+        decidedAt: '2026-08-08T00:00:00.000Z',
+        packetHash: PACKET_HASH,
+        effectiveEventId: 12,
+        effectiveSequence: 1,
+      },
+    });
 
     // When
     const result = await confirmRunAction({ runId: 7, decision: 'confirmed' });
@@ -262,7 +289,11 @@ describe('whole-run review actions (v1.7)', () => {
 
   it('maps race_loser without claiming the loser won and does not revalidate', async () => {
     // Given
-    mocks.decideAnalysisRun.mockResolvedValue({ ok: false, reason: 'race_loser' });
+    mocks.transitionReviewDecision.mockResolvedValue({ kind: 'conflict', projection: {
+      runId: 7, resultId: 10, decision: 'confirmed', decidedBy: 'user_first',
+      decidedAt: '2026-08-08T00:00:00.000Z', packetHash: PACKET_HASH,
+      effectiveEventId: 12, effectiveSequence: 1,
+    }, expectedPriorEventId: 0 });
 
     // When
     const result = await dismissRunAction({ runId: 7, decision: 'dismissed' });
@@ -275,7 +306,7 @@ describe('whole-run review actions (v1.7)', () => {
   it('surfaces the remaining safe failure reasons without revalidating', async () => {
     // Given
     for (const reason of ['missing_packet', 'not_pending_review', 'not_found']) {
-      mocks.decideAnalysisRun.mockResolvedValueOnce({ ok: false, reason });
+      mocks.transitionReviewDecision.mockResolvedValueOnce({ kind: 'not_eligible', reason });
 
       // When / Then
       const result = await confirmRunAction({ runId: 7, decision: 'confirmed' });
@@ -286,7 +317,7 @@ describe('whole-run review actions (v1.7)', () => {
 
   it('lets an unexpected query throw propagate so the client surfaces a retryable failure', async () => {
     // Given — a transient DB error is not a forged closed reason.
-    mocks.decideAnalysisRun.mockRejectedValue(new Error('db down'));
+    mocks.getEffectiveReviewProjection.mockRejectedValue(new Error('db down'));
 
     // When / Then
     await expect(confirmRunAction({ runId: 7, decision: 'confirmed' })).rejects.toThrow('db down');
@@ -295,20 +326,61 @@ describe('whole-run review actions (v1.7)', () => {
 
   it('dismisses a run through the same staff-gated, server-actored path', async () => {
     // Given
-    mocks.decideAnalysisRun.mockResolvedValue(
-      decidedOutcome({ decision: 'dismissed', replayed: false }),
-    );
+    mocks.transitionReviewDecision.mockResolvedValue({
+      kind: 'corrected',
+      event: {
+        eventId: 12, runId: 7, resultId: 10, sequence: 1, priorDecision: null,
+        decision: 'dismissed', expectedPriorEventId: 0, decidedBy: 'user_123',
+        decidedAt: '2026-08-08T00:00:00.000Z', packetHash: PACKET_HASH,
+      },
+    });
 
     // When
     const result = await dismissRunAction({ runId: 7, decision: 'dismissed' });
 
     // Then
     expect(result).toEqual(decidedOutcome({ decision: 'dismissed', replayed: false }));
-    expect(mocks.decideAnalysisRun).toHaveBeenCalledWith(
-      { runId: 7, decision: 'dismissed' },
+    expect(mocks.transitionReviewDecision).toHaveBeenCalledWith(
+      { runId: 7, decision: 'dismissed', expectedPriorEventId: 0 },
       'user_123',
     );
     expect(revalidatePath).toHaveBeenCalledWith('/reviews');
+  });
+
+  it('uses the server projection as the expected event for an append-only correction', async () => {
+    mocks.getEffectiveReviewProjection.mockResolvedValue({
+      runId: 7,
+      resultId: 10,
+      decision: 'confirmed',
+      decidedBy: 'user_first',
+      decidedAt: '2026-08-08T00:00:00.000Z',
+      packetHash: PACKET_HASH,
+      effectiveEventId: 12,
+      effectiveSequence: 1,
+    });
+    mocks.transitionReviewDecision.mockResolvedValue({
+      kind: 'corrected',
+      event: {
+        eventId: 13,
+        runId: 7,
+        resultId: 10,
+        sequence: 2,
+        priorDecision: 'confirmed',
+        decision: 'dismissed',
+        expectedPriorEventId: 12,
+        decidedBy: 'user_123',
+        decidedAt: '2026-08-08T00:00:00.000Z',
+        packetHash: PACKET_HASH,
+      },
+    });
+
+    const result = await dismissRunAction({ runId: 7, decision: 'dismissed' });
+
+    expect(result).toEqual(decidedOutcome({ decision: 'dismissed' }));
+    expect(mocks.transitionReviewDecision).toHaveBeenCalledWith(
+      { runId: 7, decision: 'dismissed', expectedPriorEventId: 12 },
+      'user_123',
+    );
   });
 
   it('never lets the dismiss action carry a confirmed decision to the query', async () => {
@@ -317,7 +389,7 @@ describe('whole-run review actions (v1.7)', () => {
 
     // Then
     expect(result).toEqual({ ok: false, reason: 'invalid_input' });
-    expect(mocks.decideAnalysisRun).not.toHaveBeenCalled();
+    expect(mocks.transitionReviewDecision).not.toHaveBeenCalled();
   });
 
   it('static: the whole-run path never imports or calls legacy proposal or live-catalog writes', () => {
@@ -328,7 +400,7 @@ describe('whole-run review actions (v1.7)', () => {
     const wholeRunSection = source.slice(source.indexOf(marker));
 
     // Then — the whole-run path reaches only the decide query...
-    expect(wholeRunSection).toMatch(/decideAnalysisRun\s*\(/);
+    expect(wholeRunSection).toMatch(/transitionReviewDecision\s*\(/);
     // ...and never calls acceptProposal, signal, companySignal, personaSignal,
     // signalOfferingLink, or offering mutations (REV-03, T-34-12).
     expect(wholeRunSection).not.toMatch(
