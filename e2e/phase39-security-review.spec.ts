@@ -143,6 +143,7 @@ test.describe('Phase 39 authenticated security-review journeys', () => {
       await page.goto(`${subject.path}?selected=${subject.id}`);
       await expect(page.getByRole('heading', { name: 'Analysis', exact: true })).toBeVisible();
       await expect(page.getByText(/sources|source #/i).first()).toBeVisible();
+      await expect(page.locator('a[href^="https://"]').first()).toBeVisible();
       await page.goto('/reviews');
       const review = page.locator(`[data-run-id="${runId}"]`);
       await expect(review).toBeVisible();
