@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-04T09:44:37.964Z",
+  "generatedAt": "2026-08-12T05:56:30.424Z",
   "providers": {
     "anthropic": [
       {
@@ -123,26 +123,6 @@
         "structuredOutputs": true
       },
       {
-        "id": "claude-opus-4-6-fast",
-        "providerID": "anthropic",
-        "name": "Claude Opus 4.6 Fast",
-        "family": "claude-opus",
-        "status": "active",
-        "api": {
-          "npm": "@ai-sdk/anthropic",
-          "url": ""
-        },
-        "cost": {
-          "input": 30,
-          "output": 150
-        },
-        "limit": {
-          "context": 1000000,
-          "output": 128000
-        },
-        "structuredOutputs": true
-      },
-      {
         "id": "claude-opus-4-7",
         "providerID": "anthropic",
         "name": "Claude Opus 4.7",
@@ -155,26 +135,6 @@
         "cost": {
           "input": 5,
           "output": 25
-        },
-        "limit": {
-          "context": 1000000,
-          "output": 128000
-        },
-        "structuredOutputs": true
-      },
-      {
-        "id": "claude-opus-4-7-fast",
-        "providerID": "anthropic",
-        "name": "Claude Opus 4.7 Fast",
-        "family": "claude-opus",
-        "status": "active",
-        "api": {
-          "npm": "@ai-sdk/anthropic",
-          "url": ""
-        },
-        "cost": {
-          "input": 30,
-          "output": 150
         },
         "limit": {
           "context": 1000000,
@@ -1177,12 +1137,12 @@
           "url": "https://api.kilo.ai/api/gateway"
         },
         "cost": {
-          "input": 0.09,
-          "output": 0.18
+          "input": 0.072,
+          "output": 0.144
         },
         "limit": {
-          "context": 1048576,
-          "output": 65536
+          "context": 262144,
+          "output": 262144
         },
         "structuredOutputs": true
       },
@@ -1237,7 +1197,7 @@
           "url": "https://api.kilo.ai/api/gateway"
         },
         "cost": {
-          "input": 2.9,
+          "input": 2.8,
           "output": 14
         },
         "limit": {
@@ -1987,6 +1947,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "bytedance-seed/seed-2.0-code",
+        "providerID": "kilo",
+        "name": "Seed 2.0 Code",
+        "family": "seed",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://api.kilo.ai/api/gateway"
+        },
+        "cost": {
+          "input": 0.5,
+          "output": 3
+        },
+        "limit": {
+          "context": 262144,
+          "output": 131072
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "bytedance-seed/seed-2.0-lite",
         "providerID": "kilo",
         "name": "ByteDance Seed: Seed-2.0-Lite",
@@ -2321,7 +2301,7 @@
           "output": 1
         },
         "limit": {
-          "context": 131072,
+          "context": 163840,
           "output": 32768
         },
         "structuredOutputs": true
@@ -2329,7 +2309,7 @@
       {
         "id": "deepseek/deepseek-v3.2",
         "providerID": "kilo",
-        "name": "DeepSeek: DeepSeek V3.2",
+        "name": "DeepSeek V3.2",
         "family": "deepseek",
         "status": "active",
         "api": {
@@ -2402,7 +2382,7 @@
         },
         "limit": {
           "context": 1048576,
-          "output": 65536
+          "output": 384000
         },
         "structuredOutputs": true
       },
@@ -2442,7 +2422,7 @@
         },
         "limit": {
           "context": 1048576,
-          "output": 384000
+          "output": 393216
         },
         "structuredOutputs": true
       },
@@ -2602,7 +2582,7 @@
         },
         "limit": {
           "context": 1048576,
-          "output": 65535
+          "output": 65536
         },
         "structuredOutputs": true
       },
@@ -2962,7 +2942,7 @@
         },
         "limit": {
           "context": 262144,
-          "output": 16384
+          "output": 262144
         },
         "structuredOutputs": true
       },
@@ -2977,8 +2957,8 @@
           "url": "https://api.kilo.ai/api/gateway"
         },
         "cost": {
-          "input": 0.09,
-          "output": 0.34
+          "input": 0.08,
+          "output": 0.35
         },
         "limit": {
           "context": 262144,
@@ -3147,9 +3127,29 @@
         "structuredOutputs": true
       },
       {
-        "id": "inclusionai/ling-3.0-flash:free",
+        "id": "inclusionai/ling-3.0-flash",
         "providerID": "kilo",
-        "name": "Ling-3.0-flash (free)",
+        "name": "Ling-3.0-flash",
+        "family": "ling",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://api.kilo.ai/api/gateway"
+        },
+        "cost": {
+          "input": 0.06,
+          "output": 0.18
+        },
+        "limit": {
+          "context": 262144,
+          "output": 32768
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "inclusionai/ling-3.0-tiny:free",
+        "providerID": "kilo",
+        "name": "inclusionAI: Ling 3.0 Tiny (free)",
         "family": "ling",
         "status": "active",
         "api": {
@@ -3347,6 +3347,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "liquid/lfm-2.5-2.6b:free",
+        "providerID": "kilo",
+        "name": "LiquidAI: LFM2.5-2.6B (free)",
+        "family": "liquid",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://api.kilo.ai/api/gateway"
+        },
+        "cost": {
+          "input": 0,
+          "output": 0
+        },
+        "limit": {
+          "context": 128000,
+          "output": 32768
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "mancer/weaver",
         "providerID": "kilo",
         "name": "Mancer: Weaver (alpha)",
@@ -3362,7 +3382,7 @@
         },
         "limit": {
           "context": 8000,
-          "output": 2000
+          "output": 6000
         },
         "structuredOutputs": true
       },
@@ -3498,10 +3518,10 @@
         },
         "cost": {
           "input": 0.2,
-          "output": 0.8
+          "output": 0.696
         },
         "limit": {
-          "context": 1048576,
+          "context": 128000,
           "output": 16384
         },
         "structuredOutputs": true
@@ -3547,9 +3567,49 @@
         "structuredOutputs": true
       },
       {
+        "id": "meta/muse-glimmer-30b",
+        "providerID": "kilo",
+        "name": "Muse Glimmer 30B",
+        "family": "muse",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://api.kilo.ai/api/gateway"
+        },
+        "cost": {
+          "input": 0.3,
+          "output": 1.2
+        },
+        "limit": {
+          "context": 131072,
+          "output": 131072
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "meta/muse-spark-1.1",
         "providerID": "kilo",
         "name": "Muse Spark 1.1",
+        "family": "muse",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://api.kilo.ai/api/gateway"
+        },
+        "cost": {
+          "input": 1.25,
+          "output": 4.25
+        },
+        "limit": {
+          "context": 1048576,
+          "output": 1048576
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "meta/muse-spark-1.2",
+        "providerID": "kilo",
+        "name": "Muse Spark 1.2",
         "family": "muse",
         "status": "active",
         "api": {
@@ -3741,7 +3801,7 @@
           "output": 1.2
         },
         "limit": {
-          "context": 196608,
+          "context": 204800,
           "output": 131072
         },
         "structuredOutputs": true
@@ -4077,11 +4137,11 @@
           "url": "https://api.kilo.ai/api/gateway"
         },
         "cost": {
-          "input": 0.075,
-          "output": 0.2
+          "input": 0.09375,
+          "output": 0.25
         },
         "limit": {
-          "context": 128000,
+          "context": 256000,
           "output": 16384
         },
         "structuredOutputs": true
@@ -4442,7 +4502,7 @@
         },
         "limit": {
           "context": 262144,
-          "output": 262144
+          "output": 228000
         },
         "structuredOutputs": true
       },
@@ -4563,6 +4623,46 @@
         "limit": {
           "context": 128000,
           "output": 8192
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "nvidia/nemotron-3.5-lightning",
+        "providerID": "kilo",
+        "name": "Nemotron 3.5 Lightning 30B A3B",
+        "family": "nemotron",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://api.kilo.ai/api/gateway"
+        },
+        "cost": {
+          "input": 0.05,
+          "output": 0.2
+        },
+        "limit": {
+          "context": 262144,
+          "output": 262144
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "nvidia/nemotron-3.5-lightning:free",
+        "providerID": "kilo",
+        "name": "NVIDIA: Nemotron 3.5 Lightning (free)",
+        "family": "nemotron",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://api.kilo.ai/api/gateway"
+        },
+        "cost": {
+          "input": 0,
+          "output": 0
+        },
+        "limit": {
+          "context": 1000000,
+          "output": 65536
         },
         "structuredOutputs": true
       },
@@ -5109,7 +5209,7 @@
       {
         "id": "openai/gpt-5.2-chat",
         "providerID": "kilo",
-        "name": "OpenAI: GPT-5.2 Chat (retires Aug 10)",
+        "name": "OpenAI: GPT-5.2 Chat",
         "family": "gpt",
         "status": "active",
         "api": {
@@ -5122,7 +5222,7 @@
         },
         "limit": {
           "context": 128000,
-          "output": 16384
+          "output": 32000
         },
         "structuredOutputs": true
       },
@@ -5163,26 +5263,6 @@
         "limit": {
           "context": 400000,
           "output": 128000
-        },
-        "structuredOutputs": true
-      },
-      {
-        "id": "openai/gpt-5.3-chat",
-        "providerID": "kilo",
-        "name": "OpenAI: GPT-5.3 Chat (retires Aug 10)",
-        "family": "gpt",
-        "status": "active",
-        "api": {
-          "npm": "@ai-sdk/openai-compatible",
-          "url": "https://api.kilo.ai/api/gateway"
-        },
-        "cost": {
-          "input": 1.75,
-          "output": 14
-        },
-        "limit": {
-          "context": 128000,
-          "output": 16384
         },
         "structuredOutputs": true
       },
@@ -6181,8 +6261,8 @@
           "output": 0.91
         },
         "limit": {
-          "context": 131072,
-          "output": 8192
+          "context": 40960,
+          "output": 16384
         },
         "structuredOutputs": true
       },
@@ -6221,8 +6301,8 @@
           "output": 0.598
         },
         "limit": {
-          "context": 131072,
-          "output": 32768
+          "context": 262144,
+          "output": 16384
         },
         "structuredOutputs": true
       },
@@ -6317,8 +6397,8 @@
           "url": "https://api.kilo.ai/api/gateway"
         },
         "cost": {
-          "input": 0.104,
-          "output": 0.416
+          "input": 0.08,
+          "output": 0.28
         },
         "limit": {
           "context": 40960,
@@ -6381,8 +6461,8 @@
           "output": 1.4625
         },
         "limit": {
-          "context": 160000,
-          "output": 32768
+          "context": 262144,
+          "output": 262144
         },
         "structuredOutputs": true
       },
@@ -6409,7 +6489,7 @@
       {
         "id": "qwen/qwen3-coder-next",
         "providerID": "kilo",
-        "name": "Qwen: Qwen3 Coder Next",
+        "name": "Qwen3 Coder Next",
         "family": "qwen",
         "status": "active",
         "api": {
@@ -6521,8 +6601,8 @@
           "output": 1.2
         },
         "limit": {
-          "context": 128000,
-          "output": 32768
+          "context": 262144,
+          "output": 262144
         },
         "structuredOutputs": true
       },
@@ -6682,7 +6762,7 @@
         },
         "limit": {
           "context": 262144,
-          "output": 65536
+          "output": 81920
         },
         "structuredOutputs": true
       },
@@ -6742,7 +6822,7 @@
         },
         "limit": {
           "context": 262144,
-          "output": 65536
+          "output": 262144
         },
         "structuredOutputs": true
       },
@@ -6841,8 +6921,8 @@
           "output": 2.7
         },
         "limit": {
-          "context": 131072,
-          "output": 131072
+          "context": 262144,
+          "output": 262144
         },
         "structuredOutputs": true
       },
@@ -6857,7 +6937,7 @@
           "url": "https://api.kilo.ai/api/gateway"
         },
         "cost": {
-          "input": 0.14,
+          "input": 0.15,
           "output": 1
         },
         "limit": {
@@ -7083,6 +7163,46 @@
         "limit": {
           "context": 256000,
           "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "sakana/fugu-ultra",
+        "providerID": "kilo",
+        "name": "Fugu Ultra",
+        "family": "fugu",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://api.kilo.ai/api/gateway"
+        },
+        "cost": {
+          "input": 5,
+          "output": 30
+        },
+        "limit": {
+          "context": 1000000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "sakana/sakana-namazu",
+        "providerID": "kilo",
+        "name": "Sakana: Sakana Namazu",
+        "family": "",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://api.kilo.ai/api/gateway"
+        },
+        "cost": {
+          "input": 0.95,
+          "output": 4
+        },
+        "limit": {
+          "context": 262144,
+          "output": 65536
         },
         "structuredOutputs": true
       },
@@ -7502,7 +7622,7 @@
         },
         "limit": {
           "context": 524288,
-          "output": 524288
+          "output": 262144
         },
         "structuredOutputs": true
       },
@@ -7522,7 +7642,7 @@
         },
         "limit": {
           "context": 524288,
-          "output": 524288
+          "output": 262144
         },
         "structuredOutputs": true
       },
@@ -7542,7 +7662,7 @@
         },
         "limit": {
           "context": 6144,
-          "output": 2048
+          "output": 6144
         },
         "structuredOutputs": true
       },
@@ -7561,8 +7681,28 @@
           "output": 0.6
         },
         "limit": {
-          "context": 128000,
-          "output": 32768
+          "context": 131072,
+          "output": 131072
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "upstage/solar-pro4",
+        "providerID": "kilo",
+        "name": "Upstage: Solar Pro 4",
+        "family": "solar",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://api.kilo.ai/api/gateway"
+        },
+        "cost": {
+          "input": 0.3,
+          "output": 1.2
+        },
+        "limit": {
+          "context": 524288,
+          "output": 131072
         },
         "structuredOutputs": true
       },
@@ -7589,7 +7729,7 @@
       {
         "id": "x-ai/grok-4.20",
         "providerID": "kilo",
-        "name": "xAI: Grok 4.20",
+        "name": "SpaceXAI: Grok 4.20",
         "family": "grok",
         "status": "active",
         "api": {
@@ -7609,7 +7749,7 @@
       {
         "id": "x-ai/grok-4.20-multi-agent",
         "providerID": "kilo",
-        "name": "xAI: Grok 4.20 Multi-Agent",
+        "name": "SpaceXAI: Grok 4.20 Multi-Agent",
         "family": "grok",
         "status": "active",
         "api": {
@@ -7717,8 +7857,8 @@
           "url": "https://api.kilo.ai/api/gateway"
         },
         "cost": {
-          "input": 0.435,
-          "output": 0.87
+          "input": 0.4,
+          "output": 1.5
         },
         "limit": {
           "context": 1048576,
@@ -7801,7 +7941,7 @@
           "output": 2.2
         },
         "limit": {
-          "context": 202752,
+          "context": 204800,
           "output": 131072
         },
         "structuredOutputs": true
@@ -7921,8 +8061,8 @@
           "output": 4.4
         },
         "limit": {
-          "context": 200000,
-          "output": 128000
+          "context": 202752,
+          "output": 131072
         },
         "structuredOutputs": true
       },
@@ -7941,8 +8081,8 @@
           "output": 4.4
         },
         "limit": {
-          "context": 262144,
-          "output": 262144
+          "context": 1048576,
+          "output": 1048576
         },
         "structuredOutputs": true
       },
@@ -7968,6 +8108,86 @@
       }
     ],
     "nousresearch": [
+      {
+        "id": "sakana/sakana-namazu",
+        "providerID": "nousresearch",
+        "name": "Sakana: Sakana Namazu",
+        "family": "sakana",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.76,
+          "output": 3.2
+        },
+        "limit": {
+          "context": 262144,
+          "output": 65536
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "upstage/solar-pro4",
+        "providerID": "nousresearch",
+        "name": "Upstage: Solar Pro 4",
+        "family": "solar",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.024,
+          "output": 0.096
+        },
+        "limit": {
+          "context": 524288,
+          "output": 131072
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "meta/muse-glimmer-30b",
+        "providerID": "nousresearch",
+        "name": "Meta: Muse Glimmer 30B",
+        "family": "muse",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.28,
+          "output": 1.2
+        },
+        "limit": {
+          "context": 131072,
+          "output": 0
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "meta/muse-spark-1.2",
+        "providerID": "nousresearch",
+        "name": "Meta: Muse Spark 1.2",
+        "family": "muse",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 1,
+          "output": 3.4
+        },
+        "limit": {
+          "context": 1048576,
+          "output": 0
+        },
+        "structuredOutputs": true
+      },
       {
         "id": "qwen/qwen3.8-max",
         "providerID": "nousresearch",
@@ -7999,12 +8219,12 @@
           "url": "https://inference-api.nousresearch.com/v1"
         },
         "cost": {
-          "input": 0.072,
-          "output": 0.144
+          "input": 0.0576,
+          "output": 0.1152
         },
         "limit": {
           "context": 1048576,
-          "output": 65536
+          "output": 262144
         },
         "structuredOutputs": true
       },
@@ -8019,12 +8239,32 @@
           "url": "https://inference-api.nousresearch.com/v1"
         },
         "cost": {
-          "input": 0.01,
-          "output": 0.02
+          "input": 0.009,
+          "output": 0.018
         },
         "limit": {
           "context": 1048576,
-          "output": 65536
+          "output": 384000
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "bytedance-seed/seed-2.0-code",
+        "providerID": "nousresearch",
+        "name": "ByteDance Seed: Seed-2.0-Code",
+        "family": "seed",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.4,
+          "output": 2.4
+        },
+        "limit": {
+          "context": 262144,
+          "output": 131072
         },
         "structuredOutputs": true
       },
@@ -8039,14 +8279,14 @@
           "url": "https://inference-api.nousresearch.com/v1"
         },
         "cost": {
-          "input": 0.4,
+          "input": 0.36,
           "output": 0.96
         },
         "limit": {
           "context": 524288,
-          "output": 0
+          "output": 262144
         },
-        "structuredOutputs": false
+        "structuredOutputs": true
       },
       {
         "id": "qwen/qwen3.7-flash",
@@ -8169,9 +8409,29 @@
         "structuredOutputs": true
       },
       {
-        "id": "inclusionai/ling-3.0-flash:free",
+        "id": "anthropic/claude-opus-5:batch",
         "providerID": "nousresearch",
-        "name": "Ling-3.0-flash (free)",
+        "name": "Claude Opus 5 (batch)",
+        "family": "claude",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 2,
+          "output": 10
+        },
+        "limit": {
+          "context": 1000000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "inclusionai/ling-3.0-flash",
+        "providerID": "nousresearch",
+        "name": "Ling-3.0-flash",
         "family": "ling",
         "status": "active",
         "api": {
@@ -8179,8 +8439,8 @@
           "url": "https://inference-api.nousresearch.com/v1"
         },
         "cost": {
-          "input": 0,
-          "output": 0
+          "input": 0.0168,
+          "output": 0.0504
         },
         "limit": {
           "context": 262144,
@@ -8249,6 +8509,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "google/gemini-3.6-flash:batch",
+        "providerID": "nousresearch",
+        "name": "Google: Gemini 3.6 Flash (batch)",
+        "family": "gemini",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.6,
+          "output": 3
+        },
+        "limit": {
+          "context": 1048576,
+          "output": 65536
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "google/gemini-3.5-flash-lite",
         "providerID": "nousresearch",
         "name": "Google: Gemini 3.5 Flash Lite",
@@ -8261,6 +8541,26 @@
         "cost": {
           "input": 0.24,
           "output": 2
+        },
+        "limit": {
+          "context": 1048576,
+          "output": 65536
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "google/gemini-3.5-flash-lite:batch",
+        "providerID": "nousresearch",
+        "name": "Google: Gemini 3.5 Flash Lite (batch)",
+        "family": "gemini",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.12,
+          "output": 1
         },
         "limit": {
           "context": 1048576,
@@ -8299,11 +8599,31 @@
           "url": "https://inference-api.nousresearch.com/v1"
         },
         "cost": {
-          "input": 0.8,
+          "input": 0.76,
           "output": 3.24
         },
         "limit": {
           "context": 1048576,
+          "output": 262144
+        },
+        "structuredOutputs": false
+      },
+      {
+        "id": "thinkingmachines/inkling:batch",
+        "providerID": "nousresearch",
+        "name": "Thinking Machines: Inkling (batch)",
+        "family": "inkling:batch",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.4,
+          "output": 1.62
+        },
+        "limit": {
+          "context": 524288,
           "output": 0
         },
         "structuredOutputs": false
@@ -8389,6 +8709,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "openai/gpt-5.6-luna-pro:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-5.6 Luna Pro (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.08,
+          "output": 0.48
+        },
+        "limit": {
+          "context": 1050000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "openai/gpt-5.6-luna",
         "providerID": "nousresearch",
         "name": "OpenAI: GPT-5.6 Luna",
@@ -8401,6 +8741,26 @@
         "cost": {
           "input": 0.1,
           "output": 0.6
+        },
+        "limit": {
+          "context": 1050000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "openai/gpt-5.6-luna:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-5.6 Luna (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.08,
+          "output": 0.48
         },
         "limit": {
           "context": 1050000,
@@ -8429,6 +8789,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "openai/gpt-5.6-terra-pro:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-5.6 Terra Pro (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.8,
+          "output": 4.8
+        },
+        "limit": {
+          "context": 1050000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "openai/gpt-5.6-terra",
         "providerID": "nousresearch",
         "name": "OpenAI: GPT-5.6 Terra",
@@ -8441,6 +8821,26 @@
         "cost": {
           "input": 1,
           "output": 6
+        },
+        "limit": {
+          "context": 1050000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "openai/gpt-5.6-terra:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-5.6 Terra (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.8,
+          "output": 4.8
         },
         "limit": {
           "context": 1050000,
@@ -8469,9 +8869,49 @@
         "structuredOutputs": true
       },
       {
+        "id": "openai/gpt-5.6-sol-pro:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-5.6 Sol Pro (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 2,
+          "output": 12
+        },
+        "limit": {
+          "context": 1050000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "openai/gpt-5.6-sol:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-5.6 Sol (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 2,
+          "output": 12
+        },
+        "limit": {
+          "context": 1050000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "x-ai/grok-4.5",
         "providerID": "nousresearch",
-        "name": "xAI: Grok 4.5",
+        "name": "SpaceXAI: Grok 4.5",
         "family": "grok",
         "status": "active",
         "api": {
@@ -8609,6 +9049,26 @@
         "structuredOutputs": false
       },
       {
+        "id": "anthropic/claude-sonnet-5:batch",
+        "providerID": "nousresearch",
+        "name": "Anthropic: Claude Sonnet 5 (batch)",
+        "family": "claude",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.8,
+          "output": 4
+        },
+        "limit": {
+          "context": 1000000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "nex-agi/nex-n2-mini",
         "providerID": "nousresearch",
         "name": "Nex AGI: Nex-N2-Mini",
@@ -8669,6 +9129,46 @@
         "structuredOutputs": true
       },
       {
+        "id": "z-ai/glm-5.2",
+        "providerID": "nousresearch",
+        "name": "Z.ai: GLM 5.2",
+        "family": "glm",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.336,
+          "output": 1.12
+        },
+        "limit": {
+          "context": 1048576,
+          "output": 1048576
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "z-ai/glm-5.2:batch",
+        "providerID": "nousresearch",
+        "name": "Z.ai: GLM 5.2 (batch)",
+        "family": "glm",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.56,
+          "output": 1.76
+        },
+        "limit": {
+          "context": 512000,
+          "output": 0
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "moonshotai/kimi-k2.7-code",
         "providerID": "nousresearch",
         "name": "MoonshotAI: Kimi K2.7 Code",
@@ -8679,12 +9179,32 @@
           "url": "https://inference-api.nousresearch.com/v1"
         },
         "cost": {
-          "input": 0.584,
+          "input": 0.56,
           "output": 2.8
         },
         "limit": {
           "context": 262144,
           "output": 262144
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "moonshotai/kimi-k2.7-code:batch",
+        "providerID": "nousresearch",
+        "name": "MoonshotAI: Kimi K2.7 Code (batch)",
+        "family": "kimi",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.38,
+          "output": 1.6
+        },
+        "limit": {
+          "context": 262144,
+          "output": 0
         },
         "structuredOutputs": true
       },
@@ -8701,6 +9221,26 @@
         "cost": {
           "input": 8,
           "output": 40
+        },
+        "limit": {
+          "context": 1000000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "anthropic/claude-fable-5:batch",
+        "providerID": "nousresearch",
+        "name": "Anthropic: Claude Fable 5 (batch)",
+        "family": "claude",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 4,
+          "output": 20
         },
         "limit": {
           "context": 1000000,
@@ -8749,6 +9289,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "nvidia/nemotron-3-ultra-550b-a55b:batch",
+        "providerID": "nousresearch",
+        "name": "NVIDIA: Nemotron 3 Ultra (batch)",
+        "family": "nemotron",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.24,
+          "output": 1.44
+        },
+        "limit": {
+          "context": 512288,
+          "output": 0
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "qwen/qwen3.7-plus",
         "providerID": "nousresearch",
         "name": "Qwen: Qwen3.7 Plus",
@@ -8785,6 +9345,26 @@
         "limit": {
           "context": 1048576,
           "output": 512000
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "minimax/minimax-m3:batch",
+        "providerID": "nousresearch",
+        "name": "MiniMax: MiniMax M3 (batch)",
+        "family": "minimax",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.12,
+          "output": 0.48
+        },
+        "limit": {
+          "context": 524288,
+          "output": 0
         },
         "structuredOutputs": true
       },
@@ -8829,6 +9409,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "anthropic/claude-opus-4.8:batch",
+        "providerID": "nousresearch",
+        "name": "Anthropic: Claude Opus 4.8 (batch)",
+        "family": "claude",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 2,
+          "output": 10
+        },
+        "limit": {
+          "context": 1000000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "qwen/qwen3.7-max",
         "providerID": "nousresearch",
         "name": "Qwen: Qwen3.7 Max",
@@ -8851,7 +9451,7 @@
       {
         "id": "x-ai/grok-build-0.1",
         "providerID": "nousresearch",
-        "name": "xAI: Grok Build 0.1",
+        "name": "SpaceXAI: Grok Build 0.1",
         "family": "grok",
         "status": "active",
         "api": {
@@ -8901,6 +9501,26 @@
         "cost": {
           "input": 1.2,
           "output": 7.2
+        },
+        "limit": {
+          "context": 1048576,
+          "output": 65536
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "google/gemini-3.5-flash:batch",
+        "providerID": "nousresearch",
+        "name": "Google: Gemini 3.5 Flash (batch)",
+        "family": "gemini",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.6,
+          "output": 3.6
         },
         "limit": {
           "context": 1048576,
@@ -8969,6 +9589,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "google/gemini-3.1-flash-lite:batch",
+        "providerID": "nousresearch",
+        "name": "Google: Gemini 3.1 Flash Lite (batch)",
+        "family": "gemini",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.1,
+          "output": 0.6
+        },
+        "limit": {
+          "context": 1048576,
+          "output": 65536
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "openai/gpt-chat-latest",
         "providerID": "nousresearch",
         "name": "OpenAI: GPT Chat Latest",
@@ -8991,7 +9631,7 @@
       {
         "id": "x-ai/grok-4.3",
         "providerID": "nousresearch",
-        "name": "xAI: Grok 4.3",
+        "name": "SpaceXAI: Grok 4.3",
         "family": "grok",
         "status": "active",
         "api": {
@@ -9119,7 +9759,7 @@
           "url": "https://inference-api.nousresearch.com/v1"
         },
         "cost": {
-          "input": 2.32,
+          "input": 2.24,
           "output": 11.2
         },
         "limit": {
@@ -9239,7 +9879,7 @@
           "url": "https://inference-api.nousresearch.com/v1"
         },
         "cost": {
-          "input": 0.112,
+          "input": 0.12,
           "output": 0.8
         },
         "limit": {
@@ -9279,12 +9919,12 @@
           "url": "https://inference-api.nousresearch.com/v1"
         },
         "cost": {
-          "input": 0.2312,
-          "output": 1.92
+          "input": 0.48,
+          "output": 2.88
         },
         "limit": {
           "context": 262144,
-          "output": 131072
+          "output": 262144
         },
         "structuredOutputs": true
       },
@@ -9301,6 +9941,26 @@
         "cost": {
           "input": 24,
           "output": 144
+        },
+        "limit": {
+          "context": 1050000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "openai/gpt-5.5-pro:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-5.5 Pro (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 12,
+          "output": 72
         },
         "limit": {
           "context": 1050000,
@@ -9329,6 +9989,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "openai/gpt-5.5:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-5.5 (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 2,
+          "output": 12
+        },
+        "limit": {
+          "context": 1050000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "deepseek/deepseek-v4-pro",
         "providerID": "nousresearch",
         "name": "DeepSeek: DeepSeek V4 Pro",
@@ -9339,12 +10019,12 @@
           "url": "https://inference-api.nousresearch.com/v1"
         },
         "cost": {
-          "input": 0.348,
-          "output": 0.696
+          "input": 0.5053,
+          "output": 1.0107
         },
         "limit": {
           "context": 1048576,
-          "output": 384000
+          "output": 393216
         },
         "structuredOutputs": true
       },
@@ -9499,8 +10179,8 @@
           "url": "https://inference-api.nousresearch.com/v1"
         },
         "cost": {
-          "input": 0.4712,
-          "output": 1.984
+          "input": 0.76,
+          "output": 3.2
         },
         "limit": {
           "context": 262144,
@@ -9529,6 +10209,26 @@
         "structuredOutputs": false
       },
       {
+        "id": "anthropic/claude-opus-4.7:batch",
+        "providerID": "nousresearch",
+        "name": "Anthropic: Claude Opus 4.7 (batch)",
+        "family": "claude",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 2,
+          "output": 10
+        },
+        "limit": {
+          "context": 1000000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "z-ai/glm-5.1",
         "providerID": "nousresearch",
         "name": "Z.ai: GLM 5.1",
@@ -9539,12 +10239,12 @@
           "url": "https://inference-api.nousresearch.com/v1"
         },
         "cost": {
-          "input": 0.7728,
-          "output": 2.4288
+          "input": 1.12,
+          "output": 3.52
         },
         "limit": {
           "context": 204800,
-          "output": 128000
+          "output": 131072
         },
         "structuredOutputs": true
       },
@@ -9559,12 +10259,12 @@
           "url": "https://inference-api.nousresearch.com/v1"
         },
         "cost": {
-          "input": 0.056,
-          "output": 0.272
+          "input": 0.096,
+          "output": 0.32
         },
         "limit": {
           "context": 262144,
-          "output": 16384
+          "output": 262144
         },
         "structuredOutputs": true
       },
@@ -9651,7 +10351,7 @@
       {
         "id": "x-ai/grok-4.20",
         "providerID": "nousresearch",
-        "name": "xAI: Grok 4.20",
+        "name": "SpaceXAI: Grok 4.20",
         "family": "grok",
         "status": "active",
         "api": {
@@ -9719,8 +10419,8 @@
           "url": "https://inference-api.nousresearch.com/v1"
         },
         "cost": {
-          "input": 0.2,
-          "output": 0.8
+          "input": 0.24,
+          "output": 0.96
         },
         "limit": {
           "context": 204800,
@@ -9749,6 +10449,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "openai/gpt-5.4-nano:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-5.4 Nano (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.08,
+          "output": 0.5
+        },
+        "limit": {
+          "context": 400000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "openai/gpt-5.4-mini",
         "providerID": "nousresearch",
         "name": "OpenAI: GPT-5.4 Mini",
@@ -9761,6 +10481,26 @@
         "cost": {
           "input": 0.6,
           "output": 3.6
+        },
+        "limit": {
+          "context": 400000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "openai/gpt-5.4-mini:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-5.4 Mini (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.3,
+          "output": 1.8
         },
         "limit": {
           "context": 400000,
@@ -9929,6 +10669,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "openai/gpt-5.4-pro:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-5.4 Pro (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 12,
+          "output": 72
+        },
+        "limit": {
+          "context": 1050000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "openai/gpt-5.4",
         "providerID": "nousresearch",
         "name": "OpenAI: GPT-5.4",
@@ -9941,6 +10701,26 @@
         "cost": {
           "input": 2,
           "output": 12
+        },
+        "limit": {
+          "context": 1050000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "openai/gpt-5.4:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-5.4 (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 1,
+          "output": 6
         },
         "limit": {
           "context": 1050000,
@@ -9965,26 +10745,6 @@
         "limit": {
           "context": 128000,
           "output": 50000
-        },
-        "structuredOutputs": true
-      },
-      {
-        "id": "openai/gpt-5.3-chat",
-        "providerID": "nousresearch",
-        "name": "OpenAI: GPT-5.3 Chat",
-        "family": "gpt",
-        "status": "active",
-        "api": {
-          "npm": "@ai-sdk/openai-compatible",
-          "url": "https://inference-api.nousresearch.com/v1"
-        },
-        "cost": {
-          "input": 1.4,
-          "output": 11.2
-        },
-        "limit": {
-          "context": 128000,
-          "output": 16384
         },
         "structuredOutputs": true
       },
@@ -10079,12 +10839,12 @@
           "url": "https://inference-api.nousresearch.com/v1"
         },
         "cost": {
-          "input": 0.208,
-          "output": 1.664
+          "input": 0.232,
+          "output": 1.92
         },
         "limit": {
           "context": 262144,
-          "output": 65536
+          "output": 81920
         },
         "structuredOutputs": true
       },
@@ -10189,6 +10949,46 @@
         "structuredOutputs": true
       },
       {
+        "id": "google/gemini-3.1-pro-preview:batch",
+        "providerID": "nousresearch",
+        "name": "Google: Gemini 3.1 Pro Preview (batch)",
+        "family": "gemini",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.8,
+          "output": 4.8
+        },
+        "limit": {
+          "context": 1048576,
+          "output": 65536
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "anthropic/claude-sonnet-4.6:batch",
+        "providerID": "nousresearch",
+        "name": "Anthropic: Claude Sonnet 4.6 (batch)",
+        "family": "claude",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 1.2,
+          "output": 6
+        },
+        "limit": {
+          "context": 1000000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "qwen/qwen3.5-plus-02-15",
         "providerID": "nousresearch",
         "name": "Qwen: Qwen3.5 Plus 2026-02-15",
@@ -10219,12 +11019,12 @@
           "url": "https://inference-api.nousresearch.com/v1"
         },
         "cost": {
-          "input": 0.312,
-          "output": 1.872
+          "input": 0.4,
+          "output": 2.88
         },
         "limit": {
           "context": 262144,
-          "output": 65536
+          "output": 262144
         },
         "structuredOutputs": true
       },
@@ -10239,7 +11039,7 @@
           "url": "https://inference-api.nousresearch.com/v1"
         },
         "cost": {
-          "input": 0.12,
+          "input": 0.176,
           "output": 0.72
         },
         "limit": {
@@ -10285,6 +11085,26 @@
         "limit": {
           "context": 262144,
           "output": 65536
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "anthropic/claude-opus-4.6:batch",
+        "providerID": "nousresearch",
+        "name": "Anthropic: Claude Opus 4.6 (batch)",
+        "family": "claude",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 2,
+          "output": 10
+        },
+        "limit": {
+          "context": 1000000,
+          "output": 128000
         },
         "structuredOutputs": true
       },
@@ -10363,8 +11183,8 @@
           "output": 0.48
         },
         "limit": {
-          "context": 128000,
-          "output": 0
+          "context": 131072,
+          "output": 131072
         },
         "structuredOutputs": true
       },
@@ -10544,7 +11364,27 @@
         },
         "limit": {
           "context": 1048576,
-          "output": 65535
+          "output": 65536
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "google/gemini-3-flash-preview:batch",
+        "providerID": "nousresearch",
+        "name": "Google: Gemini 3 Flash Preview (batch)",
+        "family": "gemini",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.2,
+          "output": 1.2
+        },
+        "limit": {
+          "context": 1048576,
+          "output": 65536
         },
         "structuredOutputs": true
       },
@@ -10564,7 +11404,7 @@
         },
         "limit": {
           "context": 262144,
-          "output": 262144
+          "output": 228000
         },
         "structuredOutputs": true
       },
@@ -10584,7 +11424,7 @@
         },
         "limit": {
           "context": 128000,
-          "output": 16384
+          "output": 32000
         },
         "structuredOutputs": true
       },
@@ -10609,6 +11449,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "openai/gpt-5.2-pro:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-5.2 Pro (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 8.4,
+          "output": 67.2
+        },
+        "limit": {
+          "context": 400000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "openai/gpt-5.2",
         "providerID": "nousresearch",
         "name": "OpenAI: GPT-5.2",
@@ -10621,6 +11481,26 @@
         "cost": {
           "input": 1.4,
           "output": 11.2
+        },
+        "limit": {
+          "context": 400000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "openai/gpt-5.2:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-5.2 (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.7,
+          "output": 5.6
         },
         "limit": {
           "context": 400000,
@@ -10821,6 +11701,26 @@
         "cost": {
           "input": 4,
           "output": 20
+        },
+        "limit": {
+          "context": 200000,
+          "output": 64000
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "anthropic/claude-opus-4.5:batch",
+        "providerID": "nousresearch",
+        "name": "Anthropic: Claude Opus 4.5 (batch)",
+        "family": "claude",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 2,
+          "output": 10
         },
         "limit": {
           "context": 200000,
@@ -11109,6 +12009,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "openai/gpt-5.1:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-5.1 (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.5,
+          "output": 4
+        },
+        "limit": {
+          "context": 400000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "openai/gpt-5.1-codex",
         "providerID": "nousresearch",
         "name": "OpenAI: GPT-5.1-Codex",
@@ -11249,6 +12169,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "openai/text-embedding-ada-002:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: Text Embedding Ada 002 (batch)",
+        "family": "text",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.04,
+          "output": 0
+        },
+        "limit": {
+          "context": 8192,
+          "output": 0
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "mistralai/codestral-embed-2505",
         "providerID": "nousresearch",
         "name": "Mistral: Codestral Embed 2505",
@@ -11280,6 +12220,26 @@
         },
         "cost": {
           "input": 0.104,
+          "output": 0
+        },
+        "limit": {
+          "context": 8192,
+          "output": 0
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "openai/text-embedding-3-large:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: Text Embedding 3 Large (batch)",
+        "family": "text",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.052,
           "output": 0
         },
         "limit": {
@@ -11429,6 +12389,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "anthropic/claude-haiku-4.5:batch",
+        "providerID": "nousresearch",
+        "name": "Anthropic: Claude Haiku 4.5 (batch)",
+        "family": "claude",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.4,
+          "output": 2
+        },
+        "limit": {
+          "context": 200000,
+          "output": 64000
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "qwen/qwen3-vl-8b-thinking",
         "providerID": "nousresearch",
         "name": "Qwen: Qwen3 VL 8B Thinking",
@@ -11529,6 +12509,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "openai/gpt-5-pro:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-5 Pro (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 6,
+          "output": 48
+        },
+        "limit": {
+          "context": 400000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "z-ai/glm-4.6",
         "providerID": "nousresearch",
         "name": "Z.ai: GLM 4.6",
@@ -11539,8 +12539,8 @@
           "url": "https://inference-api.nousresearch.com/v1"
         },
         "cost": {
-          "input": 0.4,
-          "output": 1.6
+          "input": 0.44,
+          "output": 1.76
         },
         "limit": {
           "context": 204800,
@@ -11561,6 +12561,26 @@
         "cost": {
           "input": 2.4,
           "output": 12
+        },
+        "limit": {
+          "context": 1000000,
+          "output": 64000
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "anthropic/claude-sonnet-4.5:batch",
+        "providerID": "nousresearch",
+        "name": "Anthropic: Claude Sonnet 4.5 (batch)",
+        "family": "claude",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 1.2,
+          "output": 6
         },
         "limit": {
           "context": 1000000,
@@ -11599,8 +12619,8 @@
           "url": "https://inference-api.nousresearch.com/v1"
         },
         "cost": {
-          "input": 0.784,
-          "output": 3.16
+          "input": 0.32,
+          "output": 3.2
         },
         "limit": {
           "context": 131072,
@@ -11619,8 +12639,8 @@
           "url": "https://inference-api.nousresearch.com/v1"
         },
         "cost": {
-          "input": 0.168,
-          "output": 1.52
+          "input": 0.208,
+          "output": 0.832
         },
         "limit": {
           "context": 262144,
@@ -11669,6 +12689,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "openai/gpt-5-codex:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-5 Codex (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.5,
+          "output": 4
+        },
+        "limit": {
+          "context": 400000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "deepseek/deepseek-v3.1-terminus",
         "providerID": "nousresearch",
         "name": "DeepSeek: DeepSeek V3.1 Terminus",
@@ -11680,7 +12720,7 @@
         },
         "cost": {
           "input": 0.216,
-          "output": 0.8
+          "output": 0.76
         },
         "limit": {
           "context": 163840,
@@ -11724,7 +12764,7 @@
         },
         "limit": {
           "context": 262144,
-          "output": 0
+          "output": 262144
         },
         "structuredOutputs": true
       },
@@ -11969,6 +13009,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "openai/gpt-5:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-5 (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.5,
+          "output": 4
+        },
+        "limit": {
+          "context": 400000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "openai/gpt-5-mini",
         "providerID": "nousresearch",
         "name": "OpenAI: GPT-5 Mini",
@@ -11981,6 +13041,26 @@
         "cost": {
           "input": 0.2,
           "output": 1.6
+        },
+        "limit": {
+          "context": 400000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "openai/gpt-5-mini:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-5 Mini (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.1,
+          "output": 0.8
         },
         "limit": {
           "context": 400000,
@@ -12009,6 +13089,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "openai/gpt-5-nano:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-5 Nano (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.02,
+          "output": 0.16
+        },
+        "limit": {
+          "context": 400000,
+          "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "openai/gpt-oss-120b",
         "providerID": "nousresearch",
         "name": "OpenAI: gpt-oss-120b",
@@ -12019,7 +13119,7 @@
           "url": "https://inference-api.nousresearch.com/v1"
         },
         "cost": {
-          "input": 0.0296,
+          "input": 0.024,
           "output": 0.136
         },
         "limit": {
@@ -12066,6 +13166,26 @@
           "context": 200000,
           "output": 32000
         },
+        "structuredOutputs": false
+      },
+      {
+        "id": "anthropic/claude-opus-4.1:batch",
+        "providerID": "nousresearch",
+        "name": "Anthropic: Claude Opus 4.1 (batch)",
+        "family": "claude",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 6,
+          "output": 30
+        },
+        "limit": {
+          "context": 200000,
+          "output": 32000
+        },
         "structuredOutputs": true
       },
       {
@@ -12100,11 +13220,11 @@
         },
         "cost": {
           "input": 0.056,
-          "output": 0.216
+          "output": 0.224
         },
         "limit": {
           "context": 262144,
-          "output": 32768
+          "output": 262144
         },
         "structuredOutputs": true
       },
@@ -12229,6 +13349,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "google/gemini-2.5-flash-lite:batch",
+        "providerID": "nousresearch",
+        "name": "Google: Gemini 2.5 Flash Lite (batch)",
+        "family": "gemini",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.04,
+          "output": 0.16
+        },
+        "limit": {
+          "context": 1048576,
+          "output": 65535
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "qwen/qwen3-235b-a22b-2507",
         "providerID": "nousresearch",
         "name": "Qwen: Qwen3 235B A22B Instruct 2507",
@@ -12239,12 +13379,12 @@
           "url": "https://inference-api.nousresearch.com/v1"
         },
         "cost": {
-          "input": 0.1196,
-          "output": 0.4784
+          "input": 0.072,
+          "output": 0.44
         },
         "limit": {
           "context": 262144,
-          "output": 32768
+          "output": 16384
         },
         "structuredOutputs": true
       },
@@ -12279,8 +13419,8 @@
           "url": "https://inference-api.nousresearch.com/v1"
         },
         "cost": {
-          "input": 0.06,
-          "output": 0.16
+          "input": 0.075,
+          "output": 0.2
         },
         "limit": {
           "context": 256000,
@@ -12329,6 +13469,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "google/gemini-2.5-flash:batch",
+        "providerID": "nousresearch",
+        "name": "Google: Gemini 2.5 Flash (batch)",
+        "family": "gemini",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.12,
+          "output": 1
+        },
+        "limit": {
+          "context": 1048576,
+          "output": 65535
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "google/gemini-2.5-pro",
         "providerID": "nousresearch",
         "name": "Google: Gemini 2.5 Pro",
@@ -12349,6 +13509,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "google/gemini-2.5-pro:batch",
+        "providerID": "nousresearch",
+        "name": "Google: Gemini 2.5 Pro (batch)",
+        "family": "gemini",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.5,
+          "output": 4
+        },
+        "limit": {
+          "context": 1048576,
+          "output": 65536
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "openai/o3-pro",
         "providerID": "nousresearch",
         "name": "OpenAI: o3 Pro",
@@ -12361,6 +13541,26 @@
         "cost": {
           "input": 16,
           "output": 64
+        },
+        "limit": {
+          "context": 200000,
+          "output": 100000
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "openai/o3-pro:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: o3 Pro (batch)",
+        "family": "o3",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 8,
+          "output": 32
         },
         "limit": {
           "context": 200000,
@@ -12559,12 +13759,12 @@
           "url": "https://inference-api.nousresearch.com/v1"
         },
         "cost": {
-          "input": 0.182,
-          "output": 0.728
+          "input": 0.096,
+          "output": 0.192
         },
         "limit": {
           "context": 131072,
-          "output": 8192
+          "output": 16384
         },
         "structuredOutputs": true
       },
@@ -12629,6 +13829,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "openai/o4-mini-high:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: o4 Mini High (batch)",
+        "family": "o4",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.44,
+          "output": 1.76
+        },
+        "limit": {
+          "context": 200000,
+          "output": 100000
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "openai/o3",
         "providerID": "nousresearch",
         "name": "OpenAI: o3",
@@ -12641,6 +13861,26 @@
         "cost": {
           "input": 1.6,
           "output": 6.4
+        },
+        "limit": {
+          "context": 200000,
+          "output": 100000
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "openai/o3:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: o3 (batch)",
+        "family": "o3:batch",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.8,
+          "output": 3.2
         },
         "limit": {
           "context": 200000,
@@ -12669,6 +13909,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "openai/o4-mini:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: o4 Mini (batch)",
+        "family": "o4",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.44,
+          "output": 1.76
+        },
+        "limit": {
+          "context": 200000,
+          "output": 100000
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "openai/gpt-4.1",
         "providerID": "nousresearch",
         "name": "OpenAI: GPT-4.1",
@@ -12681,6 +13941,26 @@
         "cost": {
           "input": 1.6,
           "output": 6.4
+        },
+        "limit": {
+          "context": 1047576,
+          "output": 32768
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "openai/gpt-4.1:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-4.1 (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.8,
+          "output": 3.2
         },
         "limit": {
           "context": 1047576,
@@ -12709,6 +13989,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "openai/gpt-4.1-mini:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-4.1 Mini (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.16,
+          "output": 0.64
+        },
+        "limit": {
+          "context": 1047576,
+          "output": 32768
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "openai/gpt-4.1-nano",
         "providerID": "nousresearch",
         "name": "OpenAI: GPT-4.1 Nano",
@@ -12729,6 +14029,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "openai/gpt-4.1-nano:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-4.1 Nano (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.04,
+          "output": 0.16
+        },
+        "limit": {
+          "context": 1047576,
+          "output": 32768
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "meta-llama/llama-4-maverick",
         "providerID": "nousresearch",
         "name": "Meta: Llama 4 Maverick",
@@ -12740,11 +14060,11 @@
         },
         "cost": {
           "input": 0.16,
-          "output": 0.64
+          "output": 0.5568
         },
         "limit": {
           "context": 1048576,
-          "output": 16384
+          "output": 0
         },
         "structuredOutputs": true
       },
@@ -12869,6 +14189,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "openai/o3-mini-high:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: o3 Mini High (batch)",
+        "family": "o3",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.44,
+          "output": 1.76
+        },
+        "limit": {
+          "context": 200000,
+          "output": 100000
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "qwen/qwen-plus",
         "providerID": "nousresearch",
         "name": "Qwen: Qwen-Plus",
@@ -12901,6 +14241,26 @@
         "cost": {
           "input": 0.88,
           "output": 3.52
+        },
+        "limit": {
+          "context": 200000,
+          "output": 100000
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "openai/o3-mini:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: o3 Mini (batch)",
+        "family": "o3",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.44,
+          "output": 1.76
         },
         "limit": {
           "context": 200000,
@@ -12961,6 +14321,26 @@
         "cost": {
           "input": 12,
           "output": 48
+        },
+        "limit": {
+          "context": 200000,
+          "output": 100000
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "openai/o1:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: o1 (batch)",
+        "family": "o1:batch",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 6,
+          "output": 24
         },
         "limit": {
           "context": 200000,
@@ -13329,6 +14709,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "openai/gpt-4o-mini:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-4o-mini (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.06,
+          "output": 0.24
+        },
+        "limit": {
+          "context": 128000,
+          "output": 16384
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "openai/gpt-4o",
         "providerID": "nousresearch",
         "name": "OpenAI: GPT-4o",
@@ -13369,6 +14769,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "openai/gpt-4o:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-4o (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 1,
+          "output": 4
+        },
+        "limit": {
+          "context": 128000,
+          "output": 16384
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "mistralai/mixtral-8x22b-instruct",
         "providerID": "nousresearch",
         "name": "Mistral: Mixtral 8x22B Instruct",
@@ -13401,6 +14821,26 @@
         "cost": {
           "input": 8,
           "output": 24
+        },
+        "limit": {
+          "context": 128000,
+          "output": 4096
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "openai/gpt-4-turbo:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-4 Turbo (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 4,
+          "output": 12
         },
         "limit": {
           "context": 128000,
@@ -13529,6 +14969,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "openai/gpt-3.5-turbo:batch",
+        "providerID": "nousresearch",
+        "name": "OpenAI: GPT-3.5 Turbo (batch)",
+        "family": "gpt",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0.2,
+          "output": 0.6
+        },
+        "limit": {
+          "context": 16385,
+          "output": 4096
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "openai/gpt-4",
         "providerID": "nousresearch",
         "name": "OpenAI: GPT-4",
@@ -13545,26 +15005,6 @@
         "limit": {
           "context": 8191,
           "output": 4096
-        },
-        "structuredOutputs": true
-      },
-      {
-        "id": "stepfun/step-3.7-flash:free",
-        "providerID": "nousresearch",
-        "name": "StepFun: Step 3.7 Flash",
-        "family": "step",
-        "status": "active",
-        "api": {
-          "npm": "@ai-sdk/openai-compatible",
-          "url": "https://inference-api.nousresearch.com/v1"
-        },
-        "cost": {
-          "input": 0,
-          "output": 0
-        },
-        "limit": {
-          "context": 262144,
-          "output": 256000
         },
         "structuredOutputs": true
       },
@@ -13589,22 +15029,42 @@
         "structuredOutputs": true
       },
       {
-        "id": "z-ai/glm-5.2",
+        "id": "stepfun/step-3.7-flash:free",
         "providerID": "nousresearch",
-        "name": "zai/GLM-5.2",
-        "family": "glm",
+        "name": "StepFun: Step 3.7 Flash",
+        "family": "step",
         "status": "active",
         "api": {
           "npm": "@ai-sdk/openai-compatible",
           "url": "https://inference-api.nousresearch.com/v1"
         },
         "cost": {
-          "input": 0.72,
-          "output": 2.264
+          "input": 0,
+          "output": 0
         },
         "limit": {
-          "context": 1048576,
+          "context": 262144,
+          "output": 256000
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "upstage/solar-pro4:free",
+        "providerID": "nousresearch",
+        "name": "Upstage: Solar Pro 4",
+        "family": "solar",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://inference-api.nousresearch.com/v1"
+        },
+        "cost": {
+          "input": 0,
           "output": 0
+        },
+        "limit": {
+          "context": 524288,
+          "output": 131072
         },
         "structuredOutputs": true
       },
@@ -14133,26 +15593,6 @@
         "structuredOutputs": true
       },
       {
-        "id": "claude-opus-4-1",
-        "providerID": "opencode",
-        "name": "Claude Opus 4.1",
-        "family": "claude-opus",
-        "status": "active",
-        "api": {
-          "npm": "@ai-sdk/anthropic",
-          "url": "https://opencode.ai/zen/v1"
-        },
-        "cost": {
-          "input": 15,
-          "output": 75
-        },
-        "limit": {
-          "context": 200000,
-          "output": 32000
-        },
-        "structuredOutputs": true
-      },
-      {
         "id": "claude-opus-4-5",
         "providerID": "opencode",
         "name": "Claude Opus 4.5",
@@ -14335,7 +15775,7 @@
       {
         "id": "deepseek-v4-flash",
         "providerID": "opencode",
-        "name": "DeepSeek V4 Flash 0731",
+        "name": "DeepSeek V4 Flash",
         "family": "deepseek-flash",
         "status": "active",
         "api": {
@@ -14355,7 +15795,7 @@
       {
         "id": "deepseek-v4-flash-free",
         "providerID": "opencode",
-        "name": "DeepSeek V4 Flash Free (New)",
+        "name": "DeepSeek V4 Flash Free",
         "family": "deepseek-flash",
         "status": "active",
         "api": {
@@ -14979,7 +16419,7 @@
         "family": "grok-build",
         "status": "active",
         "api": {
-          "npm": "@ai-sdk/openai-compatible",
+          "npm": "@ai-sdk/openai",
           "url": "https://opencode.ai/zen/v1"
         },
         "cost": {
@@ -14989,6 +16429,26 @@
         "limit": {
           "context": 256000,
           "output": 256000
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "hy3-free",
+        "providerID": "opencode",
+        "name": "Hy3 Free",
+        "family": "hy3-free",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://opencode.ai/zen/v1"
+        },
+        "cost": {
+          "input": 0,
+          "output": 0
+        },
+        "limit": {
+          "context": 190000,
+          "output": 64000
         },
         "structuredOutputs": true
       },
@@ -15093,9 +16553,9 @@
         "structuredOutputs": true
       },
       {
-        "id": "ling-3.0-flash-free",
+        "id": "ling-3.0-tiny-free",
         "providerID": "opencode",
-        "name": "Ling-3.0-flash Free",
+        "name": "Ling-3.0-tiny Free",
         "family": "ling",
         "status": "active",
         "api": {
@@ -15213,10 +16673,10 @@
         "structuredOutputs": true
       },
       {
-        "id": "north-mini-code-free",
+        "id": "nemotron-3.5-lightning-free",
         "providerID": "opencode",
-        "name": "North Mini Code Free",
-        "family": "north-free",
+        "name": "Nemotron 3.5 Lightning Free",
+        "family": "nemotron-free",
         "status": "active",
         "api": {
           "npm": "@ai-sdk/openai-compatible",
@@ -15227,8 +16687,8 @@
           "output": 0
         },
         "limit": {
-          "context": 256000,
-          "output": 64000
+          "context": 262144,
+          "output": 262144
         },
         "structuredOutputs": true
       },
@@ -15271,13 +16731,33 @@
           "output": 65536
         },
         "structuredOutputs": true
+      },
+      {
+        "id": "ling-3.0-flash-free",
+        "providerID": "opencode",
+        "name": "Ling-3.0-flash Free",
+        "family": "ling",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/openai-compatible",
+          "url": "https://opencode.ai/zen/v1"
+        },
+        "cost": {
+          "input": 0,
+          "output": 0
+        },
+        "limit": {
+          "context": 262144,
+          "output": 32768
+        },
+        "structuredOutputs": true
       }
     ],
     "opencode-go": [
       {
         "id": "deepseek-v4-flash",
         "providerID": "opencode-go",
-        "name": "DeepSeek V4 Flash (New)",
+        "name": "DeepSeek V4 Flash (2x usage)",
         "family": "deepseek-flash",
         "status": "active",
         "api": {
@@ -15285,8 +16765,8 @@
           "url": "https://opencode.ai/zen/go/v1"
         },
         "cost": {
-          "input": 0.14,
-          "output": 0.28
+          "input": 0.07,
+          "output": 0.14
         },
         "limit": {
           "context": 1000000,
@@ -15727,12 +17207,12 @@
           "url": "https://openrouter.ai/api/v1"
         },
         "cost": {
-          "input": 0.09,
-          "output": 0.18
+          "input": 0.072,
+          "output": 0.144
         },
         "limit": {
           "context": 1048576,
-          "output": 65536
+          "output": 262144
         },
         "structuredOutputs": true
       },
@@ -15787,7 +17267,7 @@
           "url": "https://openrouter.ai/api/v1"
         },
         "cost": {
-          "input": 2.9,
+          "input": 2.8,
           "output": 14
         },
         "limit": {
@@ -16194,7 +17674,7 @@
           "context": 200000,
           "output": 32000
         },
-        "structuredOutputs": true
+        "structuredOutputs": false
       },
       {
         "id": "anthropic/claude-opus-4.5",
@@ -16537,6 +18017,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "bytedance-seed/seed-2.0-code",
+        "providerID": "openrouter",
+        "name": "Seed 2.0 Code",
+        "family": "seed",
+        "status": "active",
+        "api": {
+          "npm": "@openrouter/ai-sdk-provider",
+          "url": "https://openrouter.ai/api/v1"
+        },
+        "cost": {
+          "input": 0.5,
+          "output": 3
+        },
+        "limit": {
+          "context": 262144,
+          "output": 131072
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "bytedance-seed/seed-2.0-lite",
         "providerID": "openrouter",
         "name": "Seed-2.0-Lite",
@@ -16868,7 +18368,7 @@
         },
         "cost": {
           "input": 0.27,
-          "output": 1
+          "output": 0.95
         },
         "limit": {
           "context": 163840,
@@ -16947,12 +18447,12 @@
           "url": "https://openrouter.ai/api/v1"
         },
         "cost": {
-          "input": 0.09,
+          "input": 0.08,
           "output": 0.18
         },
         "limit": {
           "context": 1048576,
-          "output": 65536
+          "output": 384000
         },
         "structuredOutputs": true
       },
@@ -16967,12 +18467,12 @@
           "url": "https://openrouter.ai/api/v1"
         },
         "cost": {
-          "input": 0.435,
-          "output": 0.87
+          "input": 0.63168,
+          "output": 1.26336
         },
         "limit": {
           "context": 1048576,
-          "output": 384000
+          "output": 393216
         },
         "structuredOutputs": true
       },
@@ -17112,7 +18612,7 @@
         },
         "limit": {
           "context": 1048576,
-          "output": 65535
+          "output": 65536
         },
         "structuredOutputs": true
       },
@@ -17467,12 +18967,12 @@
           "url": "https://openrouter.ai/api/v1"
         },
         "cost": {
-          "input": 0.07,
-          "output": 0.34
+          "input": 0.12,
+          "output": 0.4
         },
         "limit": {
           "context": 262144,
-          "output": 16384
+          "output": 262144
         },
         "structuredOutputs": true
       },
@@ -17587,8 +19087,8 @@
           "url": "https://openrouter.ai/api/v1"
         },
         "cost": {
-          "input": 0.08,
-          "output": 0.11
+          "input": 0.06,
+          "output": 0.06
         },
         "limit": {
           "context": 8192,
@@ -17697,9 +19197,29 @@
         "structuredOutputs": true
       },
       {
-        "id": "inclusionai/ling-3.0-flash:free",
+        "id": "inclusionai/ling-3.0-flash",
         "providerID": "openrouter",
-        "name": "Ling-3.0-flash (free)",
+        "name": "Ling-3.0-flash",
+        "family": "ling",
+        "status": "active",
+        "api": {
+          "npm": "@openrouter/ai-sdk-provider",
+          "url": "https://openrouter.ai/api/v1"
+        },
+        "cost": {
+          "input": 0.021,
+          "output": 0.063
+        },
+        "limit": {
+          "context": 262144,
+          "output": 32768
+        },
+        "structuredOutputs": false
+      },
+      {
+        "id": "inclusionai/ling-3.0-tiny:free",
+        "providerID": "openrouter",
+        "name": "Ling 3.0 Tiny (free)",
         "family": "ling",
         "status": "active",
         "api": {
@@ -17797,6 +19317,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "liquid/lfm-2.5-2.6b:free",
+        "providerID": "openrouter",
+        "name": "LFM2.5-2.6B (free)",
+        "family": "liquid",
+        "status": "active",
+        "api": {
+          "npm": "@openrouter/ai-sdk-provider",
+          "url": "https://openrouter.ai/api/v1"
+        },
+        "cost": {
+          "input": 0,
+          "output": 0
+        },
+        "limit": {
+          "context": 128000,
+          "output": 32768
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "mancer/weaver",
         "providerID": "openrouter",
         "name": "Weaver (alpha)",
@@ -17812,7 +19352,7 @@
         },
         "limit": {
           "context": 8000,
-          "output": 2000
+          "output": 6000
         },
         "structuredOutputs": true
       },
@@ -17948,7 +19488,7 @@
         },
         "cost": {
           "input": 0.2,
-          "output": 0.8
+          "output": 0.696
         },
         "limit": {
           "context": 1048576,
@@ -17997,9 +19537,49 @@
         "structuredOutputs": false
       },
       {
+        "id": "meta/muse-glimmer-30b",
+        "providerID": "openrouter",
+        "name": "Muse Glimmer 30B",
+        "family": "muse",
+        "status": "active",
+        "api": {
+          "npm": "@openrouter/ai-sdk-provider",
+          "url": "https://openrouter.ai/api/v1"
+        },
+        "cost": {
+          "input": 0.35,
+          "output": 1.5
+        },
+        "limit": {
+          "context": 131072,
+          "output": 131072
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "meta/muse-spark-1.1",
         "providerID": "openrouter",
         "name": "Muse Spark 1.1",
+        "family": "muse",
+        "status": "active",
+        "api": {
+          "npm": "@openrouter/ai-sdk-provider",
+          "url": "https://openrouter.ai/api/v1"
+        },
+        "cost": {
+          "input": 1.25,
+          "output": 4.25
+        },
+        "limit": {
+          "context": 1048576,
+          "output": 1048576
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "meta/muse-spark-1.2",
+        "providerID": "openrouter",
+        "name": "Muse Spark 1.2",
         "family": "muse",
         "status": "active",
         "api": {
@@ -18167,7 +19747,7 @@
           "url": "https://openrouter.ai/api/v1"
         },
         "cost": {
-          "input": 0.15,
+          "input": 0.22,
           "output": 0.9
         },
         "limit": {
@@ -18187,8 +19767,8 @@
           "url": "https://openrouter.ai/api/v1"
         },
         "cost": {
-          "input": 0.25,
-          "output": 1
+          "input": 0.3,
+          "output": 1.2
         },
         "limit": {
           "context": 204800,
@@ -18527,8 +20107,8 @@
           "url": "https://openrouter.ai/api/v1"
         },
         "cost": {
-          "input": 0.075,
-          "output": 0.2
+          "input": 0.09375,
+          "output": 0.25
         },
         "limit": {
           "context": 256000,
@@ -18667,8 +20247,8 @@
           "url": "https://openrouter.ai/api/v1"
         },
         "cost": {
-          "input": 0.589,
-          "output": 2.48
+          "input": 0.95,
+          "output": 4
         },
         "limit": {
           "context": 262144,
@@ -18687,7 +20267,7 @@
           "url": "https://openrouter.ai/api/v1"
         },
         "cost": {
-          "input": 0.73,
+          "input": 0.7,
           "output": 3.5
         },
         "limit": {
@@ -18892,7 +20472,7 @@
         },
         "limit": {
           "context": 262144,
-          "output": 262144
+          "output": 228000
         },
         "structuredOutputs": true
       },
@@ -19033,6 +20613,46 @@
         "limit": {
           "context": 128000,
           "output": 8192
+        },
+        "structuredOutputs": false
+      },
+      {
+        "id": "nvidia/nemotron-3.5-lightning",
+        "providerID": "openrouter",
+        "name": "Nemotron 3.5 Lightning 30B A3B",
+        "family": "nemotron",
+        "status": "active",
+        "api": {
+          "npm": "@openrouter/ai-sdk-provider",
+          "url": "https://openrouter.ai/api/v1"
+        },
+        "cost": {
+          "input": 0.1,
+          "output": 0.25
+        },
+        "limit": {
+          "context": 262144,
+          "output": 262144
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "nvidia/nemotron-3.5-lightning:free",
+        "providerID": "openrouter",
+        "name": "Nemotron 3.5 Lightning (free)",
+        "family": "nemotron",
+        "status": "active",
+        "api": {
+          "npm": "@openrouter/ai-sdk-provider",
+          "url": "https://openrouter.ai/api/v1"
+        },
+        "cost": {
+          "input": 0,
+          "output": 0
+        },
+        "limit": {
+          "context": 1000000,
+          "output": 65536
         },
         "structuredOutputs": false
       },
@@ -19632,7 +21252,7 @@
         },
         "limit": {
           "context": 128000,
-          "output": 16384
+          "output": 32000
         },
         "structuredOutputs": true
       },
@@ -19673,26 +21293,6 @@
         "limit": {
           "context": 400000,
           "output": 128000
-        },
-        "structuredOutputs": true
-      },
-      {
-        "id": "openai/gpt-5.3-chat",
-        "providerID": "openrouter",
-        "name": "GPT-5.3 Chat",
-        "family": "gpt",
-        "status": "active",
-        "api": {
-          "npm": "@openrouter/ai-sdk-provider",
-          "url": "https://openrouter.ai/api/v1"
-        },
-        "cost": {
-          "input": 1.75,
-          "output": 14
-        },
-        "limit": {
-          "context": 128000,
-          "output": 16384
         },
         "structuredOutputs": true
       },
@@ -20047,7 +21647,7 @@
           "url": "https://openrouter.ai/api/v1"
         },
         "cost": {
-          "input": 0.037,
+          "input": 0.03,
           "output": 0.17
         },
         "limit": {
@@ -20727,12 +22327,12 @@
           "url": "https://openrouter.ai/api/v1"
         },
         "cost": {
-          "input": 0.2275,
-          "output": 0.91
+          "input": 0.12,
+          "output": 0.24
         },
         "limit": {
           "context": 131072,
-          "output": 8192
+          "output": 16384
         },
         "structuredOutputs": true
       },
@@ -20767,12 +22367,12 @@
           "url": "https://openrouter.ai/api/v1"
         },
         "cost": {
-          "input": 0.1495,
-          "output": 0.598
+          "input": 0.09,
+          "output": 0.55
         },
         "limit": {
           "context": 262144,
-          "output": 32768
+          "output": 16384
         },
         "structuredOutputs": true
       },
@@ -20928,11 +22528,11 @@
         },
         "cost": {
           "input": 0.07,
-          "output": 0.27
+          "output": 0.28
         },
         "limit": {
           "context": 262144,
-          "output": 32768
+          "output": 262144
         },
         "structuredOutputs": true
       },
@@ -21072,7 +22672,7 @@
         },
         "limit": {
           "context": 262144,
-          "output": 32768
+          "output": 262144
         },
         "structuredOutputs": true
       },
@@ -21087,8 +22687,8 @@
           "url": "https://openrouter.ai/api/v1"
         },
         "cost": {
-          "input": 0.21,
-          "output": 1.9
+          "input": 0.26,
+          "output": 1.04
         },
         "limit": {
           "context": 262144,
@@ -21107,8 +22707,8 @@
           "url": "https://openrouter.ai/api/v1"
         },
         "cost": {
-          "input": 0.98,
-          "output": 3.95
+          "input": 0.4,
+          "output": 4
         },
         "limit": {
           "context": 131072,
@@ -21227,12 +22827,12 @@
           "url": "https://openrouter.ai/api/v1"
         },
         "cost": {
-          "input": 0.26,
-          "output": 2.08
+          "input": 0.29,
+          "output": 2.4
         },
         "limit": {
           "context": 262144,
-          "output": 65536
+          "output": 81920
         },
         "structuredOutputs": true
       },
@@ -21287,12 +22887,12 @@
           "url": "https://openrouter.ai/api/v1"
         },
         "cost": {
-          "input": 0.39,
-          "output": 2.34
+          "input": 0.5,
+          "output": 3.6
         },
         "limit": {
           "context": 262144,
-          "output": 65536
+          "output": 262144
         },
         "structuredOutputs": true
       },
@@ -21387,12 +22987,12 @@
           "url": "https://openrouter.ai/api/v1"
         },
         "cost": {
-          "input": 0.289,
-          "output": 2.4
+          "input": 0.6,
+          "output": 3.6
         },
         "limit": {
           "context": 262144,
-          "output": 131072
+          "output": 262144
         },
         "structuredOutputs": true
       },
@@ -21407,7 +23007,7 @@
           "url": "https://openrouter.ai/api/v1"
         },
         "cost": {
-          "input": 0.14,
+          "input": 0.15,
           "output": 1
         },
         "limit": {
@@ -21653,6 +23253,26 @@
         "limit": {
           "context": 1000000,
           "output": 128000
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "sakana/sakana-namazu",
+        "providerID": "openrouter",
+        "name": "Sakana Namazu",
+        "family": "",
+        "status": "active",
+        "api": {
+          "npm": "@openrouter/ai-sdk-provider",
+          "url": "https://openrouter.ai/api/v1"
+        },
+        "cost": {
+          "input": 0.95,
+          "output": 4
+        },
+        "limit": {
+          "context": 262144,
+          "output": 65536
         },
         "structuredOutputs": true
       },
@@ -21907,12 +23527,12 @@
           "url": "https://openrouter.ai/api/v1"
         },
         "cost": {
-          "input": 1,
+          "input": 0.95,
           "output": 4.05
         },
         "limit": {
           "context": 1048576,
-          "output": 1048576
+          "output": 262144
         },
         "structuredOutputs": false
       },
@@ -21927,14 +23547,14 @@
           "url": "https://openrouter.ai/api/v1"
         },
         "cost": {
-          "input": 0.5,
+          "input": 0.45,
           "output": 1.2
         },
         "limit": {
           "context": 524288,
           "output": 262144
         },
-        "structuredOutputs": false
+        "structuredOutputs": true
       },
       {
         "id": "undi95/remm-slerp-l2-13b",
@@ -21952,7 +23572,7 @@
         },
         "limit": {
           "context": 6144,
-          "output": 2048
+          "output": 6144
         },
         "structuredOutputs": true
       },
@@ -21971,8 +23591,28 @@
           "output": 0.6
         },
         "limit": {
-          "context": 128000,
-          "output": 128000
+          "context": 131072,
+          "output": 131072
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "upstage/solar-pro4",
+        "providerID": "openrouter",
+        "name": "Solar Pro 4",
+        "family": "solar",
+        "status": "active",
+        "api": {
+          "npm": "@openrouter/ai-sdk-provider",
+          "url": "https://openrouter.ai/api/v1"
+        },
+        "cost": {
+          "input": 0.03,
+          "output": 0.12
+        },
+        "limit": {
+          "context": 524288,
+          "output": 131072
         },
         "structuredOutputs": true
       },
@@ -22207,8 +23847,8 @@
           "url": "https://openrouter.ai/api/v1"
         },
         "cost": {
-          "input": 0.5,
-          "output": 2
+          "input": 0.55,
+          "output": 2.2
         },
         "limit": {
           "context": 204800,
@@ -22327,12 +23967,12 @@
           "url": "https://openrouter.ai/api/v1"
         },
         "cost": {
-          "input": 0.966,
-          "output": 3.036
+          "input": 1.4,
+          "output": 4.4
         },
         "limit": {
           "context": 204800,
-          "output": 128000
+          "output": 131072
         },
         "structuredOutputs": true
       },
@@ -22347,12 +23987,12 @@
           "url": "https://openrouter.ai/api/v1"
         },
         "cost": {
-          "input": 0.76,
-          "output": 2.42
+          "input": 0.42,
+          "output": 1.4
         },
         "limit": {
           "context": 1048576,
-          "output": 262144
+          "output": 1048576
         },
         "structuredOutputs": true
       },
@@ -23659,6 +25299,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "bfl/flux-3-video",
+        "providerID": "vercel",
+        "name": "Flux 3",
+        "family": "flux",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/gateway",
+          "url": ""
+        },
+        "cost": {
+          "input": 0,
+          "output": 0
+        },
+        "limit": {
+          "context": 0,
+          "output": 0
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "bfl/flux-kontext-max",
         "providerID": "vercel",
         "name": "FLUX.1 Kontext Max",
@@ -23822,6 +25482,26 @@
         "id": "bytedance/seedance-2.0-fast",
         "providerID": "vercel",
         "name": "Seedance 2.0 Fast",
+        "family": "seed",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/gateway",
+          "url": ""
+        },
+        "cost": {
+          "input": 0,
+          "output": 0
+        },
+        "limit": {
+          "context": 0,
+          "output": 0
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "bytedance/seedance-2.5",
+        "providerID": "vercel",
+        "name": "Seedance 2.5",
         "family": "seed",
         "status": "active",
         "api": {
@@ -24229,8 +25909,8 @@
           "url": ""
         },
         "cost": {
-          "input": 0.13,
-          "output": 0.26
+          "input": 0.2,
+          "output": 0.4
         },
         "limit": {
           "context": 1000000,
@@ -24249,12 +25929,92 @@
           "url": ""
         },
         "cost": {
-          "input": 0.435,
-          "output": 0.87
+          "input": 1.74,
+          "output": 3.48
         },
         "limit": {
-          "context": 1000000,
-          "output": 384000
+          "context": 1048600,
+          "output": 1048600
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "fish-audio/s1",
+        "providerID": "vercel",
+        "name": "S1",
+        "family": "o",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/gateway",
+          "url": ""
+        },
+        "cost": {
+          "input": 0,
+          "output": 0
+        },
+        "limit": {
+          "context": 0,
+          "output": 0
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "fish-audio/s2-pro",
+        "providerID": "vercel",
+        "name": "S2 Pro",
+        "family": "o",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/gateway",
+          "url": ""
+        },
+        "cost": {
+          "input": 0,
+          "output": 0
+        },
+        "limit": {
+          "context": 0,
+          "output": 0
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "fish-audio/s2.1-pro",
+        "providerID": "vercel",
+        "name": "S2.1 Pro",
+        "family": "o",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/gateway",
+          "url": ""
+        },
+        "cost": {
+          "input": 0,
+          "output": 0
+        },
+        "limit": {
+          "context": 0,
+          "output": 0
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "fish-audio/transcribe-1",
+        "providerID": "vercel",
+        "name": "Transcribe-1",
+        "family": "o",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/gateway",
+          "url": ""
+        },
+        "cost": {
+          "input": 0,
+          "output": 0
+        },
+        "limit": {
+          "context": 0,
+          "output": 0
         },
         "structuredOutputs": true
       },
@@ -24633,7 +26393,7 @@
           "output": 0.4
         },
         "limit": {
-          "context": 262144,
+          "context": 256000,
           "output": 131072
         },
         "structuredOutputs": true
@@ -24879,9 +26639,29 @@
         "structuredOutputs": true
       },
       {
-        "id": "inclusionai/ling-3.0-flash-free",
+        "id": "inclusionai/ling-3.0-flash",
         "providerID": "vercel",
         "name": "Ling 3.0 Flash",
+        "family": "ling",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/gateway",
+          "url": ""
+        },
+        "cost": {
+          "input": 0.06,
+          "output": 0.18
+        },
+        "limit": {
+          "context": 256000,
+          "output": 32000
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "inclusionai/ling-3.0-tiny-free",
+        "providerID": "vercel",
+        "name": "Ling 3.0 Tiny (Free)",
         "family": "ling",
         "status": "active",
         "api": {
@@ -24894,7 +26674,7 @@
         },
         "limit": {
           "context": 256000,
-          "output": 256000
+          "output": 32000
         },
         "structuredOutputs": true
       },
@@ -25259,6 +27039,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "meta/muse-glimmer-30b",
+        "providerID": "vercel",
+        "name": "Muse Glimmer 30B",
+        "family": "muse",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/gateway",
+          "url": ""
+        },
+        "cost": {
+          "input": 0.35,
+          "output": 1.5
+        },
+        "limit": {
+          "context": 131072,
+          "output": 131072
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "meta/muse-spark-1.1",
         "providerID": "vercel",
         "name": "Muse Spark 1.1",
@@ -25271,6 +27071,46 @@
         "cost": {
           "input": 1.25,
           "output": 4.25
+        },
+        "limit": {
+          "context": 1048576,
+          "output": 1048576
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "meta/muse-spark-1.2",
+        "providerID": "vercel",
+        "name": "Muse Spark 1.2",
+        "family": "muse",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/gateway",
+          "url": ""
+        },
+        "cost": {
+          "input": 1.25,
+          "output": 4.25
+        },
+        "limit": {
+          "context": 1048576,
+          "output": 1048576
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "meta/muse-spark-1.2-contributor",
+        "providerID": "vercel",
+        "name": "Muse Spark 1.2 Contributor",
+        "family": "muse",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/gateway",
+          "url": ""
+        },
+        "cost": {
+          "input": 0.1,
+          "output": 0.2
         },
         "limit": {
           "context": 1048576,
@@ -26399,26 +28239,6 @@
         "structuredOutputs": true
       },
       {
-        "id": "openai/gpt-5.1-instant",
-        "providerID": "vercel",
-        "name": "GPT-5.1 Instant",
-        "family": "gpt",
-        "status": "active",
-        "api": {
-          "npm": "@ai-sdk/gateway",
-          "url": ""
-        },
-        "cost": {
-          "input": 1.25,
-          "output": 10
-        },
-        "limit": {
-          "context": 128000,
-          "output": 16384
-        },
-        "structuredOutputs": true
-      },
-      {
         "id": "openai/gpt-5.1-thinking",
         "providerID": "vercel",
         "name": "GPT 5.1 Thinking",
@@ -26495,26 +28315,6 @@
         "limit": {
           "context": 400000,
           "output": 128000
-        },
-        "structuredOutputs": true
-      },
-      {
-        "id": "openai/gpt-5.3-chat",
-        "providerID": "vercel",
-        "name": "GPT-5.3 Chat",
-        "family": "gpt",
-        "status": "active",
-        "api": {
-          "npm": "@ai-sdk/gateway",
-          "url": ""
-        },
-        "cost": {
-          "input": 1.75,
-          "output": 14
-        },
-        "limit": {
-          "context": 128000,
-          "output": 16384
         },
         "structuredOutputs": true
       },
@@ -27499,6 +29299,26 @@
         "structuredOutputs": true
       },
       {
+        "id": "sakana/namazu",
+        "providerID": "vercel",
+        "name": "Sakana Namazu",
+        "family": "",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/gateway",
+          "url": ""
+        },
+        "cost": {
+          "input": 0.95,
+          "output": 4
+        },
+        "limit": {
+          "context": 256000,
+          "output": 256000
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "stepfun/step-3.5-flash",
         "providerID": "vercel",
         "name": "StepFun 3.5 Flash",
@@ -28079,6 +29899,46 @@
         "structuredOutputs": true
       },
       {
+        "id": "xai/grok-imagine-image-2.0",
+        "providerID": "vercel",
+        "name": "Grok Imagine Image 2.0",
+        "family": "grok",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/gateway",
+          "url": ""
+        },
+        "cost": {
+          "input": 0,
+          "output": 0
+        },
+        "limit": {
+          "context": 0,
+          "output": 0
+        },
+        "structuredOutputs": true
+      },
+      {
+        "id": "xai/grok-imagine-image-2.0-preview",
+        "providerID": "vercel",
+        "name": "Grok Imagine Image 2.0 Preview",
+        "family": "grok",
+        "status": "active",
+        "api": {
+          "npm": "@ai-sdk/gateway",
+          "url": ""
+        },
+        "cost": {
+          "input": 0,
+          "output": 0
+        },
+        "limit": {
+          "context": 0,
+          "output": 0
+        },
+        "structuredOutputs": true
+      },
+      {
         "id": "xai/grok-imagine-video",
         "providerID": "vercel",
         "name": "Grok Imagine",
@@ -28493,8 +30353,8 @@
           "output": 4.4
         },
         "limit": {
-          "context": 202000,
-          "output": 202000
+          "context": 202800,
+          "output": 64000
         },
         "structuredOutputs": true
       },

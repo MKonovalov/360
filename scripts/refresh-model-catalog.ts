@@ -1,3 +1,9 @@
+// allow: SIZE_OK — single-purpose dev-time CLI script (never imported by app
+// runtime code); was already over the 250-pure-LOC threshold pre-fix, and the
+// fix's own task scope directs keeping its extracted test helpers in this
+// file rather than a new module, to avoid widening the change beyond the
+// catalogue-refresh implementation/tests.
+//
 // Dev-time snapshot generator: shells the local opencode CLI (`opencode models
 // --verbose`), trims each record to the UI-needed field set, and writes a
 // committed snapshot at src/lib/models/catalog.json (CAT-01/CAT-02).
@@ -8,7 +14,7 @@
 // zero `exec|spawn|child_process` in src/ (Pitfall 4). The committed snapshot
 // is the only runtime dependency; this script never runs on Vercel.
 import { execFileSync } from 'node:child_process';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 // Binary resolution (research STACK.md): OPENCODE_BIN → `which opencode` →
@@ -112,6 +118,11 @@ function trimRecord(m: Record<string, unknown>, structuredOutputs: boolean) {
     structuredOutputs,
   };
 }
+
+// Named alias for trimRecord's inferred return shape — lets preserved-row
+// helpers (Zen known-drift exception) declare an exact, non-`any` element
+// type instead of widening to `Record<string, unknown>`.
+type CatalogRow = ReturnType<typeof trimRecord>;
 
 // D-08: live OpenRouter capability source. Public GET, no key (verified HTTP
 // 200). scripts/ placement keeps child_process AND fetch OUT of src/ — the
@@ -242,8 +253,10 @@ function nousPreMap(r: NousRosterRow) {
 // models.dev's Go block lags the live https://opencode.ai/zen/go/v1/models roster
 // by these 7 ids (opencode CLI 1.18.12 = npm latest, verified 2026-08-04). The Go
 // compare accepts them as KNOWN drift; any NEW live-only id NOT in this set — and
-// ANY CLI-only id — still aborts the run. Zen stays fully strict. Never silent:
-// accepted drift is logged on every run.
+// ANY CLI-only id — still aborts the run. Never silent: accepted drift is logged
+// on every run. Go ids are NEVER preserved into the snapshot (they were never in
+// it, unlike the Zen exception below) — this exception only tolerates their
+// absence; it does not resurrect a row for them.
 const GO_KNOWN_LIVE_ONLY_IDS = new Set([
   'minimax-m2.5',
   'kimi-k2.5',
@@ -254,72 +267,170 @@ const GO_KNOWN_LIVE_ONLY_IDS = new Set([
   'hy3-preview',
 ]);
 
-// CAT-04 + D-24-06/07: Zen/Go roster-verify. Fetches the two anonymous lean
-// rosters and compares id-sets against the CLI-parsed roster by providerID
-// ('opencode' ↔ live Zen, 'opencode-go' ↔ live Go). STRICT: ANY difference
-// throws with per-id diffs (no count tolerance, no warn-on-extra — D-24-07);
-// any fetch failure throws too (throws-not-degrades, T-24-06) so main() aborts
-// WITHOUT writing and the committed snapshot stays usable. The GO compare alone
-// carries the user-approved GO_KNOWN_LIVE_ONLY_IDS exception (D-24-07 amendment);
-// Zen stays fully strict.
-async function verifyZenGoRosters(parsed: Record<string, unknown>[]): Promise<void> {
-  const compare = async (
-    url: string,
-    cliIds: string[],
-    label: string
-  ): Promise<void> => {
-    let res: Response;
-    try {
-      res = await fetch(url);
-    } catch {
+// Zen known-drift exception (DELIBERATE, scoped ONLY to Zen — never broadens
+// GO_KNOWN_LIVE_ONLY_IDS or reuses the Go exception path). `opencode models
+// --verbose` (CLI 1.18.15, npm latest as of 2026-08-12) has not yet picked up
+// this id, but it IS live on https://opencode.ai/zen/v1/models AND already
+// exists as a fully-reviewed `opencode` row in the committed
+// src/lib/models/catalog.json (written by an earlier successful run). Unlike
+// the Go exception, an accepted Zen id's row is PRESERVED verbatim from that
+// committed snapshot (see loadPreviousCatalogProviderRows) rather than merely
+// tolerated — the live lean roster (`{data:[{id}]}`) proves presence/id only,
+// never the full UI metadata (name/cost/limit/api), so a row synthesized from
+// just the id is never acceptable. If a pinned id's row is ever absent from
+// the previous snapshot, resolveRosterDrift throws (fail-closed) instead of
+// fabricating one. Any OTHER Zen live-only id, or any CLI-only id, still
+// aborts the run — Zen strictness is otherwise unchanged.
+const ZEN_KNOWN_LIVE_ONLY_IDS = new Set(['ling-3.0-flash-free']);
+
+// Grouped input for resolveRosterDrift (Smell 2: >3 params) — also documents
+// the one behavioral fork the two exceptions need: Go's knownLiveOnlyIds are
+// gated on the id STILL being live right now (`missing`-based, D-24-07's
+// original semantics, unchanged); Zen's are gated on CLI-omission ALONE
+// (`cliOmissionOnly: true`). Zen needs the looser gate because its own live
+// lean roster (opencode.ai/zen/v1/models) is itself observed to rotate free
+// -tier ids in real time — gating "preserve this pinned id" on "still
+// reported live this instant" would silently re-drop the row the moment
+// live's rotation, not just the CLI's lag, stops mentioning it, defeating
+// the whole point of the exception.
+export type RosterDriftInput<T extends Record<string, unknown>> = {
+  readonly label: string;
+  readonly cliIds: readonly string[];
+  readonly liveIds: readonly string[];
+  readonly knownLiveOnlyIds: ReadonlySet<string>;
+  readonly cliOmissionOnly: boolean;
+  readonly previousProviderRows: readonly T[] | null;
+  readonly requirePreservedRow: boolean;
+};
+
+// Pure id-set/preservation decision, factored out of the network-calling
+// compare loop so it is directly unit-testable (no fetch/fs mocking needed).
+// Contract: any live-only id NOT accepted as known drift, or any CLI-only id,
+// throws (fail-closed, snapshot NOT regenerated). An accepted id's row must
+// be found by exact id match in previousProviderRows when requirePreservedRow
+// is true, or this throws too — never fabricate a row from only an id.
+export function resolveRosterDrift<T extends Record<string, unknown>>(
+  input: RosterDriftInput<T>
+): { acceptedIds: readonly string[]; preservedRows: readonly T[] } {
+  const { label, cliIds, liveIds, knownLiveOnlyIds, cliOmissionOnly, previousProviderRows, requirePreservedRow } =
+    input;
+  const cliSet = new Set(cliIds);
+  const liveSet = new Set(liveIds);
+  const missing = liveIds.filter((id) => !cliSet.has(id)); // live has, CLI lacks
+  const extra = cliIds.filter((id) => !liveSet.has(id)); // CLI has, live lacks
+  const knownDrift = cliOmissionOnly
+    ? [...knownLiveOnlyIds].filter((id) => !cliSet.has(id))
+    : missing.filter((id) => knownLiveOnlyIds.has(id));
+  const unexpectedMissing = missing.filter((id) => !knownDrift.includes(id));
+  if (unexpectedMissing.length > 0 || extra.length > 0) {
+    throw new Error(
+      `${label} roster drift — snapshot NOT regenerated. ` +
+        `Live-only ids (${unexpectedMissing.length}): ${unexpectedMissing.join(', ')}. ` +
+        `CLI-only ids (${extra.length}): ${extra.join(', ')}. ` +
+        `Update the opencode CLI (opencode upgrade) and re-run.`
+    );
+  }
+  // Accepted drift is documented on every run — the exception is never silent.
+  if (knownDrift.length > 0) {
+    console.error(`Known ${label} roster drift accepted (pinned exception): ${knownDrift.join(', ')}`);
+  }
+  if (!requirePreservedRow || knownDrift.length === 0) {
+    return { acceptedIds: knownDrift, preservedRows: [] };
+  }
+  const preservedRows = knownDrift.map((id) => {
+    const row = (previousProviderRows ?? []).find((r) => r.id === id);
+    if (!row) {
       throw new Error(
-        `Failed to fetch ${label} roster from ${url} — snapshot NOT regenerated`
+        `${label} roster drift — snapshot NOT regenerated. Known-drift id "${id}" has no ` +
+          `preserved row in the committed snapshot — restore its row or remove it from the ` +
+          `known-drift exception; a row can never be fabricated from only an id.`
       );
     }
-    if (!res.ok) {
-      throw new Error(
-        `Failed to fetch ${label} roster from ${url} (HTTP ${res.status}) — snapshot NOT regenerated`
-      );
-    }
-    const body = (await res.json()) as { data?: Array<{ id?: unknown }> };
-    const liveIds = (body.data ?? [])
-      .map((r) => r.id)
-      .filter((x): x is string => typeof x === 'string');
-    const cliSet = new Set(cliIds);
-    const liveSet = new Set(liveIds);
-    const missing = liveIds.filter((id) => !cliSet.has(id)); // live has, CLI lacks
-    const extra = cliIds.filter((id) => !liveSet.has(id)); // CLI has, live lacks
-    // D-24-07 amendment: the GO compare accepts the pinned known-drift ids;
-    // any NEW live-only id or ANY CLI-only id still throws. Zen (label !== 'Go')
-    // stays fully strict — every diff aborts.
-    const knownDrift =
-      label === 'Go' ? missing.filter((id) => GO_KNOWN_LIVE_ONLY_IDS.has(id)) : [];
-    const unexpectedMissing = missing.filter((id) => !knownDrift.includes(id));
-    if (unexpectedMissing.length > 0 || extra.length > 0) {
-      throw new Error(
-        `${label} roster drift — snapshot NOT regenerated. ` +
-          `Live-only ids (${unexpectedMissing.length}): ${unexpectedMissing.join(', ')}. ` +
-          `CLI-only ids (${extra.length}): ${extra.join(', ')}. ` +
-          `Update the opencode CLI (opencode upgrade) and re-run.`
-      );
-    }
-    // Accepted drift is documented on every run — the exception is never silent.
-    if (knownDrift.length > 0) {
-      console.error(
-        `Known Go roster drift accepted (pinned exception, D-24-07 amendment): ${knownDrift.join(', ')}`
-      );
-    }
-  };
-  await compare(
-    'https://opencode.ai/zen/v1/models',
-    parsed.filter((m) => m.providerID === 'opencode').map((m) => m.id as string),
-    'Zen'
-  );
-  await compare(
-    'https://opencode.ai/zen/go/v1/models',
-    parsed.filter((m) => m.providerID === 'opencode-go').map((m) => m.id as string),
-    'Go'
-  );
+    return row;
+  });
+  return { acceptedIds: knownDrift, preservedRows };
+}
+
+// Reads one provider bucket from the CURRENTLY COMMITTED snapshot (before this
+// run's write) so an accepted known-drift id's row can be preserved verbatim —
+// the source of truth for metadata this run never re-derives. Returns []
+// on any read/parse failure or a missing/malformed bucket so the caller's
+// "no preserved row found" check (resolveRosterDrift, requirePreservedRow)
+// fires uniformly rather than silently treating a corrupt file as "nothing to
+// preserve, so nothing is missing".
+function loadPreviousCatalogProviderRows(providerID: string): CatalogRow[] {
+  let raw: string;
+  try {
+    raw = readFileSync(join(process.cwd(), 'src/lib/models/catalog.json'), 'utf8');
+  } catch {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(raw) as { providers?: Record<string, unknown> };
+    const rows = parsed.providers?.[providerID];
+    return Array.isArray(rows) ? (rows as CatalogRow[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+// D-08/CAT-04 sibling: live lean-roster id fetch, shared by both the Zen and
+// Go compares. THROWS on any failure (throws-not-degrades) so main() aborts
+// WITHOUT writing and the committed snapshot stays usable.
+async function fetchLiveIds(url: string, label: string): Promise<string[]> {
+  let res: Response;
+  try {
+    res = await fetch(url);
+  } catch {
+    throw new Error(`Failed to fetch ${label} roster from ${url} — snapshot NOT regenerated`);
+  }
+  if (!res.ok) {
+    throw new Error(
+      `Failed to fetch ${label} roster from ${url} (HTTP ${res.status}) — snapshot NOT regenerated`
+    );
+  }
+  const body = (await res.json()) as { data?: Array<{ id?: unknown }> };
+  return (body.data ?? []).map((r) => r.id).filter((x): x is string => typeof x === 'string');
+}
+
+// CAT-04 + D-24-06/07 + Zen known-drift exception: Zen/Go roster-verify.
+// Fetches the two anonymous lean rosters and compares id-sets against the
+// CLI-parsed roster by providerID ('opencode' ↔ live Zen, 'opencode-go' ↔
+// live Go). ANY unexpected difference throws (no write, T-24-06/D-24-10) so
+// the committed snapshot stays usable. The Go compare carries the
+// user-approved GO_KNOWN_LIVE_ONLY_IDS exception (D-24-07 amendment,
+// tolerate-only, no preservation); the Zen compare separately carries
+// ZEN_KNOWN_LIVE_ONLY_IDS (this fix, preserve-verbatim) — the two exception
+// sets are never merged or applied cross-provider. Returns the Zen-accepted
+// ids' preserved rows for main() to fold back into the new snapshot.
+async function verifyZenGoRosters(
+  parsed: Record<string, unknown>[]
+): Promise<readonly CatalogRow[]> {
+  const zenLiveIds = await fetchLiveIds('https://opencode.ai/zen/v1/models', 'Zen');
+  const zenCliIds = parsed.filter((m) => m.providerID === 'opencode').map((m) => m.id as string);
+  const zenResult = resolveRosterDrift<CatalogRow>({
+    label: 'Zen',
+    cliIds: zenCliIds,
+    liveIds: zenLiveIds,
+    knownLiveOnlyIds: ZEN_KNOWN_LIVE_ONLY_IDS,
+    cliOmissionOnly: true,
+    previousProviderRows: loadPreviousCatalogProviderRows('opencode'),
+    requirePreservedRow: true,
+  });
+
+  const goLiveIds = await fetchLiveIds('https://opencode.ai/zen/go/v1/models', 'Go');
+  const goCliIds = parsed.filter((m) => m.providerID === 'opencode-go').map((m) => m.id as string);
+  resolveRosterDrift<CatalogRow>({
+    label: 'Go',
+    cliIds: goCliIds,
+    liveIds: goLiveIds,
+    knownLiveOnlyIds: GO_KNOWN_LIVE_ONLY_IDS,
+    cliOmissionOnly: false,
+    previousProviderRows: null,
+    requirePreservedRow: false,
+  });
+
+  return zenResult.preservedRows;
 }
 
 async function main() {
@@ -354,10 +465,13 @@ async function main() {
   // ×1e6 (Pitfall 2), family from the id prefix (CAT-03), structuredOutputs
   // live-joined from supported_parameters (CAT-02). Throws (aborts, no write).
   const nousRows = (await fetchNousRoster()).map(nousPreMap);
-  const allModels = [...models, ...nousRows];
-  // CAT-04 + D-24-06/07: strict Zen/Go drift check — ANY id-set difference
-  // throws (aborts, no write, D-24-10) so the committed snapshot stays usable.
-  await verifyZenGoRosters(parsed);
+  // CAT-04 + D-24-06/07 + Zen known-drift exception: strict Zen/Go drift
+  // check — ANY unexpected id-set difference throws (aborts, no write,
+  // D-24-10) so the committed snapshot stays usable. zenPreservedRows carries
+  // any accepted-but-CLI-omitted Zen id's row, copied verbatim from the
+  // previously committed snapshot (never fabricated).
+  const zenPreservedRows = await verifyZenGoRosters(parsed);
+  const allModels = [...models, ...nousRows, ...zenPreservedRows];
   // D-24-03/05: grouped snapshot keyed by each row's own providerID string
   // (opencode and opencode-go stay separate); sorted keys for diff stability.
   // generatedAt stays top-level (settings/page.tsx l.129).
@@ -379,9 +493,14 @@ async function main() {
   console.log(`Wrote src/lib/models/catalog.json: ${allModels.length} models (${snapshot.generatedAt})`);
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error instanceof Error ? error.message : error);
-    process.exit(1);
-  });
+// Guarded like the other scripts/*.ts CLI entrypoints (e.g.
+// validate-drizzle-migrations.ts) so importing this module's exported pure
+// helpers from a test file never triggers the live CLI/network run.
+if (process.argv[1]?.endsWith('refresh-model-catalog.ts')) {
+  main()
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error(error instanceof Error ? error.message : error);
+      process.exit(1);
+    });
+}
