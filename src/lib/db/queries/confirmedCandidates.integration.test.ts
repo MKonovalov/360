@@ -520,6 +520,35 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
     }
   });
 
+  it('removes a corrected-away candidate while preserving its review history', async () => {
+    const runId = await createRun('company', 920050);
+    await completeRun(runId);
+    await persistPacket(runId, 'company', [
+      { key: `f-correction-${runId}`, signalId: 5150, status: 'strong', sourceKeys: [`s-annual-${runId}`] },
+    ]);
+    const catalogPa = await createCatalogPracticeArea();
+    const offeringId = await insertOffering(catalogPa, 'active');
+    await insertSignalOfferingLink('company', 5150, offeringId);
+    await confirmRun(runId);
+
+    const beforeCorrection = await candidateQueries.listConfirmedCandidateOfferings();
+    expect(beforeCorrection.some((candidate) => candidate.analysisRunId === runId)).toBe(true);
+
+    const initial = await reviewQueries.getEffectiveReviewProjection(runId);
+    if (!initial) throw new Error('expected effective review projection');
+    const corrected = await reviewQueries.transitionReviewDecision(
+      { runId, decision: 'dismissed', expectedPriorEventId: initial.effectiveEventId },
+      STAFF_ACTOR,
+      { decidedAt: new Date('2026-08-08T11:00:00.000Z') },
+    );
+    expect(corrected.kind).toBe('corrected');
+
+    const afterCorrection = await candidateQueries.listConfirmedCandidateOfferings();
+    expect(afterCorrection.some((candidate) => candidate.analysisRunId === runId)).toBe(false);
+    const effective = await reviewQueries.getEffectiveReviewProjection(runId);
+    expect(effective?.decision).toBe('dismissed');
+  });
+
   it('includes only strong/weak findings with persisted finding-source links', async () => {
     const runId = await createRun('company', 920100);
     await completeRun(runId);
