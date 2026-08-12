@@ -16,14 +16,15 @@ const e2eBaseUrl = process.env.E2E_BASE_URL;
 const baseURL = e2eBaseUrl ?? 'http://localhost:3000';
 const isDeployedTarget = e2eBaseUrl ? new URL(e2eBaseUrl).hostname !== 'localhost' : false;
 const isPhase36FixtureRun = process.env.PHASE36_FIXTURE_ONLY === '1';
+const isPhase39FixtureRun = process.env.PHASE39_FIXTURE_ONLY === '1';
 const localDatabaseUrl = process.env.TEST_DATABASE_URL
   ? (() => {
       const url = new URL(process.env.TEST_DATABASE_URL);
-      if (isPhase36FixtureRun) {
+       if (isPhase36FixtureRun || isPhase39FixtureRun) {
         if (url.hostname.startsWith('ep-') && !url.hostname.includes('-pooler.')) {
           url.hostname = url.hostname.replace(/^ep-([^.]+)\./, 'ep-$1-pooler.');
         }
-        url.hash = '#phase36-fixture';
+         url.hash = isPhase39FixtureRun ? '#phase39-fixture' : '#phase36-fixture';
       }
       return url.toString();
     })()
@@ -52,7 +53,7 @@ export default defineConfig({
           command: 'npm run dev',
           url: 'http://localhost:3000',
           timeout: 120_000,
-          reuseExistingServer: !process.env.CI && !isPhase36FixtureRun,
+           reuseExistingServer: !process.env.CI && !isPhase36FixtureRun && !isPhase39FixtureRun,
           ...(localDatabaseUrl
             ? { env: { DATABASE_URL: localDatabaseUrl } }
             : {}),
