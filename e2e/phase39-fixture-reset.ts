@@ -17,6 +17,7 @@ const FIXTURE_CUSTOM_AGENT_BEHAVIOR_INSTRUCTIONS = [
   'Return only source-backed company findings.',
   'Return only source-backed persona findings.',
 ] as const;
+const FIXTURE_OFFERING_NAME = 'Phase 39 E2E Cost Pressure Offering';
 
 type FixtureIds = Readonly<{
   readonly companyId: number;
@@ -90,6 +91,25 @@ export async function resetFixtures(): Promise<FixtureIds> {
   const [personaSignal] = priorPersonaSignals.length > 0 ? priorPersonaSignals : await sql`INSERT INTO persona_signal (practice_area_id, buyer_role_id, name, category, description, status, created_by, updated_by)
     VALUES (${practiceAreaId}, ${buyerRole?.id}, 'Phase 39 persona pressure', 'Financial', 'Disposable persona checklist signal', 'active', ${FIXTURE_ACTOR}, ${FIXTURE_ACTOR})
     RETURNING id`;
+
+  await sql`DELETE FROM signal_offering_link
+    WHERE offering_id IN (SELECT id FROM offering WHERE practice_area_id = ${practiceAreaId} AND name = ${FIXTURE_OFFERING_NAME})
+       OR (signal_type = 'company' AND signal_id = ${companySignal?.id})`;
+  await sql`DELETE FROM offering WHERE practice_area_id = ${practiceAreaId} AND name = ${FIXTURE_OFFERING_NAME}`;
+  const [offering] = await sql`INSERT INTO offering (
+    practice_area_id, name, offer_type, description, sort_order, status, created_by, updated_by
+  ) VALUES (
+    ${practiceAreaId}, ${FIXTURE_OFFERING_NAME}, 'core',
+    'Disposable Phase 39 offering for confirmed-candidate projection.', 1,
+    'active', ${FIXTURE_ACTOR}, ${FIXTURE_ACTOR}
+  ) RETURNING id`;
+  const offeringId = positiveId(offering?.id, 'offeringId');
+  await sql`INSERT INTO signal_offering_link (
+    signal_type, signal_id, offering_id, relevance_note, created_by, updated_by
+  ) VALUES (
+    'company', ${companySignal?.id}, ${offeringId},
+    'Phase 39 company signal to disposable offering.', ${FIXTURE_ACTOR}, ${FIXTURE_ACTOR}
+  )`;
 
   const staleCustomAgents = await sql`
     SELECT t.id

@@ -707,6 +707,8 @@ describeWithDatabase('analysis review boundary (reconcile, decide, list) against
     );
     expect(first.kind).toBe('corrected');
     if (first.kind !== 'corrected') throw new Error('expected first review event');
+    expect(first.event.expectedPriorEventId).toBe(0);
+    expect(first.event.sequence).toBe(1);
 
     const correction = await reviewQueries.transitionReviewDecision(
       { runId, decision: 'dismissed', expectedPriorEventId: first.event.eventId },

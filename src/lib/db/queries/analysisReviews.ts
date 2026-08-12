@@ -372,7 +372,8 @@ export async function transitionReviewDecision(
     effective AS (
       SELECT review.analysis_run_id, review.result_id, review.decision,
         review.decided_by, review.decided_at, review.packet_hash,
-        review.effective_event_id, review.effective_sequence
+        COALESCE(review.effective_event_id, 0) AS effective_event_id,
+        COALESCE(review.effective_sequence, 0) AS effective_sequence
       FROM analysis_run_review AS review
       WHERE review.analysis_run_id = ${runId}
     ),
@@ -397,7 +398,7 @@ export async function transitionReviewDecision(
       WHERE current_run.status IN ('pending_review', 'confirmed', 'dismissed')
         AND current_run.result_id IS NOT NULL
         AND current_run.packet_hash IS NOT NULL
-        AND (effective.effective_event_id IS NOT DISTINCT FROM ${expectedPriorEventId})
+        AND (COALESCE(effective.effective_event_id, 0) IS NOT DISTINCT FROM ${expectedPriorEventId})
         AND NOT EXISTS (
           SELECT 1 FROM analysis_run_review_event AS replay
           WHERE replay.analysis_run_id = ${runId}
