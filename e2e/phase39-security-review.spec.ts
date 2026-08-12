@@ -99,6 +99,7 @@ test.describe('Phase 39 authenticated security-review journeys', () => {
     await create.getByRole('textbox', { name: 'Research query' }).fill('Find durable Phase 39 evidence for cost pressure.');
     await create.getByRole('textbox', { name: 'Behavior instruction' }).fill('Return only source-backed findings.');
     await create.getByRole('button', { name: 'Save retired agent', exact: true }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
     const card = page.locator('[data-custom-agent-id]').filter({ hasText: customAgentName }).last();
     await expect(card).toContainText('Retired');
     await expect(card).toContainText('Current version 1');
