@@ -76,6 +76,61 @@ export const reviewDecisionFailureReasonSchema = z.enum([
 ]);
 export type ReviewDecisionFailureReason = z.infer<typeof reviewDecisionFailureReasonSchema>;
 
+export const reviewDecisionEventSchema = z
+  .object({
+    eventId: positiveIdSchema,
+    runId: positiveIdSchema,
+    resultId: positiveIdSchema,
+    sequence: z.number().int().positive(),
+    priorDecision: wholeRunDecisionSchema.nullable(),
+    decision: wholeRunDecisionSchema,
+    expectedPriorEventId: z.number().int().nonnegative(),
+    decidedBy: serverActorIdSchema,
+    decidedAt: serverTimestampSchema,
+    packetHash: packetHashSchema,
+  })
+  .strict();
+export type ReviewDecisionEvent = z.infer<typeof reviewDecisionEventSchema>;
+
+export const effectiveReviewProjectionSchema = z
+  .object({
+    runId: positiveIdSchema,
+    resultId: positiveIdSchema,
+    decision: wholeRunDecisionSchema,
+    decidedBy: serverActorIdSchema,
+    decidedAt: serverTimestampSchema,
+    packetHash: packetHashSchema,
+    effectiveEventId: positiveIdSchema,
+    effectiveSequence: z.number().int().positive(),
+  })
+  .strict();
+export type EffectiveReviewProjection = z.infer<typeof effectiveReviewProjectionSchema>;
+
+export const reviewDecisionTransitionInputSchema = z
+  .object({
+    runId: positiveIdSchema,
+    decision: wholeRunDecisionSchema,
+    expectedPriorEventId: z.number().int().nonnegative(),
+  })
+  .strict();
+export type ReviewDecisionTransitionInput = z.infer<typeof reviewDecisionTransitionInputSchema>;
+
+export const reviewDecisionTransitionOutcomeSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('corrected'), event: reviewDecisionEventSchema }).strict(),
+  z.object({ kind: z.literal('replayed'), projection: effectiveReviewProjectionSchema }).strict(),
+  z
+    .object({
+      kind: z.literal('conflict'),
+      projection: effectiveReviewProjectionSchema,
+      expectedPriorEventId: z.number().int().nonnegative(),
+    })
+    .strict(),
+  z
+    .object({ kind: z.literal('not_eligible'), reason: z.enum(['not_found', 'not_pending_review', 'missing_packet']) })
+    .strict(),
+]);
+export type ReviewDecisionTransitionOutcome = z.infer<typeof reviewDecisionTransitionOutcomeSchema>;
+
 // Server-result union: the persisted winner (replayed flag distinguishes a
 // retry/race-loser replay from a fresh decision) or a safe failure reason.
 export const reviewDecisionOutcomeSchema = z.discriminatedUnion('ok', [

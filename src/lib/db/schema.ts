@@ -795,17 +795,9 @@ export const analysisResultRetention = pgTable(
   ]
 );
 
-// Phase 34 (D-34-02): one whole-run terminal review decision per completed
-// analysis run/result. The authoritative lifecycle status remains
-// `analysis_run.status`; this row is a direct, immutable review projection that
-// makes the Confirm/Dismiss decision queryable without re-deriving it from the
-// audit log. Insert-once only — there is intentionally no update/delete helper
-// and no mutable packet column. `decided_by` is the server-derived Clerk staff
-// user id (opaque string, NO FK — Clerk is external, same pattern as
-// `userModelSettings`/`recentlyViewed`), and `packet_hash` is captured from the
-// immutable `analysis_run_result` so a decision is bound to the exact packet
-// that was reviewed. Unique run and result identities give Confirm/Dismiss
-// exactly one database winner under retries and competing attempts.
+// D-39-05/D-39-06: the review row is the latest-effective projection. Its
+// immutable source of truth is analysis_run_review_event; corrections never
+// overwrite an earlier actor, timestamp, packet, or decision.
 export const analysisReviewDecisionEnum = pgEnum('analysis_review_decision', [
   'confirmed',
   'dismissed',
@@ -821,10 +813,43 @@ export const analysisRunReview = pgTable(
     decidedBy: text('decided_by').notNull(),
     decidedAt: timestamp('decided_at').notNull(),
     packetHash: text('packet_hash').notNull(),
+    effectiveEventId: integer('effective_event_id'),
+    effectiveSequence: integer('effective_sequence').notNull().default(1),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => [
     unique('analysis_run_review_analysis_run_id_unique').on(table.analysisRunId),
     unique('analysis_run_review_result_id_unique').on(table.resultId),
   ]
+);
+
+// D-39-05/D-39-06: every transition is an append-only, server-attributed fact.
+// expectedPriorEventId is part of the deterministic replay identity; zero is
+// the sequence-one sentinel used by the legacy backfill.
+export const analysisRunReviewEvent = pgTable(
+  'analysis_run_review_event',
+  {
+    id: serial('id').primaryKey(),
+    analysisRunId: integer('analysis_run_id').notNull().references(() => analysisRun.id),
+    resultId: integer('result_id').notNull().references(() => analysisRunResult.id),
+    sequence: integer('sequence').notNull(),
+    priorDecision: analysisReviewDecisionEnum('prior_decision'),
+    decision: analysisReviewDecisionEnum('decision').notNull(),
+    expectedPriorEventId: integer('expected_prior_event_id').notNull().default(0),
+    decidedBy: text('decided_by').notNull(),
+    decidedAt: timestamp('decided_at').notNull(),
+    packetHash: text('packet_hash').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    unique('analysis_run_review_event_run_sequence_unique').on(table.analysisRunId, table.sequence),
+    unique('analysis_run_review_event_replay_unique').on(
+      table.analysisRunId,
+      table.packetHash,
+      table.decision,
+      table.expectedPriorEventId,
+    ),
+    index('analysis_run_review_event_run_id_idx').on(table.analysisRunId, table.id),
+    index('analysis_run_review_event_result_id_idx').on(table.resultId, table.id),
+  ],
 );

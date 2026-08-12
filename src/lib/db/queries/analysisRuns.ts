@@ -15,8 +15,19 @@ import {
   type AnalysisRunHistoryRow,
   type SubjectScope,
 } from '@/lib/analysis/experienceContracts';
+import type {
+  EffectiveReviewProjection,
+  ReviewDecisionEvent,
+  ReviewDecisionTransitionInput,
+  ReviewDecisionTransitionOutcome,
+} from '@/lib/analysis/reviewContracts';
 import { db } from '../index';
-import { analysisRun, analysisRunEvent, analysisRunResult, analysisRunReview } from '../schema';
+import {
+  analysisRun,
+  analysisRunEvent,
+  analysisRunResult,
+  analysisRunReview,
+} from '../schema';
 
 // The exact status set the partial unique index
 // analysis_run_active_subject_template_idx blocks duplicates with. Kept in one
@@ -31,6 +42,11 @@ export type AnalysisActorKind = (typeof ANALYSIS_ACTOR_KINDS)[number];
 
 export type AnalysisRunRow = typeof analysisRun.$inferSelect;
 export type AnalysisRunEventRow = typeof analysisRunEvent.$inferSelect;
+
+export type ReviewDecisionTransition = ReviewDecisionTransitionInput;
+export type ReviewEffectiveState = EffectiveReviewProjection;
+export type ReviewTransitionEvent = ReviewDecisionEvent;
+export type ReviewTransitionOutcome = ReviewDecisionTransitionOutcome;
 
 // Terminal statuses (no outgoing transition in the shared graph) are exactly
 // the statuses whose transition list is empty. Derived, never duplicated.

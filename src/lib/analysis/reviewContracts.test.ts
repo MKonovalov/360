@@ -10,6 +10,10 @@ import {
   normalizeCandidateEvidence,
   reconcileReviewInputSchema,
   reconcileReviewResultSchema,
+  effectiveReviewProjectionSchema,
+  reviewDecisionEventSchema,
+  reviewDecisionTransitionInputSchema,
+  reviewDecisionTransitionOutcomeSchema,
   reviewDecisionOutcomeSchema,
   reviewItemSchema,
   wholeRunDecisionSchema,
@@ -45,6 +49,58 @@ const candidateEvidence = {
 } as const;
 
 describe('whole-run review decision contracts', () => {
+  it('represents sequence-one history and the synchronized effective projection', () => {
+    const event = reviewDecisionEventSchema.parse({
+      eventId: 12,
+      runId,
+      resultId: 9,
+      sequence: 1,
+      priorDecision: null,
+      decision: 'confirmed',
+      expectedPriorEventId: 0,
+      decidedBy: actorId,
+      decidedAt,
+      packetHash,
+    });
+    const projection = effectiveReviewProjectionSchema.parse({
+      runId,
+      resultId: 9,
+      decision: event.decision,
+      decidedBy: event.decidedBy,
+      decidedAt: event.decidedAt,
+      packetHash: event.packetHash,
+      effectiveEventId: event.eventId,
+      effectiveSequence: event.sequence,
+    });
+
+    expect(projection.effectiveEventId).toBe(event.eventId);
+    expect(projection.effectiveSequence).toBe(1);
+  });
+
+  it('distinguishes replay, correction, and stale conflict outcomes', () => {
+    const input = { runId, decision: 'dismissed', expectedPriorEventId: 12 };
+    expect(reviewDecisionTransitionInputSchema.safeParse(input).success).toBe(true);
+    expect(reviewDecisionTransitionInputSchema.safeParse({ ...input, expectedPriorEventId: -1 }).success).toBe(false);
+
+    const projection = {
+      runId,
+      resultId: 9,
+      decision: 'dismissed',
+      decidedBy: actorId,
+      decidedAt,
+      packetHash,
+      effectiveEventId: 13,
+      effectiveSequence: 2,
+    } as const;
+    expect(reviewDecisionTransitionOutcomeSchema.safeParse({ kind: 'replayed', projection }).success).toBe(true);
+    expect(reviewDecisionTransitionOutcomeSchema.safeParse({
+      kind: 'conflict',
+      projection,
+      expectedPriorEventId: 12,
+    }).success).toBe(true);
+    expect(reviewDecisionTransitionOutcomeSchema.safeParse({ kind: 'conflict', projection, expectedPriorEventId: 13 }).success).toBe(true);
+  });
+
   it('accepts only the closed confirmed|dismissed decision set', () => {
     expect(wholeRunDecisionSchema.safeParse('confirmed').success).toBe(true);
     expect(wholeRunDecisionSchema.safeParse('dismissed').success).toBe(true);
