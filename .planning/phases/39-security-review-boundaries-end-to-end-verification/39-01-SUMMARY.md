@@ -41,7 +41,7 @@ Implemented the production grounded-analysis quarantine and required-grounding b
 
 ## Verification
 
-- **PASS** `npm test -- --run src/lib/analysis/groundedContracts.test.ts src/lib/analysis/execution.test.ts src/lib/analysis/evidence.test.ts src/lib/analysis/results.test.ts` — 4 files, 95 tests.
+- **PASS** `npm test -- --run src/lib/analysis/groundedContracts.test.ts src/lib/analysis/execution.test.ts src/lib/analysis/evidence.test.ts src/lib/analysis/results.test.ts` — 4 files, 96 tests.
 - **PASS** `npm test -- --run src/lib/analysis/groundedContracts.test.ts src/lib/analysis/execution.test.ts` — 2 files, 58 tests.
 - **NOT-RUN** database, Workflow, browser, and live-provider lanes; they are explicitly owned by later Phase 39 plans and no live provider was invoked.
 - Existing repository typecheck warnings/errors were not used as evidence for this unit-only plan; focused tests are authoritative here.
@@ -65,5 +65,5 @@ None introduced by this plan.
 ## Self-Check: PASSED
 
 - All six intended source/test files exist and were committed.
-- Commit `296a347c` exists in git history.
+- Commits `296a347c`, `8d43d12f`, and the regression-lock commit exist in git history.
 - Summary is limited to this plan; state and roadmap were intentionally not updated per the execution request.
