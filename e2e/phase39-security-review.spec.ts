@@ -105,7 +105,7 @@ test.describe('Phase 39 authenticated security-review journeys', () => {
     await expect(card).toContainText('Current version 1');
 
     await card.getByRole('button', { name: 'Edit custom agent', exact: true }).click();
-    const edit = page.getByRole('dialog', { name: `Edit ${customAgentName}`, exact: true });
+    const edit = page.getByRole('dialog', { name: 'Edit custom agent', exact: true });
     await edit.getByRole('textbox', { name: 'Description' }).fill(`${customAgentDescription} edited`);
     await edit.getByRole('button', { name: 'Save new version', exact: true }).click();
     await expect(card).toContainText('Current version 2');
