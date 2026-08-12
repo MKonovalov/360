@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { analysisPreviewResponseSchema } from '@/lib/analysis/experienceContracts';
 import {
   Dialog,
   DialogContent,
@@ -21,23 +22,30 @@ import {
 } from '@/lib/analysis/pollingClient';
 import {
   ANALYSIS_LAUNCHER_ERROR_COPY,
-  createAnalysisRunPayload,
+  createAnalysisRunPayload as createClientAnalysisRunPayload,
   fetchAnalysisOptions,
-  fetchAnalysisPreview,
   getErrorCopy,
   parseCreateRunResponse,
   readJson,
   type AnalysisPreview,
+  type AnalysisPreviewResult,
+  type AnalysisRunPayloadInput,
   type AnalysisSubjectType,
+  type AgentOption,
+  type AgentSelection,
   type PracticeArea,
 } from './analysisLauncherClient';
 
-export { createAnalysisRunPayload } from './analysisLauncherClient';
 export type { AnalysisSubjectType } from './analysisLauncherClient';
 
 type OptionsState =
   | { readonly status: 'loading' }
-  | { readonly status: 'ready'; readonly practiceAreas: readonly PracticeArea[] }
+  | {
+      readonly status: 'ready';
+      readonly practiceAreas: readonly PracticeArea[];
+      readonly agents: readonly AgentOption[] | null;
+      readonly loadedPracticeAreaId: number | null;
+    }
   | { readonly status: 'error'; readonly message: string };
 type PreviewState =
   | { readonly status: 'idle' | 'loading' }
@@ -55,6 +63,92 @@ export interface AnalysisLauncherProps {
   readonly onOpenChange: (open: boolean) => void;
 }
 
+export interface AnalysisPreviewPayloadInput {
+  readonly subjectType: AnalysisSubjectType;
+  readonly subjectId: number;
+  readonly practiceAreaId: number;
+  readonly selection: AgentSelection;
+}
+
+interface LegacyFixedAnalysisRunPayloadInput {
+  readonly templateVersionId: number;
+  readonly subjectType: AnalysisSubjectType;
+  readonly subjectId: number;
+  readonly practiceAreaId: number;
+}
+
+type LauncherAnalysisRunPayloadInput = AnalysisRunPayloadInput | LegacyFixedAnalysisRunPayloadInput;
+type LauncherAnalysisRunPayload = ReturnType<typeof createClientAnalysisRunPayload>;
+
+export function createAnalysisRunPayload(input: AnalysisRunPayloadInput): LauncherAnalysisRunPayload;
+export function createAnalysisRunPayload(input: LegacyFixedAnalysisRunPayloadInput): LauncherAnalysisRunPayload;
+export function createAnalysisRunPayload(input: LauncherAnalysisRunPayloadInput): LauncherAnalysisRunPayload {
+  if ('selection' in input) return createClientAnalysisRunPayload(input);
+  return createClientAnalysisRunPayload({
+    subjectType: input.subjectType,
+    subjectId: input.subjectId,
+    practiceAreaId: input.practiceAreaId,
+    selection: { kind: 'fixed', templateVersionId: input.templateVersionId },
+  });
+}
+
+export function analysisAgentOptionKey(agent: AgentOption): string {
+  switch (agent.kind) {
+    case 'fixed':
+      return `fixed:${agent.templateVersionId}`;
+    case 'custom':
+      return `custom:${agent.customAgentId}:${agent.templateVersionId}`;
+    default:
+      return assertNever(agent);
+  }
+}
+
+export function analysisAgentSelection(agent: AgentOption): AgentSelection {
+  switch (agent.kind) {
+    case 'fixed':
+      return { kind: 'fixed', templateVersionId: agent.templateVersionId };
+    case 'custom':
+      return {
+        kind: 'custom',
+        customAgentId: agent.customAgentId,
+        templateVersionId: agent.templateVersionId,
+      };
+    default:
+      return assertNever(agent);
+  }
+}
+
+export function defaultAnalysisAgentKey(agents: readonly AgentOption[]): string {
+  const first = agents[0];
+  return first?.kind === 'fixed' ? analysisAgentOptionKey(first) : '';
+}
+
+export function isAnalysisAgentPickerReady(
+  status: OptionsState['status'],
+  agents: readonly AgentOption[] | null,
+): boolean {
+  return status === 'ready' && agents !== null;
+}
+
+export function createAnalysisPreviewPayload({
+  subjectType,
+  subjectId,
+  practiceAreaId,
+  selection,
+}: AnalysisPreviewPayloadInput) {
+  const subject = { type: subjectType, id: subjectId };
+  if (selection.kind === 'fixed') return { subject, practiceAreaId };
+  return {
+    subject,
+    practiceAreaId,
+    selection: {
+      kind: 'custom' as const,
+      customAgentId: selection.customAgentId,
+      templateVersionId: selection.templateVersionId,
+    },
+  };
+}
+
 export function AnalysisLauncher({
   open,
   subjectType,
@@ -64,6 +158,7 @@ export function AnalysisLauncher({
   const router = useRouter();
   const [optionsState, setOptionsState] = useState<OptionsState>({ status: 'loading' });
   const [practiceAreaId, setPracticeAreaId] = useState('');
+  const [selectedAgentKey, setSelectedAgentKey] = useState('');
   const [previewState, setPreviewState] = useState<PreviewState>({ status: 'idle' });
   const [launchState, setLaunchState] = useState<LaunchState>({ status: 'idle' });
   const generationRef = useRef(0);
@@ -71,6 +166,9 @@ export function AnalysisLauncher({
   const previewControllerRef = useRef<AbortController | null>(null);
   const launchControllerRef = useRef<AbortController | null>(null);
   const pollControllerRef = useRef<AbortController | null>(null);
+  const optionPracticeAreas = optionsState.status === 'ready' ? optionsState.practiceAreas : null;
+  const optionAgents = optionsState.status === 'ready' ? optionsState.agents : null;
+  const loadedPracticeAreaId = optionsState.status === 'ready' ? optionsState.loadedPracticeAreaId : null;
 
   function abortRequests() {
     optionsControllerRef.current?.abort();
@@ -88,13 +186,14 @@ export function AnalysisLauncher({
     abortRequests();
     setOptionsState({ status: 'loading' });
     setPracticeAreaId('');
+    setSelectedAgentKey('');
     setPreviewState({ status: 'idle' });
     setLaunchState({ status: 'idle' });
     if (!open) return;
 
     const controller = new AbortController();
     optionsControllerRef.current = controller;
-    void loadOptions(controller, generation);
+    void loadOptions(controller, generation, undefined);
 
     return () => {
       controller.abort();
@@ -106,39 +205,85 @@ export function AnalysisLauncher({
     if (!open || !practiceAreaId || optionsState.status !== 'ready') return;
     const selectedId = Number(practiceAreaId);
     if (!Number.isInteger(selectedId) || selectedId <= 0) return;
+    if (optionsState.loadedPracticeAreaId === selectedId) return;
+
+    const generation = ++generationRef.current;
+    optionsControllerRef.current?.abort();
+    previewControllerRef.current?.abort();
+    optionsControllerRef.current = null;
+    previewControllerRef.current = null;
+    setOptionsState((current) => current.status === 'ready' ? { ...current, agents: null } : current);
+    setSelectedAgentKey('');
+    setPreviewState({ status: 'idle' });
+    const controller = new AbortController();
+    optionsControllerRef.current = controller;
+    void loadOptions(controller, generation, selectedId);
+
+    return () => controller.abort();
+  }, [loadedPracticeAreaId, open, optionPracticeAreas, optionsState.status, practiceAreaId, subjectId, subjectType]);
+
+  const agentOptions = optionAgents;
+  const selectedAgent = agentOptions?.find((agent) => analysisAgentOptionKey(agent) === selectedAgentKey) ?? null;
+  const agentPickerReady = isAnalysisAgentPickerReady(optionsState.status, agentOptions);
+
+  useEffect(() => {
+    if (!open || !practiceAreaId || optionsState.status !== 'ready' || optionsState.agents === null || selectedAgent === null) return;
+    const selectedId = Number(practiceAreaId);
+    if (!Number.isInteger(selectedId) || selectedId <= 0 || optionsState.loadedPracticeAreaId !== selectedId) return;
 
     const generation = generationRef.current;
     const controller = new AbortController();
     previewControllerRef.current?.abort();
     previewControllerRef.current = controller;
     setPreviewState({ status: 'loading' });
-    void loadPreview(controller, generation, selectedId);
+    void loadPreview(controller, generation, selectedId, analysisAgentSelection(selectedAgent));
 
     return () => controller.abort();
-  }, [open, optionsState.status, practiceAreaId, subjectId, subjectType]);
+  }, [agentOptions, loadedPracticeAreaId, open, optionsState.status, practiceAreaId, selectedAgentKey, subjectId, subjectType]);
 
-  async function loadOptions(controller: AbortController, generation: number) {
+  async function loadOptions(controller: AbortController, generation: number, selectedPracticeAreaId: number | undefined) {
     try {
-      const result = await fetchAnalysisOptions(subjectType, controller.signal);
+      const result = await fetchAnalysisOptions(subjectType, selectedPracticeAreaId, controller.signal);
       if (!isCurrent(generation, controller)) return;
       if (!result.ok) {
         setOptionsState({ status: 'error', message: result.message });
         return;
       }
-      setOptionsState({ status: 'ready', practiceAreas: result.practiceAreas });
-      setPracticeAreaId(String(result.practiceAreas[0]?.id ?? ''));
+      if (selectedPracticeAreaId === undefined) {
+        setOptionsState({
+          status: 'ready',
+          practiceAreas: result.practiceAreas,
+          agents: null,
+          loadedPracticeAreaId: null,
+        });
+        setPracticeAreaId(String(result.practiceAreas[0]?.id ?? ''));
+        return;
+      }
+      setOptionsState({
+        status: 'ready',
+        practiceAreas: result.practiceAreas,
+        agents: result.agents,
+        loadedPracticeAreaId: selectedPracticeAreaId,
+      });
+      setSelectedAgentKey(defaultAnalysisAgentKey(result.agents));
     } catch (error: unknown) {
       if (isAbortError(error) || !isCurrent(generation, controller)) return;
       setOptionsState({ status: 'error', message: error instanceof TypeError ? ANALYSIS_LAUNCHER_ERROR_COPY.network : 'Analysis options could not be loaded. Refresh and try again.' });
     }
   }
 
-  async function loadPreview(controller: AbortController, generation: number, selectedId: number) {
+  async function loadPreview(
+    controller: AbortController,
+    generation: number,
+    selectedId: number,
+    selection: AgentSelection,
+  ) {
     try {
-      const result = await fetchAnalysisPreview({
+      const result = await fetchAnalysisPreviewWithSelection({
         subjectType,
         subjectId,
         practiceAreaId: selectedId,
+        selection,
         signal: controller.signal,
       });
       if (!isCurrent(generation, controller)) return;
@@ -151,9 +296,24 @@ export function AnalysisLauncher({
     }
   }
 
+  async function fetchAnalysisPreviewWithSelection({ signal, ...input }: AnalysisPreviewPayloadInput & { readonly signal: AbortSignal }): Promise<AnalysisPreviewResult> {
+    const response = await fetch('/api/analysis-preview', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      signal,
+      body: JSON.stringify(createAnalysisPreviewPayload(input)),
+    });
+    const payload = await readJson(response);
+    if (!response.ok) return { ok: false, message: getErrorCopy(payload) };
+    const parsed = analysisPreviewResponseSchema.safeParse(payload);
+    return parsed.success
+      ? { ok: true, preview: parsed.data }
+      : { ok: false, message: 'The analysis preview could not be loaded. Refresh and try again.' };
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (previewState.status !== 'ready' || launchState.status === 'launching' || launchState.status === 'started') return;
+    if (previewState.status !== 'ready' || selectedAgent === null || launchState.status === 'launching' || launchState.status === 'started') return;
     const generation = generationRef.current;
     const controller = new AbortController();
     launchControllerRef.current?.abort();
@@ -165,10 +325,10 @@ export function AnalysisLauncher({
         headers: { 'content-type': 'application/json' },
         signal: controller.signal,
         body: JSON.stringify(createAnalysisRunPayload({
-          templateVersionId: previewState.preview.template.templateVersionId,
           subjectType,
           subjectId,
           practiceAreaId: previewState.preview.practiceArea.id,
+          selection: analysisAgentSelection(selectedAgent),
         })),
       });
       const payload = await readJson(response);
@@ -218,12 +378,14 @@ export function AnalysisLauncher({
       setLaunchState({ status: 'idle' });
       setPreviewState({ status: 'idle' });
       setPracticeAreaId('');
+      setSelectedAgentKey('');
     }
     onOpenChange(nextOpen);
   }
 
   const heading = subjectType === 'company' ? 'Company analysis' : 'Persona analysis';
   const practiceAreas = optionsState.status === 'ready' ? optionsState.practiceAreas : [];
+  const availableAgents = agentOptions ?? [];
   const preview = previewState.status === 'ready' ? previewState.preview : null;
 
   return (
@@ -238,17 +400,27 @@ export function AnalysisLauncher({
         {optionsState.status === 'ready' && practiceAreas.length === 0 ? <p role="status">No Practice Areas are available for analysis.</p> : null}
         {optionsState.status === 'ready' && practiceAreas.length > 0 ? (
           <form id={`analysis-launch-${subjectType}-${subjectId}`} onSubmit={handleSubmit} className="space-y-4">
-            <label htmlFor={`analysis-practice-area-${subjectType}-${subjectId}`} className="block text-sm font-medium text-slate-700">Practice Area</label>
-            <Select value={practiceAreaId || undefined} onValueChange={(value) => { setPracticeAreaId(value); setLaunchState({ status: 'idle' }); }} disabled={launchState.status === 'launching' || launchState.status === 'started'}>
-              <SelectTrigger id={`analysis-practice-area-${subjectType}-${subjectId}`}><SelectValue placeholder="Select a Practice Area" /></SelectTrigger>
-              <SelectContent>{practiceAreas.map((area) => <SelectItem key={area.id} value={String(area.id)}>{`${area.name} · ${area.shortCode}`}</SelectItem>)}</SelectContent>
-            </Select>
-            {previewState.status === 'loading' ? <p role="status">Loading analysis preview…</p> : null}
+             <label htmlFor={`analysis-practice-area-${subjectType}-${subjectId}`} className="block text-sm font-medium text-slate-700">Practice Area</label>
+             <Select value={practiceAreaId || undefined} onValueChange={(value) => { setPracticeAreaId(value); setLaunchState({ status: 'idle' }); }} disabled={launchState.status === 'launching' || launchState.status === 'started'}>
+               <SelectTrigger id={`analysis-practice-area-${subjectType}-${subjectId}`}><SelectValue placeholder="Select a Practice Area" /></SelectTrigger>
+               <SelectContent>{practiceAreas.map((area) => <SelectItem key={area.id} value={String(area.id)}>{`${area.name} · ${area.shortCode}`}</SelectItem>)}</SelectContent>
+             </Select>
+             {agentPickerReady && availableAgents.length > 0 ? (
+               <>
+                 <label htmlFor={`analysis-agent-${subjectType}-${subjectId}`} className="block text-sm font-medium text-slate-700">Analysis agent</label>
+                 <Select value={selectedAgentKey || undefined} onValueChange={(value) => { setSelectedAgentKey(value); setLaunchState({ status: 'idle' }); }} disabled={launchState.status === 'launching' || launchState.status === 'started'}>
+                   <SelectTrigger id={`analysis-agent-${subjectType}-${subjectId}`}><SelectValue placeholder="Select an analysis agent" /></SelectTrigger>
+                   <SelectContent>{availableAgents.map((agent) => <SelectItem key={analysisAgentOptionKey(agent)} value={analysisAgentOptionKey(agent)}>{analysisAgentLabel(agent)}</SelectItem>)}</SelectContent>
+                 </Select>
+               </>
+             ) : null}
+             {agentPickerReady && availableAgents.length === 0 ? <p role="status">No compatible analysis agents are available.</p> : null}
+             {previewState.status === 'loading' ? <p role="status">Loading analysis preview…</p> : null}
             {previewState.status === 'error' ? <p role="alert" className="text-red-600">{previewState.message}</p> : null}
             {preview ? <AnalysisPreviewPanel preview={preview} /> : null}
             {launchState.status === 'error' ? <p role="alert" className="text-red-600">{launchState.message}</p> : null}
             {launchState.status === 'started' ? <p role="status">{`Analysis run #${launchState.applicationRunId} started${launchState.run && isTerminalAnalysisStatus(launchState.run.status) ? ` · ${launchState.run.status}` : ''}.`}</p> : null}
-            <Button type="submit" disabled={!preview || launchState.status === 'launching' || launchState.status === 'started'}>{launchState.status === 'launching' ? 'Starting…' : launchState.status === 'started' ? 'Started' : 'Start analysis'}</Button>
+             <Button type="submit" disabled={!preview || selectedAgent === null || launchState.status === 'launching' || launchState.status === 'started'}>{launchState.status === 'launching' ? 'Starting…' : launchState.status === 'started' ? 'Started' : 'Start analysis'}</Button>
           </form>
         ) : null}
         <DialogFooter>
@@ -261,4 +433,19 @@ export function AnalysisLauncher({
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError';
+}
+
+function analysisAgentLabel(agent: AgentOption): string {
+  switch (agent.kind) {
+    case 'fixed':
+      return `Fixed v1.7 · ${agent.name} · v${agent.version}`;
+    case 'custom':
+      return `Custom · ${agent.name} · v${agent.version}`;
+    default:
+      return assertNever(agent);
+  }
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unexpected analysis agent kind: ${String(value)}`);
 }
