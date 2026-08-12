@@ -4,13 +4,12 @@
 // single gate, called FIRST (D-06/T-09-01). No anonymous path to the agent or
 // the DB writes.
 import { z } from 'zod';
-import { startActiveObservation } from '@langfuse/tracing';
 import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { analyzeCompany, type AnalyzeResult } from '@/lib/agents/analyzeCompany';
 import { createRun } from '@/lib/db/queries/runs';
 import { insertProposals } from '@/lib/db/queries/proposals';
 import { getModelDisplayName } from '@/lib/models/catalog';
-import { initLangfuse, getTraceUrl } from '@/lib/telemetry/langfuse';
+import { getTraceUrl, initLangfuse, runWithPhase33Trace } from '@/lib/telemetry/langfuse';
 
 // Vercel Hobby ceiling (D-07): the client strip tells staff "this can take up
 // to a minute" — the handler must honor that promise.
@@ -20,7 +19,7 @@ export const maxDuration = 60;
 // positive integer, 400 otherwise (T-09-03 route-side input validation).
 const companyIdSchema = z.coerce.number().int().positive();
 
-export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   // Single gate, first call (D-06/T-09-01) — the same function every protected
   // page/action uses; redirect('/sign-in') throws for anonymous callers.
   // FAL-01: capture the authenticated userId — the ONLY user identifier that
@@ -49,14 +48,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   let result: AnalyzeResult;
   let traceId: string | undefined;
   try {
-    ({ result, traceId } = await startActiveObservation(
+    const observed = await runWithPhase33Trace(
       'analyze-company',
-      async (span) => {
-        const res = await analyzeCompany(companyId, userId);
-        return { result: res, traceId: span.traceId };
+      () => analyzeCompany(companyId, userId),
+      {
+        input: { targetType: 'company' },
+        output: (res) => res.ok
+          ? {
+              modelId: res.modelUsed,
+              modelProvider: res.modelUsedProvider,
+              usedFallback: res.usedFallback,
+              proposalCount: res.proposals.length,
+            }
+          : { status: 'failed' },
       },
-      { asType: 'span' },
-    ));
+    );
+    result = observed.result;
+    traceId = observed.traceId ?? undefined;
   } catch (err) {
     return Response.json({ error: 'analysis_failed', message: String(err) }, { status: 502 });
   }
