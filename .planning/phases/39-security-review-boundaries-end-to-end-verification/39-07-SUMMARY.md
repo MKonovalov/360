@@ -74,6 +74,14 @@ None.
 
 None introduced by this plan.
 
+## Scoped Blocker Fix Follow-up
+
+- **Review sentinel:** `analysisReviews.ts` now treats a missing effective event/sequence as `0` inside correction SQL, while positive event IDs and stale expected-event conflicts remain unchanged. Focused integration coverage asserts the first event's sentinel predecessor and sequence `1`.
+- **Candidate fixture:** `phase39-fixture-reset.ts` now recreates one active disposable offering and one company `signal_offering_link` for the fixture company signal. Cleanup is scoped to the Phase 39 practice area/name/signal and repeated reset returned stable fixture IDs.
+- **Reset evidence:** PASS — canonical preflight passed immediately before reset; reset returned `companyId=210`, `personaId=23`, `practiceAreaId=226`, `companySignalId=350`, `personaSignalId=167`.
+- **Focused integration invocation:** NOT-RUN — the repository's default Vitest config explicitly excludes `*.integration.test.ts`; no alternate audit script was invented.
+- **Authenticated lifecycle rerun:** BLOCKED — preflight and reset passed, Clerk setup passed, but the Playwright process did not inherit reset IDs (`PHASE39_COMPANY_ID` missing); no lifecycle claim was promoted.
+
 ## TDD Gate Compliance
 
 The plan task is marked `tdd=true`, but this plan adds only Playwright coverage and no production implementation. The required RED/GREEN commit pair is therefore not applicable; guarded browser execution was attempted after preflight, but lifecycle and Clerk prerequisites remain blocked.

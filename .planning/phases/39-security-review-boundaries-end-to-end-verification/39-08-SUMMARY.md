@@ -37,7 +37,10 @@ Final Phase 39 evidence ledger, scope canaries, requirement/decision traceabilit
 - **PASS:** Focused regression suite: 49 tests passed. LSP diagnostics, `tsc --noEmit`, and `npm run build` passed.
 - **PASS:** Dotenv-loaded preflight, fixture reset, and lifecycle Playwright lane: `3 passed`.
   - **PASS:** Fixture reset now recreates deterministic active Company/Persona custom-agent templates and version 1 rows; repeated reset is idempotent and scoped to matching Phase 39 rows.
-  - **BLOCKED:** Company/Persona Playwright lane: Company reaches launch and review but fails on the unrelated `analysisReviews.ts` PostgreSQL `42P18` untyped `$1` defect; Persona does not run because the suite is serial.
+- **BLOCKED:** Company/Persona Playwright lane: Company reaches launch and review but fails on the unrelated `analysisReviews.ts` PostgreSQL `42P18` untyped `$1` defect; Persona does not run because the suite is serial.
+- **PASS:** Phase 39 reset now seeds one disposable active offering and company signal link for confirmed-candidate projection; cleanup is fixture-scoped and idempotent.
+- **PASS:** First review correction SQL coalesces absent effective event/sequence to sentinel `0`; focused integration coverage asserts predecessor `0` and sequence `1` while existing stale-conflict coverage remains intact.
+- **BLOCKED:** Fresh-server lifecycle rerun stopped before the browser journey because reset IDs were not inherited as `PHASE39_COMPANY_ID`; no E2E pass was claimed.
 
 ## Tasks Completed
 

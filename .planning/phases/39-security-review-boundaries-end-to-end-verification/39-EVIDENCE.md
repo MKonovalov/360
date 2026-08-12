@@ -4,7 +4,7 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 
 ## Final Disposition
 
-**BLOCKED:** The proven `runId` SQL parameter defect is fixed with the requested text cast and the lifecycle browser lane still passes. The guarded Company journey now reaches the durable review surface and remains blocked by a review-action/UI refresh failure; Persona was not run because the suite is serial. Focused unit tests, typecheck, and build pass. No lock semantics or broader SQL was changed.
+**BLOCKED:** The proven review SQL defects are fixed narrowly: the advisory-lock run ID remains text-cast, and absent effective review events now use sentinel `0`. The lifecycle browser lane still passes. The guarded Company journey reaches the durable review surface and remains blocked by a review-action/UI refresh failure; Persona was not run because the suite is serial. No lock semantics, candidate joins, or broad SQL were changed.
 
 ## Prior Summary Readability
 
@@ -26,6 +26,9 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 | `npm run db:validate` | PASS | Canonical preflight immediately preceded the command; 4 journaled migrations and documented baseline exceptions validated. |
 | `analysisReviews.test.ts` | PASS | Focused unit lane: 22 tests passed; SQL contract asserts `concat('analysis-review:', runId::text)` while preserving the advisory lock call. |
 | `analysisReviews.integration.test.ts` | BLOCKED | Guarded `.env.local`/marker preflight passed. 10/13 Neon tests passed; three failures are outside the requested cast: correction transitions returned `not_eligible`, the rich fixture lacked `signal_name`, and the mixed review race had no winner. |
+| Phase 39 fixture reset | PASS | Canonical preflight immediately preceded reset; deterministic disposable offering and company signal link were recreated and reset returned stable fixture IDs. |
+| Focused review integration invocation | NOT-RUN | Default Vitest excludes `*.integration.test.ts`; no missing audit script or alternate runner was invented. |
+| Authenticated lifecycle rerun after scoped fixes | BLOCKED | Canonical preflight and reset passed; Clerk setup passed; Playwright stopped before the lifecycle test because `PHASE39_COMPANY_ID` was not inherited. |
 | `npx tsc --noEmit && npm run build` | PASS | TypeScript and Next production build completed successfully. |
 | `npm run test:workflow` | PASS | Canonical preflight immediately preceded the command; 2 files and 14 tests passed. |
 | `npm run e2e -- e2e/phase39-security-review.spec.ts -g '/agents lifecycle'` | PASS | In-process dotenv load and `#phase39-fixture` marker injection; canonical preflight immediately before reset and Playwright; fixture reset returned `companyId=210`, `personaId=23`, `practiceAreaId=226`; real Clerk setup passed; the guarded Chromium invocation passed its lifecycle test. |
@@ -58,6 +61,8 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 - **PASS:** no new dependency or unrelated route was added by Plan 39-08.
 - **PASS:** `/agents` lifecycle browser lane completed with no forbidden-request assertion failures; browser exclusions for the follow-on Company/Persona journeys remain status-qualified below.
 - **PASS:** Fixture reset recreated exactly two active custom rows keyed by `phase39-fixture-company` and `phase39-fixture-persona`, with target types, kind `custom`, version `1`, bounded standard-effort fields, and exact stable names/descriptions. Repeating reset returned the same fixture IDs and did not touch unrelated custom agents.
+- **PASS:** Fixture reset recreates one active Phase 39 offering and one company `signal_offering_link` scoped to the fixture practice area/signal, enabling the existing confirmed-candidate join without weakening it.
+- **BLOCKED:** Fresh-server authenticated lifecycle rerun did not receive fixture IDs in the Playwright environment; no browser pass was claimed.
 
 ## Commands and Boundary Notes
 
@@ -66,6 +71,7 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 - The canonical preflight passed immediately before every executed DB/Workflow/E2E lane. The fixture reset blocker was disposable-database drift: the repository already contained the intended append-only relation in migration `0010`, schema, and snapshot, but the fixture database had not applied that journaled migration. Applying it restored reset compatibility; no migration/schema/reset source change was made.
 - The runtime wiring defect was the Phase 36-only selection in the grounded adapter and analysis-run policy route. Phase 39 now has an explicit marker-plus-normalized-identity guard, fixture executor selection, and server-owned approved policy selection; the real authenticated app/API/Workflow path remains intact.
 - The proven review-path parameter inference defect is fixed in `analysisReviews.ts` by casting only the interpolated `runId` inside `concat('analysis-review:', ...)` to text. Advisory lock semantics and surrounding SQL are unchanged. Focused unit, typecheck, and build gates pass; the focused Neon integration lane remains status-qualified because three unrelated fixture/eligibility failures remain.
+- The first-review correction blocker is fixed in `analysisReviews.ts` by coalescing only the effective event/sequence projection to sentinel `0`; positive correction/concurrency semantics remain guarded by the expected-event predicate.
 - `STATE.md` and `ROADMAP.md` were not modified.
 
 ## Save-new-version Root Cause Evidence
