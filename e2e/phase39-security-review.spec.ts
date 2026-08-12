@@ -11,7 +11,11 @@ const customAgentNames: Readonly<Record<SubjectType, string>> = {
   company: 'Phase 39 E2E Company Agent',
   persona: 'Phase 39 E2E Persona Agent',
 };
-const customAgentDescription = 'Disposable custom agent for authenticated Phase 39 browser verification.';
+const lifecycleAgentNames = {
+  company: `Phase 39 E2E Lifecycle Company Agent ${Date.now().toString(36)}`,
+  persona: `Phase 39 E2E Lifecycle Persona Agent ${Date.now().toString(36)}`,
+} as const;
+const lifecycleAgentDescription = 'Disposable custom agent for Phase 39 lifecycle verification.';
 
 function fixtureId(name: string): number {
   const value = process.env[name];
@@ -99,15 +103,15 @@ test.describe('Phase 39 authenticated security-review journeys', () => {
     await expect(page).not.toHaveURL(/\/sign-in(?:\?|$)/);
     await page.getByRole('button', { name: 'Create custom agent', exact: true }).click();
     const create = page.getByRole('dialog', { name: 'Create custom agent', exact: true });
-    await create.getByRole('textbox', { name: 'Name' }).fill(customAgentNames.company);
-    await create.getByRole('textbox', { name: 'Description' }).fill(customAgentDescription);
+    await create.getByRole('textbox', { name: 'Name' }).fill(lifecycleAgentNames.company);
+    await create.getByRole('textbox', { name: 'Description' }).fill(lifecycleAgentDescription);
     await create.getByRole('combobox', { name: 'Target type' }).selectOption('company');
     await create.getByRole('combobox', { name: 'Practice Area' }).selectOption(String(fixtureId('PHASE39_PRACTICE_AREA_ID')));
     await create.getByRole('textbox', { name: 'Research query' }).fill('Find durable Phase 39 evidence for cost pressure.');
     await create.getByRole('textbox', { name: 'Behavior instruction' }).fill('Return only source-backed findings.');
     await create.getByRole('button', { name: 'Save retired agent', exact: true }).click();
     await create.getByRole('button', { name: 'Close', exact: true }).click();
-    const card = page.locator('[data-custom-agent-id]').filter({ hasText: customAgentNames.company }).last();
+    const card = page.locator('[data-custom-agent-id]').filter({ hasText: lifecycleAgentNames.company }).last();
     const customAgentId = await card.getAttribute('data-custom-agent-id');
     expect(customAgentId).toBeTruthy();
     const stableCard = page.locator(`[data-custom-agent-id="${customAgentId}"]`);
@@ -116,7 +120,7 @@ test.describe('Phase 39 authenticated security-review journeys', () => {
 
     await stableCard.getByRole('button', { name: 'Edit custom agent', exact: true }).click();
     const edit = page.getByRole('dialog', { name: 'Edit custom agent', exact: true });
-    await edit.getByRole('textbox', { name: 'Description' }).fill(`${customAgentDescription} edited`);
+    await edit.getByRole('textbox', { name: 'Description' }).fill(`${lifecycleAgentDescription} edited`);
     await edit.getByRole('button', { name: 'Save new version', exact: true }).click();
     await expect(stableCard).toContainText('Current version 2');
     await page.reload();
@@ -133,7 +137,7 @@ test.describe('Phase 39 authenticated security-review journeys', () => {
     await activeEdit.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(stableCard).toContainText('Retired');
     await openLauncher(page, subjects().company);
-    await expect(page.getByRole('option', { name: new RegExp(`Custom · ${customAgentNames.company}`) })).toHaveCount(0);
+    await expect(page.getByRole('option', { name: new RegExp(`Custom · ${lifecycleAgentNames.company}`) })).toHaveCount(0);
     await page.getByRole('dialog', { name: subjects().company.heading, exact: true }).getByRole('button', { name: 'Close', exact: true }).first().click();
     await page.goto('/agents');
     await stableCard.getByRole('button', { name: 'Edit custom agent', exact: true }).click();
@@ -144,15 +148,15 @@ test.describe('Phase 39 authenticated security-review journeys', () => {
 
     await page.getByRole('button', { name: 'Create custom agent', exact: true }).click();
     const personaCreate = page.getByRole('dialog', { name: 'Create custom agent', exact: true });
-    await personaCreate.getByRole('textbox', { name: 'Name' }).fill(customAgentNames.persona);
-    await personaCreate.getByRole('textbox', { name: 'Description' }).fill(customAgentDescription);
+    await personaCreate.getByRole('textbox', { name: 'Name' }).fill(lifecycleAgentNames.persona);
+    await personaCreate.getByRole('textbox', { name: 'Description' }).fill(lifecycleAgentDescription);
     await personaCreate.getByRole('combobox', { name: 'Target type' }).selectOption('persona');
     await personaCreate.getByRole('combobox', { name: 'Practice Area' }).selectOption(String(fixtureId('PHASE39_PRACTICE_AREA_ID')));
     await personaCreate.getByRole('textbox', { name: 'Research query' }).fill('Find durable Phase 39 persona evidence for cost pressure.');
     await personaCreate.getByRole('textbox', { name: 'Behavior instruction' }).fill('Return only source-backed persona findings.');
     await personaCreate.getByRole('button', { name: 'Save retired agent', exact: true }).click();
     await personaCreate.getByRole('button', { name: 'Close', exact: true }).click();
-    const personaCard = page.locator('[data-custom-agent-id]').filter({ hasText: customAgentNames.persona }).last();
+    const personaCard = page.locator('[data-custom-agent-id]').filter({ hasText: lifecycleAgentNames.persona }).last();
     const personaCustomAgentId = await personaCard.getAttribute('data-custom-agent-id');
     expect(personaCustomAgentId).toBeTruthy();
     const stablePersonaCard = page.locator(`[data-custom-agent-id="${personaCustomAgentId}"]`);
