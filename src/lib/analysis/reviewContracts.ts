@@ -248,6 +248,14 @@ export const confirmedCandidateEvidenceSchema = z
     excerpt: boundedExcerptSchema,
     displayStatus: z.enum(['active', 'draft', 'retired']),
     linkIdentity: linkIdentitySchema,
+    templateKey: safeIdentifierSchema.optional(),
+    templateVersionId: positiveIdSchema.optional(),
+    customAgentId: safeIdentifierSchema.nullable().optional(),
+    reviewDecision: wholeRunDecisionSchema.optional(),
+    reviewDecidedBy: serverActorIdSchema.optional(),
+    reviewDecidedAt: serverTimestampSchema.optional(),
+    effectiveEventId: positiveIdSchema.optional(),
+    effectiveSequence: z.number().int().positive().optional(),
   })
   .strict()
   .superRefine((candidate, context) => {

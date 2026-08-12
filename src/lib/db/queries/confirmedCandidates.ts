@@ -32,6 +32,14 @@ type CandidateEvidenceRow = {
   readonly analysisRunId: number;
   readonly resultId: number;
   readonly packetHash: string;
+  readonly templateKey?: string;
+  readonly templateVersionId?: string | null;
+  readonly customAgentId?: string | null;
+  readonly reviewDecision?: 'confirmed' | 'dismissed';
+  readonly reviewDecidedBy?: string;
+  readonly reviewDecidedAt?: string;
+  readonly effectiveEventId?: number;
+  readonly effectiveSequence?: number;
   readonly findingRowId: number;
   readonly findingKey: string;
   readonly signalType: ConfirmedCandidateDisplayRow['signalType'];
@@ -98,6 +106,14 @@ async function listCandidateOfferings(
       run.id AS "analysisRunId",
       result.id AS "resultId",
       result.packet_hash AS "packetHash",
+      run.template_snapshot->>'templateKey' AS "templateKey",
+      run.template_snapshot->>'templateVersionId' AS "templateVersionId",
+      run.template_snapshot->'custom'->>'customAgentId' AS "customAgentId",
+      review.decision AS "reviewDecision",
+      review.decided_by AS "reviewDecidedBy",
+      to_char(review.decided_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "reviewDecidedAt",
+      review.effective_event_id AS "effectiveEventId",
+      review.effective_sequence AS "effectiveSequence",
       finding.id AS "findingRowId",
       finding.finding_id AS "findingKey",
       link.signal_type::text AS "signalType",
@@ -117,9 +133,10 @@ async function listCandidateOfferings(
       link.offering_id AS "linkOfferingId",
       offering.status AS "linkStatus"
     FROM analysis_run AS run
-    JOIN analysis_run_review AS review
+     JOIN analysis_run_review AS review
       ON review.analysis_run_id = run.id
      AND review.decision = 'confirmed'
+     AND review.effective_event_id IS NOT NULL
     JOIN analysis_run_result AS result ON result.analysis_run_id = run.id
     JOIN analysis_finding AS finding ON finding.result_id = result.id
     JOIN analysis_finding_source AS finding_source
@@ -147,6 +164,18 @@ async function listCandidateOfferings(
     analysisRunId: Number(row.analysisRunId),
     resultId: Number(row.resultId),
     packetHash: row.packetHash,
+    ...(row.templateKey === undefined || row.templateKey === null ? {} : {
+      templateKey: row.templateKey,
+      templateVersionId: Number(row.templateVersionId),
+      customAgentId: row.customAgentId,
+    }),
+    ...(row.reviewDecision === undefined || row.reviewDecision === null ? {} : {
+      reviewDecision: row.reviewDecision,
+      reviewDecidedBy: row.reviewDecidedBy,
+      reviewDecidedAt: new Date(row.reviewDecidedAt ?? '').toISOString(),
+      effectiveEventId: Number(row.effectiveEventId),
+      effectiveSequence: Number(row.effectiveSequence),
+    }),
     findingRowId: Number(row.findingRowId),
     findingKey: row.findingKey,
     signalType: row.signalType,
