@@ -36,8 +36,8 @@ Added guarded real-app Playwright coverage for the `/agents` custom-agent lifecy
 ### Task 2 — Company/Persona durable review journeys
 
 - **Implementation:** `e2e/phase39-security-review.spec.ts`
-- **Evidence:** BLOCKED. Canonical preflight and the actual `PHASE39_FIXTURE_ONLY=1` reset passed after applying the already-journaled `0010_phase39_review_corrections.sql` migration to the disposable fixture database. The Company browser reached durable launch, but the fixture execution called the configured provider and ended `failed` after a provider rate-limit error, so source/review/candidate and count assertions did not complete.
-- **Playwright result:** BLOCKED Company (authenticated Chromium started; launch completed; status polling observed `failed` after provider `429`); Persona was run separately and BLOCKED because the existing Company-targeted custom agent is not offered for the Persona target.
+- **Evidence:** BLOCKED. Canonical preflight and the actual `PHASE39_FIXTURE_ONLY=1` reset passed. After the minimal `runId::text` cast, the Company browser reached durable launch, source inspection, and the review card with one finding/source. The Confirm action did not produce the expected confirmed projection and the test stopped before count assertions; Persona was not run because the suite is serial.
+- **Playwright result:** BLOCKED Company (authenticated Chromium started; launch and review-card assertions completed, but Confirm remained pending/reloaded without `Confirmed by`); Persona was not run.
 
 ## Verification Evidence
 
@@ -47,7 +47,7 @@ The required sequence was preserved for each task:
 2. `tsx src/lib/verification/databaseIdentity.ts --phase39-preflight` passed.
 3. `tsx e2e/phase39-fixture-reset.ts` passed after the existing journaled migration was applied and returned disposable fixture IDs (`companyId=210`, `personaId=23`, `practiceAreaId=226`).
 4. Canonical preflight immediately before each Playwright invocation passed.
-5. Playwright was invoked only after successful preflight. Company and Persona were each launched in fresh project-owned dev-server runs. Company reached real durable execution and was blocked by the provider rate limit; Persona reached real Chromium launcher selection and was blocked by target compatibility.
+5. Playwright was invoked only after successful preflight. Company ran against a fresh project-owned dev server and reached real durable execution/review; the remaining Confirm projection failure blocked completion. Persona was not invoked because the serial Company test stopped first.
 
 ## Blocked Evidence
 
@@ -67,8 +67,8 @@ None.
 ### Blockers
 
 1. **Lifecycle assertion corrected:** The browser evidence showed the save and refresh succeeded; the test had asserted history on the wrong surface and later reused stale locators after refreshed DOM replacement. The test now asserts version 2 on the stable card and version 1/history in a newly opened current Sheet, with lifecycle actions performed through that Sheet.
-2. **Company journey blocked:** The custom-agent launch reached the application workflow, but the configured provider returned a rate-limit error and the persisted run status became `failed`.
-3. **Persona journey blocked:** The real launcher did not offer the Company-targeted custom agent for a Persona subject; the separately invoked Persona run therefore did not start an analysis.
+2. **Company journey blocked:** The custom-agent launch and review card succeeded after the SQL cast, but the Confirm action did not produce the expected confirmed projection before the test timed out.
+3. **Persona journey not run:** The suite is serial and stops after the Company failure.
 
 ## Known Stubs
 

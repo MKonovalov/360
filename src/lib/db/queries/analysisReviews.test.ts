@@ -438,6 +438,7 @@ describe('transitionReviewDecision', () => {
 
     const sqlText = flattenSql(mocks.db.execute.mock.calls[0][0]);
     expect(sqlText).toContain('pg_advisory_xact_lock');
+    expect(sqlText).toContain("concat('analysis-review:', 1::text)");
     expect(sqlText).toContain('replay');
     expect(sqlText).toContain('expected_prior_event_id');
     expect(sqlText).toContain('INSERT INTO analysis_run_review_event');

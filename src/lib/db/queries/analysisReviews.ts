@@ -361,7 +361,7 @@ export async function transitionReviewDecision(
 
   const result = await db.execute<ReviewTransitionRow>(sql`
     WITH locked AS (
-      SELECT pg_advisory_xact_lock(hashtextextended(concat('analysis-review:', ${runId}), 0))
+      SELECT pg_advisory_xact_lock(hashtextextended(concat('analysis-review:', ${runId}::text), 0))
     ),
     current_run AS (
       SELECT run.id, run.status, result.id AS result_id, result.packet_hash
