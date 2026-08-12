@@ -16,12 +16,17 @@ import { db } from '../index';
 type PreparationInput = {
   readonly packet: unknown;
   readonly checklistSignalIds: readonly number[];
+  readonly customOutput?: Readonly<Record<string, unknown>> | null;
 };
 
 type PersistenceInput = PreparationInput & {
   readonly runId: number;
   readonly policy?: unknown;
   readonly now?: Date;
+  // Normalized custom-output transport (null for fixed runs; optional so legacy
+  // callers compile); persisted only at raw_audit.customOutput, never
+  // authoritative for packet data.
+  readonly customOutput?: Readonly<Record<string, unknown>> | null;
 };
 
 type RetentionMetadata = {
@@ -112,7 +117,13 @@ export function prepareAnalysisPacket(input: PreparationInput): PreparedAnalysis
     })),
   });
   const checked = validateGroundedPacket(packet, input.checklistSignalIds);
-  const packetHash = createHash('sha256').update(JSON.stringify(checked)).digest('hex');
+  // Packet-hash identity covers the canonical packet plus the bounded custom
+  // output, matching normalizeAnalysisPacketWithCustomOutput; absent/null
+  // custom output collapses to the fixed-run hash so replay with changed
+  // custom output raises the existing packet-hash conflict.
+  const packetHash = createHash('sha256')
+    .update(JSON.stringify({ packet: checked, customOutput: input.customOutput ?? undefined }))
+    .digest('hex');
   return { packet: checked, packetHash, retention: undefined };
 }
 
@@ -147,7 +158,7 @@ export async function persistAnalysisPacket(input: PersistenceInput): Promise<Pe
       )
       VALUES (
         ${input.runId}, ${packet.schemaVersion}, ${packet.targetType}, ${packet.narrative},
-        ${JSON.stringify(audit)}::jsonb, ${audit.modelId}, ${audit.modelProvider}, ${JSON.stringify(modelChain)}::jsonb,
+        ${JSON.stringify({ ...audit, customOutput: input.customOutput ?? null })}::jsonb, ${audit.modelId}, ${audit.modelProvider}, ${JSON.stringify(modelChain)}::jsonb,
         ${audit.traceId}, ${new Date(input.now ?? new Date()).toISOString()},
         ${new Date((input.now ?? new Date()).getTime() + audit.durationMs).toISOString()},
         ${audit.durationMs}, ${packet.findings.length}, ${packet.sources.length}, ${packet.links.length},

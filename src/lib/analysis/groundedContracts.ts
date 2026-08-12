@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { SERVABLE_PROVIDERS } from '@/lib/models/catalog';
+import { SERVABLE_PROVIDERS } from '@/lib/models/catalog-contracts';
 
 import {
   analysisTargetTypeSchema,
@@ -7,6 +7,8 @@ import {
   modelRefSchema,
   type Phase33PolicySnapshot,
 } from './contracts';
+import { CUSTOM_AGENT_POLICY } from './customAgentContracts';
+import type { BoundedOutputSchema, NormalizedOutputField } from './customAgentContracts';
 
 export const GROUNDED_EVIDENCE_STATUSES = ['strong', 'weak', 'no_evidence', 'inconclusive'] as const;
 export const GROUNDED_CONFIDENCE_LEVELS = ['low', 'medium', 'high'] as const;
@@ -217,4 +219,48 @@ export function dedupeCanonicalSources(sources: readonly CanonicalSource[]): rea
     seen.add(key);
     return true;
   });
+}
+
+// --- Bounded custom output validation contracts -----------------------------
+// The fixed grounded packet above remains the authoritative envelope. Custom
+// output is an additive, server-owned channel: the model may only fill the
+// shallow bounded fields snapshotted from the custom agent version, and the
+// validated value is transported separately (GroundedExecutionResult.customOutput)
+// so it can never redefine findings, evidence, citations, review, or candidates.
+
+function customOutputFieldValueSchema(field: NormalizedOutputField): z.ZodType<unknown> {
+  const primitive = field.type === 'string'
+    ? z.string().max(4_000)
+    : field.type === 'number'
+      ? z.number().finite()
+      : field.type === 'boolean'
+        ? z.boolean()
+        : z.array(
+            field.items?.type === 'string'
+              ? z.string().max(4_000)
+              : field.items?.type === 'number'
+                ? z.number().finite()
+                : z.boolean(),
+          ).max(field.maxItems ?? 20);
+  const withEnum = field.enum === undefined || field.type !== 'string'
+    ? primitive
+    : z.string().max(4_000).refine((value) => field.enum?.includes(value) === true, 'enum_value');
+  return field.nullable === true ? withEnum.nullable() : withEnum;
+}
+
+export function buildCustomOutputValueSchema(schema: BoundedOutputSchema): z.ZodType<Readonly<Record<string, unknown>>> {
+  const shape: Record<string, z.ZodType<unknown>> = {};
+  for (const [name, field] of Object.entries(schema.properties)) {
+    const valueSchema = customOutputFieldValueSchema(field);
+    shape[name] = schema.required.includes(name) ? valueSchema : valueSchema.optional();
+  }
+  return z.object(shape).strict().superRefine((value, context) => {
+    if (Buffer.byteLength(JSON.stringify(value), 'utf8') > CUSTOM_AGENT_POLICY.maxSerializedSchemaBytes) {
+      context.addIssue({ code: 'custom', path: [], message: 'custom_output_too_large' });
+    }
+  });
+}
+
+export function validateCustomOutput(input: unknown, schema: BoundedOutputSchema): Readonly<Record<string, unknown>> {
+  return buildCustomOutputValueSchema(schema).parse(input);
 }

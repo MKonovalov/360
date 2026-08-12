@@ -1,4 +1,33 @@
-import catalogJson from './catalog.json' with { type: 'json' };
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import {
+  PROVIDER_GATES,
+  PROVIDER_PRECEDENCE,
+  SERVABLE_PROVIDERS,
+  SNAPSHOT_PROVIDER_IDS,
+  type ModelProviderId,
+} from './catalog-contracts.ts';
+
+export {
+  OPENCODE_NPM_GATE,
+  PROVIDER_GATES,
+  PROVIDER_PRECEDENCE,
+  SERVABLE_PROVIDERS,
+  SNAPSHOT_PROVIDER_IDS,
+  type ModelProviderId,
+  type ProviderGate,
+} from './catalog-contracts.ts';
+
+type CatalogSnapshot = typeof import('./catalog.json');
+
+// Workflow's generated step bundle loads local dependencies directly through
+// Node's ESM loader, which cannot load an external JSON import after the
+// Workflow bundler drops its import attribute. Parse the snapshot through the
+// Node filesystem boundary instead so generated bundles contain no JSON import.
+export const catalogJson: CatalogSnapshot = JSON.parse(
+  readFileSync(join(process.cwd(), 'src/lib/models/catalog.json'), 'utf8'),
+);
 
 // D-24-03: the snapshot is grouped { generatedAt, providers: { <providerID>: [...] } }
 // instead of the flat { generatedAt, models: [...] } — CatalogModel is derived through
@@ -43,12 +72,6 @@ export function opencodeSlugToModelId(slug: string): string | null {
   return slug.slice('anthropic/'.length); // 'anthropic/claude-sonnet-4-6' → 'claude-sonnet-4-6'
 }
 
-// D-01..D-06: provider registry. Provider identity is DERIVED from the catalog
-// by model id (never persisted, never client-sent, never string surgery).
-// nousresearch = the direct inference API; opencode = ONE logical provider
-// spanning the `opencode` + `opencode-go` snapshot providerIDs (REG-03).
-export type ModelProviderId = 'anthropic' | 'openrouter' | 'nousresearch' | 'opencode';
-
 export function isModelProviderId(value: string): value is ModelProviderId {
   return SERVABLE_PROVIDERS.some((provider) => provider === value);
 }
@@ -56,17 +79,10 @@ export function isModelProviderId(value: string): value is ModelProviderId {
 // Research Pattern 1: per-provider gate shape. A present `allowlist` gates by
 // id; a present `npm` gates by `api.npm` value; neither means the full active
 // set (openrouter, D-02).
-export type ProviderGate = { allowlist?: readonly string[]; npm?: readonly string[] };
-
 // D-23-01: OpenCode servable gate is data-driven by `api.npm` — the 49-row
 // count (30 chat + 19 Claude) falls out of the data; GPT-5 (`@ai-sdk/openai`)
 // and Gemini (`@ai-sdk/google`) rows self-exclude forever; new chat/Claude
 // models OpenCode adds become servable on refresh.
-export const OPENCODE_NPM_GATE: readonly string[] = [
-  '@ai-sdk/openai-compatible',
-  '@ai-sdk/anthropic',
-];
-
 // D-02/D-03: per-provider gates as DATA. anthropic and nousresearch are now
 // full-active-set (openrouter-style, D-02) — the absence of an allowlist
 // means every active row for that provider is servable, `~latest`/`:free`
@@ -75,31 +91,15 @@ export const OPENCODE_NPM_GATE: readonly string[] = [
 // below (anthropic first, nousresearch before openrouter) is what keeps
 // dual-listed ids resolving to the intended direct provider, not the gate.
 // opencode = the npm-value gate (D-23-01), the only remaining non-empty gate.
-export const PROVIDER_GATES: Record<ModelProviderId, ProviderGate> = {
-  anthropic: {}, // full active set (17 rows, D-02 openrouter-style)
-  openrouter: {},
-  nousresearch: {}, // full active set (292 rows incl. ~latest aliases)
-  opencode: { npm: OPENCODE_NPM_GATE },
-};
-
 // Selector/union iteration order (matches the REG-01 roadmap listing order:
 // Anthropic, OpenRouter, NousResearch, OpenCode). This order deliberately
 // DIFFERS from PROVIDER_PRECEDENCE below — SERVABLE_PROVIDERS is
 // display/union order, PROVIDER_PRECEDENCE is resolution order; do not merge
 // them.
-export const SERVABLE_PROVIDERS: readonly ModelProviderId[] = ['anthropic', 'openrouter', 'nousresearch', 'opencode'];
-
 // Research Pattern 2: snapshot providerID → logical provider mapping. The
 // `opencode` entry's array order IS the deterministic Zen-wins rule: the Zen
 // row wins by first-providerID-wins; the mapping is data, survives
 // regeneration by construction (D-23-08/CAT-04).
-export const SNAPSHOT_PROVIDER_IDS: Record<ModelProviderId, readonly string[]> = {
-  anthropic: ['anthropic'],
-  openrouter: ['openrouter'],
-  nousresearch: ['nousresearch'],
-  opencode: ['opencode', 'opencode-go'],
-};
-
 // Research Pattern 3: servable-membership resolution order. (a) The roadmap's
 // "nousresearch-over-openrouter" phrase is a RANKING modifier — nousresearch
 // must outrank openrouter because openrouter's full-catalog gate serves the
@@ -108,8 +108,6 @@ export const SNAPSHOT_PROVIDER_IDS: Record<ModelProviderId, readonly string[]> =
 // = the claude-sonnet-4-6 regression lock (also servable under opencode's npm
 // gate, so order is load-bearing). (c) opencode last — only wins ids no
 // earlier provider serves servably (big-pickle, the dual-listed class).
-export const PROVIDER_PRECEDENCE: readonly ModelProviderId[] = ['anthropic', 'nousresearch', 'openrouter', 'opencode'];
-
 // D-23-08/D-23-09: the Zen-wins dual-listed-id dedup lives in the registry
 // layer, expressed once, survives regeneration by construction (CAT-04).
 // Returns ROWS (not ids) — Phase 26's trimRow reuses it for the Zen/Go

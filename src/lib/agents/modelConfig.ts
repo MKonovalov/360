@@ -7,16 +7,13 @@ import {
   LoadAPIKeyError,
 } from 'ai';
 import {
+  catalogJson,
   FAST_MODEL_ID,
   getUnionServableIds,
   type ModelProviderId,
 } from '@/lib/models/catalog';
 import { isServableModelRef, resolveStoredModelRef, type StoredModelSettings } from '@/lib/models/modelSettings';
 import type { ModelRef } from '@/lib/models/modelRef';
-// D-06: importing the JSON directly mirrors catalog.ts itself (ARCHITECTURE.md
-// Pattern 2 trade-off) and keeps the pure-module contract — no db/env/runAgent.
-import catalogJson from '@/lib/models/catalog.json' with { type: 'json' };
-
 // Pure model-chain resolution + AI-SDK error classification (D-16 — zero live
 // calls). D-08 dedupe → D-10 cap → union servable gate → REG-05 default all live
 // here in one pure, tested place; classifyModelError is the single gate the

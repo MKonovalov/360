@@ -201,9 +201,7 @@ describe('analysis run scalar durable grounded handoff', () => {
     expect(row?.safeReason).toBe('execution_failed');
     expect(row?.startedAt).not.toBeNull();
     expect(row?.completedAt).not.toBeNull();
-    // completed still has an outgoing transition (-> pending_review), so it is
-    // not stamped terminal_at; the ledger stays consistent with the shared graph.
-    expect(row?.terminalAt).toBeNull();
+    expect(row?.terminalAt).toBeInstanceOf(Date);
     expect(events.map((event) => event.eventKey)).toEqual([
       `${runId}:queued:0`,
       `${runId}:queued->running:1`,

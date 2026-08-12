@@ -11,8 +11,7 @@ import { resolveModelChain, classifyModelError } from './modelConfig';
 // D-20-01/02: provider identity for the chain-aware gate is catalog-derived —
 // static, env-free imports (modelConfig.ts Pattern 2); constraint 11 untouched,
 // the catalog is NOT a provider SDK.
-import { getProviderForModelId, type ModelProviderId } from '@/lib/models/catalog';
-import catalogJson from '@/lib/models/catalog.json';
+import { catalogJson, getProviderForModelId, type ModelProviderId } from '@/lib/models/catalog';
 import type { ModelRef } from '@/lib/models/modelRef';
 import type { CompanyInput, DerivedEvidenceAppendix, LiveSignalInput, ProposalSignal, RunOutput } from './types';
 

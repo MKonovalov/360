@@ -19,6 +19,7 @@ vi.mock('firecrawl', () => ({ Firecrawl: vi.fn(function Firecrawl() { return moc
 
 import { GroundedExecutionAdapter } from './execution';
 import { PHASE33_DEFERRED_POLICY, PHASE33_STANDARD_APPROVED_POLICY } from './contracts';
+import type { BoundedOutputSchema } from './customAgentContracts';
 import { webSearchTool } from '@/lib/agents/tools';
 
 const approvedPolicy = {
@@ -288,5 +289,214 @@ describe('GroundedExecutionAdapter', () => {
     mocks.firecrawlClient.search.mockResolvedValueOnce({ web: [{ url: 'https://example.com', title: 'Example', description: 'Evidence', unexpected: true }] });
     const tolerated = await webSearchTool.execute({ query: 'Acme' }, { toolCallId: 'test', messages: [], context: {} });
     expect(tolerated).toEqual([{ url: 'https://example.com', title: 'Example', snippet: 'Evidence' }]);
+  });
+});
+
+describe('GroundedExecutionAdapter custom output', () => {
+  const customSchema: BoundedOutputSchema = {
+    type: 'object',
+    properties: {
+      headline: { type: 'string' },
+      score: { type: 'number' },
+      tier: { type: 'string', enum: ['gold', 'silver'] },
+    },
+    required: ['headline', 'score', 'tier'],
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.instantiateChain.mockReturnValue(['model-object']);
+    mocks.runAgent.mockResolvedValue(validRun);
+    mocks.runWithPhase33Trace.mockImplementation(async (_name: string, fn: () => Promise<unknown>) => ({
+      result: await fn(),
+      traceId: null,
+    }));
+    mocks.getTraceUrl.mockResolvedValue(undefined);
+  });
+
+  it('keeps the fixed grounded envelope when no custom schema is supplied', async () => {
+    const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });
+
+    const result = await adapter.execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist,
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected success');
+    expect(result.customOutput).toBeUndefined();
+    const prompt = mocks.runAgent.mock.calls[0]?.[0].prompt as string;
+    expect(prompt).toContain('narrative and findings');
+    expect(prompt).not.toContain('Custom output fields');
+  });
+
+  it('returns a named customOutput for a custom run and validates the bounded value', async () => {
+    mocks.runAgent.mockResolvedValueOnce({
+      ...validRun,
+      output: {
+        narrative: 'No supported signal found.',
+        findings: [],
+        custom: { headline: 'Cost pressure rising', score: 7, tier: 'gold' },
+      },
+    });
+    const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });
+
+    const result = await adapter.execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist,
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+      customOutputSchema: customSchema,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected success');
+    expect(result.customOutput).toEqual({ headline: 'Cost pressure rising', score: 7, tier: 'gold' });
+    expect(result.output).toEqual({ narrative: 'No supported signal found.', findings: [] });
+    const prompt = mocks.runAgent.mock.calls[0]?.[0].prompt as string;
+    expect(prompt).toContain('Custom output fields');
+    expect(prompt).toContain('- headline: string (required)');
+    const providerSchema = mocks.runAgent.mock.calls[0]?.[0].outputSchema;
+    expect(providerSchema).toBeDefined();
+    if (!providerSchema) throw new Error('expected provider output schema');
+    expect(providerSchema.safeParse({
+      narrative: 'No supported signal found.',
+      findings: [],
+      custom: { headline: 'Cost pressure rising', score: 7, tier: 'gold' },
+    }).success).toBe(true);
+    expect(providerSchema.safeParse({
+      narrative: 'No supported signal found.',
+      findings: [],
+      custom: { headline: 'Cost pressure rising', score: 7, tier: 'gold', unexpected: true },
+    }).success).toBe(false);
+    expect(providerSchema.safeParse({
+      narrative: 'No supported signal found.',
+      findings: [],
+      custom: { headline: 'Cost pressure rising', score: '7', tier: 'gold' },
+    }).success).toBe(false);
+  });
+
+  it('fails with invalid_packet when the custom value violates the bounded schema', async () => {
+    mocks.runAgent.mockResolvedValueOnce({
+      ...validRun,
+      output: { narrative: 'No supported signal found.', findings: [], custom: { headline: 'x', score: 1, tier: 'platinum' } },
+    });
+    const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });
+
+    const result = await adapter.execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist,
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+      customOutputSchema: customSchema,
+    });
+
+    expect(result).toMatchObject({ ok: false, failureReason: 'invalid_packet' });
+  });
+
+  it('fails with invalid_packet when the custom output schema is malformed', async () => {
+    const adapter = new GroundedExecutionAdapter({ runAgent: vi.fn(), instantiateChain: vi.fn() });
+
+    const result = await adapter.execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist,
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+      customOutputSchema: { type: 'object', properties: { bad: { type: 'nope' } }, required: [] },
+    });
+
+    expect(result).toMatchObject({ ok: false, failureReason: 'invalid_packet' });
+    expect(mocks.runAgent).not.toHaveBeenCalled();
+  });
+
+  it('requires the custom object for a custom run and rejects its absence', async () => {
+    mocks.runAgent.mockResolvedValueOnce({
+      ...validRun,
+      output: { narrative: 'No supported signal found.', findings: [] },
+    });
+    const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });
+
+    const result = await adapter.execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist,
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+      customOutputSchema: customSchema,
+    });
+
+    expect(result).toMatchObject({ ok: false, failureReason: 'invalid_packet' });
+  });
+
+  it('rejects a custom object on a fixed run so the legacy envelope stays strict', async () => {
+    mocks.runAgent.mockResolvedValueOnce({
+      ...validRun,
+      output: { narrative: 'No supported signal found.', findings: [], custom: { headline: 'x', score: 1, tier: 'gold' } },
+    });
+    const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });
+
+    const result = await adapter.execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist,
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+    });
+
+    expect(result).toMatchObject({ ok: false, failureReason: 'invalid_packet' });
+  });
+
+  it.each([
+    ['findings', { findings: [{ findingId: 'finding-1', signalId: 7, status: 'strong', confidence: 'high', claim: 'x' }] }],
+    ['evidence', { evidence: [{ url: 'https://example.com', title: 'x', snippet: 'y' }] }],
+    ['citations', { citations: [{ findingId: 'finding-1', url: 'https://example.com', contentHash: 'a'.repeat(64), locator: 'x', supportRole: 'primary' }] }],
+    ['review state', { review: { status: 'approved', reviewer: 'model' } }],
+    ['candidates', { candidates: [{ name: 'Acme' }] }],
+    ['narrative', { narrative: 'model-authored narrative' }],
+    ['sources', { sources: [{ sourceId: 'source-1' }] }],
+    ['links', { links: [{ findingId: 'finding-1', sourceId: 'source-1' }] }],
+    ['audit', { audit: { attempt: 1 } }],
+    ['packet fields', { packet: { schemaVersion: 1 } }],
+  ] as const)('rejects a custom value that tries to supply %s', async (_label, reserved) => {
+    mocks.runAgent.mockResolvedValueOnce({
+      ...validRun,
+      output: {
+        narrative: 'No supported signal found.',
+        findings: [],
+        custom: { headline: 'x', score: 1, tier: 'gold', ...reserved },
+      },
+    });
+    const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });
+
+    const result = await adapter.execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist,
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+      customOutputSchema: customSchema,
+    });
+
+    expect(result).toMatchObject({ ok: false, failureReason: 'invalid_packet' });
   });
 });

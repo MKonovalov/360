@@ -4,10 +4,13 @@ vi.mock('../db/index', () => ({ db: { execute: vi.fn() } }));
 
 import { PHASE33_DEFERRED_POLICY } from './contracts';
 import { prepareAnalysisPacket } from '../db/queries/analysisResults';
+import type { BoundedOutputSchema } from './customAgentContracts';
 import {
+  buildCustomOutputValueSchema,
   canonicalSourceSchema,
   dedupeCanonicalSources,
   groundedPacketSchema,
+  validateCustomOutput,
   validateGroundedPacket,
 } from './groundedContracts';
 
@@ -123,5 +126,79 @@ describe('grounded Phase 33 contracts', () => {
   it('allows an empty checklist only with an empty finding set', () => {
     expect(validateGroundedPacket({ ...packet, findings: [], links: [], sources: [] }, [])).toMatchObject({ findings: [] });
     expect(() => validateGroundedPacket(packet, [])).toThrow('unlinked_finding');
+  });
+});
+
+describe('validateCustomOutput', () => {
+  const sampleCustomSchema: BoundedOutputSchema = {
+    type: 'object',
+    properties: {
+      headline: { type: 'string' },
+      score: { type: 'number' },
+      tier: { type: 'string', enum: ['gold', 'silver'] },
+      tags: { type: 'array', items: { type: 'string' } },
+      note: { type: 'string', nullable: true },
+    },
+    required: ['headline', 'score', 'tier'],
+  };
+
+  it('returns the parsed record for a valid bounded value', () => {
+    const value = { headline: 'Cost pressure rising', score: 7, tier: 'gold' };
+    expect(validateCustomOutput(value, sampleCustomSchema)).toEqual(value);
+  });
+
+  it('accepts optional and nullable fields when present or omitted', () => {
+    expect(validateCustomOutput({ headline: 'x', score: 1, tier: 'silver' }, sampleCustomSchema)).toMatchObject({ tier: 'silver' });
+    expect(
+      validateCustomOutput({ headline: 'x', score: 1, tier: 'gold', tags: ['a', 'b'], note: null }, sampleCustomSchema),
+    ).toMatchObject({ tags: ['a', 'b'], note: null });
+  });
+
+  it('rejects a missing required field', () => {
+    expect(() => validateCustomOutput({ score: 1, tier: 'gold' }, sampleCustomSchema)).toThrow();
+  });
+
+  it('rejects unknown extra fields (strict)', () => {
+    expect(() => validateCustomOutput({ headline: 'x', score: 1, tier: 'gold', bogus: true }, sampleCustomSchema)).toThrow();
+  });
+
+  it('rejects a wrong primitive type', () => {
+    expect(() => validateCustomOutput({ headline: 'x', score: 'high', tier: 'gold' }, sampleCustomSchema)).toThrow();
+  });
+
+  it('rejects an enum value outside the bounded set', () => {
+    expect(() => validateCustomOutput({ headline: 'x', score: 1, tier: 'platinum' }, sampleCustomSchema)).toThrow('enum_value');
+  });
+
+  it('rejects an array item of the wrong type', () => {
+    expect(() => validateCustomOutput({ headline: 'x', score: 1, tier: 'gold', tags: [1] }, sampleCustomSchema)).toThrow();
+  });
+
+  it('rejects a serialized value larger than the policy cap', () => {
+    const oversized = { headline: 'x', score: 1, tier: 'gold', tags: Array(20).fill('x'.repeat(4_000)) };
+    expect(() => validateCustomOutput(oversized, sampleCustomSchema)).toThrow('custom_output_too_large');
+  });
+
+  it('buildCustomOutputValueSchema parses valid values and rejects invalid ones', () => {
+    const schema = buildCustomOutputValueSchema(sampleCustomSchema);
+    expect(schema.parse({ headline: 'x', score: 1, tier: 'gold' })).toMatchObject({ headline: 'x' });
+    expect(() => schema.parse({ headline: 'x', score: 1 })).toThrow();
+  });
+
+  it.each([
+    ['findings', { findings: [{ findingId: 'finding-1', signalId: 7, status: 'strong', confidence: 'high', claim: 'x' }] }],
+    ['evidence', { evidence: [{ url: 'https://example.com', title: 'x', snippet: 'y' }] }],
+    ['citations', { citations: [{ findingId: 'finding-1', url: 'https://example.com', contentHash: 'a'.repeat(64), locator: 'x', supportRole: 'primary' }] }],
+    ['review state', { review: { status: 'approved', reviewer: 'model' } }],
+    ['candidates', { candidates: [{ name: 'Acme' }] }],
+    ['narrative', { narrative: 'model-authored narrative' }],
+    ['sources', { sources: [{ sourceId: 'source-1' }] }],
+    ['links', { links: [{ findingId: 'finding-1', sourceId: 'source-1' }] }],
+    ['audit', { audit: { attempt: 1 } }],
+    ['packet fields', { packet: { schemaVersion: 1 } }],
+    ['checklist identity', { signalId: 7 }],
+    ['finding identity', { findingId: 'finding-1' }],
+  ] as const)('rejects a custom value that tries to supply %s', (_label, reserved) => {
+    expect(() => validateCustomOutput({ headline: 'x', score: 1, tier: 'gold', ...reserved }, sampleCustomSchema)).toThrow();
   });
 });

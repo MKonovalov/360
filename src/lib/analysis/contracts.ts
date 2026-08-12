@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { SERVABLE_PROVIDERS } from '@/lib/models/catalog';
+import { SERVABLE_PROVIDERS } from '@/lib/models/catalog-contracts';
 import type { ModelRef } from '@/lib/models/modelRef';
 import type { BoundedOutputSchema, NormalizedOutputField } from './customAgentContracts';
 

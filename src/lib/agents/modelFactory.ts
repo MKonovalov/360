@@ -7,9 +7,9 @@ import {
   getProviderForModelId,
   getAllModels,
   dedupeProviderRows,
+  catalogJson,
   type ModelProviderId,
 } from '@/lib/models/catalog';
-import catalogJson from '@/lib/models/catalog.json';
 import type { ModelRef } from '@/lib/models/modelRef';
 
 // Module-singleton (sanity-client pattern, ARCHITECTURE.md l.181). The

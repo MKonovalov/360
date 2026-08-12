@@ -1,9 +1,12 @@
+import { createHash } from 'node:crypto';
 import { z } from 'zod';
 
 import {
   groundedPacketSchema,
+  validateCustomOutput,
   type GroundedPacket,
 } from './groundedContracts';
+import { boundedOutputSchema, type BoundedOutputSchema } from './customAgentContracts';
 import { checklistSnapshotSchema } from './contracts';
 import {
   EvidenceNormalizationError,
@@ -13,7 +16,7 @@ import {
   type NormalizedEvidenceSource,
   type ServerDerivedEvidenceResult,
 } from './evidence';
-import { SERVABLE_PROVIDERS } from '@/lib/models/catalog';
+import { SERVABLE_PROVIDERS } from '@/lib/models/catalog-contracts';
 import { modelRefSchema } from './contracts';
 
 const analysisTargetTypeSchema = z.enum(['company', 'persona']);
@@ -64,6 +67,8 @@ const packetInputSchema = z
     sourceResults: z.array(z.unknown()).max(100),
     citations: z.array(citationSchema).max(200),
     audit: auditSchema,
+    customOutput: z.unknown().optional(),
+    customOutputSchema: z.unknown().optional(),
   })
   .strict();
 
@@ -94,9 +99,17 @@ export type AnalysisPacketInput = {
     readonly durationMs: number;
     readonly traceId: string | null;
   };
+  readonly customOutput?: Readonly<Record<string, unknown>>;
+  readonly customOutputSchema?: BoundedOutputSchema | null;
 };
 
 export type NormalizedAnalysisPacket = GroundedPacket;
+
+export type NormalizedAnalysisResult = {
+  readonly packet: GroundedPacket;
+  readonly customOutput: Readonly<Record<string, unknown>> | undefined;
+  readonly packetHash: string;
+};
 
 export type AnalysisPacketFailureReason =
   | 'unsupported_source'
@@ -160,10 +173,30 @@ function buildFindingIds(findings: readonly z.infer<typeof rawFindingSchema>[]) 
   return ids;
 }
 
-export function normalizeAnalysisPacket(input: unknown): NormalizedAnalysisPacket {
+// The bounded custom-output channel is additive and server-owned: the model may
+// only fill the shallow fields snapshotted from the custom agent version, and
+// the validated value is transported separately (NormalizedAnalysisResult.customOutput)
+// so it can never redefine findings, evidence, citations, review, or candidates.
+function validateCustomOutputChannel(
+  customOutput: unknown,
+  customOutputSchema: unknown,
+): Readonly<Record<string, unknown>> | undefined {
+  if (customOutputSchema === undefined || customOutputSchema === null) return undefined;
+  const schema = boundedOutputSchema.safeParse(customOutputSchema);
+  if (!schema.success) fail('invalid_packet');
+  if (customOutput === undefined) fail('invalid_packet');
+  try {
+    return validateCustomOutput(customOutput, schema.data);
+  } catch {
+    fail('invalid_packet');
+  }
+}
+
+function normalizeAnalysisPacketInternal(input: unknown): NormalizedAnalysisResult {
   const parsedInput = packetInputSchema.safeParse(input);
   if (!parsedInput.success) fail('invalid_packet');
   const packetInput = parsedInput.data;
+  const customOutput = validateCustomOutputChannel(packetInput.customOutput, packetInput.customOutputSchema);
   const checklist = checklistSnapshotSchema.safeParse(packetInput.checklistSnapshot);
   if (!checklist.success || checklist.data.targetType !== packetInput.targetType) fail('invalid_packet');
 
@@ -239,5 +272,14 @@ export function normalizeAnalysisPacket(input: unknown): NormalizedAnalysisPacke
     audit,
   });
   if (!packet.success) fail('invalid_packet');
-  return packet.data;
+  const packetHash = createHash('sha256').update(JSON.stringify({ packet: packet.data, customOutput })).digest('hex');
+  return { packet: packet.data, customOutput, packetHash };
+}
+
+export function normalizeAnalysisPacket(input: unknown): NormalizedAnalysisPacket {
+  return normalizeAnalysisPacketInternal(input).packet;
+}
+
+export function normalizeAnalysisPacketWithCustomOutput(input: unknown): NormalizedAnalysisResult {
+  return normalizeAnalysisPacketInternal(input);
 }
