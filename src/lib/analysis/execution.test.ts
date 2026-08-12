@@ -161,6 +161,11 @@ describe('GroundedExecutionAdapter', () => {
     });
     expect(mocks.runWithPhase33Trace).toHaveBeenCalledTimes(1);
     expect(mocks.runWithPhase33Trace.mock.calls[0]?.[0]).toBe('analyze-company');
+    const options = mocks.runWithPhase33Trace.mock.calls[0]?.[2];
+    expect(options).toMatchObject({ input: { runId: 42, targetType: 'company', modelChain: ['model.primary'] } });
+    expect(JSON.stringify(options)).not.toContain('Acme Corp');
+    expect(JSON.stringify(options)).not.toContain('Company announced a new CFO');
+    expect(JSON.stringify(options)).not.toContain('narrative');
   });
 
   it('keeps trace linkage null when the test-environment wrapper is a no-op', async () => {
