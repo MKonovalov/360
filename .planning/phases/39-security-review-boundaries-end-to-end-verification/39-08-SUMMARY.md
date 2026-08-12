@@ -91,5 +91,5 @@ None introduced. Blocked infrastructure lanes are evidence limitations, not stub
 ## Self-Check: PASSED
 
 - All four Plan 39-08 artifacts and the focused scope-audit test exist and are non-empty.
-- Commit `d4820ab5` contains only the five intended Plan 39-08 files.
+- Commit `984534a9` contains only the four intended Plan 39-08 evidence/audit artifacts refreshed in this rerun; the owned scope-audit test was unchanged.
 - `STATE.md` and `ROADMAP.md` are unchanged; unrelated working-tree entries remain unstaged.
