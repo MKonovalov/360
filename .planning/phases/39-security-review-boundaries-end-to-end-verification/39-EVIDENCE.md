@@ -4,7 +4,7 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 
 ## Final Disposition
 
-**PASS:** The Phase 39 lifecycle E2E now passes with real Clerk/browser execution and disposable fixture guards. The original `Current version 2` failure was an E2E assertion-location/stale-locator defect: the save returned HTTP 200, Next refreshed `/agents`, and the card showed `Current version 2`; historical `Version 1` is rendered inside the reopened edit Sheet, and lifecycle controls must also be used from the current Sheet after refresh. Company/Persona follow-on journeys remain separately status-qualified below.
+**BLOCKED:** The Phase 39 lifecycle E2E is independently evidenced as PASS in the latest 39-07 rerun, and the deterministic/DB/Workflow gates below remain PASS. Final Phase 39 sign-off remains BLOCKED because Company execution persisted `failed` after provider rate limiting and the Persona-target journey did not start because no compatible persona-target custom agent was offered. The final disposition does not promote either follow-on lane to PASS.
 
 ## Prior Summary Readability
 
@@ -26,7 +26,7 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 | `npm run db:validate` | PASS | Canonical preflight immediately preceded the command; 4 journaled migrations and documented baseline exceptions validated. |
 | `npm run test:workflow` | PASS | Canonical preflight immediately preceded the command; 2 files and 14 tests passed. |
 | `npm run e2e -- e2e/phase39-security-review.spec.ts -g '/agents lifecycle'` | PASS | In-process dotenv load and `#phase39-fixture` marker injection; canonical preflight immediately before reset and Playwright; fixture reset returned `companyId=210`, `personaId=23`, `practiceAreaId=226`; real Clerk setup passed; Playwright Chromium passed `3 passed (29.2s)`. Instrumented diagnostic run observed `POST 200 http://localhost:3000/agents`, `GET 200 http://localhost:3000/agents?_rsc=...`, card text `Current version 2`, and no page error. |
-| `npm run e2e -- e2e/phase39-security-review.spec.ts -g 'Company/Persona'` | BLOCKED | Canonical preflight and fixture reset passed; Company started but the retired custom-agent option was unavailable after the blocked lifecycle; serial execution therefore left Persona NOT-RUN. |
+| `npm run e2e -- e2e/phase39-security-review.spec.ts -g 'Company/Persona'` | BLOCKED | 39-07 reruns: canonical preflight/reset passed; Company reached durable launch but provider rate limiting persisted run status `failed`; the separately attempted Persona journey was blocked because the Company-targeted custom agent was not offered for a Persona target. |
 | Optional live provider status | NOT-RUN | Non-gating provider smoke was not invoked. |
 
 ## Requirement and Decision Traceability
@@ -58,7 +58,7 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 
 - Non-DB gates were run directly as authorized by the plan.
 - Every attempted DB/Workflow/E2E lane had the exact canonical preflight immediately before it with `PHASE39_FIXTURE_ONLY=1` inherited.
-- The canonical preflight passed for every executed DB/Workflow/E2E lane; the E2E wrapper still remains BLOCKED because browser assertions failed.
+- The canonical preflight passed immediately before every executed DB/Workflow/E2E lane. The latest local fixture-reset attempt was not promoted to evidence because it stopped on missing relation `analysis_run_review_event`; no dependent browser command was run from that attempt.
 - `STATE.md` and `ROADMAP.md` were not modified.
 
 ## Save-new-version Root Cause Evidence
@@ -68,3 +68,4 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 - **Secondary stale-locator defect:** after refresh/lifecycle actions, the original card locator could resolve an old detached card or stale action surface. The test now captures the created card's `data-custom-agent-id`, reopens the current Sheet after reload, and performs lifecycle actions through that Sheet.
 - **Console evidence:** no page error was emitted. A non-failing React warning remains: `Select is changing from controlled to uncontrolled.` It is unrelated to the save/version assertion and was not changed.
 - **Final guarded rerun:** PASS — `3 passed (29.2s)` for auth setup, Clerk authentication, and the lifecycle browser test.
+- **Latest follow-on reruns:** Company is BLOCKED after real durable launch and persisted `failed` status caused by provider rate limiting; Persona is BLOCKED because no persona-compatible custom agent was offered. Neither lane has a false PASS.

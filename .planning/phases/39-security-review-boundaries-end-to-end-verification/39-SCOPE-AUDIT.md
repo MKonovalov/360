@@ -2,7 +2,7 @@
 
 ## Final Disposition
 
-**BLOCKED:** scope canaries, DB/Workflow evidence, and deterministic evidence are present, but authenticated browser assertions remain blocked. No blocked lane is represented as PASS.
+**BLOCKED:** scope canaries, deterministic evidence, DB/Workflow evidence, and lifecycle browser evidence are present, but required Company/Persona browser journeys remain blocked. No blocked or not-run lane is represented as PASS.
 
 ## Positive Canaries
 
@@ -17,7 +17,7 @@
 
 ## Requirement Audit
 
-SAFE-01, SAFE-02, SAFE-03, and UX-02 have focused deterministic evidence in Plans 39-01 through 39-06. UX-03 and E2E-01 remain **BLOCKED** because authenticated browser assertions failed after Clerk setup. D-39-01 through D-39-11 are PASS with DB checks now evidenced; D-39-12 through D-39-15 remain BLOCKED for the browser assertion prerequisite.
+SAFE-01, SAFE-02, SAFE-03, and UX-02 have focused deterministic evidence in Plans 39-01 through 39-06. The lifecycle portion of UX-03 is **PASS** in the latest 39-07 rerun, but Company remains **BLOCKED** after provider rate limiting persisted `failed` status and Persona remains **BLOCKED** because no persona-target compatible custom agent was offered. E2E-01 and the Company/Persona portions of UX-03 remain **BLOCKED**. D-39-01 through D-39-11 are PASS with DB checks evidenced; D-39-12 retains lifecycle PASS, while D-39-13 through D-39-15 remain BLOCKED for the incomplete target journeys.
 
 ## Exclusions
 
@@ -28,4 +28,4 @@ SAFE-01, SAFE-02, SAFE-03, and UX-02 have focused deterministic evidence in Plan
 
 ## Audit Limitation
 
-The planned `scripts/phase38-scope-audit.ts` entrypoint is absent. The existing Phase 38 cumulative packet-path canary (`normalizeAnalysisPacketWithQuarantine`) is retained as BLOCKED rather than weakened or relabeled; Plan 39-08 does not modify Phase 38 code.
+The planned `scripts/phase38-scope-audit.ts` entrypoint is absent. The existing Phase 38 cumulative packet-path canary (`normalizeAnalysisPacketWithQuarantine`) is retained as BLOCKED rather than weakened or relabeled; Plan 39-08 does not modify Phase 38 code. A latest local Phase 39 fixture-reset attempt also stopped on missing relation `analysis_run_review_event`; this was not converted into a browser result or PASS.

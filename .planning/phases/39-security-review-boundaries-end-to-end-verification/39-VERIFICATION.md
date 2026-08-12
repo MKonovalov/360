@@ -2,7 +2,7 @@
 
 ## Final disposition
 
-**BLOCKED:** deterministic, disposable database, migration, and Workflow evidence passes; authenticated browser evidence remains BLOCKED after real Clerk setup reached a UI assertion timeout.
+**BLOCKED:** deterministic, disposable database, migration, and Workflow evidence passes; lifecycle authenticated browser evidence is PASS, while the required Company and Persona follow-on journeys remain BLOCKED for explicit provider/target blockers.
 
 ## Evidence contract
 
@@ -10,7 +10,7 @@ The exclusive ledger is `39-EVIDENCE.md`. The scope and requirement canaries are
 
 ## Prior-plan evidence
 
-Plans 39-01 through 39-07 summaries were readable and non-empty. Focused unit, type, migration-artifact, and deterministic fixture claims are retained exactly as status-qualified in those summaries. Plan 39-07's authenticated browser journey remains BLOCKED/NOT-RUN because its Next web server could not start under the existing process collision.
+Plans 39-01 through 39-07 summaries were readable and non-empty. Focused unit, type, migration-artifact, and deterministic fixture claims are retained exactly as status-qualified in those summaries. Plan 39-07's latest rerun independently records lifecycle PASS; Company is BLOCKED by provider rate limiting/persisted `failed` status, and Persona is BLOCKED because the Company-targeted custom agent is not offered for Persona.
 
 ## Scope boundary
 
@@ -18,4 +18,4 @@ The canonical `/agents` route is present. No `/reviews/agents` route exists. Pha
 
 ## Gate limitation
 
-The exact canonical preflight passed immediately before each executed DB, Workflow, and E2E lane with `.env.local` loaded in-process and the fixture marker injected only into `TEST_DATABASE_URL`. Playwright authenticated successfully, but `/agents` timed out locating the Edit control; Company/Persona browser assertions were not run. The missing Phase 38 script entrypoint is retained as BLOCKED.
+The exact canonical preflight passed immediately before each executed DB, Workflow, and E2E lane with `.env.local` loaded in-process and the fixture marker injected only into `TEST_DATABASE_URL`. The latest lifecycle evidence is PASS. A later local reset attempt stopped on missing relation `analysis_run_review_event`, so no dependent E2E command was run from that attempt. Company/Persona remain status-qualified by the successful 39-07 reruns, and the missing Phase 38 script entrypoint is retained as BLOCKED.
