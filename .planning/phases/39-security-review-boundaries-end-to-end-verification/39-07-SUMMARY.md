@@ -71,6 +71,10 @@ None.
 
 None introduced by this plan.
 
+## TDD Gate Compliance
+
+The plan task is marked `tdd=true`, but this plan adds only Playwright coverage and no production implementation. The required RED/GREEN commit pair is therefore not applicable; the guarded browser execution itself was blocked before test startup by the existing Next dev-server process.
+
 ## Self-Check: PASSED
 
 - `e2e/phase39-security-review.spec.ts` exists.
