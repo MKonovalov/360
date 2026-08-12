@@ -4,7 +4,7 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 
 ## Final Disposition
 
-**BLOCKED:** Guarded fixture reset and lifecycle E2E pass with the real app/API path. Company/Persona execution reached the real launch/review path, but the Company review correction exposed and was locally fixed for two proven SQL defects; the rerun still blocked before the custom-agent option became available, so Persona did not start. No follow-on lane is promoted to PASS.
+**BLOCKED:** The proven fixture lifecycle bug is fixed: reset is idempotent and recreates deterministic active Company/Persona custom agents. Lifecycle now passes, and Company reached the real launch/review path. The Company review still fails on the pre-existing untyped SQL parameter defect in `analysisReviews.ts`; Persona is not promoted because the serial lane stops there. No production option filtering or E2E assertion was weakened.
 
 ## Prior Summary Readability
 
@@ -26,7 +26,7 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 | `npm run db:validate` | PASS | Canonical preflight immediately preceded the command; 4 journaled migrations and documented baseline exceptions validated. |
 | `npm run test:workflow` | PASS | Canonical preflight immediately preceded the command; 2 files and 14 tests passed. |
 | `npm run e2e -- e2e/phase39-security-review.spec.ts -g '/agents lifecycle'` | PASS | In-process dotenv load and `#phase39-fixture` marker injection; canonical preflight immediately before reset and Playwright; fixture reset returned `companyId=210`, `personaId=23`, `practiceAreaId=226`; real Clerk setup passed; Playwright Chromium passed `3 passed (29.2s)`. Instrumented diagnostic run observed `POST 200 http://localhost:3000/agents`, `GET 200 http://localhost:3000/agents?_rsc=...`, card text `Current version 2`, and no page error. |
-| `npm run e2e -- e2e/phase39-security-review.spec.ts -g 'Company|Persona'` | BLOCKED | Guarded reruns used dotenv-loaded `.env.local`, in-process `#phase39-fixture` marker injection, canonical preflight immediately before reset and Playwright, and fixture IDs `companyId=210`, `personaId=23`, `practiceAreaId=226`. Company reached durable execution and review; the first review attempt exposed SQL enum/column defects, fixed locally. The final rerun remained blocked before the custom-agent option became available; Persona was not run. |
+| `npm run e2e -- e2e/phase39-security-review.spec.ts -g 'Company|Persona'` | BLOCKED | Guarded rerun used dotenv-loaded `.env.local`, dev-server mapping to marked app/test URLs, canonical preflight immediately before reset and Playwright, and fixture IDs `companyId=210`, `personaId=23`, `practiceAreaId=226`. Company reached durable execution and review, then hit the pre-existing `analysisReviews.ts` PostgreSQL `42P18` untyped `$1` failure; Persona was not run because the suite is serial. |
 | Phase 39 runtime wiring regression tests | PASS | `phase39Fixtures.test.ts`, `phase39Adversarial.test.ts`, and `execution.test.ts`: 49 tests passed. Guarded mode requires the Phase 39 marker on both normalized app/test identities, uses `createPhase39Fixture(targetType).executorDependencies`, and selects `PHASE39_APPROVED_POLICY` in the analysis-run route. |
 | Optional live provider status | NOT-RUN | Non-gating provider smoke was not invoked. |
 
@@ -54,6 +54,7 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 - **PASS:** append-only D-39-05 implementation is represented by review-event history plus latest-effective projection; prior attribution is not overwritten.
 - **PASS:** no new dependency or unrelated route was added by Plan 39-08.
 - **PASS:** `/agents` lifecycle browser lane completed with no forbidden-request assertion failures; browser exclusions for the follow-on Company/Persona journeys remain status-qualified below.
+- **PASS:** Fixture reset recreated exactly two active custom rows keyed by `phase39-fixture-company` and `phase39-fixture-persona`, with target types, kind `custom`, version `1`, bounded standard-effort fields, and exact stable names/descriptions. Repeating reset returned the same fixture IDs and did not touch unrelated custom agents.
 
 ## Commands and Boundary Notes
 
@@ -72,3 +73,11 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 - **Console evidence:** no page error was emitted. A non-failing React warning remains: `Select is changing from controlled to uncontrolled.` It is unrelated to the save/version assertion and was not changed.
 - **Final guarded rerun:** PASS — `3 passed (29.2s)` for auth setup, Clerk authentication, and the lifecycle browser test.
 - **Latest follow-on reruns:** Company is BLOCKED after real durable launch and persisted `failed` status caused by provider rate limiting; Persona is BLOCKED because no persona-compatible custom agent was offered. Fixture reset is PASS. Neither browser lane has a false PASS.
+
+## Scoped Fixture Lifecycle Fix
+
+- **Root cause:** the reset deleted matching Phase 39 custom-agent rows but never recreated them, so the authenticated analysis picker had no deterministic Company/Persona custom options.
+- **Fix:** `e2e/phase39-fixture-reset.ts` now deletes only matching Phase 39 fixture rows and recreates active Company/Persona templates plus version 1 rows with exact stable names/descriptions, correct `target_type`, `kind = custom`, and bounded standard fields.
+- **Collision prevention:** the lifecycle journey uses per-run names distinct from the reset fixture names and remains free to create/edit/activate its own agents.
+- **Idempotence evidence:** preflight → reset → reset → preflight passed; both resets returned `companyId=210`, `personaId=23`, `practiceAreaId=226`.
+- **Final authenticated Chromium result:** lifecycle PASS (`1` lifecycle test; auth setup also passed). Company/Persona lane BLOCKED by the unrelated review SQL defect above; no production filtering or assertion changes were made.

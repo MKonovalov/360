@@ -18,7 +18,7 @@ key_files:
     - src/lib/verification/phase39ScopeAudit.test.ts
   modified: []
 decisions:
-  - Final disposition is BLOCKED because lifecycle E2E passes, but the required Company/Persona lane is blocked before execution because the Company custom agent is not offered by the fixture data; Persona is not run.
+  - Final disposition remains BLOCKED because the fixture lifecycle bug is fixed and lifecycle E2E passes, while Company review hits an unrelated pre-existing SQL parameter defect and the serial Persona lane is not run.
   - Blocked and not-run evidence is never promoted to PASS; E2E-01 and UX-03 remain blocked.
   - STATE.md and ROADMAP.md remain untouched as explicitly required.
 metrics:
@@ -36,14 +36,15 @@ Final Phase 39 evidence ledger, scope canaries, requirement/decision traceabilit
 - **PASS:** Grounded execution selects `createPhase39Fixture(targetType).executorDependencies` only in guarded mode; analysis-run and preview routes select server-owned `PHASE39_APPROVED_POLICY` there.
 - **PASS:** Focused regression suite: 49 tests passed. LSP diagnostics, `tsc --noEmit`, and `npm run build` passed.
 - **PASS:** Dotenv-loaded preflight, fixture reset, and lifecycle Playwright lane: `3 passed`.
-- **BLOCKED:** Company/Persona Playwright lane: Company custom agent was not offered by fixture data before launch; Persona did not run.
+  - **PASS:** Fixture reset now recreates deterministic active Company/Persona custom-agent templates and version 1 rows; repeated reset is idempotent and scoped to matching Phase 39 rows.
+  - **BLOCKED:** Company/Persona Playwright lane: Company reaches launch and review but fails on the unrelated `analysisReviews.ts` PostgreSQL `42P18` untyped `$1` defect; Persona does not run because the suite is serial.
 
 ## Tasks Completed
 
 1. Read and audited all seven prior Phase 39 summaries and current route/fixture code.
 2. Ran non-DB final gates: full tests, artifact checks, production build, TypeScript, Phase 33 audit, and focused Phase 39 scope audit.
 3. Loaded `.env.local` in-process, injected `#phase39-fixture` only into `TEST_DATABASE_URL`, and invoked the exact canonical preflight immediately before each DB, Workflow, and fixture/E2E lane.
-4. Confirmed the reset blocker was disposable-database drift, not a missing repository artifact: `analysis_run_review_event` is present in the schema, migration `0010_phase39_review_corrections.sql`, and snapshot; applying the existing journaled migration restored the relation without changing migration/schema/reset code.
+4. Fixed the proven Phase 39 fixture lifecycle bug: reset now deletes only matching fixture agents and recreates deterministic active Company/Persona custom-agent templates and version 1 rows; the lifecycle journey uses distinct per-run names to avoid collisions.
 5. Added positive non-vacuous canaries for `/agents`, absent `/reviews/agents`, fixture identity, writes-disabled policy, append-only projection, and status-qualified evidence rows.
 
 ## Verification
@@ -57,7 +58,7 @@ Final Phase 39 evidence ledger, scope canaries, requirement/decision traceabilit
 - **BLOCKED** Phase 38 cumulative audit reports the existing `normalizeAnalysisPacketWithQuarantine` packet-path canary; no Phase 38 code was changed.
 - **PASS** canonical preflight, DB check, DB migration validation, and Workflow lane.
 - **PASS** lifecycle authenticated browser lane: latest 39-07 rerun completed `3 passed (29.2s)` with real Clerk/Chromium execution and version-history/lifecycle assertions.
-- **BLOCKED** Company/Persona authenticated browser lane: the Company custom agent was not offered by fixture data before launch; Persona was not started.
+- **BLOCKED** Company/Persona authenticated browser lane: the recreated Company fixture launches and reaches review, but the pre-existing `analysisReviews.ts` PostgreSQL `42P18` untyped `$1` defect blocks review completion; Persona was not started.
 - **PASS** latest local fixture reset: canonical preflight passed, the existing journaled migration `0010_phase39_review_corrections` was applied, and reset returned `companyId=210`, `personaId=23`, `practiceAreaId=226`, `companySignalId=350`, `personaSignalId=167`.
 - **NOT-RUN** optional live provider smoke; non-gating.
 
@@ -97,7 +98,7 @@ None introduced. Blocked infrastructure lanes are evidence limitations, not stub
 
 ## Final Disposition
 
-**BLOCKED.** Phase 39 has passing disposable DB/Workflow evidence, a passing fixture reset, a passing lifecycle E2E, and complete traceability artifacts, but cannot sign off E2E-01 until Company execution succeeds without provider rate limiting and the Persona-compatible authenticated journey completes.
+**BLOCKED.** Phase 39 has a passing idempotent fixture reset and lifecycle E2E. E2E-01 remains blocked by the unrelated review SQL defect and the unrun serial Persona journey; no production filtering or E2E assertion was weakened.
 
 ## Self-Check: PASSED
 
