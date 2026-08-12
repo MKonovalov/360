@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getTableConfig } from 'drizzle-orm/pg-core';
 
 const mocks = vi.hoisted(() => ({
   db: { execute: vi.fn(), select: vi.fn(), insert: vi.fn() },
@@ -388,6 +389,44 @@ describe('analysis run ledger guards', () => {
 
   it('exposes the exact partial-index active status set to tests', () => {
     expect(ACTIVE_RUN_STATUSES).toEqual(['queued', 'running']);
+  });
+
+  it('keeps the active-run duplicate index keyed on (subject_type, subject_id, template_id)', () => {
+    const config = getTableConfig(analysisRun);
+    const activeIndex = config.indexes.find(
+      (index) => (index as { config?: { name?: string } }).config?.name === 'analysis_run_active_subject_template_idx'
+    );
+    const indexConfig = (activeIndex as {
+      config?: {
+        name?: string;
+        unique?: boolean;
+        columns?: { name?: string }[];
+        where?: { queryChunks?: { value?: unknown }[] };
+      };
+    }).config;
+
+    expect(indexConfig?.name).toBe('analysis_run_active_subject_template_idx');
+    expect(indexConfig?.unique).toBe(true);
+    expect(indexConfig?.columns?.map((column) => column.name)).toEqual(['subject_type', 'subject_id', 'template_id']);
+    const whereText = (indexConfig?.where?.queryChunks ?? [])
+      .map((chunk) => {
+        if (chunk === null || chunk === undefined) return '';
+        if (typeof chunk === 'string') return chunk;
+        if (typeof chunk !== 'object') return String(chunk);
+        const record = chunk as Record<string, unknown>;
+        if ('name' in record) return String(record.name);
+        if ('value' in record) {
+          const nested = record.value;
+          if (typeof nested === 'string') return nested;
+          if (nested !== null && typeof nested === 'object') {
+            return Object.values(nested as Record<string, unknown>).map((item) => (typeof item === 'string' ? item : '')).join('');
+          }
+        }
+        return '';
+      })
+      .join('');
+    expect(whereText).toContain('status');
+    expect(whereText).toContain("IN ('queued', 'running', 'pending_review')");
   });
 
   it('persists the exact future and no-op limits through the snapshot values', () => {

@@ -14,6 +14,22 @@ import {
   prepareAnalysisPacket,
 } from './analysisResults';
 
+function flattenSql(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value !== 'object') return String(value);
+  const record = value as Record<string, unknown>;
+  if ('queryChunks' in record && Array.isArray(record.queryChunks)) {
+    return record.queryChunks.map(flattenSql).join('');
+  }
+  if ('value' in record) {
+    const nested = record.value;
+    if (Array.isArray(nested)) return nested.map(flattenSql).join('');
+    return flattenSql(nested);
+  }
+  return Object.values(record).map(flattenSql).join('');
+}
+
 const source = {
   sourceId: 'source-a',
   canonicalUrl: 'https://example.com/news/',
@@ -133,7 +149,7 @@ describe('analysis result persistence boundary', () => {
       rows: [{ resultId: 31, packetHash: 'b'.repeat(64), inserted: true }],
     });
 
-    const result = await persistAnalysisPacket({ runId: 7, packet, checklistSignalIds: [11] });
+    const result = await persistAnalysisPacket({ runId: 7, packet, checklistSignalIds: [11], customOutput: null });
 
     expect(result).toEqual({ ok: true, resultId: 31, packetHash: 'b'.repeat(64), replayed: false });
     expect(mocks.db.execute).toHaveBeenCalledTimes(1);
@@ -147,7 +163,56 @@ describe('analysis result persistence boundary', () => {
     });
 
     await expect(
-      persistAnalysisPacket({ runId: 7, packet, checklistSignalIds: [11] })
+      persistAnalysisPacket({ runId: 7, packet, checklistSignalIds: [11], customOutput: null })
+    ).rejects.toBeInstanceOf(AnalysisPacketConflictError);
+  });
+
+  it('persists validated custom output at raw_audit.customOutput for custom runs', async () => {
+    mocks.db.execute.mockResolvedValueOnce({
+      rows: [{ resultId: 33, packetHash: 'e'.repeat(64), inserted: true }],
+    });
+
+    await persistAnalysisPacket({
+      runId: 10,
+      packet,
+      checklistSignalIds: [11],
+      customOutput: { score: 87, label: 'high' },
+    });
+
+    const sqlText = flattenSql(mocks.db.execute.mock.calls[0]?.[0]);
+    expect(sqlText).toContain('"customOutput":{"score":87,"label":"high"}');
+    expect(sqlText).toContain('::jsonb');
+  });
+
+  it('writes null custom output for fixed runs alongside unchanged fixed packet fields', async () => {
+    mocks.db.execute.mockResolvedValueOnce({
+      rows: [{ resultId: 34, packetHash: 'f'.repeat(64), inserted: true }],
+    });
+
+    await persistAnalysisPacket({ runId: 11, packet, checklistSignalIds: [11], customOutput: null });
+
+    const sqlText = flattenSql(mocks.db.execute.mock.calls[0]?.[0]);
+    expect(sqlText).toContain('"customOutput":null');
+    expect(sqlText).toContain('"attempt":1');
+    expect(sqlText).toContain('"modelId":"model-a"');
+    expect(sqlText).toContain('"traceId":"trace-a"');
+    expect(sqlText).toContain('narrative');
+    expect(sqlText).toContain('model_id');
+    expect(sqlText).toContain('finding_count');
+    expect(sqlText).toContain('source_count');
+    expect(sqlText).toContain('link_count');
+  });
+
+  it('includes custom output in packet-hash identity so changed custom output conflicts on replay', async () => {
+    const first = prepareAnalysisPacket({ packet, checklistSignalIds: [11], customOutput: { score: 87 } });
+    const second = prepareAnalysisPacket({ packet, checklistSignalIds: [11], customOutput: { score: 88 } });
+    expect(first.packetHash).not.toBe(second.packetHash);
+
+    mocks.db.execute.mockResolvedValueOnce({
+      rows: [{ resultId: 31, packetHash: first.packetHash, inserted: false }],
+    });
+    await expect(
+      persistAnalysisPacket({ runId: 7, packet, checklistSignalIds: [11], customOutput: { score: 88 } })
     ).rejects.toBeInstanceOf(AnalysisPacketConflictError);
   });
 
@@ -155,7 +220,7 @@ describe('analysis result persistence boundary', () => {
     const personaPacket = { ...packet, targetType: 'persona' as const };
 
     await expect(
-      persistAnalysisPacket({ runId: 8, packet: personaPacket, checklistSignalIds: [11] })
+      persistAnalysisPacket({ runId: 8, packet: personaPacket, checklistSignalIds: [11], customOutput: null })
     ).rejects.toThrow('persona_policy_unavailable');
     expect(mocks.db.execute).toHaveBeenCalledTimes(0);
   });
@@ -172,6 +237,7 @@ describe('analysis result persistence boundary', () => {
       checklistSignalIds: [11],
       policy: approvedPersonaPolicy,
       now: new Date('2026-08-07T12:00:00.000Z'),
+      customOutput: null,
     });
 
     const queryText = JSON.stringify(mocks.db.execute.mock.calls[0]?.[0]);

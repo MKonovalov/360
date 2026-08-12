@@ -6,7 +6,7 @@ import { FatalError } from 'workflow';
 export const maxDuration = 300;
 
 import { GroundedExecutionAdapter, type GroundedExecutionResult } from '@/lib/analysis/execution';
-import { normalizeAnalysisPacket, AnalysisPacketValidationError, type NormalizedAnalysisPacket } from '@/lib/analysis/results';
+import { normalizeAnalysisPacketWithCustomOutput, AnalysisPacketValidationError, type NormalizedAnalysisResult } from '@/lib/analysis/results';
 import { type AnalysisRunStatus } from '@/lib/analysis/contracts';
 import {
   getAnalysisRun,
@@ -46,14 +46,14 @@ export async function analysisRun(applicationRunId: number): Promise<AnalysisRun
         return await observeAuthoritativeState(applicationRunId);
       }
 
-      const persisted = await persistGroundedPacket(applicationRunId, normalized.packet);
+      const persisted = await persistGroundedPacket(applicationRunId, normalized.result);
       if (!persisted.ok) {
         const failed = await recordFailure(applicationRunId, 'execution_failed');
         if (failed.ok) return { applicationRunId, terminalStatus: 'failed' };
         return await observeAuthoritativeState(applicationRunId);
       }
 
-      await recordTelemetryAfterPersistence(applicationRunId, execution.execution, normalized.packet);
+      await recordTelemetryAfterPersistence(applicationRunId, execution.execution, normalized.result.packet);
       const completed = await completePersistedRun(applicationRunId);
       if (completed.ok) {
         await reconcileCompletedRun(applicationRunId);
@@ -100,6 +100,14 @@ async function executeGroundedAnalysis(applicationRunId: number): Promise<Execut
   if (!run || run.status !== 'running') return { ok: false, safeReason: 'execution_failed' };
 
   try {
+    // The bounded custom schema is snapshotted at run creation from the
+    // immutable templateSnapshot.custom (snapshots.ts derives
+    // executionSnapshot.customOutputSchema from it). Execution reads only these
+    // stored snapshots — never mutable custom-agent rows, client data, workflow
+    // metadata, current settings, or provider configuration.
+    const customOutputSchema = run.templateSnapshot.custom === undefined
+      ? null
+      : run.executionSnapshot.customOutputSchema?.fields ?? null;
     const execution = await new GroundedExecutionAdapter().execute({
       runId: run.id,
       targetType: run.subjectType,
@@ -113,6 +121,7 @@ async function executeGroundedAnalysis(applicationRunId: number): Promise<Execut
       })),
       modelChain: run.executionSnapshot.resolvedModelChain,
       policy: run.executionSnapshot.policy,
+      customOutputSchema,
     });
     if (!execution.ok) {
       return { ok: false, safeReason: mapSafeReason(execution.failureReason) };
@@ -146,7 +155,10 @@ async function normalizeGroundedPacket(
     return { ok: false as const, reason: 'invalid_packet' as const };
   }
   try {
-    const packet = normalizeAnalysisPacket({
+    const customOutputSchema = run.templateSnapshot.custom === undefined
+      ? null
+      : run.executionSnapshot.customOutputSchema?.fields ?? null;
+    const result = normalizeAnalysisPacketWithCustomOutput({
       checklistSnapshot: run.checklistSnapshot,
       targetType: run.subjectType,
       narrative: execution.output.narrative,
@@ -171,8 +183,10 @@ async function normalizeGroundedPacket(
         durationMs: execution.durationMs,
         traceId: execution.traceId ?? null,
       },
+      customOutput: execution.customOutput,
+      customOutputSchema,
     });
-    return { ok: true as const, packet, applicationRunId };
+    return { ok: true as const, result, applicationRunId };
   } catch (error: unknown) {
     // TEMP DIAGNOSTIC (round 3 — execute() now succeeds after the
     // prepareStep fix; the failure moved to this normalize step, which
@@ -185,17 +199,21 @@ async function normalizeGroundedPacket(
   }
 }
 
-async function persistGroundedPacket(applicationRunId: number, packet: NormalizedAnalysisPacket) {
+async function persistGroundedPacket(applicationRunId: number, normalized: NormalizedAnalysisResult) {
   'use step';
   const run = await getAnalysisRun(applicationRunId);
   if (!run || run.status !== 'running') return { ok: false as const };
   try {
-    const result = await persistAnalysisPacket({
+    // The normalized customOutput rides alongside the grounded packet into the
+    // existing persistence CTE; Task 2 (38-05) consumes it at raw_audit.customOutput.
+    const persistenceInput = {
       runId: applicationRunId,
-      packet,
+      packet: normalized.packet,
       checklistSignalIds: run.checklistSnapshot.items.map((item) => item.signalId),
       policy: run.policySnapshot,
-    });
+      customOutput: normalized.customOutput ?? null,
+    };
+    const result = await persistAnalysisPacket(persistenceInput);
     return { ok: true as const, replayed: result.replayed };
   } catch {
     return { ok: false as const };
@@ -205,7 +223,7 @@ async function persistGroundedPacket(applicationRunId: number, packet: Normalize
 async function recordTelemetryAfterPersistence(
   applicationRunId: number,
   execution: Extract<GroundedExecutionResult, { ok: true }>,
-  packet: NormalizedAnalysisPacket,
+  packet: NormalizedAnalysisResult['packet'],
 ): Promise<void> {
   'use step';
   try {
