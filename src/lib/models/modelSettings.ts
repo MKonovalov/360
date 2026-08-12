@@ -1,6 +1,6 @@
-import catalogJson from './catalog.json';
 import { z } from 'zod';
 import {
+  catalogJson,
   getProviderForModelId,
   getServableIdsForProvider,
   isModelProviderId,

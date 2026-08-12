@@ -138,3 +138,51 @@ describe('custom agent contracts', () => {
     expect(BOUNDED_OUTPUT_FIELD_TYPES).toEqual(['string', 'number', 'boolean', 'array']);
   });
 });
+
+describe('bounded output schema contract', () => {
+  it('accepts a normalized object schema with required and optional fields', () => {
+    const parsed = boundedOutputSchema.safeParse({
+      type: 'object',
+      properties: {
+        headline: { type: 'string' },
+        score: { type: 'number' },
+        tier: { type: 'string', enum: ['gold', 'silver'] },
+        tags: { type: 'array', items: { type: 'string' }, maxItems: 5 },
+        note: { type: 'string', nullable: true },
+      },
+      required: ['headline', 'score', 'tier'],
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it('rejects an unknown field type', () => {
+    const parsed = boundedOutputSchema.safeParse({
+      type: 'object',
+      properties: { bad: { type: 'nope' } },
+      required: [],
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it('rejects a required list larger than the policy cap', () => {
+    const required = Array.from({ length: CUSTOM_AGENT_POLICY.maxFields + 1 }, (_, i) => `f${i}`);
+    const parsed = boundedOutputSchema.safeParse({
+      type: 'object',
+      properties: { f0: { type: 'string' } },
+      required,
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it('rejects a serialized schema larger than the policy cap', () => {
+    const properties: Record<string, { type: 'string'; enum: string[] }> = {};
+    for (let i = 0; i < 100; i += 1) {
+      properties[`field-${i}`] = {
+        type: 'string',
+        enum: Array.from({ length: CUSTOM_AGENT_POLICY.maxEnumValues }, (_, j) => `value-${i}-${j}-${'x'.repeat(40)}`),
+      };
+    }
+    const parsed = boundedOutputSchema.safeParse({ type: 'object', properties, required: [] });
+    expect(parsed.success).toBe(false);
+  });
+});

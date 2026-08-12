@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
 
-import { normalizeAnalysisPacket, type AnalysisPacketInput } from './results';
+import { normalizeAnalysisPacket, normalizeAnalysisPacketWithCustomOutput, type AnalysisPacketInput } from './results';
+import { groundedPacketSchema } from './groundedContracts';
+import type { BoundedOutputSchema } from './customAgentContracts';
 
 const checklistSnapshot = {
   schemaVersion: 1,
@@ -138,5 +140,112 @@ describe('normalized analysis packets', () => {
 
     expect(noEvidence.links).toEqual([]);
     expect(inconclusive.links).toEqual([]);
+  });
+});
+
+describe('bounded custom output transport', () => {
+  const customOutputSchema: BoundedOutputSchema = {
+    type: 'object',
+    properties: {
+      headline: { type: 'string' },
+      score: { type: 'number' },
+      tier: { type: 'string', enum: ['gold', 'silver'] },
+    },
+    required: ['headline', 'score', 'tier'],
+  };
+
+  const customInput = {
+    ...baseInput,
+    citations: [{ ...baseInput.citations[0], contentHash: sourceContentHash }],
+    customOutput: { headline: 'Cost pressure rising', score: 7, tier: 'gold' },
+    customOutputSchema,
+  };
+
+  it('carries a validated bounded customOutput without changing the fixed packet', () => {
+    const result = normalizeAnalysisPacketWithCustomOutput(customInput);
+
+    expect(result.customOutput).toEqual({ headline: 'Cost pressure rising', score: 7, tier: 'gold' });
+    expect(result.packet).toEqual(normalizeAnalysisPacket(customInput));
+    expect(groundedPacketSchema.safeParse(result.packet).success).toBe(true);
+    expect(result.packet).not.toHaveProperty('customOutput');
+    expect(result.packet).not.toHaveProperty('custom');
+  });
+
+  it('rejects malformed custom values with the existing invalid_packet outcome', () => {
+    const malformed = {
+      ...customInput,
+      customOutput: { headline: 'Cost pressure rising', score: 'high', tier: 'gold' },
+    };
+
+    expect(() => normalizeAnalysisPacket(malformed)).toThrow();
+    try {
+      normalizeAnalysisPacket(malformed);
+    } catch (error) {
+      expect(error).toMatchObject({ reason: 'invalid_packet' });
+    }
+  });
+
+  it('rejects a missing custom value when a bounded schema is snapshotted', () => {
+    expect(() => normalizeAnalysisPacket({ ...customInput, customOutput: undefined })).toThrow();
+  });
+
+  it('gives distinct replay identity to different bounded custom values', () => {
+    const first = normalizeAnalysisPacketWithCustomOutput(customInput);
+    const second = normalizeAnalysisPacketWithCustomOutput({
+      ...customInput,
+      customOutput: { headline: 'Cost pressure easing', score: 3, tier: 'silver' },
+    });
+
+    expect(first.packet).toEqual(second.packet);
+    expect(first.packetHash).not.toBe(second.packetHash);
+  });
+
+  it('keeps the fixed packet hash material stable when no custom output is present', () => {
+    const fixed = normalizeAnalysisPacketWithCustomOutput({
+      ...baseInput,
+      citations: [{ ...baseInput.citations[0], contentHash: sourceContentHash }],
+    });
+
+    expect(fixed.customOutput).toBeUndefined();
+    expect(fixed.packetHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(fixed.packetHash).toBe(
+      createHash('sha256').update(JSON.stringify({ packet: fixed.packet, customOutput: undefined })).digest('hex'),
+    );
+  });
+
+  it('locks the fixed packet hash byte-for-byte when no custom output is present', () => {
+    const fixed = normalizeAnalysisPacketWithCustomOutput({
+      ...baseInput,
+      citations: [{ ...baseInput.citations[0], contentHash: sourceContentHash }],
+    });
+
+    // Byte-level compatibility lock: any change to the fixed packet shape,
+    // finding identity, source normalization, or hash material breaks this.
+    expect(fixed.packetHash).toBe('fb831e7d85d7c472a08ff48b3099c7b63af3b53a4aecd1ff3c36bf8a9276879f');
+  });
+
+  it.each([
+    ['findings', { findings: [{ findingId: 'finding-1', signalId: 7, status: 'strong', confidence: 'high', claim: 'x' }] }],
+    ['evidence', { evidence: [{ url: 'https://example.com', title: 'x', snippet: 'y' }] }],
+    ['citations', { citations: [{ findingId: 'finding-1', url: 'https://example.com', contentHash: 'a'.repeat(64), locator: 'x', supportRole: 'primary' }] }],
+    ['review state', { review: { status: 'approved', reviewer: 'model' } }],
+    ['candidates', { candidates: [{ name: 'Acme' }] }],
+    ['narrative', { narrative: 'model-authored narrative' }],
+    ['sources', { sources: [{ sourceId: 'source-1' }] }],
+    ['links', { links: [{ findingId: 'finding-1', sourceId: 'source-1' }] }],
+    ['audit', { audit: { attempt: 1 } }],
+    ['packet fields', { packet: { schemaVersion: 1 } }],
+  ] as const)('rejects a custom value that tries to supply %s', (_label, reserved) => {
+    const candidate = {
+      ...customInput,
+      customOutput: { headline: 'Cost pressure rising', score: 7, tier: 'gold', ...reserved },
+    };
+
+    expect(() => normalizeAnalysisPacket(candidate)).toThrow();
+    try {
+      normalizeAnalysisPacket(candidate);
+    } catch (error) {
+      expect(error).toMatchObject({ reason: 'invalid_packet' });
+    }
   });
 });

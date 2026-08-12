@@ -53,6 +53,7 @@ vi.mock('firecrawl', () => ({ Firecrawl: vi.fn() }));
 // '@/lib/models/catalog.json' JSON import is a different specifier and loads
 // the real static file (harmless).
 vi.mock('@/lib/models/catalog', () => ({
+  catalogJson: { providers: {} },
   getProviderForModelId: mocks.getProviderForModelId,
   SERVABLE_PROVIDERS: ['anthropic', 'openrouter', 'nousresearch', 'opencode'],
 }));

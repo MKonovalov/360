@@ -14,9 +14,8 @@ import { defaultChain } from './modelFactory';
 // D-20-07: provider identity for the hop decision is catalog-derived — static,
 // env-free imports (modelConfig.ts Pattern 2); constraint 11 untouched, the
 // catalog is NOT a provider SDK.
-import { getProviderForModelId } from '@/lib/models/catalog';
+import { catalogJson, getProviderForModelId } from '@/lib/models/catalog';
 import type { ModelProviderId } from '@/lib/models/catalog';
-import catalogJson from '@/lib/models/catalog.json';
 import type { ModelRef } from '@/lib/models/modelRef';
 
 export interface RunAgentInput {
