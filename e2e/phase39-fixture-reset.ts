@@ -72,9 +72,12 @@ export async function resetFixtures(): Promise<FixtureIds> {
   const [companySignal] = priorCompanySignals.length > 0 ? priorCompanySignals : await sql`INSERT INTO company_signal (practice_area_id, name, category, description, status, created_by, updated_by)
     VALUES (${practiceAreaId}, 'Phase 39 cost pressure', 'Financial', 'Disposable company checklist signal', 'active', ${FIXTURE_ACTOR}, ${FIXTURE_ACTOR})
     RETURNING id`;
+  const priorBuyerRoles = await sql`SELECT id FROM buyer_role WHERE name = 'Phase 39 CFO'`;
+  const [buyerRole] = priorBuyerRoles.length > 0 ? priorBuyerRoles : await sql`INSERT INTO buyer_role (name, description, created_by, updated_by)
+    VALUES ('Phase 39 CFO', 'Disposable buyer role', ${FIXTURE_ACTOR}, ${FIXTURE_ACTOR}) RETURNING id`;
   const priorPersonaSignals = await sql`SELECT id FROM persona_signal WHERE practice_area_id = ${practiceAreaId} AND name = 'Phase 39 persona pressure'`;
-  const [personaSignal] = priorPersonaSignals.length > 0 ? priorPersonaSignals : await sql`INSERT INTO persona_signal (practice_area_id, name, category, description, status, created_by, updated_by)
-    VALUES (${practiceAreaId}, 'Phase 39 persona pressure', 'Financial', 'Disposable persona checklist signal', 'active', ${FIXTURE_ACTOR}, ${FIXTURE_ACTOR})
+  const [personaSignal] = priorPersonaSignals.length > 0 ? priorPersonaSignals : await sql`INSERT INTO persona_signal (practice_area_id, buyer_role_id, name, category, description, status, created_by, updated_by)
+    VALUES (${practiceAreaId}, ${buyerRole?.id}, 'Phase 39 persona pressure', 'Financial', 'Disposable persona checklist signal', 'active', ${FIXTURE_ACTOR}, ${FIXTURE_ACTOR})
     RETURNING id`;
   return {
     companyId: positiveId(company?.id, 'companyId'),
