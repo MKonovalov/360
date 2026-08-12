@@ -30,13 +30,13 @@ Added guarded real-app Playwright coverage for the `/agents` custom-agent lifecy
 ### Task 1 — `/agents` lifecycle journey
 
 - **Implementation:** `e2e/phase39-security-review.spec.ts`
-- **Evidence:** BLOCKED. Canonical preflight and the actual `PHASE39_FIXTURE_ONLY=1` reset passed. The lifecycle invocation reached the authenticated browser, closed the create dialog with the exact accessible `Close` button, located the created card, and then timed out filling the Edit dialog Description textbox.
-- **Playwright result:** BLOCKED (browser started; lifecycle assertion failed at `e2e/phase39-security-review.spec.ts:109`).
+- **Evidence:** BLOCKED. Canonical preflight and the actual `PHASE39_FIXTURE_ONLY=1` reset passed. The lifecycle invocation reached the authenticated browser, closed the create dialog with the exact accessible `Close` button, located the created card, opened the Sheet with its stable exact accessible name `Edit custom agent`, and then failed waiting for the post-save card to show `Current version 2`.
+- **Playwright result:** BLOCKED (browser started; lifecycle assertion failed at `e2e/phase39-security-review.spec.ts:111`).
 
 ### Task 2 — Company/Persona durable review journeys
 
 - **Implementation:** `e2e/phase39-security-review.spec.ts`
-- **Evidence:** BLOCKED / NOT-RUN. Canonical preflight and the actual `PHASE39_FIXTURE_ONLY=1` reset passed. The Company invocation ran after the lifecycle attempt but could not locate the retired custom agent in the launcher; the Persona invocation was not run because the serial lane stopped on the Company failure.
+- **Evidence:** BLOCKED / NOT-RUN. Canonical preflight and the actual `PHASE39_FIXTURE_ONLY=1` reset passed. The Company invocation could not locate the custom-agent option in the launcher; the Persona invocation was not run because the serial lane stopped on the Company failure.
 - **Playwright result:** BLOCKED Company (browser started; custom-agent option assertion timed out at `e2e/phase39-security-review.spec.ts:67`); NOT-RUN Persona.
 
 ## Verification Evidence
@@ -52,7 +52,7 @@ The required sequence was preserved for each task:
 ## Blocked Evidence
 
 ```text
-BLOCKED lifecycle_assertion edit_description_textbox line=109 browser_started
+BLOCKED lifecycle_assertion post_save_version_2 line=111 browser_started
 BLOCKED company_assertion custom_agent_option line=67 browser_started
 NOT-RUN persona_serial_dependency company_invocation_failed
 ```
@@ -67,7 +67,7 @@ None.
 
 ### Blockers
 
-1. **Lifecycle assertion blocked:** After the modal-close fix, the browser created the disposable custom agent, closed the still-open create dialog, rendered its card, opened the edit dialog, and timed out locating its Description textbox.
+1. **Lifecycle assertion blocked:** After the locator fix, the browser created the disposable custom agent, closed the still-open create dialog, rendered its card, opened the exact `Edit custom agent` Sheet, saved the new version, and then timed out waiting for the card's `Current version 2` update.
 2. **Company journey blocked:** The separate guarded invocation could not locate the custom-agent option because the preceding lifecycle attempt did not reactivate the agent.
 3. **Persona journey not run:** The Playwright suite is serial and stopped after the Company assertion failure.
 
