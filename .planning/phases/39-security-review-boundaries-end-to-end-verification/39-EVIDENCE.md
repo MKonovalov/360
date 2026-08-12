@@ -4,7 +4,7 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 
 ## Final Disposition
 
-**BLOCKED:** deterministic/unit, artifact, build, disposable database preflight, schema checks, migration validation, and Workflow evidence passed. Authenticated browser journeys remain blocked by UI assertions; E2E-01 therefore cannot be signed off as complete.
+**BLOCKED:** deterministic/unit, artifact, build, disposable database preflight, schema checks, migration validation, and Workflow evidence passed. The guarded browser lane still has a lifecycle Edit-dialog assertion failure; Company is blocked by the resulting retired-agent state and Persona is not run in the serial lane. E2E-01 therefore cannot be signed off as complete.
 
 ## Prior Summary Readability
 
@@ -25,7 +25,8 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 | `npm run db:check` | PASS | Canonical preflight immediately preceded the command; Drizzle reported `Everything's fine`. |
 | `npm run db:validate` | PASS | Canonical preflight immediately preceded the command; 4 journaled migrations and documented baseline exceptions validated. |
 | `npm run test:workflow` | PASS | Canonical preflight immediately preceded the command; 2 files and 14 tests passed. |
-| `npm run e2e -- e2e/phase39-security-review.spec.ts` | BLOCKED | Canonical preflight and fixture reset passed; Clerk setup passed, but `/agents` timed out locating `Edit custom agent`, so Company/Persona tests were not run. |
+| `npm run e2e -- e2e/phase39-security-review.spec.ts -g '/agents lifecycle'` | BLOCKED | Canonical preflight and fixture reset passed; Clerk setup passed; the create dialog was closed with the exact accessible Close button and the created card was found, but the Edit dialog Description textbox timed out. |
+| `npm run e2e -- e2e/phase39-security-review.spec.ts -g 'Company/Persona'` | BLOCKED | Canonical preflight and fixture reset passed; Company started but the retired custom-agent option was unavailable after the blocked lifecycle; serial execution therefore left Persona NOT-RUN. |
 | Optional live provider status | NOT-RUN | Non-gating provider smoke was not invoked. |
 
 ## Requirement and Decision Traceability

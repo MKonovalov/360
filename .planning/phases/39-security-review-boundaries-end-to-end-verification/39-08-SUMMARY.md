@@ -47,7 +47,7 @@ Final Phase 39 evidence ledger, scope canaries, requirement/decision traceabilit
 - **PASS** `npx tsc --noEmit --pretty false`.
 - **BLOCKED** Phase 38 cumulative audit reports the existing `normalizeAnalysisPacketWithQuarantine` packet-path canary; no Phase 38 code was changed.
 - **PASS** canonical preflight, DB check, DB migration validation, and Workflow lane.
-- **BLOCKED/NOT-RUN** authenticated browser evidence: Clerk setup passed, but `/agents` timed out locating `Edit custom agent`; Company/Persona journeys did not run.
+- **BLOCKED** authenticated browser evidence: Clerk setup passed; `/agents` closed the create dialog and found the created card, then timed out filling the Edit dialog Description textbox. A separate Company invocation was blocked because the retired custom-agent option was unavailable; Persona was NOT-RUN by serial dependency.
 - **NOT-RUN** optional live provider smoke; non-gating.
 
 ## Requirement Disposition
