@@ -17,6 +17,13 @@ const baseURL = e2eBaseUrl ?? 'http://localhost:3000';
 const isDeployedTarget = e2eBaseUrl ? new URL(e2eBaseUrl).hostname !== 'localhost' : false;
 const isPhase36FixtureRun = process.env.PHASE36_FIXTURE_ONLY === '1';
 const isPhase39FixtureRun = process.env.PHASE39_FIXTURE_ONLY === '1';
+const phase39FixtureIds = {
+  ...(process.env.PHASE39_COMPANY_ID ? { PHASE39_COMPANY_ID: process.env.PHASE39_COMPANY_ID } : {}),
+  ...(process.env.PHASE39_PERSONA_ID ? { PHASE39_PERSONA_ID: process.env.PHASE39_PERSONA_ID } : {}),
+  ...(process.env.PHASE39_PRACTICE_AREA_ID
+    ? { PHASE39_PRACTICE_AREA_ID: process.env.PHASE39_PRACTICE_AREA_ID }
+    : {}),
+};
 const localDatabaseUrl = process.env.TEST_DATABASE_URL
   ? (() => {
       const url = new URL(process.env.TEST_DATABASE_URL);
@@ -66,6 +73,7 @@ export default defineConfig({
                   DATABASE_URL: localDatabaseUrl,
                   TEST_DATABASE_URL: localApplicationDatabaseUrl ?? localDatabaseUrl,
                   ...(isPhase39FixtureRun ? { PHASE39_FIXTURE_ONLY: '1' } : {}),
+                  ...(isPhase39FixtureRun ? phase39FixtureIds : {}),
                 },
               }
             : {}),

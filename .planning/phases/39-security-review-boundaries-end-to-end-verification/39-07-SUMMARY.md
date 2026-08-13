@@ -91,3 +91,11 @@ The plan task is marked `tdd=true`, but this plan adds only Playwright coverage 
 - `e2e/phase39-security-review.spec.ts` exists.
 - The summary records both task outcomes and the exact preflight/reset/Playwright evidence.
 - No `STATE.md` or `ROADMAP.md` changes were made.
+
+## Environment Fix Follow-up
+
+- **Fix:** Added the existing guarded Phase 39 runner `e2e/phase39-runner.ts`. It performs the canonical preflight, reset, canonical preflight immediately before each Playwright lane, parses only the reset-returned fixture IDs, and injects those IDs into the child Playwright process and its project-owned dev server environment. No credentials or reset payload are printed.
+- **Config:** `playwright.config.ts` forwards `PHASE39_COMPANY_ID`, `PHASE39_PERSONA_ID`, and `PHASE39_PRACTICE_AREA_ID` into the Phase 39 web-server environment without changing prerequisites, request guards, count guards, in-process marker injection, or deterministic executor behavior.
+- **Authenticated Chromium:** PASS — lifecycle `3 passed (29.5s)`; Company lane `1 passed` within `4 passed (33.2s)`; Persona lane `1 passed` within `4 passed (33.2s)`. Each lane used a fresh project-owned dev server and real Clerk storage state.
+- **Reset rerun:** BLOCKED after the prior successful reset evidence because the disposable database rejected cleanup with `analysis_run_review_event is append-only`; no migration or production behavior was changed for this environment-only fix.
+- **Focused integration tests:** NOT-RUN — repository integration files are excluded by the default Vitest configuration and no alternate command was invented.
