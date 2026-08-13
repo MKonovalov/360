@@ -4,7 +4,7 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 
 ## Final Disposition
 
-**PASS WITH QUALIFICATIONS:** The append-only reset blocker is fixed narrowly: review-event history is never deleted, event-bearing runs/results/reviews remain preserved, and cleanable runs are selected with a run-scoped `NOT EXISTS`. The guarded lifecycle, Company, and Persona Chromium lanes pass. Review integration remains limited by the existing Vitest config's intentional integration exclusion; no lock semantics, candidate joins, or broad SQL were changed.
+**PASS WITH QUALIFICATIONS:** The append-only reset blocker is fixed narrowly: review-event history is never deleted, event-bearing runs/results/reviews remain preserved, and cleanable runs are selected with a run-scoped `NOT EXISTS`. The guarded lifecycle, Company, and Persona Chromium lanes pass. Review integration remains limited by the existing Vitest config's intentional integration exclusion, and the Phase 38 cumulative audit remains a separate historical blocker.
 
 ## Prior Summary Readability
 
@@ -44,12 +44,12 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 | SAFE-02 | PASS | 39-03/39-04 summaries: append-only review events, server-owned actor, replay and stale-conflict contracts. DB integration remains blocked. |
 | SAFE-03 | PASS | 39-05 summary: confirmed-only effective projection and discriminator-safe provenance contracts. DB integration remains blocked. |
 | UX-02 | PASS | 39-05/39-06 summaries: target compatibility, fixed templates, bounded fixtures, lifecycle contracts. |
-| UX-03 | BLOCKED | 39-07 authenticated Company/Persona reload/source journey was not run to browser assertions. |
-| E2E-01 | BLOCKED | Lifecycle browser lane now passes, but the required Company/Persona authenticated journeys remain blocked/not-run from the prior serial lane and were not reclassified by this scoped rerun. |
+| UX-03 | PASS | Final guarded lifecycle, Company, and Persona reload/source journeys passed; review integration remains not-run under the existing Vitest exclusion. |
+| E2E-01 | PASS | Final guarded lifecycle, Company, and Persona authenticated journeys passed; the Phase 38 cumulative audit remains separately blocked. |
 | D-39-01..D-39-04 | PASS | 39-01/39-02 boundary contracts and adversarial tests. |
 | D-39-05..D-39-08 | PASS | 39-03/39-04 append-only correction and effective projection contracts; DB lane remains blocked. |
 | D-39-09..D-39-11 | PASS | 39-05 candidate aggregation/provenance contracts; DB lane remains blocked. |
-| D-39-12..D-39-15 | BLOCKED | 39-06/39-07 fixtures and E2E implementation exist, but authenticated browser execution is not evidenced as PASS. |
+| D-39-12..D-39-15 | PASS | 39-06/39-07 fixtures and final guarded authenticated browser execution pass; reset is append-only-safe and candidate assertions are subject-scoped. |
 
 ## Exclusions and Scope Canaries
 
@@ -62,7 +62,7 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 - **PASS:** `/agents` lifecycle browser lane completed with no forbidden-request assertion failures; browser exclusions for the follow-on Company/Persona journeys remain status-qualified below.
 - **PASS:** Fixture reset recreated exactly two active custom rows keyed by `phase39-fixture-company` and `phase39-fixture-persona`, with target types, kind `custom`, version `1`, bounded standard-effort fields, and exact stable names/descriptions. Repeating reset returned the same fixture IDs and did not touch unrelated custom agents.
 - **PASS:** Fixture reset recreates one active Phase 39 offering and one company `signal_offering_link` scoped to the fixture practice area/signal, enabling the existing confirmed-candidate join without weakening it.
-- **BLOCKED:** Fresh-server authenticated lifecycle rerun did not receive fixture IDs in the Playwright environment; no browser pass was claimed.
+- **PASS:** Fresh-server authenticated lifecycle, Company, and Persona reruns received the reset fixture IDs and passed with real Clerk/Chromium execution.
 
 ## Commands and Boundary Notes
 
