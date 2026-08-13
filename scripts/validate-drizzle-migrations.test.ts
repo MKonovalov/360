@@ -5,6 +5,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import migrationArchive from '../drizzle/migration-archive.json';
+import migrationJournal from '../drizzle/meta/_journal.json';
 import { validateMigrationArtifacts } from './validate-drizzle-migrations';
 
 function createMigrationFixture(): string {
@@ -51,6 +53,27 @@ function createMigrationFixture(): string {
 }
 
 describe('validateMigrationArtifacts', () => {
+  it('keeps failed 0002 archived and 0008 active', () => {
+    const result = validateMigrationArtifacts(process.cwd());
+    const failed0002 = migrationArchive.failed.find(
+      (entry) => entry.sourceTag === '0002_phase33_34_correction',
+    );
+    const active0008 = migrationJournal.entries.find(
+      (entry) => entry.tag === '0008_phase33_34_packet_review_forward_repair',
+    );
+
+    expect(result.errors).toEqual([]);
+    expect(failed0002).toMatchObject({
+      sqlPath: 'drizzle/archive/0002_phase33_34_correction.failed.sql',
+      snapshotPath: 'drizzle/archive/0002_snapshot.failed.json',
+      status: 'failed-not-applied',
+    });
+    expect(active0008).toMatchObject({
+      idx: 2,
+      tag: '0008_phase33_34_packet_review_forward_repair',
+    });
+  });
+
   it('accepts the documented out-of-band baseline exception', () => {
     const rootDir = createMigrationFixture();
 

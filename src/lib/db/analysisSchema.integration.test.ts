@@ -3,6 +3,9 @@ import { readFile } from 'node:fs/promises';
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import migrationArchive from '../../../drizzle/migration-archive.json';
+import migrationJournal from '../../../drizzle/meta/_journal.json';
+
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 const fixtureKey = `phase32-schema-${randomUUID()}`;
 const fixtureShortCode = `P32${randomUUID().slice(0, 8)}`;
@@ -70,24 +73,36 @@ describe('Phase 32 migration artifact', () => {
   });
 });
 
-describe('Phase 33/34 correction migration artifact', () => {
-  it('contains the generated polymorphic signal corrections and catalogue identity index', async () => {
+describe('Phase 33/34 migration artifacts', () => {
+  it('keeps failed 0002 archived and 0008 active', async () => {
     // Given
-    const migrationUrl = new URL('../../../drizzle/0002_phase33_34_correction.sql', import.meta.url);
+    const archivedMigrationUrl = new URL('../../../drizzle/archive/0002_phase33_34_correction.failed.sql', import.meta.url);
+    const activeMigrationUrl = new URL('../../../drizzle/0008_phase33_34_packet_review_forward_repair.sql', import.meta.url);
 
     // When
-    const migration = await readFile(migrationUrl, 'utf8');
+    const archivedMigration = await readFile(archivedMigrationUrl, 'utf8');
+    const activeMigration = await readFile(activeMigrationUrl, 'utf8');
+    const archivedEntry = migrationArchive.failed.find(
+      (entry) => entry.sourceTag === '0002_phase33_34_correction',
+    );
+    const activeEntry = migrationJournal.entries.find(
+      (entry) => entry.tag === '0008_phase33_34_packet_review_forward_repair',
+    );
 
     // Then
-    expect(migration).toContain('ALTER TABLE "signal" ADD COLUMN "signal_id" integer;');
-    expect(migration).toContain('ALTER TABLE "signal" ADD COLUMN "signal_record_type" "record_type";');
-    expect(migration).toContain('ALTER TABLE "signal_proposal" ADD COLUMN "signal_id" integer;');
-    expect(migration).toContain('ALTER TABLE "signal_proposal" ADD COLUMN "signal_record_type" "record_type";');
-    expect(migration).toContain('ALTER TABLE "signal_proposal" ADD COLUMN "demonstrated" boolean DEFAULT true NOT NULL;');
-    expect(migration).toContain('CREATE UNIQUE INDEX "signal_company_signal_id_idx"');
-    expect(migration).toContain('WHERE "signal"."signal_id" IS NOT NULL');
-    expect(migration).toContain('CREATE UNIQUE INDEX "signal_company_type_idx"');
-    expect(migration).toContain('WHERE "signal"."signal_type" IS NOT NULL');
+    expect(archivedEntry).toMatchObject({
+      sqlPath: 'drizzle/archive/0002_phase33_34_correction.failed.sql',
+      snapshotPath: 'drizzle/archive/0002_snapshot.failed.json',
+      status: 'failed-not-applied',
+    });
+    expect(archivedMigration).toContain('ALTER TABLE "signal" ADD COLUMN "signal_id" integer;');
+    expect(activeEntry).toMatchObject({
+      idx: 2,
+      tag: '0008_phase33_34_packet_review_forward_repair',
+    });
+    expect(activeMigration).toContain('CREATE TABLE "analysis_run_result"');
+    expect(activeMigration).toContain('CREATE TABLE "analysis_run_review"');
+    expect(activeMigration).not.toMatch(/\b(?:DROP|TRUNCATE|DELETE|UPDATE|INSERT)\b/i);
   });
 });
 

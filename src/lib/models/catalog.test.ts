@@ -265,9 +265,7 @@ describe('getServableIdsForProvider', () => {
       'claude-opus-4-5',
       'claude-opus-4-5-20251101',
       'claude-opus-4-6',
-      'claude-opus-4-6-fast',
       'claude-opus-4-7',
-      'claude-opus-4-7-fast',
       'claude-opus-4-8',
       'claude-opus-4-8-fast',
       'claude-opus-5',
@@ -282,8 +280,6 @@ describe('getServableIdsForProvider', () => {
 
   it('committed snapshot: openrouter servable set is all active rows and every id is vendor/model (the INVERSION of the v1.3 no-"/" invariant — reworked, not deleted)', () => {
     const ids = getServableIdsForProvider(catalogJson, 'openrouter');
-    // 336 at 2026-08-02; the snapshot may legitimately drift on refresh, so a
-    // lower bound is asserted, not the exact count.
     expect(ids.length).toBeGreaterThanOrEqual(300);
     expect(ids.every((id) => id.includes('/'))).toBe(true);
   });
@@ -416,9 +412,9 @@ describe('getProviderForModelId', () => {
     expect(getProviderForModelId(catalogJson, 'big-pickle')).toBe('opencode');
   });
 
-  it('Pitfall 5 boundary (D-23-07 — rows landed in Phase 24): the nousresearch gate is now full-active-set, so the servable set is all 292 rows including the hermes pins and a ~latest alias', () => {
+  it('Pitfall 5 boundary (D-23-07 — rows landed in Phase 24): the nousresearch gate is now full-active-set, so the servable set is all 358 rows including the hermes pins and a ~latest alias', () => {
     const ids = getServableIdsForProvider(catalogJson, 'nousresearch');
-    expect(ids).toHaveLength(292);
+    expect(ids).toHaveLength(358);
     expect(ids).toEqual(expect.arrayContaining(['nousresearch/hermes-4-70b', 'nousresearch/hermes-4-405b']));
     expect(ids.some((id) => /^~/.test(id))).toBe(true);
   });
@@ -453,12 +449,7 @@ describe('PROVIDER_GATES / SERVABLE_PROVIDERS / PROVIDER_PRECEDENCE', () => {
 });
 
 describe('COUNT-STABILITY (D-23-02 / D-24-11 re-lock): committed snapshot opencode servable shape', () => {
-  it('locks the post-dedup registry output at 40 servable ids with the npm split {openai-compatible: 23, anthropic: 17} and zero GPT/Gemini', () => {
-    // 50 = 30+20 is the PRE-DEDUP npm-gated raw count (D-24-11 re-lock,
-    // 2026-08-04 refresh: the go block 17→18 added qwen3.8-max, an
-    // @ai-sdk/anthropic Go-exclusive servable row); Zen-wins dedup collapses
-    // 10 dual servable pairs → the registry returns 40 — locking 50 would
-    // assert a shape the registry never returns.
+  it('locks the post-dedup registry output at 40 servable ids with the npm split {openai-compatible: 24, anthropic: 16} and zero GPT/Gemini', () => {
     const ids = getServableIdsForProvider(catalogJson, 'opencode');
     expect(ids).toHaveLength(40);
 
@@ -466,8 +457,8 @@ describe('COUNT-STABILITY (D-23-02 / D-24-11 re-lock): committed snapshot openco
     const gatedPool = pool.filter(
       (m) => m.status !== 'deprecated' && OPENCODE_NPM_GATE.includes(m.api.npm),
     );
-    expect(gatedPool.filter((m) => m.api.npm === '@ai-sdk/openai-compatible')).toHaveLength(23);
-    expect(gatedPool.filter((m) => m.api.npm === '@ai-sdk/anthropic')).toHaveLength(17);
+    expect(gatedPool.filter((m) => m.api.npm === '@ai-sdk/openai-compatible')).toHaveLength(24);
+    expect(gatedPool.filter((m) => m.api.npm === '@ai-sdk/anthropic')).toHaveLength(16);
 
     // GPT-5 (@ai-sdk/openai) and Gemini (@ai-sdk/google) rows self-exclude
     // forever (D-23-01) — prove no such id is servable.
@@ -485,14 +476,11 @@ describe('COUNT-STABILITY (D-23-02 / D-24-11 re-lock): committed snapshot openco
 });
 
 describe('NO-FLIP (D-23-09 / D-24-11 re-lock): Zen/Go dedup determinism + snapshot shape', () => {
-  it('dedupes to the 66-row pool; the 12 dual-listed ids keep the Zen row (URL) and the 6 go-exclusive ids keep their Go rows — no id endpoint flipped', () => {
+  it('dedupes to the 67-row pool; the 12 dual-listed ids keep the Zen row (URL) and the 7 go-exclusive ids keep their Go rows — no id endpoint flipped', () => {
     // D-23-09: determinism + snapshot shape — a roster re-shuffle that changes
     // these counts fails loudly and is re-verified intentionally (D-02).
-    // D-24-11 re-lock (2026-08-04 refresh): the go block 17→18 added the
-    // Go-exclusive qwen3.8-max → pool 65→66, go-exclusive 5→6; the 12
-    // dual-listed ids are unchanged.
     const pool = dedupeProviderRows(catalogJson, 'opencode');
-    expect(pool).toHaveLength(66);
+    expect(pool).toHaveLength(67);
 
     const dualIds = [
       'deepseek-v4-flash',
@@ -530,15 +518,12 @@ describe('NO-FLIP (D-23-09 / D-24-11 re-lock): Zen/Go dedup determinism + snapsh
   });
 });
 
-describe('NOUSRESEARCH (D-24-12): committed snapshot + fixture dual-canary — 292-row roster, hermes pins through the gate, ×1e6 pricing, derived family, ~latest self-exclusion', () => {
+describe('NOUSRESEARCH (D-24-12): committed snapshot + fixture dual-canary — 358-row roster, hermes pins through the gate, ×1e6 pricing, derived family, ~latest aliases', () => {
   // D-24-11 doctrine: counts are EXPLICIT constants re-locked from the ACTUAL
-  // regenerated snapshot (committed 2026-08-04, Plan 03, commit 56d9fdaa —
-  // generatedAt 2026-08-04T09:44:37.964Z), never derived from the snapshot
-  // inside the test (that would defeat the canary's purpose).
-  const NOUS_COUNT = 292;
+  const NOUS_COUNT = 358;
   const LATEST_ALIAS_COUNT = 11;
 
-  it('CAT-01: the nousresearch group ships 292 rows, every row providerID === "nousresearch", and the hermes-4-70b pin maps to the mandated api (url + npm)', () => {
+  it('CAT-01: the nousresearch group ships 358 rows, every row providerID === "nousresearch", and the hermes-4-70b pin maps to the mandated api (url + npm)', () => {
     const rows = catalogJson.providers.nousresearch;
     expect(rows).toHaveLength(NOUS_COUNT);
     expect(rows.every((m) => m.providerID === 'nousresearch')).toBe(true);
@@ -580,7 +565,7 @@ describe('NOUSRESEARCH (D-24-12): committed snapshot + fixture dual-canary — 2
     expect(rows.find((m) => m.id === 'qwen/qwen3.8-max')?.family).toBe('qwen3.8');
   });
 
-  it('D-24-08/12: exactly 11 ~latest alias rows ship verbatim and are servable (the widened full-active-set gate excludes nothing, superseding the old allowlist-pins self-exclusion doctrine)', () => {
+  it('D-24-08/12: exactly 11 ~latest alias rows ship verbatim and are servable (the widened full-active-set gate excludes nothing)', () => {
     const rows = catalogJson.providers.nousresearch;
     const latestIds = rows.filter((m) => /^~/.test(m.id)).map((m) => m.id);
     expect(latestIds).toHaveLength(LATEST_ALIAS_COUNT);

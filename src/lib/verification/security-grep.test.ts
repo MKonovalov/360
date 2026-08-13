@@ -18,12 +18,6 @@ const TOKENS = ['OPENROUTER', 'NOUSRESEARCH', 'OPENCODE'] as const;
 // directly, analyzeCompany.ts's missingProviderKey names all 3 keys, env.ts
 // declares all 3 in its zod schema).
 const ALLOWED = new Set(['lib/env.ts', 'lib/agents/modelFactory.ts', 'lib/agents/analyzeCompany.ts']);
-// Server Components are NOT client-reachable (no 'use client', server-only env) — same safety
-// class as ALLOWED. company-detail.tsx reads env.OPENROUTER_API_KEY in the FAL-04 canAnalyze gate.
-// It genuinely does NOT mention NOUSRESEARCH/OPENCODE — this exemption stays scoped to
-// OPENROUTER_API_KEY only (no false canary requirement for tokens the file doesn't contain).
-const SERVER_COMPONENT = new Set(['components/companies/company-detail.tsx']);
-
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((e) => {
     const p = join(dir, e);
@@ -41,7 +35,7 @@ describe('VER-04 security-matrix grep (D-22-07, widened D-27-13)', () => {
       // assertions, so the isClient scan below would misclassify it as a client and fail. Excluding it
       // here costs nothing: every REAL client file (a genuine "'use client'" component or a
       // src/components file) is still scanned for all 3 tokens.
-      if (rel === 'lib/verification/security-grep.test.ts' || SERVER_COMPONENT.has(rel)) continue;
+      if (rel === 'lib/verification/security-grep.test.ts') continue;
       const src = readFileSync(join(SRC, rel), 'utf8');
       const isClient = src.includes("'use client'") || rel.startsWith('components/');
       if (isClient) {
@@ -85,17 +79,4 @@ describe('VER-04 security-matrix grep (D-22-07, widened D-27-13)', () => {
     }
   });
 
-  it('canary: SERVER_COMPONENT entries are genuine server components carrying the OPENROUTER token (exemption not vacuous)', () => {
-    // Same Pitfall 6 reasoning: the SERVER_COMPONENT exemption must only ever cover real server
-    // components (no 'use client') that do mention OPENROUTER_API_KEY — if a refactor turns
-    // company-detail.tsx into a client component, this fails loudly instead of silently exempting it.
-    // Scoped to OPENROUTER only (unchanged, D-27-13): company-detail.tsx genuinely does not mention
-    // NOUSRESEARCH/OPENCODE, so widening this canary would add a false requirement and break a
-    // currently-correct test.
-    for (const rel of SERVER_COMPONENT) {
-      const src = readFileSync(join(SRC, rel), 'utf8');
-      expect(src, rel).not.toContain("'use client'");
-      expect(src, rel).toContain('OPENROUTER_API_KEY');
-    }
-  });
 });
