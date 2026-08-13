@@ -19,6 +19,11 @@ describeWithDatabase('analysis review boundary (reconcile, decide, list) against
   const versionIds: number[] = [];
   const templateIds: number[] = [];
   const practiceAreaIds: number[] = [];
+  const fixtureParentsByRunId = new Map<number, {
+    readonly versionId: number;
+    readonly templateId: number;
+    readonly practiceAreaId: number;
+  }>();
 
   const COMPLETED_AT = new Date('2026-08-08T09:00:00.000Z');
   const DECIDED_AT = new Date('2026-08-08T10:00:00.000Z');
@@ -97,9 +102,31 @@ describeWithDatabase('analysis review boundary (reconcile, decide, list) against
 
   afterAll(async () => {
     if (!dbModule || !schema) return;
+    const { inArray } = await import('drizzle-orm');
+
+    const immutableReviewRuns = runIds.length === 0
+      ? []
+      : await dbModule.db
+        .select({ analysisRunId: schema.analysisRunReviewEvent.analysisRunId })
+        .from(schema.analysisRunReviewEvent)
+        .where(inArray(schema.analysisRunReviewEvent.analysisRunId, runIds));
+    const immutableRunIds = new Set(immutableReviewRuns.map((row) => row.analysisRunId));
+    const disposableRunIds = runIds.filter((runId) => !immutableRunIds.has(runId));
+    const disposableVersionIds = new Set<number>();
+    const disposableTemplateIds = new Set<number>();
+    const disposablePracticeAreaIds = new Set<number>();
+    for (const runId of disposableRunIds) {
+      const parents = fixtureParentsByRunId.get(runId);
+      if (!parents) continue;
+      disposableVersionIds.add(parents.versionId);
+      disposableTemplateIds.add(parents.templateId);
+      disposablePracticeAreaIds.add(parents.practiceAreaId);
+    }
+
     // Delete in FK order: evidence, retention, findings, sources, review rows,
-    // results, events, runs, then the template/practice-area fixture parents.
-    for (const runId of runIds) {
+    // results, events, runs, then only the parents of disposable runs. Runs
+    // with immutable review events and their complete fixture subtrees remain.
+    for (const runId of disposableRunIds) {
       await dbModule.db.execute(
         drizzleSql`DELETE FROM analysis_finding_source WHERE result_id IN (SELECT id FROM analysis_run_result WHERE analysis_run_id = ${runId})`,
       );
@@ -117,13 +144,13 @@ describeWithDatabase('analysis review boundary (reconcile, decide, list) against
       await dbModule.db.execute(drizzleSql`DELETE FROM analysis_run_event WHERE analysis_run_id = ${runId}`);
       await dbModule.db.execute(drizzleSql`DELETE FROM analysis_run WHERE id = ${runId}`);
     }
-    for (const versionId of versionIds) {
+    for (const versionId of versionIds.filter((id) => disposableVersionIds.has(id))) {
       await dbModule.db.delete(schema.analysisTemplateVersion).where(eq(schema.analysisTemplateVersion.id, versionId));
     }
-    for (const templateId of templateIds) {
+    for (const templateId of templateIds.filter((id) => disposableTemplateIds.has(id))) {
       await dbModule.db.delete(schema.analysisTemplate).where(eq(schema.analysisTemplate.id, templateId));
     }
-    for (const practiceAreaId of practiceAreaIds) {
+    for (const practiceAreaId of practiceAreaIds.filter((id) => disposablePracticeAreaIds.has(id))) {
       await dbModule.db.delete(schema.practiceArea).where(eq(schema.practiceArea.id, practiceAreaId));
     }
   });
@@ -131,7 +158,11 @@ describeWithDatabase('analysis review boundary (reconcile, decide, list) against
   // Test-local fixture: practice area + template + version once per target
   // type, then every test creates its own run under that fixture (unique
   // subject id each). Mirrors the analysisResults integration fixture shape.
-  async function createRun(targetType: 'company' | 'persona', subjectId: number): Promise<number> {
+  async function createRun(
+    targetType: 'company' | 'persona',
+    subjectId: number,
+    includeSignal = false,
+  ): Promise<number> {
     const suffix = randomUUID().slice(0, 12);
     const [practiceArea] = await dbModule.db
       .insert(schema.practiceArea)
@@ -188,7 +219,9 @@ describeWithDatabase('analysis review boundary (reconcile, decide, list) against
         targetType,
         practiceAreaId: practiceArea.id,
         practiceAreaName: `Integration Review PA ${suffix}`,
-        items: [],
+       items: includeSignal
+         ? [{ signalId: subjectId, status: 'active' as const, name: `Signal ${subjectId}`, category: 'Financial', description: 'Integration fixture signal.' }]
+         : [],
       },
       resolvedModelChain: ['integration-model'],
     });
@@ -208,6 +241,11 @@ describeWithDatabase('analysis review boundary (reconcile, decide, list) against
     });
     if (!created.ok) throw new Error('integration fixture run was not created');
     runIds.push(created.run.id);
+    fixtureParentsByRunId.set(created.run.id, {
+      versionId: version.id,
+      templateId: template.id,
+      practiceAreaId: practiceArea.id,
+    });
     return created.run.id;
   }
 
@@ -306,7 +344,7 @@ describeWithDatabase('analysis review boundary (reconcile, decide, list) against
   // Rich company packet with one strong finding + source + persisted link so
   // packet-immutability evidence is non-trivial (row counts > 0 before/after).
   // Mirrors the confirmedCandidates fixture packet shape.
-  function richCompanyPacket(runId: number) {
+  function richCompanyPacket(runId: number, signalId: number) {
     const findingId = `f-immutable-${runId}`;
     const sourceId = `s-immutable-${runId}`;
     return {
@@ -317,7 +355,7 @@ describeWithDatabase('analysis review boundary (reconcile, decide, list) against
         {
           findingId,
           identity: {
-            signalId: runId,
+            signalId,
             signalName: `Signal ${runId}`,
             signalCategory: 'Financial',
             buyerRoleId: null,
@@ -360,11 +398,11 @@ describeWithDatabase('analysis review boundary (reconcile, decide, list) against
     };
   }
 
-  async function persistRichCompanyPacket(runId: number): Promise<void> {
+  async function persistRichCompanyPacket(runId: number, signalId: number): Promise<void> {
     const persisted = await resultQueries.persistAnalysisPacket({
       runId,
-      packet: richCompanyPacket(runId),
-      checklistSignalIds: [runId],
+      packet: richCompanyPacket(runId, signalId),
+      checklistSignalIds: [signalId],
     });
     if (!persisted.ok) throw new Error(`persistAnalysisPacket failed: ${JSON.stringify(persisted)}`);
   }
@@ -794,9 +832,9 @@ describeWithDatabase('analysis review boundary (reconcile, decide, list) against
   });
 
   it('leaves Phase 33 packet rows byte-for-byte unchanged across Confirm and Dismiss', async () => {
-    const confirmRun = await createRun('company', 910010);
+     const confirmRun = await createRun('company', 910010, true);
     await completeRun(confirmRun);
-    await persistRichCompanyPacket(confirmRun);
+    await persistRichCompanyPacket(confirmRun, 910010);
     await reviewQueries.reconcileCompletedRunForReview({ runId: confirmRun });
 
     const countsBefore = {
@@ -822,9 +860,9 @@ describeWithDatabase('analysis review boundary (reconcile, decide, list) against
       links: await countEvidenceRows(confirmRun, 'analysis_finding_source'),
     }).toEqual(countsBefore);
 
-    const dismissRun = await createRun('company', 910011);
+     const dismissRun = await createRun('company', 910011, true);
     await completeRun(dismissRun);
-    await persistRichCompanyPacket(dismissRun);
+    await persistRichCompanyPacket(dismissRun, 910011);
     await reviewQueries.reconcileCompletedRunForReview({ runId: dismissRun });
 
     const dismissSnapshotBefore = await snapshotPacketRows(dismissRun);
@@ -846,11 +884,15 @@ describeWithDatabase('analysis review boundary (reconcile, decide, list) against
       await completeRun(runId);
       if (targetType === 'company') await persistCompanyPacket(runId);
       else await persistPersonaPacket(runId, COMPLETED_AT);
-      await reviewQueries.reconcileCompletedRunForReview({ runId });
+      await reviewQueries.reconcileCompletedRunForReview(
+        { runId },
+        targetType === 'persona' ? { now: new Date(COMPLETED_AT.getTime() + 1_000) } : undefined,
+      );
 
-      const outcomes = await Promise.all([
-        reviewQueries.decideAnalysisRun({ runId, decision: 'confirmed' }, `${targetType}_confirm`, { decidedAt: DECIDED_AT }),
-        reviewQueries.decideAnalysisRun({ runId, decision: 'dismissed' }, `${targetType}_dismiss`, { decidedAt: new Date(DECIDED_AT.getTime() + 1_000) }),
+       const raceStartedAt = targetType === 'persona' ? new Date(COMPLETED_AT.getTime() + 1_000) : DECIDED_AT;
+       const outcomes = await Promise.all([
+         reviewQueries.decideAnalysisRun({ runId, decision: 'confirmed' }, `${targetType}_confirm`, { decidedAt: raceStartedAt }),
+         reviewQueries.decideAnalysisRun({ runId, decision: 'dismissed' }, `${targetType}_dismiss`, { decidedAt: new Date(raceStartedAt.getTime() + 1_000) }),
       ]);
       const winners = outcomes.filter((outcome) => outcome.ok && !outcome.replayed);
       expect(winners).toHaveLength(1);
