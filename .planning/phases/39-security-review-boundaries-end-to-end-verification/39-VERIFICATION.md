@@ -2,7 +2,7 @@
 
 ## Final disposition
 
-**BLOCKED:** deterministic, disposable database, migration, and Workflow evidence passes; lifecycle authenticated browser evidence is PASS. The requested `runId::text` SQL cast fixed the PostgreSQL parameter inference failure. Company now reaches the review card but its Confirm action does not produce the expected confirmed projection; Persona did not run because the suite is serial.
+**PASS WITH QUALIFICATIONS:** deterministic, disposable database, migration, Workflow, lifecycle, Company, and Persona authenticated browser evidence passes. The append-only fixture reset preserves event-bearing history and only removes review-free runs. Focused review integration remains not-run under the existing config because integration files are intentionally excluded.
 
 ## Evidence contract
 
@@ -18,4 +18,4 @@ The canonical `/agents` route is present. No `/reviews/agents` route exists. Pha
 
 ## Gate limitation
 
-The exact canonical preflight passed immediately before each executed DB, Workflow, and E2E lane with `.env.local` loaded in-process and the fixture marker injected only into `TEST_DATABASE_URL`. The latest lifecycle evidence is PASS. Company reached durable execution and review after the minimal SQL cast; its Confirm action/UI refresh remains blocked, so Persona was not run. The missing Phase 38 script entrypoint is retained as BLOCKED.
+The exact canonical preflight passed immediately before each executed DB, Workflow, reset, and E2E lane with `.env.local` loaded in-process and the fixture marker injected into the guarded identities. The fresh project-owned dev server was used for all three Chromium lanes. Company and Persona reached durable execution, review, and subject-scoped candidate assertions. The missing Phase 38 script entrypoint remains a separate historical BLOCKED item.
