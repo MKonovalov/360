@@ -2,7 +2,7 @@
 phase: 39-security-review-boundaries-end-to-end-verification
 plan: 08
 subsystem: final-verification
-tags: [evidence, scope-audit, requirements, e2e, blocked]
+tags: [evidence, scope-audit, requirements, e2e, append-only]
 dependency_graph:
   requires: [39-01, 39-02, 39-03, 39-04, 39-05, 39-06, 39-07]
   provides: [phase39-exclusive-evidence-ledger, phase39-scope-requirement-audit]
@@ -18,17 +18,17 @@ key_files:
     - src/lib/verification/phase39ScopeAudit.test.ts
   modified: []
 decisions:
-  - Final disposition remains BLOCKED because the fixture lifecycle bug is fixed and lifecycle E2E passes, while Company review hits an unrelated pre-existing SQL parameter defect and the serial Persona lane is not run.
-  - Blocked and not-run evidence is never promoted to PASS; E2E-01 and UX-03 remain blocked.
+  - Final disposition is qualified PASS for the requested reset and guarded browser lanes: event-bearing review history is preserved and lifecycle, Company, and Persona Chromium journeys pass.
+  - Focused review integration remains NOT-RUN under the existing config because integration files are intentionally excluded; no alternate runner was invented.
   - STATE.md and ROADMAP.md remain untouched as explicitly required.
 metrics:
   duration: "~35m"
-  completed: 2026-08-12
+  completed: 2026-08-13
 ---
 
 # Phase 39 Plan 08: Final Evidence and Scope Audit Summary
 
-Final Phase 39 evidence ledger, scope canaries, requirement/decision traceability, and honest blocked-lane disposition.
+Final Phase 39 evidence ledger, scope canaries, requirement/decision traceability, and honest append-only reset/browser verification.
 
 ## Runtime Wiring Defect Follow-up
 
@@ -37,10 +37,10 @@ Final Phase 39 evidence ledger, scope canaries, requirement/decision traceabilit
 - **PASS:** Focused regression suite: 49 tests passed. LSP diagnostics, `tsc --noEmit`, and `npm run build` passed.
 - **PASS:** Dotenv-loaded preflight, fixture reset, and lifecycle Playwright lane: `3 passed`.
   - **PASS:** Fixture reset now recreates deterministic active Company/Persona custom-agent templates and version 1 rows; repeated reset is idempotent and scoped to matching Phase 39 rows.
-- **BLOCKED:** Company/Persona Playwright lane: Company reaches launch and review but fails on the unrelated `analysisReviews.ts` PostgreSQL `42P18` untyped `$1` defect; Persona does not run because the suite is serial.
+- **PASS:** Company/Persona Playwright lanes: both guarded Chromium journeys reach durable review and subject-scoped candidate assertions.
 - **PASS:** Phase 39 reset now seeds one disposable active offering and company signal link for confirmed-candidate projection; cleanup is fixture-scoped and idempotent.
 - **PASS:** First review correction SQL coalesces absent effective event/sequence to sentinel `0`; focused integration coverage asserts predecessor `0` and sequence `1` while existing stale-conflict coverage remains intact.
-- **BLOCKED:** Fresh-server lifecycle rerun stopped before the browser journey because reset IDs were not inherited as `PHASE39_COMPANY_ID`; no E2E pass was claimed.
+- **PASS:** Fresh project-owned dev-server lifecycle, Company, and Persona reruns inherited reset IDs and passed with canonical preflight immediately before reset and each Playwright command.
 
 ## Tasks Completed
 
@@ -101,7 +101,7 @@ None introduced. Blocked infrastructure lanes are evidence limitations, not stub
 
 ## Final Disposition
 
-**BLOCKED.** Phase 39 has a passing idempotent fixture reset and lifecycle E2E. E2E-01 remains blocked by the unrelated review SQL defect and the unrun serial Persona journey; no production filtering or E2E assertion was weakened.
+**PASS WITH QUALIFICATIONS.** Phase 39 has a passing append-only/idempotent fixture reset and lifecycle, Company, and Persona E2E lanes. Review integration remains not-run under its existing exclusion config; no production filtering or E2E assertion was weakened.
 
 ## Self-Check: PASSED
 
