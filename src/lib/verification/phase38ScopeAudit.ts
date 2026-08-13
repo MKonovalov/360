@@ -2,8 +2,6 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const root = process.cwd();
-
 // Phase 38 scans only its selected tracked implementation scope — the fixed/
 // custom execution-compatibility surface built across Plans 38-01..38-05.
 // Tests, planning history, and the audit script itself are intentionally
@@ -48,7 +46,12 @@ const requiredCanaries = {
     'reconcileCompletedRunForReview',
     'persistAnalysisPacket',
   ],
-  'src/lib/analysis/results.ts': ['normalizeAnalysisPacketWithCustomOutput', 'normalizeAnalysisPacket'],
+  'src/lib/analysis/results.ts': [
+    'normalizeAnalysisPacketInternal',
+    'normalizeAnalysisPacket',
+    'normalizeAnalysisPacketWithCustomOutput',
+    'normalizeAnalysisPacketWithQuarantine',
+  ],
   'src/lib/db/queries/analysisResults.ts': ['persistAnalysisPacket', 'prepareAnalysisPacket'],
   'src/lib/analysis/compatibility.ts': ['resolveAnalysisLaunch', 'analysisCompatibilityReasons'],
   'src/lib/analysis/customAgentContracts.ts': ['customAgentCreateSchema', 'customAgentVersionSchema'],
@@ -73,6 +76,7 @@ const allowedPacketFunctionNames = new Set([
   'normalizeAnalysisPacketInternal',
   'normalizeAnalysisPacket',
   'normalizeAnalysisPacketWithCustomOutput',
+  'normalizeAnalysisPacketWithQuarantine',
   'normalizeGroundedPacket',
   'persistGroundedPacket',
   'prepareAnalysisPacket',
@@ -92,7 +96,7 @@ function stripComments(source: string): string {
     .replace(/(^|\s)\/\/.*$/gm, '$1');
 }
 
-function isTracked(relativePath: string): boolean {
+function isTracked(root: string, relativePath: string): boolean {
   try {
     execFileSync('git', ['ls-files', '--error-unmatch', '--', relativePath], { cwd: root, stdio: 'ignore' });
     return true;
@@ -140,51 +144,59 @@ const forbiddenSurfaces = [
   { label: 'global subject uniqueness', pattern: /ON\s+CONFLICT\s*\(\s*subject_type\s*,\s*subject_id\s*\)/gi },
 ] as const;
 
-const findings: string[] = [];
-const scannedFiles: string[] = [];
+export function runPhase38ScopeAudit(root = process.cwd()) {
+  const findings: string[] = [];
+  const scannedFiles: string[] = [];
 
-for (const relativePath of phase38ImplementationFiles) {
-  const absolutePath = join(root, relativePath);
-  if (!existsSync(absolutePath)) {
-    findings.push(`${relativePath}: selected Phase 38 implementation file is missing`);
-    continue;
-  }
-  if (!isTracked(relativePath)) {
-    findings.push(`${relativePath}: selected scope file is not tracked`);
-    continue;
-  }
-
-  scannedFiles.push(relativePath);
-  const source = stripComments(readFileSync(absolutePath, 'utf8'));
-
-  for (const surface of forbiddenSurfaces) {
-    if (surface.pattern.test(source)) {
-      findings.push(`${relativePath}: forbidden ${surface.label}`);
+  for (const relativePath of phase38ImplementationFiles) {
+    const absolutePath = join(root, relativePath);
+    if (!existsSync(absolutePath)) {
+      findings.push(`${relativePath}: selected Phase 38 implementation file is missing`);
+      continue;
     }
-    surface.pattern.lastIndex = 0;
+
+    if (!isTracked(root, relativePath)) {
+      findings.push(`${relativePath}: selected scope file is not tracked`);
+      continue;
+    }
+
+    scannedFiles.push(relativePath);
+    const source = stripComments(readFileSync(absolutePath, 'utf8'));
+
+    for (const surface of forbiddenSurfaces) {
+      if (surface.pattern.test(source)) {
+        findings.push(`${relativePath}: forbidden ${surface.label}`);
+      }
+      surface.pattern.lastIndex = 0;
+    }
+
+    findings.push(...findSecondPacketFunctions(relativePath, source));
+    findings.push(...findSecondExecutorClasses(relativePath, source));
   }
 
-  findings.push(...findSecondPacketFunctions(relativePath, source));
-  findings.push(...findSecondExecutorClasses(relativePath, source));
-}
-
-for (const [relativePath, canaries] of Object.entries(requiredCanaries)) {
-  const source = readFileSync(join(root, relativePath), 'utf8');
-  for (const canary of canaries) {
-    if (!source.includes(canary)) findings.push(`${relativePath}: required canary missing: ${canary}`);
+  for (const [relativePath, canaries] of Object.entries(requiredCanaries)) {
+    const source = readFileSync(join(root, relativePath), 'utf8');
+    for (const canary of canaries) {
+      if (!source.includes(canary)) findings.push(`${relativePath}: required canary missing: ${canary}`);
+    }
   }
+
+  return {
+    phase: 38,
+    scannedFiles,
+    findingCount: findings.length,
+    findings,
+    handoff: {
+      phase39:
+        'Owns broad adversarial verification, no-live-write invariants, whole-run review idempotency, confirmed-only candidate aggregation, canonical /agents routing, and authenticated Company/Persona custom-agent E2E. None of that is claimed by this audit.',
+    },
+  };
 }
 
-const report = {
-  phase: 38,
-  scannedFiles,
-  findingCount: findings.length,
-  findings,
-  handoff: {
-    phase39:
-      'Owns broad adversarial verification, no-live-write invariants, whole-run review idempotency, confirmed-only candidate aggregation, canonical /agents routing, and authenticated Company/Persona custom-agent E2E. None of that is claimed by this audit.',
-  },
-};
+export function main(root = process.cwd()): void {
+  const report = runPhase38ScopeAudit(root);
+  console.log(JSON.stringify(report, null, 2));
+  if (report.findingCount > 0) process.exitCode = 1;
+}
 
-console.log(JSON.stringify(report, null, 2));
-if (findings.length > 0) process.exitCode = 1;
+if (process.argv[1]?.endsWith('phase38ScopeAudit.ts')) main();
