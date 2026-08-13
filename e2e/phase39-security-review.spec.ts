@@ -196,8 +196,9 @@ test.describe('Phase 39 authenticated security-review journeys', () => {
       await review.getByRole('button', { name: new RegExp(`Confirm run ${runId}`) }).click();
       await expect(review).toContainText(/Confirmed by/);
       await page.goto(`${subject.path}?selected=${subject.id}`);
-      await expect(page.getByRole('heading', { name: 'Confirmed Candidate Offerings', exact: true })).toBeVisible();
-      await expect(page.getByRole('button', { name: /^(Confirm|Dismiss)$/ })).toHaveCount(0);
+      const candidates = page.getByRole('region', { name: 'Confirmed Candidate Offerings', exact: true });
+      await expect(candidates).toBeVisible();
+      await expect(candidates.getByRole('button', { name: /^(Confirm|Dismiss)$/ })).toHaveCount(0);
       expect(await readCounts()).toEqual(baseline);
       guard();
     });
