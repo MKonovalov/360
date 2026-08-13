@@ -52,12 +52,18 @@ export async function resetFixtures(): Promise<FixtureIds> {
     if (companyIds.length > 0 || personaIds.length > 0) {
       const runs = await sql`
         SELECT id FROM analysis_run
-        WHERE (subject_type = 'company' AND subject_id = ANY(${companyIds}))
-           OR (subject_type = 'persona' AND subject_id = ANY(${personaIds}))
+        WHERE (
+          (subject_type = 'company' AND subject_id = ANY(${companyIds}))
+          OR (subject_type = 'persona' AND subject_id = ANY(${personaIds}))
+        )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM analysis_run_review_event AS review_event
+            WHERE review_event.analysis_run_id = analysis_run.id
+          )
       `;
       const runIds = runs.map((row) => row.id);
       if (runIds.length > 0) {
-        await sql`DELETE FROM analysis_run_review_event WHERE analysis_run_id = ANY(${runIds})`;
         await sql`DELETE FROM analysis_run_review WHERE analysis_run_id = ANY(${runIds})`;
         await sql`DELETE FROM analysis_result_retention WHERE result_id IN (SELECT id FROM analysis_run_result WHERE analysis_run_id = ANY(${runIds}))`;
         await sql`DELETE FROM analysis_finding_source WHERE result_id IN (SELECT id FROM analysis_run_result WHERE analysis_run_id = ANY(${runIds}))`;
@@ -127,6 +133,13 @@ export async function resetFixtures(): Promise<FixtureIds> {
           AND v.custom_name IN (${FIXTURE_CUSTOM_AGENT_NAMES[0]}, ${FIXTURE_CUSTOM_AGENT_NAMES[1]})
         )
       )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM analysis_run AS historical_run
+        INNER JOIN analysis_run_review_event AS review_event
+          ON review_event.analysis_run_id = historical_run.id
+        WHERE historical_run.template_id = t.id
+      )
   `;
   const staleCustomAgentIds = [...new Set(staleCustomAgents.map((row) => row.id))];
   if (staleCustomAgentIds.length > 0) {
@@ -137,7 +150,6 @@ export async function resetFixtures(): Promise<FixtureIds> {
     `;
     const staleRunIds = staleRuns.map((row) => row.id);
     if (staleRunIds.length > 0) {
-      await sql`DELETE FROM analysis_run_review_event WHERE analysis_run_id = ANY(${staleRunIds})`;
       await sql`DELETE FROM analysis_run_review WHERE analysis_run_id = ANY(${staleRunIds})`;
       await sql`DELETE FROM analysis_result_retention WHERE result_id IN (SELECT id FROM analysis_run_result WHERE analysis_run_id = ANY(${staleRunIds}))`;
       await sql`DELETE FROM analysis_finding_source WHERE result_id IN (SELECT id FROM analysis_run_result WHERE analysis_run_id = ANY(${staleRunIds}))`;
@@ -155,26 +167,28 @@ export async function resetFixtures(): Promise<FixtureIds> {
     const index = targetType === 'company' ? 0 : 1;
     const fixtureName = FIXTURE_CUSTOM_AGENT_NAMES[index];
     await sql`
-      WITH inserted_template AS (
-        INSERT INTO analysis_template (
-          key, name, target_type, kind, practice_area_id, status, created_by, updated_by
-        ) VALUES (
-          ${`phase39-fixture-${targetType}`}, ${fixtureName}, ${targetType}, 'custom', ${practiceAreaId}, 'active', ${FIXTURE_ACTOR}, ${FIXTURE_ACTOR}
-        )
-        RETURNING id
+      INSERT INTO analysis_template (
+        key, name, target_type, kind, practice_area_id, status, created_by, updated_by
+      ) VALUES (
+        ${`phase39-fixture-${targetType}`}, ${fixtureName}, ${targetType}, 'custom', ${practiceAreaId}, 'active', ${FIXTURE_ACTOR}, ${FIXTURE_ACTOR}
       )
+      ON CONFLICT (key) DO NOTHING
+    `;
+    await sql`
       INSERT INTO analysis_template_version (
         template_id, version, kind, instruction, custom_name, description, research_query,
         behavior_instruction, structured_output_schema, capability_preset_ids,
         supported_efforts, default_effort, future_budget, created_by
       )
       SELECT
-        id, 1, 'custom', NULL, ${fixtureName}, ${FIXTURE_CUSTOM_AGENT_DESCRIPTION},
+        t.id, 1, 'custom', NULL, ${fixtureName}, ${FIXTURE_CUSTOM_AGENT_DESCRIPTION},
         ${FIXTURE_CUSTOM_AGENT_RESEARCH_QUERIES[index]}, ${FIXTURE_CUSTOM_AGENT_BEHAVIOR_INSTRUCTIONS[index]},
         NULL, '[]'::jsonb, '["standard"]'::jsonb, 'standard',
         '{"maxAttempts":2,"maxToolCalls":12,"maxExecutionSeconds":300,"maxSpendUsd":2.5}'::jsonb,
         ${FIXTURE_ACTOR}
-      FROM inserted_template
+      FROM analysis_template AS t
+      WHERE t.key = ${`phase39-fixture-${targetType}`}
+      ON CONFLICT (template_id, version) DO NOTHING
     `;
   }
   return {
