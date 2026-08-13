@@ -5,6 +5,8 @@ import {
   groundedPacketSchema,
   validateCustomOutput,
   type GroundedPacket,
+  type GroundedQuarantine,
+  type GroundedQuarantineReason,
 } from './groundedContracts';
 import { boundedOutputSchema, type BoundedOutputSchema } from './customAgentContracts';
 import { checklistSnapshotSchema } from './contracts';
@@ -109,7 +111,12 @@ export type NormalizedAnalysisResult = {
   readonly packet: GroundedPacket;
   readonly customOutput: Readonly<Record<string, unknown>> | undefined;
   readonly packetHash: string;
+  readonly quarantine?: GroundedQuarantine;
 };
+
+export type AnalysisPacketNormalizationOutcome =
+  | { readonly status: 'valid'; readonly result: NormalizedAnalysisResult }
+  | { readonly status: 'quarantined'; readonly result: NormalizedAnalysisResult };
 
 export type AnalysisPacketFailureReason =
   | 'unsupported_source'
@@ -148,16 +155,27 @@ function findChecklistItem(snapshot: z.infer<typeof checklistSnapshotSchema>, si
   return item;
 }
 
-function normalizeSources(results: readonly unknown[]): readonly NormalizedEvidenceSource[] {
+function normalizeSources(results: readonly unknown[]): Readonly<{
+  readonly sources: readonly NormalizedEvidenceSource[];
+  readonly quarantineReasons: readonly GroundedQuarantineReason[];
+  readonly quarantinedCount: number;
+}> {
   const normalized: NormalizedEvidenceSource[] = [];
+  const quarantineReasons = new Set<GroundedQuarantineReason>();
+  let quarantinedCount = 0;
   for (const result of results) {
     try {
       normalized.push(normalizeEvidenceSource(result));
     } catch (error) {
+      if (error instanceof EvidenceNormalizationError && error.reason !== 'invalid_packet') {
+        quarantineReasons.add(error.reason);
+        quarantinedCount += 1;
+        continue;
+      }
       sourceFailure(error);
     }
   }
-  return deduplicateEvidenceSources(normalized);
+  return { sources: deduplicateEvidenceSources(normalized), quarantineReasons: [...quarantineReasons], quarantinedCount };
 }
 
 function buildSourceLookup(sources: readonly NormalizedEvidenceSource[]) {
@@ -200,9 +218,20 @@ function normalizeAnalysisPacketInternal(input: unknown): NormalizedAnalysisResu
   const checklist = checklistSnapshotSchema.safeParse(packetInput.checklistSnapshot);
   if (!checklist.success || checklist.data.targetType !== packetInput.targetType) fail('invalid_packet');
 
-  const findings = packetInput.findings;
+  const quarantineReasons = new Set<GroundedQuarantineReason>();
+  const findings = packetInput.findings.filter((finding) => {
+    const unsafeText = `${finding.claim}\n${finding.reasoningSummary ?? ''}`;
+    if (!/(?:ignore\s+(?:all\s+)?previous|system\s+message|developer\s+message|reveal\s+(?:the\s+)?(?:secret|token|api[_ -]?key|database_url)|private\s+reasoning|chain[- ]of[- ]thought)/i.test(unsafeText)) {
+      return true;
+    }
+    if (finding.status === 'strong' || finding.status === 'weak') fail('unsafe_research_content');
+    quarantineReasons.add('unsafe_research_content');
+    return false;
+  });
   const findingIds = buildFindingIds(findings);
-  const sources = normalizeSources(packetInput.sourceResults);
+  const normalizedSources = normalizeSources(packetInput.sourceResults);
+  for (const reason of normalizedSources.quarantineReasons) quarantineReasons.add(reason);
+  const sources = normalizedSources.sources;
   if (packetInput.targetType === 'persona' && sources.some((source) => source.classification === 'personal_data')) {
     fail('unsupported_source');
   }
@@ -212,7 +241,13 @@ function normalizeAnalysisPacketInternal(input: unknown): NormalizedAnalysisResu
   const linkedFindingIds = new Set<string>();
 
   for (const citation of packetInput.citations) {
-    if (!findingIds.has(citation.findingId)) fail('unresolved_citation');
+    if (!findingIds.has(citation.findingId)) {
+      if (packetInput.findings.some((finding) => finding.findingId === citation.findingId)) {
+        quarantineReasons.add('unsafe_research_content');
+        continue;
+      }
+      fail('unresolved_citation');
+    }
     let canonicalUrl: string;
     try {
       canonicalUrl = canonicalizeEvidenceUrl(citation.url);
@@ -220,7 +255,14 @@ function normalizeAnalysisPacketInternal(input: unknown): NormalizedAnalysisResu
       fail('unresolved_citation');
     }
     const source = sourcesByIdentity.get(`${canonicalUrl}:${citation.contentHash}`);
-    if (!source) fail('unresolved_citation');
+    if (!source) {
+      const finding = packetInput.findings.find((candidate) => candidate.findingId === citation.findingId);
+      if (finding?.status === 'no_evidence' || finding?.status === 'inconclusive') {
+        quarantineReasons.add('unsupported_source');
+        continue;
+      }
+      fail('unresolved_citation');
+    }
     if (!source.excerpt.toLocaleLowerCase().includes(citation.locator.toLocaleLowerCase())) fail('invalid_excerpt');
     const key = `${citation.findingId}:${source.sourceId}`;
     if (linkKeys.has(key)) fail('duplicate_source_link');
@@ -272,8 +314,20 @@ function normalizeAnalysisPacketInternal(input: unknown): NormalizedAnalysisResu
     audit,
   });
   if (!packet.success) fail('invalid_packet');
-  const packetHash = createHash('sha256').update(JSON.stringify({ packet: packet.data, customOutput })).digest('hex');
-  return { packet: packet.data, customOutput, packetHash };
+  const quarantine = quarantineReasons.size === 0
+    ? undefined
+    : {
+        count: packetInput.findings.length - findings.length + normalizedSources.quarantinedCount,
+        reasons: [...quarantineReasons].sort(),
+      };
+  const packetWithQuarantine = groundedPacketSchema.parse({
+    ...packet.data,
+    audit: quarantine === undefined
+      ? packet.data.audit
+      : { ...packet.data.audit, quarantine, failureReason: 'unsafe_research_content' },
+  });
+  const finalPacketHash = createHash('sha256').update(JSON.stringify({ packet: packetWithQuarantine, customOutput })).digest('hex');
+  return { packet: packetWithQuarantine, customOutput, packetHash: finalPacketHash, ...(quarantine === undefined ? {} : { quarantine }) };
 }
 
 export function normalizeAnalysisPacket(input: unknown): NormalizedAnalysisPacket {
@@ -282,4 +336,11 @@ export function normalizeAnalysisPacket(input: unknown): NormalizedAnalysisPacke
 
 export function normalizeAnalysisPacketWithCustomOutput(input: unknown): NormalizedAnalysisResult {
   return normalizeAnalysisPacketInternal(input);
+}
+
+export function normalizeAnalysisPacketWithQuarantine(input: unknown): AnalysisPacketNormalizationOutcome {
+  const result = normalizeAnalysisPacketInternal(input);
+  return result.quarantine === undefined
+    ? { status: 'valid', result }
+    : { status: 'quarantined', result };
 }

@@ -77,6 +77,9 @@ describe('listConfirmedCandidateOfferings', () => {
     expect(sqlText).toContain('FROM analysis_run');
     expect(sqlText).toContain("status = 'confirmed'");
     expect(sqlText).toContain('analysis_run_review');
+    expect(sqlText).toContain('effectiveEventId');
+    expect(sqlText).toContain('effectiveSequence');
+    expect(sqlText).toContain('template_snapshot');
     expect(sqlText).toContain("decision = 'confirmed'");
     expect(sqlText).toContain('analysis_run_result');
     expect(sqlText).toContain('analysis_finding');
@@ -99,7 +102,17 @@ describe('listConfirmedCandidateOfferings', () => {
   });
 
   it('maps one source-backed candidate row into the closed contract', async () => {
-    executeRows({ ...CANDIDATE_ROW });
+    executeRows({
+      ...CANDIDATE_ROW,
+      templateKey: 'company-buying-signal-analysis',
+      templateVersionId: 11,
+      customAgentId: null,
+      reviewDecision: 'confirmed',
+      reviewDecidedBy: 'user_reviewed',
+      reviewDecidedAt: '2026-07-01T10:00:00.000Z',
+      effectiveEventId: 21,
+      effectiveSequence: 2,
+    });
 
     const candidates = await listConfirmedCandidateOfferings();
 
@@ -112,6 +125,14 @@ describe('listConfirmedCandidateOfferings', () => {
       analysisRunId: 3,
       resultId: 9,
       packetHash: PACKET_HASH,
+      templateKey: 'company-buying-signal-analysis',
+      templateVersionId: 11,
+      customAgentId: null,
+      reviewDecision: 'confirmed',
+      reviewDecidedBy: 'user_reviewed',
+      reviewDecidedAt: '2026-07-01T10:00:00.000Z',
+      effectiveEventId: 21,
+      effectiveSequence: 2,
       findingRowId: 5,
       findingKey: 'f-strong-1',
       signalType: 'company',
@@ -211,5 +232,16 @@ describe('listConfirmedCandidateOfferings', () => {
     expect(personaSql).toContain('42');
     expect(companySql).toContain('offering.name');
     expect(mocks.db.execute).toHaveBeenCalledTimes(2);
+  });
+
+  it('uses the effective review projection rather than any historical confirmed event', async () => {
+    executeRows({ ...CANDIDATE_ROW });
+
+    await listConfirmedCandidateOfferings();
+
+    const sqlText = flattenSql(mocks.db.execute.mock.calls[0][0]);
+    expect(sqlText).toContain('review.effective_event_id');
+    expect(sqlText).toContain("review.decision = 'confirmed'");
+    expect(sqlText).not.toContain('analysis_run_review_event AS review');
   });
 });

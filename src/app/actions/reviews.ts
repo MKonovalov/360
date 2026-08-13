@@ -7,7 +7,10 @@ import { decideRunInputSchema } from '@/lib/analysis/reviewContracts';
 import type { ReviewDecisionOutcome, WholeRunDecision } from '@/lib/analysis/reviewContracts';
 import { acceptProposal, getProposalById } from '@/lib/db/queries/proposals';
 import { rejectProposal } from '@/lib/db/queries/corrections';
-import { decideAnalysisRun } from '@/lib/db/queries/analysisReviews';
+import {
+  getEffectiveReviewProjection,
+  transitionReviewDecision,
+} from '@/lib/db/queries/analysisReviews';
 import { correctionReasonEnum } from '@/lib/db/schema';
 
 // Server Action controller for the proposal review queue (ANLZ-02/OBSV-02).
@@ -94,9 +97,31 @@ async function decideWholeRun(
   if (!parsed.success || parsed.data.decision !== decision) {
     return { ok: false, reason: 'invalid_input' };
   }
-  const outcome = await decideAnalysisRun({ runId: parsed.data.runId, decision }, actorId);
-  if (outcome.ok) revalidatePath('/reviews');
-  return outcome;
+  const projection = await getEffectiveReviewProjection(parsed.data.runId);
+  const transition = await transitionReviewDecision(
+    {
+      runId: parsed.data.runId,
+      decision,
+      expectedPriorEventId: projection?.effectiveEventId ?? 0,
+    },
+    actorId,
+  );
+  if (transition.kind === 'corrected' || transition.kind === 'replayed') {
+    const current = transition.kind === 'corrected' ? transition.event : transition.projection;
+    revalidatePath('/reviews');
+    return {
+      ok: true,
+      runId: current.runId,
+      resultId: current.resultId,
+      decision: current.decision,
+      decidedBy: current.decidedBy,
+      decidedAt: current.decidedAt,
+      packetHash: current.packetHash,
+      replayed: transition.kind === 'replayed',
+    };
+  }
+  if (transition.kind === 'conflict') return { ok: false, reason: 'race_loser' };
+  return { ok: false, reason: transition.reason };
 }
 
 export async function confirmRunAction(input: unknown): Promise<ReviewDecisionOutcome> {

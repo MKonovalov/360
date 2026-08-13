@@ -12,6 +12,8 @@ import { customOutputSchemaSnapshotSchema, modelRefSchema, phase33PolicySnapshot
 import type { BoundedOutputSchema } from './customAgentContracts';
 import type { ModelRef } from '@/lib/models/modelRef';
 import { isPhase36FixtureMode, phase36ExecutorDependencies } from '@/lib/verification/phase36Fixtures';
+import { isPhase39FixtureMode, phase39ExecutorDependencies } from '@/lib/verification/phase39Fixtures';
+import { safeToolResults, type SafeToolItem } from './executionSafety';
 
 const groundedModelFindingSchema = zodV3
   .object({
@@ -63,20 +65,10 @@ const executionInputSchema = groundedExecutionInputSchema.extend({
   customOutputSchema: customOutputSchemaSnapshotSchema.shape.fields.optional(),
 });
 
-const safeToolItemSchema = z
-  .object({
-    url: z.string().url().max(2_048),
-    title: z.string().max(500),
-    snippet: z.string().max(8_000),
-  })
-  .strict();
-
-type SafeToolItem = z.infer<typeof safeToolItemSchema>;
 type GroundedModelOutput = zodV3.infer<typeof groundedModelOutputSchema>;
 type RunAgentResult = Awaited<ReturnType<typeof runAgent>> & Readonly<{
   citations?: readonly Readonly<Record<string, unknown>>[];
 }>;
-type StepLike = Readonly<{ toolResults?: readonly { toolName?: string; output?: unknown }[] }>;
 
 export type GroundedExecutionSuccess = Readonly<{
   ok: true;
@@ -140,32 +132,6 @@ export function buildGroundedPrompt(input: GroundedExecutionInput, customOutputS
   ].filter(Boolean).join('\n');
 }
 
-function safeToolResults(
-  steps: readonly StepLike[],
-  limits: Readonly<{ maxSources: number; maxSourceBytes: number; maxExcerptBytes: number }>,
-): readonly SafeToolItem[] {
-  const items: SafeToolItem[] = [];
-  let sourceBytes = 0;
-  for (const step of steps) {
-    for (const result of step.toolResults ?? []) {
-      if (result.toolName !== 'webSearch' || !Array.isArray(result.output)) continue;
-      for (const item of result.output) {
-        const parsed = safeToolItemSchema.safeParse(item);
-        if (!parsed.success) throw new Error('invalid_tool_policy');
-        if (parsed.data.snippet.length > limits.maxExcerptBytes) throw new Error('invalid_tool_policy');
-        if (/(?:ignore\s+(?:all\s+)?previous|system\s+message|private\s+reasoning|api[_ -]?key|database_url|clerk[_ -]?session)/i.test(`${parsed.data.title}\n${parsed.data.snippet}`)) {
-          throw new Error('unsafe_research_content');
-        }
-        const itemBytes = Buffer.byteLength(`${parsed.data.title}\n${parsed.data.snippet}`, 'utf8');
-        if (items.length >= limits.maxSources || sourceBytes + itemBytes > limits.maxSourceBytes) return items;
-        items.push(parsed.data);
-        sourceBytes += itemBytes;
-      }
-    }
-  }
-  return items;
-}
-
 function mapFailure(error: unknown): GroundedExecutionFailure['failureReason'] {
   const message = error instanceof Error ? error.message : '';
   if (/invalid_tool_policy/i.test(message)) return 'invalid_tool_policy';
@@ -190,15 +156,20 @@ export class GroundedExecutionAdapter {
       const parsed = executionInputSchema.parse(input);
       const policy = phase33PolicySnapshotSchema.parse(parsed.policy);
       const customSchema = parsed.customOutputSchema ?? null;
-      const dependencies = isPhase36FixtureMode()
-        ? phase36ExecutorDependencies(parsed.targetType)
-        : this.dependencies;
+      const dependencies = isPhase39FixtureMode()
+        ? phase39ExecutorDependencies(parsed.targetType)
+        : isPhase36FixtureMode()
+          ? phase36ExecutorDependencies(parsed.targetType)
+          : this.dependencies;
       if (policy.mode === 'phase33_policy_deferred') {
         return {
           ok: false,
           failureReason: parsed.targetType === 'persona' ? 'persona_policy_unavailable' : 'policy_unavailable',
           durationMs: Date.now() - startedAt,
         };
+      }
+      if (policy.writesAllowed) {
+        return { ok: false, failureReason: 'invalid_tool_policy', durationMs: Date.now() - startedAt };
       }
       if (parsed.targetType === 'persona' && !policy.personaExecutionEnabled) {
         return { ok: false, failureReason: 'persona_policy_unavailable', durationMs: Date.now() - startedAt };
@@ -227,9 +198,23 @@ export class GroundedExecutionAdapter {
           input: {
             runId: parsed.runId,
             targetType: parsed.targetType,
-            subjectId: parsed.subjectId,
             modelChain: modelIds,
           },
+          output: (result) => ({
+            modelId: result.modelUsed,
+            modelProvider: result.modelUsedProvider ?? null,
+            usedFallback: result.usedFallback,
+            durationMs: Date.now() - startedAt,
+            toolCallCount: result.steps.reduce(
+              (count: number, step: { readonly toolResults?: readonly unknown[] }) => count + (step.toolResults?.length ?? 0),
+              0,
+            ),
+            usage: {
+              inputTokens: typeof result.usage.inputTokens === 'number' ? result.usage.inputTokens : undefined,
+              outputTokens: typeof result.usage.outputTokens === 'number' ? result.usage.outputTokens : undefined,
+              totalTokens: typeof result.usage.totalTokens === 'number' ? result.usage.totalTokens : undefined,
+            },
+          }),
           sessionId: `run-${parsed.runId}`,
         },
       );

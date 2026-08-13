@@ -5,6 +5,7 @@ import {
 import { resolveAnalysisLaunch } from '@/lib/analysis/compatibility';
 import { analysisAgentSelectionSchema, PHASE33_STANDARD_APPROVED_POLICY } from '@/lib/analysis/contracts';
 import { isPhase36FixtureMode, PHASE36_APPROVED_POLICY } from '@/lib/verification/phase36Fixtures';
+import { isPhase39FixtureMode, PHASE39_APPROVED_POLICY } from '@/lib/verification/phase39Fixtures';
 import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { listActiveAnalysisTemplates } from '@/lib/db/queries/analysisTemplates';
 import { listCapabilityPresetCards } from '@/lib/analysis/capabilityPresets';
@@ -33,7 +34,11 @@ export async function POST(request: Request): Promise<Response> {
   const selectionInput = analysisAgentSelectionSchema.safeParse(selection);
   if (!selectionInput.success) return Response.json({ error: 'invalid_input' }, { status: 400 });
 
-  const policy = isPhase36FixtureMode() ? PHASE36_APPROVED_POLICY : PHASE33_STANDARD_APPROVED_POLICY;
+  const policy = isPhase39FixtureMode()
+    ? PHASE39_APPROVED_POLICY
+    : isPhase36FixtureMode()
+      ? PHASE36_APPROVED_POLICY
+      : PHASE33_STANDARD_APPROVED_POLICY;
   const resolved = await resolveAnalysisLaunch({
     userId,
     subject: parsed.data.subject,

@@ -161,6 +161,11 @@ describe('GroundedExecutionAdapter', () => {
     });
     expect(mocks.runWithPhase33Trace).toHaveBeenCalledTimes(1);
     expect(mocks.runWithPhase33Trace.mock.calls[0]?.[0]).toBe('analyze-company');
+    const options = mocks.runWithPhase33Trace.mock.calls[0]?.[2];
+    expect(options).toMatchObject({ input: { runId: 42, targetType: 'company', modelChain: ['model.primary'] } });
+    expect(JSON.stringify(options)).not.toContain('Acme Corp');
+    expect(JSON.stringify(options)).not.toContain('Company announced a new CFO');
+    expect(JSON.stringify(options)).not.toContain('narrative');
   });
 
   it('keeps trace linkage null when the test-environment wrapper is a no-op', async () => {
@@ -275,6 +280,30 @@ describe('GroundedExecutionAdapter', () => {
     });
     const overBound = await adapter.execute(input);
     expect(overBound).toMatchObject({ ok: false, failureReason: 'invalid_tool_policy' });
+  });
+
+  it('fails closed when a provider attempts a non-search tool or enables writes', async () => {
+    const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });
+    const input = {
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist,
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+    } as const;
+
+    mocks.runAgent.mockResolvedValueOnce({
+      ...validRun,
+      steps: [{ toolResults: [{ toolName: 'writeSignal', output: [] }] }],
+    });
+    await expect(adapter.execute(input)).resolves.toMatchObject({ ok: false, failureReason: 'invalid_tool_policy' });
+
+    await expect(adapter.execute({ ...input, policy: { ...approvedPolicy, writesAllowed: true } })).resolves.toMatchObject({
+      ok: false,
+      failureReason: 'invalid_packet',
+    });
   });
 
   it('bounds search input and rejects prompt-injection queries or malformed results', async () => {

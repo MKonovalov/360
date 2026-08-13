@@ -6,6 +6,7 @@ import { resolveAnalysisLaunch } from '@/lib/analysis/compatibility';
 import { buildPhase33AnalysisSnapshots } from '@/lib/analysis/snapshots';
 import { PHASE33_STANDARD_APPROVED_POLICY } from '@/lib/analysis/contracts';
 import { isPhase36FixtureMode, PHASE36_APPROVED_POLICY } from '@/lib/verification/phase36Fixtures';
+import { isPhase39FixtureMode, PHASE39_APPROVED_POLICY } from '@/lib/verification/phase39Fixtures';
 import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { createAnalysisRun, transitionAnalysisRun } from '@/lib/db/queries/analysisRuns';
 import { analysisRun } from '@/workflows/analysisRun';
@@ -41,7 +42,11 @@ export async function POST(request: Request): Promise<Response> {
       : undefined;
   if (input === undefined) return Response.json({ error: 'invalid_input' }, { status: 400 });
 
-  const policy = isPhase36FixtureMode() ? PHASE36_APPROVED_POLICY : PHASE33_STANDARD_APPROVED_POLICY;
+  const policy = isPhase39FixtureMode()
+    ? PHASE39_APPROVED_POLICY
+    : isPhase36FixtureMode()
+      ? PHASE36_APPROVED_POLICY
+      : PHASE33_STANDARD_APPROVED_POLICY;
   const resolved = await resolveAnalysisLaunch({ ...input, userId, policy });
   if (!resolved.ok) return resolutionErrorResponse(resolved.reason);
 

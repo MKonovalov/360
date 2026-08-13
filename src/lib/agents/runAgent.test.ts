@@ -114,6 +114,7 @@ describe('runAgent (09-01-01)', () => {
       prompt: expect.any(String),
       stopWhen: expect.anything(),
       output: outputSpec,
+      telemetry: { functionId: 'arclumen-analysis-agent', recordInputs: false, recordOutputs: false },
     });
     // Phase 16: the return grows to { ...result, modelUsed, usedFallback } —
     // updated deliberately (Pitfall 10 checklist), assertion NOT deleted.

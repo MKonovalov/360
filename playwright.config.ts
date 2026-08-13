@@ -16,19 +16,33 @@ const e2eBaseUrl = process.env.E2E_BASE_URL;
 const baseURL = e2eBaseUrl ?? 'http://localhost:3000';
 const isDeployedTarget = e2eBaseUrl ? new URL(e2eBaseUrl).hostname !== 'localhost' : false;
 const isPhase36FixtureRun = process.env.PHASE36_FIXTURE_ONLY === '1';
+const isPhase39FixtureRun = process.env.PHASE39_FIXTURE_ONLY === '1';
+const phase39FixtureIds = {
+  ...(process.env.PHASE39_COMPANY_ID ? { PHASE39_COMPANY_ID: process.env.PHASE39_COMPANY_ID } : {}),
+  ...(process.env.PHASE39_PERSONA_ID ? { PHASE39_PERSONA_ID: process.env.PHASE39_PERSONA_ID } : {}),
+  ...(process.env.PHASE39_PRACTICE_AREA_ID
+    ? { PHASE39_PRACTICE_AREA_ID: process.env.PHASE39_PRACTICE_AREA_ID }
+    : {}),
+};
 const localDatabaseUrl = process.env.TEST_DATABASE_URL
   ? (() => {
       const url = new URL(process.env.TEST_DATABASE_URL);
-      if (isPhase36FixtureRun) {
+       if (isPhase36FixtureRun || isPhase39FixtureRun) {
         if (url.hostname.startsWith('ep-') && !url.hostname.includes('-pooler.')) {
           url.hostname = url.hostname.replace(/^ep-([^.]+)\./, 'ep-$1-pooler.');
         }
-        url.hash = '#phase36-fixture';
+         url.hash = isPhase39FixtureRun ? '#phase39-fixture' : '#phase36-fixture';
       }
       return url.toString();
     })()
   : undefined;
-
+const localApplicationDatabaseUrl = process.env.DATABASE_URL
+  ? (() => {
+      const url = new URL(process.env.DATABASE_URL);
+      if (isPhase39FixtureRun) url.hash = '#phase39-fixture';
+      return url.toString();
+    })()
+  : undefined;
 // .env.local may contain Vercel's empty `VERCEL_URL` marker after a pull. The
 // Workflow SDK treats that variable's presence as a deployed runtime and then
 // constructs the invalid origin `https://`. Local E2E must use the real dev
@@ -52,9 +66,16 @@ export default defineConfig({
           command: 'npm run dev',
           url: 'http://localhost:3000',
           timeout: 120_000,
-          reuseExistingServer: !process.env.CI && !isPhase36FixtureRun,
+           reuseExistingServer: !process.env.CI && !isPhase36FixtureRun && !isPhase39FixtureRun,
           ...(localDatabaseUrl
-            ? { env: { DATABASE_URL: localDatabaseUrl } }
+            ? {
+                env: {
+                  DATABASE_URL: localDatabaseUrl,
+                  TEST_DATABASE_URL: localApplicationDatabaseUrl ?? localDatabaseUrl,
+                  ...(isPhase39FixtureRun ? { PHASE39_FIXTURE_ONLY: '1' } : {}),
+                  ...(isPhase39FixtureRun ? phase39FixtureIds : {}),
+                },
+              }
             : {}),
         },
       }),

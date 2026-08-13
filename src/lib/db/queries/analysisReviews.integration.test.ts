@@ -694,6 +694,50 @@ describeWithDatabase('analysis review boundary (reconcile, decide, list) against
     ).toHaveLength(1);
   });
 
+  it('appends one correction, preserves the first event, and rejects a stale correction', async () => {
+    const runId = await createRun('company', 910014);
+    await completeRun(runId);
+    await persistCompanyPacket(runId);
+    await reviewQueries.reconcileCompletedRunForReview({ runId });
+
+    const first = await reviewQueries.transitionReviewDecision(
+      { runId, decision: 'confirmed', expectedPriorEventId: 0 },
+      'user_first',
+      { decidedAt: DECIDED_AT },
+    );
+    expect(first.kind).toBe('corrected');
+    if (first.kind !== 'corrected') throw new Error('expected first review event');
+    expect(first.event.expectedPriorEventId).toBe(0);
+    expect(first.event.sequence).toBe(1);
+
+    const correction = await reviewQueries.transitionReviewDecision(
+      { runId, decision: 'dismissed', expectedPriorEventId: first.event.eventId },
+      'user_second',
+      { decidedAt: new Date(DECIDED_AT.getTime() + 1_000) },
+    );
+    expect(correction.kind).toBe('corrected');
+    if (correction.kind !== 'corrected') throw new Error('expected correction event');
+    expect(correction.event.priorDecision).toBe('confirmed');
+
+    const stale = await reviewQueries.transitionReviewDecision(
+      { runId, decision: 'confirmed', expectedPriorEventId: first.event.eventId },
+      'user_stale',
+    );
+    expect(stale.kind).toBe('conflict');
+
+    const projection = await reviewQueries.getEffectiveReviewProjection(runId);
+    expect(projection?.decision).toBe('dismissed');
+    expect(projection?.decidedBy).toBe('user_second');
+
+    const events = await dbModule.db
+      .select()
+      .from(schema.analysisRunReviewEvent)
+      .where(eq(schema.analysisRunReviewEvent.analysisRunId, runId));
+    expect(events).toHaveLength(2);
+    expect(events[0]?.decidedBy).toBe('user_first');
+    expect(events[1]?.decidedBy).toBe('user_second');
+  });
+
   it('resolves a concurrent Confirm/Dismiss race to the stored winner decision', async () => {
     const runId = await createRun('company', 910009);
     await completeRun(runId);

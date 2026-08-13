@@ -8,6 +8,10 @@ import {
   type ReconcileReviewInput,
   type ReconcileReviewResult,
   type ReviewDecisionOutcome,
+  type ReviewDecisionTransitionOutcome,
+  reviewDecisionTransitionInputSchema,
+  reviewDecisionTransitionOutcomeSchema,
+  effectiveReviewProjectionSchema,
   type ReviewItem,
   type WholeRunDecision,
 } from '@/lib/analysis/reviewContracts';
@@ -298,6 +302,217 @@ export async function decideAnalysisRun(
     return { ok: false, reason: 'not_pending_review' };
   }
   return { ok: false, reason: 'race_loser' };
+}
+
+type ReviewTransitionRow = {
+  readonly kind: 'corrected' | 'replayed' | 'conflict' | 'not_eligible';
+  readonly eventId: number | null;
+  readonly runId: number | null;
+  readonly resultId: number | null;
+  readonly sequence: number | null;
+  readonly priorDecision: WholeRunDecision | null;
+  readonly decision: WholeRunDecision | null;
+  readonly expectedPriorEventId: number | null;
+  readonly decidedBy: string | null;
+  readonly decidedAt: string | Date | null;
+  readonly packetHash: string | null;
+  readonly effectiveEventId: number | null;
+  readonly effectiveSequence: number | null;
+  readonly reason: 'not_found' | 'not_pending_review' | 'missing_packet' | null;
+};
+
+type EffectiveReviewRow = {
+  readonly runId: number;
+  readonly resultId: number;
+  readonly decision: WholeRunDecision;
+  readonly decidedBy: string;
+  readonly decidedAt: string | Date;
+  readonly packetHash: string;
+  readonly effectiveEventId: number;
+  readonly effectiveSequence: number;
+};
+
+function effectiveProjection(row: EffectiveReviewRow) {
+  return effectiveReviewProjectionSchema.parse({
+    runId: Number(row.runId),
+    resultId: Number(row.resultId),
+    decision: row.decision,
+    decidedBy: row.decidedBy,
+    decidedAt: new Date(row.decidedAt).toISOString(),
+    packetHash: row.packetHash,
+    effectiveEventId: Number(row.effectiveEventId),
+    effectiveSequence: Number(row.effectiveSequence),
+  });
+}
+
+// D-39-05..D-39-08: review corrections are append-only facts. The transaction
+// lock serializes transitions for one run; the expected event predicate makes a
+// stale browser write a conflict instead of allowing last-writer-wins history.
+export async function transitionReviewDecision(
+  input: unknown,
+  actorId: string,
+  options: { readonly decidedAt?: Date } = {},
+): Promise<ReviewDecisionTransitionOutcome> {
+  const parsed = reviewDecisionTransitionInputSchema.safeParse(input);
+  if (!parsed.success || actorId.trim().length === 0) return { kind: 'not_eligible', reason: 'not_found' };
+  const decidedAt = options.decidedAt ?? new Date();
+  const nowIso = decidedAt.toISOString();
+  const { runId, decision, expectedPriorEventId } = parsed.data;
+
+  const result = await db.execute<ReviewTransitionRow>(sql`
+    WITH locked AS (
+      SELECT pg_advisory_xact_lock(hashtextextended(concat('analysis-review:', ${runId}::text), 0))
+    ),
+    current_run AS (
+      SELECT run.id, run.status, result.id AS result_id, result.packet_hash
+      FROM analysis_run AS run
+      LEFT JOIN analysis_run_result AS result ON result.analysis_run_id = run.id
+      WHERE run.id = ${runId}
+    ),
+    effective AS (
+      SELECT review.analysis_run_id, review.result_id, review.decision,
+        review.decided_by, review.decided_at, review.packet_hash,
+        COALESCE(review.effective_event_id, 0) AS effective_event_id,
+        COALESCE(review.effective_sequence, 0) AS effective_sequence
+      FROM analysis_run_review AS review
+      WHERE review.analysis_run_id = ${runId}
+    ),
+    prior AS (
+      SELECT event.id, event.decision, event.sequence
+      FROM analysis_run_review_event AS event
+      WHERE event.analysis_run_id = ${runId}
+        AND event.id = ${expectedPriorEventId}
+    ),
+    inserted_event AS (
+      INSERT INTO analysis_run_review_event (
+        analysis_run_id, result_id, sequence, prior_decision, decision,
+        expected_prior_event_id, decided_by, decided_at, packet_hash
+      )
+      SELECT current_run.id, current_run.result_id,
+        COALESCE(effective.effective_sequence, 0) + 1,
+        effective.decision, ${decision}, ${expectedPriorEventId},
+        ${actorId}, ${nowIso}, current_run.packet_hash
+      FROM current_run
+      LEFT JOIN effective ON TRUE
+      JOIN locked ON TRUE
+      WHERE current_run.status IN ('pending_review', 'confirmed', 'dismissed')
+        AND current_run.result_id IS NOT NULL
+        AND current_run.packet_hash IS NOT NULL
+        AND (COALESCE(effective.effective_event_id, 0) IS NOT DISTINCT FROM ${expectedPriorEventId})
+        AND NOT EXISTS (
+          SELECT 1 FROM analysis_run_review_event AS replay
+          WHERE replay.analysis_run_id = ${runId}
+            AND replay.packet_hash = current_run.packet_hash
+            AND replay.decision = ${decision}
+            AND replay.expected_prior_event_id = ${expectedPriorEventId}
+        )
+      RETURNING *
+    ),
+    projection AS (
+      INSERT INTO analysis_run_review (
+        analysis_run_id, result_id, decision, decided_by, decided_at,
+        packet_hash, effective_event_id, effective_sequence
+      )
+      SELECT event.analysis_run_id, event.result_id, event.decision,
+        event.decided_by, event.decided_at, event.packet_hash,
+        event.id, event.sequence
+      FROM inserted_event AS event
+      ON CONFLICT (analysis_run_id) DO UPDATE SET
+        decision = EXCLUDED.decision, decided_by = EXCLUDED.decided_by,
+        decided_at = EXCLUDED.decided_at, packet_hash = EXCLUDED.packet_hash,
+        effective_event_id = EXCLUDED.effective_event_id,
+        effective_sequence = EXCLUDED.effective_sequence
+      RETURNING *
+    ),
+    updated_run AS (
+      UPDATE analysis_run AS run
+      SET status = event.decision::text::analysis_run_status,
+        terminal_at = COALESCE(run.terminal_at, event.decided_at),
+        updated_at = event.decided_at
+      FROM inserted_event AS event
+      WHERE run.id = event.analysis_run_id
+      RETURNING run.id
+    )
+    SELECT 'corrected'::text AS kind, projection.id AS "eventId",
+      projection.analysis_run_id AS "runId", projection.result_id AS "resultId",
+      projection.effective_sequence AS sequence, NULL::analysis_review_decision AS "priorDecision",
+      projection.decision, ${expectedPriorEventId} AS "expectedPriorEventId",
+      projection.decided_by AS "decidedBy", projection.decided_at AS "decidedAt",
+      projection.packet_hash AS "packetHash", NULL::integer AS "effectiveEventId",
+      NULL::integer AS "effectiveSequence", NULL::text AS reason
+    FROM projection
+    UNION ALL
+    SELECT 'replayed', event.id, event.analysis_run_id, event.result_id,
+      event.sequence, event.prior_decision, event.decision,
+      event.expected_prior_event_id, event.decided_by, event.decided_at,
+      event.packet_hash, event.id, event.sequence, NULL
+    FROM analysis_run_review_event AS event
+    WHERE event.analysis_run_id = ${runId}
+      AND event.packet_hash = (SELECT packet_hash FROM current_run)
+      AND event.decision = ${decision}
+      AND event.expected_prior_event_id = ${expectedPriorEventId}
+      AND NOT EXISTS (SELECT 1 FROM inserted_event)
+    UNION ALL
+    SELECT 'conflict', NULL, effective.analysis_run_id, effective.result_id,
+      effective.effective_sequence, NULL, effective.decision,
+      ${expectedPriorEventId}, effective.decided_by, effective.decided_at,
+      effective.packet_hash, effective.effective_event_id, effective.effective_sequence, NULL
+    FROM effective
+    WHERE NOT EXISTS (SELECT 1 FROM inserted_event)
+      AND NOT EXISTS (SELECT 1 FROM analysis_run_review_event AS event
+        WHERE event.analysis_run_id = ${runId}
+          AND event.packet_hash = (SELECT packet_hash FROM current_run)
+          AND event.decision = ${decision}
+          AND event.expected_prior_event_id = ${expectedPriorEventId})
+    UNION ALL
+    SELECT 'not_eligible', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+      NULL, NULL, NULL, CASE
+        WHEN NOT EXISTS (SELECT 1 FROM current_run) THEN 'not_found'
+        WHEN (SELECT status FROM current_run) NOT IN ('pending_review', 'confirmed', 'dismissed') THEN 'not_pending_review'
+        WHEN (SELECT result_id FROM current_run) IS NULL THEN 'missing_packet'
+        ELSE 'not_pending_review' END
+    WHERE NOT EXISTS (SELECT 1 FROM inserted_event)
+      AND NOT EXISTS (SELECT 1 FROM effective)
+  `);
+
+  const row = result.rows[0];
+  if (!row) return { kind: 'not_eligible', reason: 'not_found' };
+  if (row.kind === 'not_eligible') return { kind: 'not_eligible', reason: row.reason ?? 'not_found' };
+  const projection = effectiveProjection({
+    runId: Number(row.runId), resultId: Number(row.resultId), decision: row.decision as WholeRunDecision,
+    decidedBy: row.decidedBy as string, decidedAt: row.decidedAt as string | Date,
+    packetHash: row.packetHash as string, effectiveEventId: Number(row.effectiveEventId ?? row.eventId),
+    effectiveSequence: Number(row.effectiveSequence ?? row.sequence),
+  });
+  if (row.kind === 'corrected') {
+    return { kind: 'corrected', event: {
+      eventId: Number(row.eventId),
+      runId: projection.runId,
+      resultId: projection.resultId,
+      sequence: Number(row.sequence),
+      priorDecision: row.priorDecision,
+      decision: projection.decision,
+      expectedPriorEventId: Number(row.expectedPriorEventId),
+      decidedBy: projection.decidedBy,
+      decidedAt: projection.decidedAt,
+      packetHash: projection.packetHash,
+    } };
+  }
+  if (row.kind === 'replayed') return { kind: 'replayed', projection };
+  return { kind: 'conflict', projection, expectedPriorEventId };
+}
+
+export async function getEffectiveReviewProjection(runId: number) {
+  if (!Number.isInteger(runId) || runId <= 0) return undefined;
+  const result = await db.execute<EffectiveReviewRow>(sql`
+    SELECT analysis_run_id AS "runId", result_id AS "resultId", decision,
+      decided_by AS "decidedBy", decided_at AS "decidedAt", packet_hash AS "packetHash",
+      effective_event_id AS "effectiveEventId", effective_sequence AS "effectiveSequence"
+    FROM analysis_run_review
+    WHERE analysis_run_id = ${runId}
+  `);
+  const row = result.rows[0];
+  return row ? effectiveProjection(row) : undefined;
 }
 
 type ReviewItemRow = {
