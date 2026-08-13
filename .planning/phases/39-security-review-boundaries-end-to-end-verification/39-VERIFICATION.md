@@ -2,7 +2,7 @@
 
 ## Final disposition
 
-**PASS WITH QUALIFICATIONS:** deterministic, disposable database, migration, Workflow, lifecycle, Company, and Persona authenticated browser evidence passes. The append-only fixture reset preserves event-bearing history and only removes review-free runs. Focused review integration remains not-run under the existing config because integration files are intentionally excluded.
+**PASS WITH QUALIFICATIONS:** deterministic, disposable database, Production migration, Workflow, lifecycle, Company, and Persona authenticated browser evidence passes. The append-only fixture reset preserves event-bearing history and only removes review-free runs. Focused review integration remains not-run under the existing config because integration files are intentionally excluded; the separate Phase 38 cumulative audit remains blocked.
 
 ## Evidence contract
 
@@ -18,4 +18,4 @@ The canonical `/agents` route is present. No `/reviews/agents` route exists. Pha
 
 ## Gate limitation
 
-The exact canonical preflight passed immediately before each executed DB, Workflow, reset, and E2E lane with `.env.local` loaded in-process and the fixture marker injected into the guarded identities. The fresh project-owned dev server was used for all three Chromium lanes. Company and Persona reached durable execution, review, and subject-scoped candidate assertions. The missing Phase 38 script entrypoint remains a separate historical BLOCKED item.
+The exact canonical preflight passed immediately before each executed DB, Workflow, reset, and E2E lane with `.env.local` loaded in-process and the fixture marker injected into the guarded identities. Production migration 0010 was applied successfully through the protected GitHub Actions workflow. The fresh project-owned dev server was used for all three Chromium lanes. Company and Persona reached durable execution, review, and subject-scoped candidate assertions. The missing Phase 38 script entrypoint remains a separate historical BLOCKED item.

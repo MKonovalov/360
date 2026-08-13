@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Agent Constructor
 status: executing
-last_updated: "2026-08-11T19:17:18.300Z"
-last_activity: 2026-08-11 -- Phase 38 planning complete
+last_updated: "2026-08-13T12:00:00.000Z"
+last_activity: 2026-08-13 -- Phase 39 completed with qualified PASS after Production migration 0010
 progress:
   total_phases: 3
-  completed_phases: 0
-  total_plans: 6
-  completed_plans: 5
-  percent: 0
+  completed_phases: 2
+  total_plans: 14
+  completed_plans: 13
+  percent: 67
 ---
 
 # Project State
@@ -20,20 +20,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-09)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** Phase 37 — Custom Agent Definition, Versioning & Lifecycle
+**Current focus:** Phase 38 — Execution Compatibility & Safe Integration
 
 ## Current Position
 
-Phase: 37 — Custom Agent Definition, Versioning & Lifecycle
-Plan: 5 of 05
-Status: Ready to execute
-Last activity: 2026-08-11 -- Phase 38 planning complete
+Phase: 38 — Execution Compatibility & Safe Integration
+Plan: pending historical gate
+Status: Phase 39 complete with qualifications; Phase 38 remains pending
+Last activity: 2026-08-13 -- Production migration 0010 applied and Phase 39 evidence reconciled
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Current milestone plans completed: 5
+- Current milestone plans completed: 13
 - Average duration: Not tracked consistently
 - Total execution time: Not tracked consistently
 
@@ -138,7 +138,7 @@ Last activity: 2026-08-11 -- Phase 38 planning complete
 
 ### Pending Todos
 
-None.
+- Phase 38 cumulative packet-path scope audit remains unresolved; do not reclassify it as passed.
 
 ### Blockers/Concerns
 
@@ -146,6 +146,7 @@ None.
 - Phase 37 must define custom-agent identity/ownership, schema boundaries, and additive migration details without changing the fixed-template keys.
 - Phase 38 must preserve the v1.7 durable executor, evidence, review, and confirmed-only candidate boundaries for custom agents.
 - Phase 39 must prove adversarial fail-closed behavior and no-live-write invariants with deterministic fixtures plus authenticated `/agents`, Company, and Persona E2E.
+- Phase 39 is complete with qualifications: focused review integration remains not-run under the existing Vitest exclusion, and Production migration 0010 was applied successfully.
 - Phase 31 executor selection and deployed proof are complete; detached execution may now proceed through the planned ledger gates.
 - Phase 32 planning must inventory legacy `agent_run`/proposal/review relations before selecting additive migration details.
 - Persona enablement needs explicit privacy, redaction, classification, and retention policy values before Phase 33 implementation.

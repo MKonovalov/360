@@ -39,6 +39,16 @@ through the protected, explicitly dispatched migration workflow after a DBA
 review confirms the four additive columns are absent and the migration hash is
 unchanged.
 
+## 0011 shared data-source settings
+
+`0011_organization_data_source_settings.sql` adds the shared singleton tuple used
+by the Settings Data Sources tab. Its database-owned singleton key and provider
+check constraints prevent per-user rows and unsupported provider values. The row
+is optional at read time: when absent, the server resolver uses Firecrawl for web
+research, Apollo for company enrichment, and Prospeo for persona enrichment. Both
+Apollo and Prospeo are valid selections for either enrichment role.
+The migration is additive and has not been applied to Production by this task.
+
 ## 0007 baseline boundary
 
 `drizzle/0007_custom_agent_definition.sql` is unchanged, manually applied Production SQL. Its SHA-256 is recorded in `drizzle/migration-baseline.json`. It is intentionally not fabricated into `_journal.json` or given a fabricated snapshot: doing so would not repair the database migration table and could cause duplicate DDL.

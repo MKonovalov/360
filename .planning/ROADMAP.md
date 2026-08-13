@@ -10,7 +10,7 @@
 - ✅ **v1.5 Additional AI Providers** — Phases 23-27 (shipped 2026-08-04)
 - ✅ **v1.6 Signals & Offerings** — Phases 28-30 (shipped 2026-08-06)
 - ◐ **v1.7 Agent Constructor & Buying Signal Analysis** — Phases 31-36 (fixed-template implementation/UAT complete; Phase 36 database/Workflow verification partial)
-- 🚧 **v1.8 Agent Constructor** — Phases 37-39 (planned)
+- ◐ **v1.8 Agent Constructor** — Phases 37-39 (Phase 39 complete; Phase 38 remains pending)
 
 ## Phases
 
@@ -182,7 +182,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 36. Agent Management & End-to-End Verification | v1.7 | 7/7 | Complete   | 2026-08-08 |
 | 37. Custom Agent Definition, Versioning & Lifecycle | v1.8 | 5/5 | Complete   | 2026-08-09 |
 | 38. Execution Compatibility & Safe Integration | v1.8 | 0/TBD | Pending | — |
-| 39. Security, Review Boundaries & End-to-End Verification | v1.8 | 0/TBD | Pending | — |
+| 39. Security, Review Boundaries & End-to-End Verification | v1.8 | 8/8 | Complete with qualifications | 2026-08-13 |
 
 ---
 
