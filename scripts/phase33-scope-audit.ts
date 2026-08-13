@@ -1,6 +1,10 @@
-import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import {
+  createScopeSource,
+  SCOPE_AUDIT_MODES,
+  type HistoricalScopeRefs,
+  type ScopeAuditMode,
+  type ScopeSource,
+} from './historical-scope-source';
 
 export interface ScopeAuditFinding {
   readonly category: string;
@@ -9,10 +13,18 @@ export interface ScopeAuditFinding {
 }
 
 export interface ScopeAuditResult {
+  readonly mode: ScopeAuditMode;
+  readonly targetRef: string;
+  readonly baseRef: string;
   readonly scannedFileCount: number;
   readonly scannedCategories: readonly string[];
   readonly findings: readonly ScopeAuditFinding[];
 }
+
+export const PHASE33_HISTORICAL_REFS = {
+  targetRef: 'b40502c42c3a0ae3a69c7ce926438fe7fe0b1d43',
+  baseRef: '711ca8fd826fd831624ad444f62ab0385be3367e',
+} as const satisfies HistoricalScopeRefs;
 
 const FORBIDDEN_MANIFEST_PACKAGE_PATTERN = /["'](?:@[^"']+\/)?(?:exa(?:-search|-sdk|-js)?|perplexity|tavily|serpapi|brave-search|google-generative-ai)["']\s*:/i;
 const FORBIDDEN_IMPORT_PATTERN = /(?:from|import\s*\()\s*['"][^'"]*(?:exa|perplexity|tavily|serpapi|brave-search|google-generative-ai)/i;
@@ -33,19 +45,12 @@ const PRODUCTION_PHASE33_PATHS = [
   'src/app/api/analysis-runs/',
 ] as const;
 
-function trackedFiles(rootDir: string): readonly string[] {
-  const output = execFileSync('git', ['ls-files', '-z'], {
-    cwd: rootDir,
-    encoding: 'utf8',
-  });
-  return output
-    .split('\0')
-    .filter((filePath) => filePath.length > 0)
-    .filter((filePath) => {
+function trackedFiles(source: ScopeSource): readonly string[] {
+  return source.files.filter((filePath) => {
       const isSource = /^(src|scripts)\//.test(filePath) && /\.(ts|tsx|js|jsx|mjs|cjs|json)$/.test(filePath);
       const isManifest = /^(package(?:-lock)?\.json|tsconfig[^/]*\.json|drizzle\.config\.[^/]+|vitest[^/]*\.[^/]+)$/.test(filePath);
       return isSource || isManifest;
-    });
+  });
 }
 
 function isProductionPhase33Path(filePath: string): boolean {
@@ -56,13 +61,17 @@ function addFinding(findings: ScopeAuditFinding[], category: string, file: strin
   findings.push({ category, file, detail });
 }
 
-export function runScopeAudit(rootDir: string): ScopeAuditResult {
-  const files = trackedFiles(rootDir);
+export function runScopeAudit(
+  rootDir: string,
+  mode: ScopeAuditMode = SCOPE_AUDIT_MODES.historical,
+): ScopeAuditResult {
+  const source = createScopeSource(rootDir, mode, PHASE33_HISTORICAL_REFS);
+  const files = trackedFiles(source);
   const findings: ScopeAuditFinding[] = [];
   const scannedCategories = new Set<string>();
 
   for (const filePath of files) {
-    const source = readFileSync(resolve(rootDir, filePath), 'utf8');
+    const fileSource = source.readFile(filePath);
     const isManifest = /^(package(?:-lock)?\.json|tsconfig[^/]*\.json|drizzle\.config\.[^/]+|vitest[^/]*\.[^/]+)$/.test(filePath);
     const isSource = filePath.startsWith('src/') && /\.(ts|tsx|js|jsx|mjs|cjs|json)$/.test(filePath);
     const isScript = filePath.startsWith('scripts/');
@@ -71,29 +80,32 @@ export function runScopeAudit(rootDir: string): ScopeAuditResult {
     if (isManifest) scannedCategories.add('manifests');
     if (filePath.includes('/db/schema') || filePath.includes('/db/queries/')) scannedCategories.add('schema/query');
 
-    if (isManifest && FORBIDDEN_MANIFEST_PACKAGE_PATTERN.test(source)) {
+    if (isManifest && FORBIDDEN_MANIFEST_PACKAGE_PATTERN.test(fileSource)) {
       addFinding(findings, 'provider/package', filePath, 'forbidden external provider or SDK token');
     }
-    if (FORBIDDEN_IMPORT_PATTERN.test(source)) {
+    if (FORBIDDEN_IMPORT_PATTERN.test(fileSource)) {
       addFinding(findings, 'provider/import', filePath, 'forbidden external provider import');
     }
 
     if (!isProductionPhase33Path(filePath)) continue;
-    if (LEGACY_WRITE_PATTERN.test(source)) {
+    if (LEGACY_WRITE_PATTERN.test(fileSource)) {
       addFinding(findings, 'legacy-write', filePath, 'legacy agent_run or signal_proposal write');
     }
-    if (LATER_PHASE_IMPORT_PATTERN.test(source)) {
+    if (LATER_PHASE_IMPORT_PATTERN.test(fileSource)) {
       addFinding(findings, 'later-phase-surface', filePath, 'review, candidate, bulk, scheduled, or later-phase surface');
     }
-    if (LATER_PHASE_WRITE_PATTERN.test(source)) {
+    if (LATER_PHASE_WRITE_PATTERN.test(fileSource)) {
       addFinding(findings, 'direct-write', filePath, 'review, candidate, Signal, or Offering write');
     }
-    if (PRIVATE_REASONING_PATTERN.test(source)) {
+    if (PRIVATE_REASONING_PATTERN.test(fileSource)) {
       addFinding(findings, 'private-reasoning', filePath, 'private reasoning or chain-of-thought persistence marker');
     }
   }
 
   return {
+    mode: source.mode,
+    targetRef: source.targetRef,
+    baseRef: source.baseRef,
     scannedFileCount: files.length,
     scannedCategories: [...scannedCategories].sort(),
     findings,
@@ -101,8 +113,14 @@ export function runScopeAudit(rootDir: string): ScopeAuditResult {
 }
 
 function main(): void {
-  const result = runScopeAudit(process.cwd());
+  const mode = process.argv.includes('--working-tree')
+    ? SCOPE_AUDIT_MODES.workingTree
+    : SCOPE_AUDIT_MODES.historical;
+  const result = runScopeAudit(process.cwd(), mode);
   const summary = {
+    mode: result.mode,
+    targetRef: result.targetRef,
+    baseRef: result.baseRef,
     scannedFileCount: result.scannedFileCount,
     scannedCategories: result.scannedCategories,
     findingCount: result.findings.length,

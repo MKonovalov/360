@@ -1,6 +1,10 @@
-import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import {
+  createScopeSource,
+  SCOPE_AUDIT_MODES,
+  type HistoricalScopeRefs,
+  type ScopeAuditMode,
+  type ScopeSource,
+} from './historical-scope-source';
 
 // Phase 34 (34-04): tracked-source boundary audit for the whole-run review and
 // confirmed-candidate work. Mirrors scripts/phase33-scope-audit.ts: scans the
@@ -22,10 +26,18 @@ export interface ScopeAuditFinding {
 }
 
 export interface ScopeAuditResult {
+  readonly mode: ScopeAuditMode;
+  readonly targetRef: string;
+  readonly baseRef: string;
   readonly scannedFileCount: number;
   readonly scannedCategories: readonly string[];
   readonly findings: readonly ScopeAuditFinding[];
 }
+
+export const PHASE34_HISTORICAL_REFS = {
+  targetRef: '3118f518ac5f3fab79b9b127e940d1757087b213',
+  baseRef: '1e25640a79aaa4763204a9a14647b94a6094efa9',
+} as const satisfies HistoricalScopeRefs;
 
 const FORBIDDEN_MANIFEST_PACKAGE_PATTERN = /["'](?:@[^"']+\/)?(?:exa(?:-search|-sdk|-js)?|perplexity|tavily|serpapi|brave-search|google-generative-ai)["']\s*:/i;
 const FORBIDDEN_IMPORT_PATTERN = /(?:from|import\s*\()\s*['"][^'"]*(?:exa|perplexity|tavily|serpapi|brave-search|google-generative-ai)/i;
@@ -82,19 +94,12 @@ const PRODUCTION_PHASE34_PATHS = [
   'src/components/reviews/run-review',
 ] as const;
 
-function trackedFiles(rootDir: string): readonly string[] {
-  const output = execFileSync('git', ['ls-files', '-z'], {
-    cwd: rootDir,
-    encoding: 'utf8',
-  });
-  return output
-    .split('\0')
-    .filter((filePath) => filePath.length > 0)
-    .filter((filePath) => {
+function trackedFiles(source: ScopeSource): readonly string[] {
+  return source.files.filter((filePath) => {
       const isSource = /^(src|scripts)\//.test(filePath) && /\.(ts|tsx|js|jsx|mjs|cjs|json)$/.test(filePath);
       const isManifest = /^(package(?:-lock)?\.json|tsconfig[^/]*\.json|drizzle\.config\.[^/]+|vitest[^/]*\.[^/]+)$/.test(filePath);
       return isSource || isManifest;
-    });
+  });
 }
 
 function isProductionPhase34Path(filePath: string): boolean {
@@ -117,17 +122,18 @@ function addFinding(findings: ScopeAuditFinding[], category: string, file: strin
   findings.push({ category, file, detail });
 }
 
-function checkNewDependencies(rootDir: string, findings: ScopeAuditFinding[]): void {
+function checkNewDependencies(source: ScopeSource, findings: ScopeAuditFinding[]): void {
   // T-34-SC: no dependency changes. Working-tree package.json keys are compared
   // against HEAD; the pre-existing working-tree churn (seed script addition,
   // @workflow/vitest section move) adds no keys, so this stays zero-finding.
   let headPkg: Record<string, unknown>;
   try {
-    headPkg = JSON.parse(execFileSync('git', ['show', 'HEAD:package.json'], { cwd: rootDir, encoding: 'utf8' }));
-  } catch {
-    return;
+    headPkg = JSON.parse(source.readBaseFile('package.json')) as Record<string, unknown>;
+  } catch (error: unknown) {
+    if (error instanceof Error) return;
+    throw error;
   }
-  const wtPkg = JSON.parse(readFileSync(resolve(rootDir, 'package.json'), 'utf8')) as Record<string, unknown>;
+  const wtPkg = JSON.parse(source.readFile('package.json')) as Record<string, unknown>;
   const keySets = ['dependencies', 'devDependencies', 'optionalDependencies'] as const;
   const headKeys = new Set<string>();
   const wtKeys = new Set<string>();
@@ -144,13 +150,17 @@ function checkNewDependencies(rootDir: string, findings: ScopeAuditFinding[]): v
   }
 }
 
-export function runScopeAudit(rootDir: string): ScopeAuditResult {
-  const files = trackedFiles(rootDir);
+export function runScopeAudit(
+  rootDir: string,
+  mode: ScopeAuditMode = SCOPE_AUDIT_MODES.historical,
+): ScopeAuditResult {
+  const source = createScopeSource(rootDir, mode, PHASE34_HISTORICAL_REFS);
+  const files = trackedFiles(source);
   const findings: ScopeAuditFinding[] = [];
   const scannedCategories = new Set<string>();
 
   for (const filePath of files) {
-    const source = readFileSync(resolve(rootDir, filePath), 'utf8');
+    const fileSource = source.readFile(filePath);
     const isManifest = /^(package(?:-lock)?\.json|tsconfig[^/]*\.json|drizzle\.config\.[^/]+|vitest[^/]*\.[^/]+)$/.test(filePath);
     const isSource = filePath.startsWith('src/') && /\.(ts|tsx|js|jsx|mjs|cjs|json)$/.test(filePath);
     const isScript = filePath.startsWith('scripts/');
@@ -159,46 +169,49 @@ export function runScopeAudit(rootDir: string): ScopeAuditResult {
     if (isManifest) scannedCategories.add('manifests');
     if (filePath.includes('/db/schema') || filePath.includes('/db/queries/')) scannedCategories.add('schema/query');
 
-    if (isManifest && FORBIDDEN_MANIFEST_PACKAGE_PATTERN.test(source)) {
+    if (isManifest && FORBIDDEN_MANIFEST_PACKAGE_PATTERN.test(fileSource)) {
       addFinding(findings, 'provider/package', filePath, 'forbidden external provider or SDK token');
     }
-    if (FORBIDDEN_IMPORT_PATTERN.test(source)) {
+    if (FORBIDDEN_IMPORT_PATTERN.test(fileSource)) {
       addFinding(findings, 'provider/import', filePath, 'forbidden external provider import');
     }
 
     if (!isProductionPhase34Path(filePath)) continue;
 
-    const acceptScanSource = filePath === 'src/app/actions/reviews.ts' ? wholeRunSection(source) : source;
+    const acceptScanSource = filePath === 'src/app/actions/reviews.ts' ? wholeRunSection(fileSource) : fileSource;
 
-    if (LEGACY_WRITE_PATTERN.test(source) || SQL_LEGACY_WRITE_PATTERN.test(source)) {
+    if (LEGACY_WRITE_PATTERN.test(fileSource) || SQL_LEGACY_WRITE_PATTERN.test(fileSource)) {
       addFinding(findings, 'legacy-write', filePath, 'legacy agent_run or signal_proposal write');
     }
     if (LEGACY_ACCEPT_PATTERN.test(acceptScanSource)) {
       addFinding(findings, 'legacy-accept', filePath, 'whole-run path reaches legacy proposal Accept or interactive transaction');
     }
-    if (LIVE_WRITE_PATTERN.test(source) || DRIZZLE_LIVE_WRITE_PATTERN.test(source)) {
+    if (LIVE_WRITE_PATTERN.test(fileSource) || DRIZZLE_LIVE_WRITE_PATTERN.test(fileSource)) {
       addFinding(findings, 'live-write', filePath, 'live Signal, Company/Persona Signal, Offering, or signal_offering_link write');
     }
-    if (PACKET_MUTATION_PATTERN.test(source)) {
+    if (PACKET_MUTATION_PATTERN.test(fileSource)) {
       addFinding(findings, 'packet-mutation', filePath, 'Phase 33 packet content table write');
     }
-    if (PROVIDER_CALL_PATTERN.test(source)) {
+    if (PROVIDER_CALL_PATTERN.test(fileSource)) {
       addFinding(findings, 'provider-call', filePath, 'provider or Firecrawl call in Phase 34 path');
     }
-    if (PER_FINDING_PATTERN.test(source)) {
+    if (PER_FINDING_PATTERN.test(fileSource)) {
       addFinding(findings, 'per-finding-surface', filePath, 'per-finding curation surface');
     }
-    if (BULK_SCHEDULED_AUTO_PATTERN.test(source)) {
+    if (BULK_SCHEDULED_AUTO_PATTERN.test(fileSource)) {
       addFinding(findings, 'bulk-scheduled-auto', filePath, 'bulk, scheduled, or auto-confirmation surface');
     }
-    if (LATER_PHASE_PATTERN.test(source)) {
+    if (LATER_PHASE_PATTERN.test(fileSource)) {
       addFinding(findings, 'later-phase-surface', filePath, 'Phase 35 target-record or Phase 36 template/E2E surface');
     }
   }
 
-  checkNewDependencies(rootDir, findings);
+  checkNewDependencies(source, findings);
 
   return {
+    mode: source.mode,
+    targetRef: source.targetRef,
+    baseRef: source.baseRef,
     scannedFileCount: files.length,
     scannedCategories: [...scannedCategories].sort(),
     findings,
@@ -206,8 +219,14 @@ export function runScopeAudit(rootDir: string): ScopeAuditResult {
 }
 
 function main(): void {
-  const result = runScopeAudit(process.cwd());
+  const mode = process.argv.includes('--working-tree')
+    ? SCOPE_AUDIT_MODES.workingTree
+    : SCOPE_AUDIT_MODES.historical;
+  const result = runScopeAudit(process.cwd(), mode);
   const summary = {
+    mode: result.mode,
+    targetRef: result.targetRef,
+    baseRef: result.baseRef,
     scannedFileCount: result.scannedFileCount,
     scannedCategories: result.scannedCategories,
     findingCount: result.findings.length,
