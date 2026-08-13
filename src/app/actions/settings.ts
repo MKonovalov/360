@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { upsertModelSettings } from '@/lib/db/queries/userModelSettings';
+import { upsertOrganizationDataSourceSettings } from '@/lib/db/queries/organizationDataSourceSettings';
+import { dataSourceSelectionSchema } from '@/lib/data-sources/contracts';
 import { validateSettingsInput } from '@/lib/models/modelSettings';
 
 // Server Action controller for the Settings form (SET-06/SET-07). The order is
@@ -40,6 +42,24 @@ export async function saveSettingsAction(input: unknown): Promise<SettingsAction
     revalidatePath('/settings');
     return { ok: true };
   } catch {
+    return { ok: false, reason: 'action_failed' };
+  }
+}
+
+export async function saveDataSourceSettingsAction(input: unknown): Promise<SettingsActionResult> {
+  await requireStaffAccess();
+
+  const parsed = dataSourceSelectionSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, reason: 'invalid_data_source' };
+  }
+
+  try {
+    await upsertOrganizationDataSourceSettings(parsed.data);
+    revalidatePath('/settings');
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof Error) return { ok: false, reason: 'action_failed' };
     return { ok: false, reason: 'action_failed' };
   }
 }

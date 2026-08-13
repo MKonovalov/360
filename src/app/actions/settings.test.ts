@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   requireStaffAccess: vi.fn().mockResolvedValue({ userId: 'user_123' }),
   upsertModelSettings: vi.fn(),
+  upsertOrganizationDataSourceSettings: vi.fn(),
 }));
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
@@ -12,13 +13,17 @@ vi.mock('@/lib/auth/requireStaffAccess', () => ({
 vi.mock('@/lib/db/queries/userModelSettings', () => ({
   upsertModelSettings: mocks.upsertModelSettings,
 }));
+vi.mock('@/lib/db/queries/organizationDataSourceSettings', () => ({
+  upsertOrganizationDataSourceSettings: mocks.upsertOrganizationDataSourceSettings,
+}));
 import { revalidatePath } from 'next/cache';
-import { saveSettingsAction } from './settings';
+import { saveDataSourceSettingsAction, saveSettingsAction } from './settings';
 
 describe('saveSettingsAction security matrix (T-17-02..06)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.upsertModelSettings.mockResolvedValue(undefined);
+    mocks.upsertOrganizationDataSourceSettings.mockResolvedValue(undefined);
   });
 
   it('saves a valid chain: gate FIRST, then upsert with the session userId, then revalidate', async () => {
@@ -159,5 +164,41 @@ describe('saveSettingsAction security matrix (T-17-02..06)', () => {
     // Then
     expect(result).toEqual({ ok: false, reason: 'action_failed' });
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe('saveDataSourceSettingsAction security matrix', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.upsertOrganizationDataSourceSettings.mockResolvedValue(undefined);
+  });
+
+  it('saves the complete shared tuple with no user-owned scope', async () => {
+    const result = await saveDataSourceSettingsAction({
+      webResearchProvider: 'exa',
+      companyEnrichmentProvider: 'apollo',
+      personaEnrichmentProvider: 'prospeo',
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(mocks.upsertOrganizationDataSourceSettings).toHaveBeenCalledWith({
+      webResearchProvider: 'exa',
+      companyEnrichmentProvider: 'apollo',
+      personaEnrichmentProvider: 'prospeo',
+    });
+    expect(revalidatePath).toHaveBeenCalledWith('/settings');
+  });
+
+  it('rejects malformed input without writing or returning credential data', async () => {
+    const result = await saveDataSourceSettingsAction({
+      webResearchProvider: 'firecrawl',
+      companyEnrichmentProvider: 'apollo',
+      personaEnrichmentProvider: 'prospeo',
+      FIRECRAWL_API_KEY: 'secret',
+    });
+
+    expect(result).toEqual({ ok: false, reason: 'invalid_data_source' });
+    expect(mocks.upsertOrganizationDataSourceSettings).not.toHaveBeenCalled();
+    expect(JSON.stringify(result)).not.toContain('secret');
   });
 });
