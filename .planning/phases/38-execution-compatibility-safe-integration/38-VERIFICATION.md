@@ -38,7 +38,7 @@ confirmed-only candidate, or authenticated Company/Persona E2E proof.
 | Command | Result | Sanitized evidence / limitation |
 |---|---|---|
 | `npm test -- --run src/lib/analysis/customAgentContracts.test.ts src/lib/analysis/capabilityPresets.test.ts src/lib/analysis/checklist.test.ts src/lib/analysis/compatibility.test.ts src/lib/analysis/snapshots.test.ts src/lib/analysis/execution.test.ts src/lib/analysis/groundedContracts.test.ts src/lib/db/queries/analysisRuns.test.ts` | **PASS** | Prior matrix: 8 files, 139/139 tests passed. New focused fixture/runtime-seam suite: 8/8. Environment: local, deterministic injected executor/modelFactory/workflow-boundary seams, no live network/DB. |
-| `npm exec tsx src/lib/verification/phase38ScopeAudit.ts` | **PASS** | 17 selected tracked implementation files scanned; `findingCount: 0`; positive canaries (one `GroundedExecutionAdapter`, `analysisRun(applicationRunId)`, `normalizeAnalysisPacketWithCustomOutput`/`persistAnalysisPacket`, `reconcileCompletedRunForReview`, `confirmedCandidateDisplayRowSchema`, `modelFactory`) and zero forbidden-surface findings. |
+| `npm exec tsx scripts/phase38-scope-audit.ts` | **PASS** | 17 selected tracked implementation files scanned; `findingCount: 0`; positive canaries include the shared internal normalizer and quarantine facade, with zero forbidden-surface findings. |
 | `git diff --check` | **PASS** | No whitespace errors. |
 | `lsp_diagnostics` on `src/lib/verification/phase38ScopeAudit.ts` | **PASS** | No errors, warnings, or hints. |
 | `npm run test:workflow` | **PASS** | In-process dotenv loading supplied `TEST_DATABASE_URL`; 2 workflow test files and 14 tests passed. |
@@ -107,7 +107,7 @@ No secrets, credential-bearing URLs, or raw provider responses are reproduced ab
 
 ## Scope audit
 
-`src/lib/verification/phase38ScopeAudit.ts` scans exactly 17 selected tracked
+`scripts/phase38-scope-audit.ts` invokes `src/lib/verification/phase38ScopeAudit.ts`, which scans exactly 17 selected tracked
 Phase 38 implementation files (contracts, snapshots, custom-agent contracts,
 compatibility resolver, subject resolution, custom-agent queries, the three
 analysis API routes, the launcher client/component, the grounded execution

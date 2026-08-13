@@ -2,7 +2,7 @@
 
 ## Final Disposition
 
-**PASS WITH QUALIFICATIONS:** scope canaries, deterministic evidence, DB/Workflow evidence, and lifecycle, Company, and Persona browser evidence pass. Review integration remains not-run under the existing Vitest exclusion, and the separate Phase 38 cumulative audit remains blocked. No blocked or not-run lane is represented as PASS.
+**PASS:** scope canaries, deterministic evidence, DB/Workflow evidence, lifecycle, Company, and Persona browser evidence pass. The dedicated review integration runner executes all 13 tests successfully. The separate Phase 38 cumulative audit passes.
 
 ## Positive Canaries
 
@@ -28,4 +28,4 @@ SAFE-01, SAFE-02, SAFE-03, and UX-02 have focused deterministic evidence in Plan
 
 ## Audit Limitation
 
-The planned `scripts/phase38-scope-audit.ts` entrypoint is absent. The existing Phase 38 cumulative packet-path canary (`normalizeAnalysisPacketWithQuarantine`) is retained as BLOCKED rather than weakened or relabeled; Plan 39-08 does not modify Phase 38 code. The latest Phase 39 fixture reset passed, and the final Company/Persona browser rerun passed after the append-only reset fix and Production migration 0010.
+The tracked `scripts/phase38-scope-audit.ts` entrypoint runs the Phase 38 cumulative packet-path audit with zero findings, including the `normalizeAnalysisPacketWithQuarantine` facade canary. The dedicated review integration runner is safe and all 13 tests pass. The latest Phase 39 fixture reset passed, and the final Company/Persona browser rerun passed after the append-only reset fix and Production migration 0010.
