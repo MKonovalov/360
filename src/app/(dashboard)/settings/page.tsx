@@ -10,6 +10,9 @@ import { ModelSettingsForm } from '@/components/settings/model-settings-form';
 import { providerName } from '@/components/settings/model-picker-logic';
 import type { ServableModel } from '@/components/settings/model-picker-logic';
 import { resolveStoredModelRef } from '@/lib/models/modelSettings';
+import { getDataSourceSettingsView } from '@/lib/data-sources/settings';
+import { DataSourceSettingsForm } from '@/components/settings/data-source-settings-form';
+import { SettingsTabs } from '@/components/settings/settings-tabs';
 
 // Belt-and-suspenders alongside the (dashboard) layout's auth gate
 // (02-RESEARCH.md Pitfall 4) — every page in the group gates itself too, so
@@ -21,25 +24,17 @@ import { resolveStoredModelRef } from '@/lib/models/modelSettings';
 export default async function SettingsPage() {
   const { userId } = await requireStaffAccess();
 
-  // Same failure mode as every dashboard widget: a DB-fetch failure degrades
-  // to the established per-widget error card, never Next.js's default 500
-  // page. getModelSettingsForUser returns undefined for "no saved settings"
-  // (REG-05: use the default chain) — absence is data, not an error.
-  let settings: Awaited<ReturnType<typeof getModelSettingsForUser>>;
-  try {
-    settings = await getModelSettingsForUser(userId);
-  } catch {
-    return (
-      <div className="flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-8 text-center">
-        <p className="text-[18px] font-semibold leading-[1.2] text-slate-900">
-          Couldn't load your settings
-        </p>
-        <p className="text-sm text-slate-500">
-          Something went wrong fetching this data. Try refreshing the page.
-        </p>
-      </div>
-    );
-  }
+  // Keep the two tabs independently useful when one backing read is down.
+  // `undefined` is a valid model-settings result, so the settled status is the
+  // failure discriminator for that tab.
+  const [modelResult, dataSourceResult] = await Promise.allSettled([
+    getModelSettingsForUser(userId),
+    getDataSourceSettingsView(),
+  ]);
+  const modelReadSucceeded = modelResult.status === 'fulfilled';
+  const dataSourceReadSucceeded = dataSourceResult.status === 'fulfilled';
+  const settings = modelReadSucceeded ? modelResult.value : undefined;
+  const dataSourceSettings = dataSourceReadSucceeded ? dataSourceResult.value : undefined;
 
   // Server-computed picker data, never client-fetched (17-UI-SPEC §Page) —
   // the client receives props only, so catalog.json (1131 rows, CAT-04
@@ -128,18 +123,49 @@ export default async function SettingsPage() {
     ? { primaryModel: settings.primaryModel, fallbackModels: settings.fallbackModels }
     : null;
 
+  const modelSettingsContent = modelReadSucceeded ? (
+    <ModelSettingsForm
+      saved={saved}
+      providers={providers}
+      servableByProvider={servableByProvider}
+      unionServableModels={unionServableModels}
+      defaults={defaults}
+      savedChain={savedChain}
+      catalogGeneratedAt={catalogJson.generatedAt}
+    />
+  ) : (
+    <SettingsReadError label="AI Models" />
+  );
+
+  const dataSourceSettingsContent = dataSourceReadSucceeded && dataSourceSettings ? (
+    <DataSourceSettingsForm
+      selection={dataSourceSettings}
+      availability={dataSourceSettings.availability}
+    />
+  ) : (
+    <SettingsReadError label="Data Sources" />
+  );
+
   return (
     <div className="flex flex-col gap-8 p-8">
       <h1 className="text-[24px] font-semibold leading-[1.2] text-slate-900">Settings</h1>
-      <ModelSettingsForm
-        saved={saved}
-        providers={providers}
-        servableByProvider={servableByProvider}
-        unionServableModels={unionServableModels}
-        defaults={defaults}
-        savedChain={savedChain}
-        catalogGeneratedAt={catalogJson.generatedAt}
+      <SettingsTabs
+        modelSettings={modelSettingsContent}
+        dataSources={dataSourceSettingsContent}
       />
+    </div>
+  );
+}
+
+function SettingsReadError({ label }: { readonly label: string }) {
+  return (
+    <div className="flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-8 text-center">
+      <p className="text-[18px] font-semibold leading-[1.2] text-slate-900">
+        Couldn&apos;t load {label}
+      </p>
+      <p className="text-sm text-slate-500">
+        Something went wrong fetching this tab. Try refreshing the page.
+      </p>
     </div>
   );
 }
