@@ -4,7 +4,7 @@
 **Plan:** 38-06
 **Tasks executed:** Task 1 (deterministic compatibility/regression matrix), Task 2 (non-vacuous scope/evidence gate), Task 3 (final project and prerequisite-gated commands)
 **Requirements:** VER-03, VAL-02, VAL-03, VAL-04, VAL-05, RUN-01, RUN-02
-**Status:** PASS (deterministic matrix, scope audit, build, `git diff --check`) / BLOCKED (Neon/Workflow DB integration — `TEST_DATABASE_URL` absent) / NOT-RUN (live Firecrawl/provider smoke) — no prerequisite-gated result is claimed as passing evidence
+**Status:** PASS (deterministic matrix, scope audit, build, `git diff --check`, and Neon/Workflow integration) / NOT-RUN (live Firecrawl/provider smoke)
 
 ## What this task did
 
@@ -99,12 +99,11 @@ components, `src/lib/analysis/*`, `src/lib/db/queries/analysisResults.ts`,
 files). Per the plan's conditional rule, this gate is skipped rather than
 silently passed.
 
-### `npm run test:workflow` — BLOCKED
+### `npm run test:workflow` — PASS
 
-`TEST_DATABASE_URL` remains unset in this environment; the command was not
-re-run in Task 3 (already recorded as blocked by Task 2's evidence ledger —
-`node -e "..."` guard exits 1 with `TEST_DATABASE_URL is required` before
-Vitest even starts).
+The guarded command was rerun with `TEST_DATABASE_URL` loaded in-process from
+`.env.local`; 2 workflow test files and 14 tests passed. This clears the
+historical Neon/Workflow prerequisite gate for Phase 38.
 
 ## Requirements addressed (final disposition, Plan 38-06 overall)
 
@@ -122,14 +121,11 @@ Vitest even starts).
   findings.
 - **VAL-05** — PASS (deterministic). 34 table-driven reserved-channel
   rejection cases pass; candidate seam canary present and untouched.
-- **RUN-01** — PASS (deterministic) / BLOCKED (live Workflow). Exactly one
-  `GroundedExecutionAdapter` and one `analysisRun(applicationRunId)` entry
-  in tracked scope; live Neon/Workflow claim/reload/replay evidence remains
-  blocked pending `TEST_DATABASE_URL`.
-- **RUN-02** — PASS (deterministic) / BLOCKED (DB). Duplicate/replay
-  assertions pass; global subject-uniqueness forbidden-surface check is
-  clean; live duplicate-active-custom-run DB proof remains blocked pending
-  `TEST_DATABASE_URL`.
+- **RUN-01** — PASS. Exactly one `GroundedExecutionAdapter` and one
+  `analysisRun(applicationRunId)` entry in tracked scope; guarded live
+  Neon/Workflow claim/reload/replay evidence passes.
+- **RUN-02** — PASS. Duplicate/replay assertions and guarded DB proof pass;
+  global subject-uniqueness forbidden-surface check remains clean.
 
 ## Live provider and Phase 39 boundaries
 

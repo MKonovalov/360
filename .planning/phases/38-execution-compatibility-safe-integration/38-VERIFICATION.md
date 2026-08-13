@@ -2,18 +2,18 @@
 ---
 phase: 38-execution-compatibility-safe-integration
 plan: 06
-status: partial
-updated: 2026-08-12T03:10:00Z
+status: pass
+updated: 2026-08-13T23:58:00Z
 deterministic_matrix: pass
 scope_audit: pass
-database_integration: blocked
+database_integration: pass
 live_provider: not_run
 diff_check: pass
 lsp_diagnostics: clean
 full_test_suite: fail_prerequisite_gated_and_preexisting
 build: pass
 migration_checks: not_applicable_no_schema_changes
-test_workflow: blocked
+test_workflow: pass
 review_blockers: resolved_with_environment_limitations
 ---
 
@@ -28,7 +28,7 @@ confirmed-only candidate, or authenticated Company/Persona E2E proof.
 
 | Item | Observed state | Evidence consequence |
 |---|---|---|
-| `TEST_DATABASE_URL` | unavailable; malformed values are now rejected by `parseFixtureDatabaseUrl` before the gate is selected | `npm run test:workflow` (Neon/Workflow integration) remains **BLOCKED**; the 18 gated integration fixtures added in Plan 38-05 are not executed. |
+| `TEST_DATABASE_URL` | available in `.env.local` and loaded in-process for the guarded run | Neon/Workflow integration executed successfully; no credentials were printed or persisted. |
 | Live Firecrawl/provider credentials and approved live policy | unavailable | Live provider execution remains **NOT-RUN**, reason `policy_or_credentials_unavailable`; deterministic injected-executor fixtures are the only execution evidence. |
 | Clerk shell credentials / authenticated browser state | unavailable | Authenticated Company/Persona custom-agent E2E is **BLOCKED**/out of scope; it is the Phase 39 handoff, not claimed here. |
 | `src/lib/verification/phase38Fixtures.ts` (Plan 38-05) | present on disk but untracked (`git status` reports `??`) | Excluded from the scope audit's "selected tracked scope" per the plan's own wording rather than treated as audited; recorded here as observed evidence, not a pass. |
@@ -41,7 +41,7 @@ confirmed-only candidate, or authenticated Company/Persona E2E proof.
 | `npm exec tsx src/lib/verification/phase38ScopeAudit.ts` | **PASS** | 17 selected tracked implementation files scanned; `findingCount: 0`; positive canaries (one `GroundedExecutionAdapter`, `analysisRun(applicationRunId)`, `normalizeAnalysisPacketWithCustomOutput`/`persistAnalysisPacket`, `reconcileCompletedRunForReview`, `confirmedCandidateDisplayRowSchema`, `modelFactory`) and zero forbidden-surface findings. |
 | `git diff --check` | **PASS** | No whitespace errors. |
 | `lsp_diagnostics` on `src/lib/verification/phase38ScopeAudit.ts` | **PASS** | No errors, warnings, or hints. |
-| `npm run test:workflow` | **BLOCKED** | Command refuses to run (`TEST_DATABASE_URL is required`); no Neon/Workflow evidence is claimed. |
+| `npm run test:workflow` | **PASS** | In-process dotenv loading supplied `TEST_DATABASE_URL`; 2 workflow test files and 14 tests passed. |
 | Live Firecrawl/provider smoke | **NOT-RUN** | Reason `policy_or_credentials_unavailable`; no live credentials or approved live policy were supplied in this environment. |
 | Authenticated Company/Persona custom-agent E2E | **BLOCKED / Phase 39 handoff** | No Clerk shell credentials/storage state in this environment; ownership belongs to Phase 39, not claimed here. |
 
@@ -173,12 +173,11 @@ and does not claim, any of the following — Phase 39 owns them:
 
 Phase 38's deterministic compatibility, snapshot, adapter, launcher, and
 Workflow-entry regression matrix passes (prior 139/139 plus 8 runtime-seam
-fixture assertions), the non-vacuous selected
-tracked-scope audit reports zero findings with positive canaries, and
-`git diff --check`/`lsp_diagnostics` are clean. Neon/Workflow-authoritative
-persistence evidence, live provider execution, and every Phase 39 boundary
-remain explicitly blocked, not-run, or unclaimed rather than reported as
-passing.
+fixture assertions), the non-vacuous selected tracked-scope audit reports zero
+findings with positive canaries, and `git diff --check`/`lsp_diagnostics` are
+clean. Neon/Workflow-authoritative persistence evidence now passes through the
+guarded integration run. Live provider execution remains not-run, and Phase 39
+owns the adversarial/review boundary evidence.
 
 **Task 3 (final project gate) adds:** `npm run build` passes cleanly (exit 0,
 28s, Next.js 16.2.11 Turbopack production build including the TypeScript
@@ -195,7 +194,7 @@ working-tree diff. `npm run test:workflow` remains blocked
 (`TEST_DATABASE_URL is required`), consistent with the Task 2 disposition and
 not re-run here.
 
-**Phase 39 handoff confirmed unchanged:** broad adversarial verification,
+**Phase 39 handoff confirmed:** broad adversarial verification,
 no-live-write invariants against Signal/Offering/signal-offering-link tables,
 one whole-run review idempotency proof, confirmed-only candidate aggregation
 with provenance, canonical `/agents` routing proof, and authenticated
