@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { pgTable, pgEnum, serial, text, integer, boolean, date, timestamp, unique, uniqueIndex, index, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, pgEnum, serial, text, integer, boolean, date, timestamp, unique, uniqueIndex, index, jsonb, check } from 'drizzle-orm/pg-core';
 import {
   ANALYSIS_RUN_STATUSES,
   PHASE32_NOOP_POLICY,
@@ -311,6 +311,35 @@ export const userModelSettings = pgTable('user_model_settings', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+// Shared organization-wide data-source selection. The singleton key is owned
+// by the schema, not by a Clerk user, so every staff member sees the same tuple.
+export const organizationDataSourceSettings = pgTable(
+  'organization_data_source_settings',
+  {
+    singletonKey: integer('singleton_key').primaryKey().default(1),
+    webResearchProvider: text('web_research_provider').notNull().default('firecrawl'),
+    companyEnrichmentProvider: text('company_enrichment_provider').notNull().default('apollo'),
+    personaEnrichmentProvider: text('persona_enrichment_provider').notNull().default('prospeo'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    check('organization_data_source_settings_singleton_key_check', sql`${table.singletonKey} = 1`),
+    check(
+      'organization_data_source_settings_web_research_provider_check',
+      sql`${table.webResearchProvider} IN ('firecrawl', 'exa')`,
+    ),
+    check(
+      'organization_data_source_settings_company_enrichment_provider_check',
+      sql`${table.companyEnrichmentProvider} IN ('apollo', 'prospeo')`,
+    ),
+    check(
+      'organization_data_source_settings_persona_enrichment_provider_check',
+      sql`${table.personaEnrichmentProvider} IN ('apollo', 'prospeo')`,
+    ),
+  ],
+);
 
 // DATA-01: shared 3-value lifecycle enum reused by offering / companySignal /
 // personaSignal. DRY — a single `catalog_status` Postgres type avoids three
