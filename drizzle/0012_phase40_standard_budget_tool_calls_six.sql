@@ -1,0 +1,1 @@
+ALTER TABLE "analysis_template_version" ALTER COLUMN "future_budget" SET DEFAULT '{"maxAttempts":2,"maxToolCalls":6,"maxExecutionSeconds":300,"maxSpendUsd":2.5}'::jsonb;
