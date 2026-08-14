@@ -433,7 +433,7 @@ export function AnalysisLauncher({
                </div>
                <div className="space-y-2">
                  <label htmlFor={`analysis-signal-category-${subjectType}-${subjectId}`} className="block text-sm font-medium text-slate-700">Buying Signal Category</label>
-                 <Select value={signalCategory || undefined} onValueChange={(value) => { setSignalCategory(value); setLaunchState({ status: 'idle' }); }} disabled={!agentPickerReady || signalCategories.length === 0 || launchState.status === 'launching' || launchState.status === 'started'}>
+                 <Select value={signalCategory} onValueChange={(value) => { setSignalCategory(value); setLaunchState({ status: 'idle' }); }} disabled={!agentPickerReady || signalCategories.length === 0 || launchState.status === 'launching' || launchState.status === 'started'}>
                    <SelectTrigger id={`analysis-signal-category-${subjectType}-${subjectId}`} className="w-full"><SelectValue placeholder="Select a Buying Signal Category" /></SelectTrigger>
                    <SelectContent>{signalCategories.map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}</SelectContent>
                  </Select>
