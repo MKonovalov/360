@@ -56,6 +56,7 @@ const envSchema = z.object({
   LANGFUSE_PUBLIC_KEY: z.string().optional(),
   LANGFUSE_SECRET_KEY: z.string().optional(),
   LANGFUSE_TRACE_BASE_URL: z.string().optional(),
+  LANGFUSE_CAPTURE_GROUNDED_REPORT: z.enum(['true', 'false']).optional().catch(undefined),
 });
 
 export const env = envSchema.parse(process.env);
