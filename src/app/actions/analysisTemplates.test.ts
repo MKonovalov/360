@@ -286,6 +286,7 @@ describe('analysis template actions', () => {
     const result = await saveAnalysisTemplateAction({
       operation: 'content',
       templateKey: 'company-buying-signal-analysis',
+      expectedVersion: 2,
       instruction: 'Updated instruction',
       defaultEffort: 'standard',
     });
@@ -300,6 +301,7 @@ describe('analysis template actions', () => {
       {
         operation: 'content',
         templateKey: 'company-buying-signal-analysis',
+        expectedVersion: 2,
         instruction: 'Updated instruction',
         defaultEffort: 'standard',
       },
@@ -317,6 +319,7 @@ describe('analysis template actions', () => {
     const result = await saveAnalysisTemplateAction({
       operation: 'content',
       templateKey: 'company-buying-signal-analysis',
+      expectedVersion: 2,
       instruction: 'Updated instruction',
       defaultEffort: 'standard',
       name: 'Forged name',
@@ -344,6 +347,7 @@ describe('analysis template actions', () => {
     const result = await saveAnalysisTemplateAction({
       operation: 'content',
       templateKey: 'company-buying-signal-analysis',
+      expectedVersion: 2,
       instruction: 'Updated instruction',
       defaultEffort: 'standard',
     });
@@ -386,6 +390,7 @@ describe('analysis template actions', () => {
     const result = await saveAnalysisTemplateAction({
       operation: 'content',
       templateKey: 'company-buying-signal-analysis',
+      expectedVersion: 2,
       instruction: 'Concurrent instruction',
       defaultEffort: 'standard',
     });

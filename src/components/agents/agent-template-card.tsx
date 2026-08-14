@@ -65,6 +65,7 @@ export function AgentTemplateCard({
         const result = await saveAnalysisTemplateAction({
           operation: 'content',
           templateKey: current.key,
+          expectedVersion: current.latest.version,
           instruction,
           defaultEffort,
         });

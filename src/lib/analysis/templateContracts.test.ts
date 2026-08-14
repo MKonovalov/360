@@ -25,6 +25,7 @@ describe('template management contracts', () => {
     const result = templateManagementInputSchema.safeParse({
       operation: 'content',
       templateKey: 'company-buying-signal-analysis',
+      expectedVersion: 1,
       instruction: 'Assess the company using the active checklist.',
       defaultEffort: 'standard',
     });
@@ -38,6 +39,7 @@ describe('template management contracts', () => {
       const result = templateManagementInputSchema.safeParse({
         operation: 'content',
         templateKey: 'company-buying-signal-analysis',
+        expectedVersion: 1,
         instruction: 'Assess the company using the active checklist.',
         defaultEffort: 'standard',
         [field]: field === 'supportedEfforts' ? ['standard'] : 'tampered',
@@ -52,6 +54,7 @@ describe('template management contracts', () => {
       templateManagementInputSchema.safeParse({
         operation: 'content',
         templateKey: 'persona-buying-signal-analysis',
+        expectedVersion: 1,
         instruction: ' ',
         defaultEffort: 'fast',
       }).success,
@@ -62,6 +65,7 @@ describe('template management contracts', () => {
     const result = templateManagementInputSchema.safeParse({
       operation: 'content',
       templateKey: 'custom-agent-opaque-1',
+      expectedVersion: 1,
       instruction: 'Custom authored instruction',
       defaultEffort: 'standard',
       researchQuery: 'Custom query',
@@ -73,6 +77,29 @@ describe('template management contracts', () => {
       'company-buying-signal-analysis',
       'persona-buying-signal-analysis',
     ]);
+  });
+
+  it.each([0, 1.5])('rejects invalid expectedVersion values: %s', (expectedVersion) => {
+    expect(
+      templateManagementInputSchema.safeParse({
+        operation: 'content',
+        templateKey: 'company-buying-signal-analysis',
+        expectedVersion,
+        instruction: 'Assess the company using the active checklist.',
+        defaultEffort: 'standard',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects a missing expectedVersion', () => {
+    expect(
+      templateManagementInputSchema.safeParse({
+        operation: 'content',
+        templateKey: 'company-buying-signal-analysis',
+        instruction: 'Assess the company using the active checklist.',
+        defaultEffort: 'standard',
+      }).success,
+    ).toBe(false);
   });
 
   it.each(['active', 'retired'] as const)('D-36-06: accepts lifecycle status %s', (status) => {
