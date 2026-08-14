@@ -1,107 +1,69 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.hoisted(() => {
-  process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test';
-  process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ??= 'pk_test_placeholder';
-  process.env.CLERK_SECRET_KEY ??= 'sk_test_placeholder';
-});
+const mocks = vi.hoisted(() => ({
+  firecrawlClient: { search: vi.fn() },
+}));
 
-import { WEB_SEARCH_LIMITS, normalizeSearchResult } from './tools';
+vi.mock('@/lib/env', () => ({ env: { FIRECRAWL_API_KEY: 'test-key' } }));
+vi.mock('firecrawl', () => ({ Firecrawl: vi.fn(function Firecrawl() { return mocks.firecrawlClient; }) }));
 
-describe('normalizeSearchResult', () => {
-  it('normalizes a real SearchResultWeb shape', () => {
-    const result = normalizeSearchResult({
-      url: 'https://example.com/result',
-      title: 'Example result',
-      description: 'A useful result description.',
-      position: 1,
-    });
+import { createGroundedWebSearchTool } from './tools';
 
-    expect(result).toEqual({
-      url: 'https://example.com/result',
-      title: 'Example result',
-      snippet: 'A useful result description.',
-    });
+const context = { toolCallId: 'test', messages: [], context: {} };
+const searchResult = { web: [{ url: 'https://example.com', title: 'Example', description: 'Evidence' }] };
+
+describe('createGroundedWebSearchTool', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.firecrawlClient.search.mockResolvedValue(searchResult);
   });
 
-  it('accepts a SearchResultWeb category key', () => {
-    expect(
-      normalizeSearchResult({
-        url: 'https://example.com/result',
-        title: 'Example result',
-        description: 'Description',
-        position: 1,
-        category: 'news',
-      }),
-    ).toEqual({
-      url: 'https://example.com/result',
-      title: 'Example result',
-      snippet: 'Description',
-    });
+  it('caches one resolved external search promise per signal', async () => {
+    const groundedSearch = createGroundedWebSearchTool([1]);
+
+    const first = await groundedSearch.tool.execute({ signalId: 1, query: 'first query' }, context);
+    const second = await groundedSearch.tool.execute({ signalId: 1, query: 'fallback query' }, context);
+
+    expect(second).toEqual(first);
+    expect(mocks.firecrawlClient.search).toHaveBeenCalledTimes(1);
+    expect(groundedSearch.externalToolCallCount).toBe(1);
   });
 
-  it('normalizes and truncates a Document markdown body', () => {
-    const markdown = 'm'.repeat(WEB_SEARCH_LIMITS.maxSnippetLength + 1);
+  it('caches rejected promises so a fallback cannot retry externally', async () => {
+    const rejection = new Error('firecrawl unavailable');
+    mocks.firecrawlClient.search.mockRejectedValueOnce(rejection);
+    const groundedSearch = createGroundedWebSearchTool([1]);
 
-    const result = normalizeSearchResult({
-      url: 'https://example.com/document',
-      markdown,
-      metadata: { title: 'Document title' },
-      extra: { source: 'firecrawl' },
-    });
+    const first = groundedSearch.tool.execute({ signalId: 1, query: 'first query' }, context);
+    const second = groundedSearch.tool.execute({ signalId: 1, query: 'fallback query' }, context);
 
-    expect(result).toEqual({
-      url: 'https://example.com/document',
-      title: 'Document title',
-      snippet: markdown.slice(0, WEB_SEARCH_LIMITS.maxSnippetLength),
-    });
+    await expect(first).rejects.toBe(rejection);
+    await expect(second).rejects.toBe(rejection);
+    expect(mocks.firecrawlClient.search).toHaveBeenCalledTimes(1);
+    expect(groundedSearch.externalToolCallCount).toBe(1);
   });
 
-  it('uses summary as the legacy snippet fallback', () => {
-    expect(
-      normalizeSearchResult({
-        url: 'https://example.com/legacy',
-        title: 'Legacy result',
-        summary: 'Legacy summary',
-      }).snippet,
-    ).toBe('Legacy summary');
+  it('rejects omitted and unknown signal IDs without an external call', async () => {
+    const groundedSearch = createGroundedWebSearchTool([1]);
+
+    await expect(Reflect.apply(groundedSearch.tool.execute, groundedSearch.tool, [{ query: 'missing signal' }, context])).rejects.toThrow('invalid_grounded_search_input');
+    await expect(groundedSearch.tool.execute({ signalId: 99, query: 'unknown signal' }, context)).rejects.toThrow('unknown_grounded_signal');
+
+    expect(mocks.firecrawlClient.search).not.toHaveBeenCalled();
+    expect(groundedSearch.hasPolicyViolation).toBe(true);
   });
 
-  it('uses metadata URL and title fallbacks', () => {
-    expect(
-      normalizeSearchResult({
-        metadata: {
-          url: 'https://example.com/metadata',
-          title: 'Metadata result',
-        },
-        description: 'Metadata description',
-      }),
-    ).toEqual({
-      url: 'https://example.com/metadata',
-      title: 'Metadata result',
-      snippet: 'Metadata description',
-    });
-  });
+  it('fails safely on the seventh distinct signal and reports six external calls', async () => {
+    const groundedSearch = createGroundedWebSearchTool([1, 2, 3, 4, 5, 6, 7]);
 
-  it.each([
-    ['missing URL', { title: 'Result', description: 'Description' }, 'invalid_firecrawl_result'],
-    ['HTTP URL', { url: 'http://example.com', title: 'Result', description: 'Description' }, 'unsupported_source'],
-    ['localhost URL', { url: 'https://localhost/result', title: 'Result', description: 'Description' }, 'unsupported_source'],
-  ])('rejects %s', (_label, input, errorMessage) => {
-    expect(() => normalizeSearchResult(input)).toThrow(errorMessage);
-  });
+    for (const signalId of [1, 2, 3, 4, 5, 6]) {
+      await groundedSearch.tool.execute({ signalId, query: `signal ${signalId}` }, context);
+    }
 
-  it('rejects non-object input', () => {
-    expect(() => normalizeSearchResult('not an object')).toThrow('invalid_firecrawl_result');
-  });
-
-  it('rejects titles over the maximum length', () => {
-    expect(() =>
-      normalizeSearchResult({
-        url: 'https://example.com/result',
-        title: 't'.repeat(WEB_SEARCH_LIMITS.maxTitleLength + 1),
-        description: 'Description',
-      }),
-    ).toThrow('invalid_firecrawl_result');
+    await expect(groundedSearch.tool.execute({ signalId: 7, query: 'signal 7' }, context)).rejects.toThrow('grounded_external_tool_call_limit');
+    expect(mocks.firecrawlClient.search).toHaveBeenCalledTimes(6);
+    expect(groundedSearch.externalToolCallCount).toBe(6);
+    expect(groundedSearch.hasPolicyViolation).toBe(true);
+    expect(groundedSearch.isComplete()).toBe(false);
   });
 });
