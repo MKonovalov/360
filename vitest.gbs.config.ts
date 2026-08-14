@@ -10,9 +10,8 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.integration.test.ts'],
-    exclude: ['src/workflows/**/*.integration.test.ts', 'src/scripts/seedGbs.integration.test.ts'],
-    setupFiles: ['./vitest.integration.setup.ts'],
+    include: ['src/scripts/seedGbs.integration.test.ts'],
+    setupFiles: ['./vitest.gbs.setup.ts'],
     fileParallelism: false,
     testTimeout: 60_000,
   },
