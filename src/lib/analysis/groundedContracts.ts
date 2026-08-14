@@ -62,6 +62,10 @@ export const groundedExecutionInputSchema = z
     subjectId: z.number().int().positive(),
     subjectDisplayName: safeTextSchema.max(200),
     checklist: z.array(checklistSignalItemSchema).max(100),
+    // Server-derived from the persisted v2 checklist snapshot only (never a
+    // client-supplied value) -- null for v1 (unfiltered) checklist snapshots,
+    // which keeps every pre-category execution input byte-identical.
+    selectedCategory: z.string().trim().min(1).max(200).nullable().default(null),
     policy: groundedExecutionPolicySchema,
   })
   .strict();
