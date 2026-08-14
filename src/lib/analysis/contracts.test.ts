@@ -3,6 +3,9 @@ import {
   ANALYSIS_RUN_STATUSES,
   analysisSnapshotSchema,
   analysisAgentSelectionSchema,
+  checklistSnapshotSchema,
+  checklistSnapshotV1Schema,
+  checklistSnapshotV2Schema,
   customOutputSchemaSnapshotSchema,
   parseAnalysisModelOutput,
   analysisSubjectSchema,
@@ -40,7 +43,7 @@ describe('Phase 32 analysis contracts', () => {
     expect(supportedEfforts).toEqual(['standard']);
     expect(STANDARD_EXECUTION_BUDGET).toEqual({
       maxAttempts: 2,
-      maxToolCalls: 12,
+      maxToolCalls: 6,
       maxExecutionSeconds: 300,
       maxSpendUsd: 2.5,
     });
@@ -213,6 +216,45 @@ describe('Phase 32 analysis contracts', () => {
     expect(Object.isFrozen(frozenSnapshot.template)).toBe(true);
   });
 
+  it('keeps parsing an execution snapshot persisted under the prior maxToolCalls budget (12)', () => {
+    const snapshot = {
+      schemaVersion: 1,
+      template: {
+        schemaVersion: 1,
+        templateId: 10,
+        templateVersionId: 11,
+        templateKey: 'company-buying-signal-analysis',
+        templateName: 'Company Buying Signal Analysis',
+        targetType: 'company',
+        version: 1,
+        resolvedInstruction: 'Review the selected buying signals.',
+        effort: 'standard',
+      },
+      subject: { type: 'company', id: 42, displayName: 'Example Company' },
+      checklist: {
+        schemaVersion: 1,
+        targetType: 'company',
+        practiceAreaId: 7,
+        practiceAreaName: 'GBS',
+        items: [],
+      },
+      execution: {
+        schemaVersion: 1,
+        effort: 'standard',
+        resolvedModelChain: ['model.alpha'],
+        futureBudget: { ...STANDARD_EXECUTION_BUDGET, maxToolCalls: 12 },
+        policy: PHASE32_NOOP_POLICY,
+      },
+      policy: PHASE32_NOOP_POLICY,
+      templateVersionId: 11,
+      subjectType: 'company',
+      subjectId: 42,
+      practiceAreaId: 7,
+    };
+
+    expect(analysisSnapshotSchema.safeParse(snapshot).success).toBe(true);
+  });
+
   it('bounds attempts and safe outcome reasons', () => {
     expect(boundedAttemptSchema.safeParse(2).success).toBe(true);
     expect(boundedAttemptSchema.safeParse(3).success).toBe(false);
@@ -290,5 +332,67 @@ describe('Phase 32 analysis contracts', () => {
       storage: 'analysis_run_result.raw_audit.customOutput',
       fields: { type: 'object', properties: { evidence: { type: 'string' } }, required: [] },
     }).success).toBe(false);
+  });
+});
+
+describe('checklist snapshot schema versioning', () => {
+  const v1Snapshot = {
+    schemaVersion: 1,
+    targetType: 'company',
+    practiceAreaId: 7,
+    practiceAreaName: 'GBS',
+    items: [
+      { signalId: 3, status: 'active', name: 'No GBS/SSC exists', category: 'GBS-state', description: 'No shared services org exists yet.' },
+      { signalId: 9, status: 'active', name: 'Cost pressure', category: 'Financial & commercial', description: 'Margin pressure is increasing.' },
+    ],
+  };
+
+  const v2Snapshot = {
+    schemaVersion: 2,
+    targetType: 'company',
+    practiceAreaId: 7,
+    practiceAreaName: 'GBS',
+    selectedCategory: 'GBS-state',
+    items: [
+      { signalId: 3, status: 'active', name: 'No GBS/SSC exists', category: 'GBS-state', description: 'No shared services org exists yet.' },
+      { signalId: 5, status: 'active', name: 'GBS recently stood up', category: 'GBS-state', description: 'A GBS org stood up in the last year.' },
+    ],
+  };
+
+  it('keeps parsing existing v1 checklist snapshots -- unfiltered items, no selectedCategory field', () => {
+    expect(checklistSnapshotV1Schema.safeParse(v1Snapshot).success).toBe(true);
+    expect(checklistSnapshotSchema.safeParse(v1Snapshot).success).toBe(true);
+    expect(checklistSnapshotSchema.parse(v1Snapshot)).toEqual(v1Snapshot);
+    // v1 rows never carry selectedCategory -- adding it must reject, since
+    // v1 is `.strict()` and has no such field.
+    expect(checklistSnapshotV1Schema.safeParse({ ...v1Snapshot, selectedCategory: 'GBS-state' }).success).toBe(false);
+  });
+
+  it('accepts a v2 GBS-state checklist snapshot with homogeneous, non-empty items', () => {
+    expect(checklistSnapshotV2Schema.safeParse(v2Snapshot).success).toBe(true);
+    expect(checklistSnapshotSchema.safeParse(v2Snapshot).success).toBe(true);
+    expect(checklistSnapshotSchema.parse(v2Snapshot)).toEqual(v2Snapshot);
+  });
+
+  it('rejects a v2 snapshot with an empty item list', () => {
+    expect(checklistSnapshotV2Schema.safeParse({ ...v2Snapshot, items: [] }).success).toBe(false);
+  });
+
+  it('rejects a v2 snapshot whose items are not homogeneous with selectedCategory', () => {
+    const mixed = {
+      ...v2Snapshot,
+      items: [
+        ...v2Snapshot.items,
+        { signalId: 9, status: 'active', name: 'Cost pressure', category: 'Financial & commercial', description: 'Margin pressure is increasing.' },
+      ],
+    };
+    expect(checklistSnapshotV2Schema.safeParse(mixed).success).toBe(false);
+  });
+
+  it('discriminates strictly on schemaVersion -- v2 fields never leak into a v1-tagged snapshot', () => {
+    expect(
+      checklistSnapshotSchema.safeParse({ ...v1Snapshot, schemaVersion: 1, selectedCategory: 'GBS-state' }).success,
+    ).toBe(false);
+    expect(checklistSnapshotSchema.safeParse({ ...v2Snapshot, schemaVersion: 3 }).success).toBe(false);
   });
 });
