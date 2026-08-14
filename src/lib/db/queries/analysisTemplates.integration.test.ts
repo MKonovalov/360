@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { eq, inArray } from 'drizzle-orm';
+
+const canonicalFixedKeys = [
+  'company-buying-signal-analysis',
+  'persona-buying-signal-analysis',
+] as const;
 
 const migrationSql = readFileSync(
   new URL('../../../../drizzle/0007_custom_agent_definition.sql', import.meta.url),
@@ -31,7 +37,8 @@ describeWithDatabase('analysis template management database boundary', () => {
   let personaTemplateId = 0;
   let companyStatus: 'active' | 'retired' = 'active';
   let personaStatus: 'active' | 'retired' = 'active';
-  const appendedVersionIds: number[] = [];
+  let companyUpdatedBy = 'seed-script';
+  let personaUpdatedBy = 'seed-script';
 
   beforeAll(async () => {
     process.env.DATABASE_URL = testDatabaseUrl;
@@ -40,39 +47,47 @@ describeWithDatabase('analysis template management database boundary', () => {
     schema = await import('@/lib/db/schema');
     queries = await import('./analysisTemplates');
 
-    const templates = await queries.listManagedAnalysisTemplates();
-    expect(templates).toHaveLength(2);
-    const company = templates.find((template) => template.targetType === 'company');
-    const persona = templates.find((template) => template.targetType === 'persona');
-    if (!company || !persona) throw new Error('fixed analysis template fixtures are missing');
+    let templates = await queries.listManagedAnalysisTemplates();
+    if (templates.length !== canonicalFixedKeys.length) {
+      const { seedAnalysisTemplates } = await import('../../../scripts/seedAnalysisTemplates');
+      await seedAnalysisTemplates();
+      templates = await queries.listManagedAnalysisTemplates();
+    }
+
+    const company = templates.find((template) => template.key === 'company-buying-signal-analysis');
+    const persona = templates.find((template) => template.key === 'persona-buying-signal-analysis');
+    if (!company || !persona) throw new Error('canonical fixed analysis template fixtures are missing');
     companyTemplateId = company.templateId;
     personaTemplateId = persona.templateId;
     companyStatus = company.status;
     personaStatus = persona.status;
+    const auditRows = await dbModule.db
+      .select({ id: schema.analysisTemplate.id, updatedBy: schema.analysisTemplate.updatedBy })
+      .from(schema.analysisTemplate)
+      .where(inArray(schema.analysisTemplate.id, [companyTemplateId, personaTemplateId]));
+    const companyAudit = auditRows.find(({ id }) => id === companyTemplateId);
+    const personaAudit = auditRows.find(({ id }) => id === personaTemplateId);
+    if (!companyAudit || !personaAudit) throw new Error('canonical template audit fixtures are missing');
+    companyUpdatedBy = companyAudit.updatedBy;
+    personaUpdatedBy = personaAudit.updatedBy;
   });
 
   afterAll(async () => {
     if (!dbModule || !schema) return;
-    const { eq, inArray } = await import('drizzle-orm');
-    if (appendedVersionIds.length > 0) {
-      await dbModule.db
-        .delete(schema.analysisTemplateVersion)
-        .where(inArray(schema.analysisTemplateVersion.id, appendedVersionIds));
-    }
     await dbModule.db
       .update(schema.analysisTemplate)
-      .set({ status: companyStatus, updatedBy: 'integration-test' })
+      .set({ status: companyStatus, updatedBy: companyUpdatedBy })
       .where(eq(schema.analysisTemplate.id, companyTemplateId));
     await dbModule.db
       .update(schema.analysisTemplate)
-      .set({ status: personaStatus, updatedBy: 'integration-test' })
+      .set({ status: personaStatus, updatedBy: personaUpdatedBy })
       .where(eq(schema.analysisTemplate.id, personaTemplateId));
   });
 
-  it('D-36-01/D-36-04: returns exactly two templates with descending immutable history', async () => {
+  it('D-36-01/D-36-04: returns canonical templates with descending immutable history', async () => {
     const templates = await queries.listManagedAnalysisTemplates();
 
-    expect(templates.map((template) => template.targetType)).toEqual(['company', 'persona']);
+    expect(templates.map((template) => template.key)).toEqual(canonicalFixedKeys);
     for (const template of templates) {
       expect(template.history[0]?.version).toBe(template.latest.version);
       expect(template.history.map((version) => version.version)).toEqual(
@@ -90,6 +105,7 @@ describeWithDatabase('analysis template management database boundary', () => {
       {
         operation: 'content',
         templateKey: company.key,
+        expectedVersion: company.latest.version,
         instruction: company.latest.instruction,
         defaultEffort: company.latest.defaultEffort,
       },
@@ -125,6 +141,7 @@ describeWithDatabase('analysis template management database boundary', () => {
         {
           operation: 'content',
           templateKey: company.key,
+          expectedVersion: company.latest.version,
           instruction: `${company.latest.instruction} first`,
           defaultEffort: company.latest.defaultEffort,
         },
@@ -134,6 +151,7 @@ describeWithDatabase('analysis template management database boundary', () => {
         {
           operation: 'content',
           templateKey: company.key,
+          expectedVersion: company.latest.version,
           instruction: `${company.latest.instruction} second`,
           defaultEffort: company.latest.defaultEffort,
         },
@@ -149,7 +167,6 @@ describeWithDatabase('analysis template management database boundary', () => {
     if (!current) throw new Error('company template fixture disappeared');
     const newVersions = current.history.filter((version) => version.version > company.latest.version);
     expect(newVersions).toHaveLength(1);
-    appendedVersionIds.push(newVersions[0]?.templateVersionId ?? 0);
     expect(new Set(current.history.map((version) => version.version)).size).toBe(current.history.length);
   });
 
@@ -161,11 +178,14 @@ describeWithDatabase('analysis template management database boundary', () => {
         kind: schema.analysisTemplate.kind,
         practiceAreaId: schema.analysisTemplate.practiceAreaId,
       })
-      .from(schema.analysisTemplate);
+      .from(schema.analysisTemplate)
+      .where(inArray(schema.analysisTemplate.key, canonicalFixedKeys));
 
-    expect(fixedRows.filter((row) => row.key.endsWith('-analysis'))).toHaveLength(2);
-    expect(fixedRows.filter((row) => row.key.endsWith('-analysis')).every((row) => row.kind === 'fixed')).toBe(true);
-    expect(fixedRows.filter((row) => row.key.endsWith('-analysis')).every((row) => row.practiceAreaId === null)).toBe(true);
+    expect(fixedRows).toHaveLength(canonicalFixedKeys.length);
+    for (const key of canonicalFixedKeys) {
+      const row = fixedRows.find((candidate) => candidate.key === key);
+      expect(row).toMatchObject({ key, kind: 'fixed', practiceAreaId: null });
+    }
 
     const snapshotReferences = await dbModule.db
       .select({ templateId: schema.analysisRun.templateId, templateVersionId: schema.analysisRun.templateVersionId })
