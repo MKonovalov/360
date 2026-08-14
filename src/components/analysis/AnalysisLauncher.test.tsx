@@ -19,7 +19,9 @@ import {
   isAnalysisAgentPickerReady,
 } from './AnalysisLauncher';
 import { analysisMenuLabel } from './AnalysisMenuAction';
+import { AnalysisPreviewPanel } from './AnalysisPreviewPanel';
 import { fetchAnalysisOptions, parseCreateRunResponse, type AgentOption } from './analysisLauncherClient';
+import type { AnalysisPreview } from './analysisLauncherClient';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return Response.json(body, { status });
@@ -58,6 +60,36 @@ const CUSTOM_AGENT_B = {
   version: 2,
 } satisfies AgentOption;
 
+const CATEGORY_PREVIEW = {
+  subject: { type: 'company', id: 42, displayName: 'Acme' },
+  template: {
+    templateId: 1,
+    templateVersionId: 11,
+    key: 'company-buying-signal-analysis',
+    name: 'Company Buying Signal Analysis',
+    targetType: 'company',
+    version: 1,
+  },
+  instruction: 'Assess buying signals.',
+  practiceArea: { id: 4, name: 'GBS Design, Build & Run', shortCode: 'GBS-DBR' },
+  checklist: {
+    schemaVersion: 2,
+    targetType: 'company',
+    practiceAreaId: 4,
+    practiceAreaName: 'GBS Design, Build & Run',
+    selectedCategory: 'GBS-state',
+    items: [{
+      signalId: 401,
+      status: 'active',
+      name: 'No mature GBS/SSC organization',
+      category: 'GBS-state',
+      description: 'The organization has no mature GBS/SSC structure.',
+    }],
+  },
+  effort: 'standard',
+  selection: { kind: 'fixed', templateVersionId: 11 },
+} satisfies AnalysisPreview;
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -78,16 +110,18 @@ describe('AnalysisLauncher', () => {
     expect(html).toBe('');
   });
 
-  it('builds the fixed launch payload from only opaque server selection and subject inputs', () => {
+  it('builds the fixed launch payload from category, opaque server selection, and subject inputs', () => {
     expect(createAnalysisRunPayload({
       subjectType: 'persona',
       subjectId: 9,
       practiceAreaId: 4,
+      signalCategory: 'GBS-state',
       selection: { kind: 'fixed', templateVersionId: 12 },
     })).toEqual({
       templateVersionId: 12,
       subject: { type: 'persona', id: 9 },
       practiceAreaId: 4,
+      signalCategory: 'GBS-state',
     });
   });
 
@@ -96,10 +130,12 @@ describe('AnalysisLauncher', () => {
       subjectType: 'company',
       subjectId: 42,
       practiceAreaId: 4,
+      signalCategory: 'Financial',
       selection: analysisAgentSelection(CUSTOM_AGENT_B),
     })).toEqual({
       subject: { type: 'company', id: 42 },
       practiceAreaId: 4,
+      signalCategory: 'Financial',
       selection: { kind: 'custom', customAgentId: 'custom-b', templateVersionId: 81 },
     });
   });
@@ -109,21 +145,34 @@ describe('AnalysisLauncher', () => {
       subjectType: 'company',
       subjectId: 42,
       practiceAreaId: 4,
+      signalCategory: 'GBS-state',
       selection: analysisAgentSelection(FIXED_AGENT),
     })).toEqual({
       subject: { type: 'company', id: 42 },
       practiceAreaId: 4,
+      signalCategory: 'GBS-state',
+      selection: { kind: 'fixed', templateVersionId: 11 },
     });
     expect(createAnalysisPreviewPayload({
       subjectType: 'company',
       subjectId: 42,
       practiceAreaId: 4,
+      signalCategory: 'GBS-state',
       selection: analysisAgentSelection(CUSTOM_AGENT_A),
     })).toEqual({
       subject: { type: 'company', id: 42 },
       practiceAreaId: 4,
+      signalCategory: 'GBS-state',
       selection: { kind: 'custom', customAgentId: 'custom-a', templateVersionId: 71 },
     });
+  });
+
+  it('renders the selected category and only the server-filtered signal list in the preview', () => {
+    const html = renderToStaticMarkup(<AnalysisPreviewPanel preview={CATEGORY_PREVIEW} />);
+
+    expect(html).toContain('Buying Signal Category:');
+    expect(html).toContain('GBS-state');
+    expect(html).toContain('No mature GBS/SSC organization');
   });
 
   it('loads Practice Areas first, then requests fixed and custom agents for the selected Practice Area', async () => {
@@ -132,6 +181,7 @@ describe('AnalysisLauncher', () => {
       .mockResolvedValueOnce(jsonResponse({
         practiceAreas: PRACTICE_AREAS,
         agents: [FIXED_AGENT, CUSTOM_AGENT_A, CUSTOM_AGENT_B],
+        signalCategories: ['GBS-state', 'Financial'],
       }));
     vi.stubGlobal('fetch', fetchMock);
 
@@ -139,11 +189,13 @@ describe('AnalysisLauncher', () => {
       ok: true,
       practiceAreas: PRACTICE_AREAS,
       agents: [],
+      signalCategories: [],
     });
     await expect(fetchAnalysisOptions('company', 4, new AbortController().signal)).resolves.toEqual({
       ok: true,
       practiceAreas: PRACTICE_AREAS,
       agents: [FIXED_AGENT, CUSTOM_AGENT_A, CUSTOM_AGENT_B],
+      signalCategories: ['GBS-state', 'Financial'],
     });
 
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([

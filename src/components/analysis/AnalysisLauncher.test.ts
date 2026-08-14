@@ -9,12 +9,14 @@ describe('AnalysisLauncher launch contract', () => {
       subjectType: 'company',
       subjectId: 42,
       practiceAreaId: 4,
+      signalCategory: 'GBS-state',
     });
 
     expect(payload).toEqual({
       templateVersionId: 12,
       subject: { type: 'company', id: 42 },
       practiceAreaId: 4,
+      signalCategory: 'GBS-state',
     });
   });
 });
