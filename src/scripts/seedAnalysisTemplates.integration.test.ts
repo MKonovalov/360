@@ -99,7 +99,7 @@ describe('analysis template seed', () => {
         defaultEffort: 'standard',
         futureBudget: {
           maxAttempts: 2,
-          maxToolCalls: 12,
+          maxToolCalls: 6,
           maxExecutionSeconds: 300,
           maxSpendUsd: 2.5,
         },
