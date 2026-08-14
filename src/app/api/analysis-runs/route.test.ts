@@ -64,17 +64,17 @@ describe('POST /api/analysis-runs', () => {
 
   it('converges a valid custom selection on one snapshot/create and scalar Workflow dispatch', async () => {
     mocks.resolveAnalysisLaunch.mockResolvedValue({ ok: true, value: custom });
-    const response = await POST(request({ subject: { type: 'company', id: 42 }, practiceAreaId: 3, selection: { kind: 'custom', customAgentId: 'custom-7', templateVersionId: 71 } }));
+    const response = await POST(request({ subject: { type: 'company', id: 42 }, practiceAreaId: 3, selection: { kind: 'custom', customAgentId: 'custom-7', templateVersionId: 71 }, signalCategory: 'GBS-state' }));
     expect(response.status).toBe(201);
     await expect(response.json()).resolves.toEqual({ applicationRunId: 41 });
-    expect(mocks.resolveAnalysisLaunch).toHaveBeenCalledWith(expect.objectContaining({ userId: 'staff', selection: { kind: 'custom', customAgentId: 'custom-7', templateVersionId: 71 } }));
+    expect(mocks.resolveAnalysisLaunch).toHaveBeenCalledWith(expect.objectContaining({ userId: 'staff', selection: { kind: 'custom', customAgentId: 'custom-7', templateVersionId: 71 }, signalCategory: 'GBS-state' }));
     expect(mocks.createAnalysisRun).toHaveBeenCalledOnce();
     expect(mocks.start).toHaveBeenCalledWith(expect.anything(), [41]);
   });
 
   it.each(['custom_agent_target_mismatch', 'custom_agent_practice_area_mismatch', 'custom_agent_not_current'])('rejects %s before createAnalysisRun', async (reason) => {
     mocks.resolveAnalysisLaunch.mockResolvedValue({ ok: false, reason });
-    const response = await POST(request({ subject: { type: 'company', id: 42 }, practiceAreaId: 3, selection: { kind: 'custom', customAgentId: 'custom-7', templateVersionId: 71 } }));
+    const response = await POST(request({ subject: { type: 'company', id: 42 }, practiceAreaId: 3, selection: { kind: 'custom', customAgentId: 'custom-7', templateVersionId: 71 }, signalCategory: 'GBS-state' }));
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toEqual({ error: reason });
     expect(mocks.createAnalysisRun).not.toHaveBeenCalled();
@@ -83,9 +83,28 @@ describe('POST /api/analysis-runs', () => {
 
   it('retains active-run conflict semantics without dispatching a duplicate', async () => {
     mocks.createAnalysisRun.mockResolvedValue({ ok: false, reason: 'active_run_exists' });
-    const response = await POST(request({ subject: { type: 'company', id: 42 }, practiceAreaId: 3, selection: { kind: 'fixed', templateVersionId: 11 } }));
+    const response = await POST(request({ subject: { type: 'company', id: 42 }, practiceAreaId: 3, selection: { kind: 'fixed', templateVersionId: 11 }, signalCategory: 'GBS-state' }));
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toEqual({ error: 'active_run_exists' });
     expect(mocks.start).not.toHaveBeenCalled();
+  });
+
+  it('rejects a structured launch request missing signalCategory before resolving the launch', async () => {
+    const response = await POST(request({ subject: { type: 'company', id: 42 }, practiceAreaId: 3, selection: { kind: 'fixed', templateVersionId: 11 } }));
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: 'invalid_input' });
+    expect(mocks.resolveAnalysisLaunch).not.toHaveBeenCalled();
+  });
+
+  it('keeps the legacy flat-fixed shape working without signalCategory, forwarding it as undefined', async () => {
+    const response = await POST(request({ templateVersionId: 11, subject: { type: 'company', id: 42 }, practiceAreaId: 3 }));
+    expect(response.status).toBe(201);
+    expect(mocks.resolveAnalysisLaunch).toHaveBeenCalledWith(expect.objectContaining({
+      subject: { type: 'company', id: 42 },
+      practiceAreaId: 3,
+      selection: { kind: 'fixed', templateVersionId: 11 },
+    }));
+    const [[callArg]] = mocks.resolveAnalysisLaunch.mock.calls;
+    expect(callArg).not.toHaveProperty('signalCategory');
   });
 });
