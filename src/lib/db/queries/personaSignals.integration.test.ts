@@ -145,4 +145,107 @@ describeWithDatabase('personaSignals query boundaries', () => {
     const categories = await queries.listDistinctPersonaSignalCategories();
     expect(categories).toContain(category);
   });
+
+  it('listActivePersonaSignalCategoriesForPracticeArea returns only active categories scoped to the practice area, excluding a draft-only category and a sibling practice area', async () => {
+    const practiceAreaId = await insertPracticeAreaFixture();
+    const otherPracticeAreaId = await insertPracticeAreaFixture();
+    const buyerRoleId = await insertBuyerRoleFixture();
+
+    const active = await queries.insertPersonaSignal({
+      practiceAreaId,
+      buyerRoleId,
+      name: `IT-PS-${randomUUID()}`,
+      category: 'GBS-state',
+      description: 'integration-test fixture',
+      status: 'active',
+      createdBy: 'integration-test',
+    });
+    personaSignalIds.push(active.id);
+
+    const draftOnlyCategory = `IT-CAT-DRAFT-${randomUUID()}`;
+    const draft = await queries.insertPersonaSignal({
+      practiceAreaId,
+      buyerRoleId,
+      name: `IT-PS-DRAFT-${randomUUID()}`,
+      category: draftOnlyCategory,
+      description: 'integration-test fixture',
+      status: 'draft',
+      createdBy: 'integration-test',
+    });
+    personaSignalIds.push(draft.id);
+
+    const otherAreaCategory = `IT-CAT-OTHER-AREA-${randomUUID()}`;
+    const otherArea = await queries.insertPersonaSignal({
+      practiceAreaId: otherPracticeAreaId,
+      buyerRoleId,
+      name: `IT-PS-OTHER-AREA-${randomUUID()}`,
+      category: otherAreaCategory,
+      description: 'integration-test fixture',
+      status: 'active',
+      createdBy: 'integration-test',
+    });
+    personaSignalIds.push(otherArea.id);
+
+    const categories = await queries.listActivePersonaSignalCategoriesForPracticeArea(practiceAreaId);
+    expect(categories).toContain('GBS-state');
+    expect(categories).not.toContain(draftOnlyCategory);
+    expect(categories).not.toContain(otherAreaCategory);
+  });
+
+  it('listActivePersonaSignalsForPracticeAreaAndCategory returns exact-category active signals for the practice area only, excluding wrong category/status/practice area', async () => {
+    const practiceAreaId = await insertPracticeAreaFixture();
+    const otherPracticeAreaId = await insertPracticeAreaFixture();
+    const buyerRoleId = await insertBuyerRoleFixture();
+
+    const matching = await queries.insertPersonaSignal({
+      practiceAreaId,
+      buyerRoleId,
+      name: `IT-PS-MATCH-${randomUUID()}`,
+      category: 'GBS-state',
+      description: 'integration-test fixture',
+      status: 'active',
+      createdBy: 'integration-test',
+    });
+    personaSignalIds.push(matching.id);
+
+    const wrongCategory = await queries.insertPersonaSignal({
+      practiceAreaId,
+      buyerRoleId,
+      name: `IT-PS-WRONGCAT-${randomUUID()}`,
+      category: `IT-CAT-WRONG-${randomUUID()}`,
+      description: 'integration-test fixture',
+      status: 'active',
+      createdBy: 'integration-test',
+    });
+    personaSignalIds.push(wrongCategory.id);
+
+    const wrongStatus = await queries.insertPersonaSignal({
+      practiceAreaId,
+      buyerRoleId,
+      name: `IT-PS-DRAFT-${randomUUID()}`,
+      category: 'GBS-state',
+      description: 'integration-test fixture',
+      status: 'draft',
+      createdBy: 'integration-test',
+    });
+    personaSignalIds.push(wrongStatus.id);
+
+    const wrongPracticeArea = await queries.insertPersonaSignal({
+      practiceAreaId: otherPracticeAreaId,
+      buyerRoleId,
+      name: `IT-PS-OTHERAREA-${randomUUID()}`,
+      category: 'GBS-state',
+      description: 'integration-test fixture',
+      status: 'active',
+      createdBy: 'integration-test',
+    });
+    personaSignalIds.push(wrongPracticeArea.id);
+
+    const result = await queries.listActivePersonaSignalsForPracticeAreaAndCategory(practiceAreaId, 'GBS-state');
+    const ids = result.map((row) => row.id);
+    expect(ids).toContain(matching.id);
+    expect(ids).not.toContain(wrongCategory.id);
+    expect(ids).not.toContain(wrongStatus.id);
+    expect(ids).not.toContain(wrongPracticeArea.id);
+  });
 });
