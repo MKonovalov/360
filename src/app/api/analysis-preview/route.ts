@@ -44,6 +44,7 @@ export async function POST(request: Request): Promise<Response> {
     subject: parsed.data.subject,
     practiceAreaId: parsed.data.practiceAreaId,
     selection: selectionInput.data,
+    signalCategory: parsed.data.signalCategory,
     policy,
   });
   if (!resolved.ok) return resolutionErrorResponse(resolved.reason);

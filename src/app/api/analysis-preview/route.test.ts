@@ -33,18 +33,30 @@ describe('POST /api/analysis-preview', () => {
   });
 
   it('returns safe server-projected custom preview metadata', async () => {
-    const response = await POST(request({ subject: { type: 'company', id: 42 }, practiceAreaId: 3, selection: { kind: 'custom', customAgentId: 'custom-7', templateVersionId: 71 } }));
+    const response = await POST(request({ subject: { type: 'company', id: 42 }, practiceAreaId: 3, selection: { kind: 'custom', customAgentId: 'custom-7', templateVersionId: 71 }, signalCategory: 'GBS-state' }));
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.selection).toEqual({ kind: 'custom', customAgentId: 'custom-7', templateVersionId: 71 });
     expect(body.outputSchema).toBeNull();
     expect(JSON.stringify(body)).not.toContain('userId');
+    expect(mocks.resolveAnalysisLaunch).toHaveBeenCalledWith(expect.objectContaining({ signalCategory: 'GBS-state' }));
   });
 
   it('rejects stale or incompatible preview before returning a display projection', async () => {
     mocks.resolveAnalysisLaunch.mockResolvedValue({ ok: false, reason: 'custom_agent_practice_area_mismatch' });
-    const response = await POST(request({ subject: { type: 'company', id: 42 }, practiceAreaId: 3, selection: { kind: 'custom', customAgentId: 'custom-7', templateVersionId: 71 } }));
+    const response = await POST(request({ subject: { type: 'company', id: 42 }, practiceAreaId: 3, selection: { kind: 'custom', customAgentId: 'custom-7', templateVersionId: 71 }, signalCategory: 'GBS-state' }));
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toEqual({ error: 'custom_agent_practice_area_mismatch' });
+  });
+
+  it.each([
+    ['a missing signalCategory', { subject: { type: 'company', id: 42 }, practiceAreaId: 3 }],
+    ['a blank signalCategory', { subject: { type: 'company', id: 42 }, practiceAreaId: 3, signalCategory: '   ' }],
+    ['a non-string signalCategory', { subject: { type: 'company', id: 42 }, practiceAreaId: 3, signalCategory: 42 }],
+  ])('rejects preview input with %s before ever resolving the launch', async (_label, body) => {
+    const response = await POST(request(body));
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: 'invalid_input' });
+    expect(mocks.resolveAnalysisLaunch).not.toHaveBeenCalled();
   });
 });
