@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   defaultChain: vi.fn(),
   initLangfuse: vi.fn(),
   outputObject: vi.fn(),
+  firecrawlSearch: vi.fn(),
   // Phase 20 (FAL-03): provider identity for the hop decision. Default:
   // every stub id resolves 'anthropic' (preserves all existing same-provider
   // tests); slashed ids (real OpenRouter slugs) and 'm2' resolve 'openrouter'
@@ -46,7 +47,7 @@ vi.mock('ai', async (importOriginal) => {
 vi.mock('@/lib/telemetry/langfuse', () => ({ initLangfuse: mocks.initLangfuse }));
 vi.mock('./modelFactory', () => ({ defaultChain: mocks.defaultChain }));
 vi.mock('@/lib/env', () => ({ env: { FIRECRAWL_API_KEY: 'test-key' } }));
-vi.mock('firecrawl', () => ({ Firecrawl: vi.fn() }));
+vi.mock('firecrawl', () => ({ Firecrawl: vi.fn(function Firecrawl() { return { search: mocks.firecrawlSearch }; }) }));
 // Phase 20 (FAL-03): runAgent.ts derives hop provider identity from the
 // catalog — the string-form 'm1' stubs are NOT in the real snapshot, so the
 // catalog is mocked with the hoisted provider resolver. The separate
@@ -59,6 +60,7 @@ vi.mock('@/lib/models/catalog', () => ({
 }));
 
 import { isOpenRouterPlatformRateLimit, runAgent } from './runAgent';
+import { createGroundedWebSearchTool } from './tools';
 import { buildAnalyzePrompt } from './prompt';
 import { outputSchema } from './types';
 
@@ -95,6 +97,7 @@ describe('runAgent (09-01-01)', () => {
     mocks.defaultChain.mockReturnValue([{ provider: 'anthropic', modelId: 'claude-sonnet-4-6' }]);
     mocks.generateText.mockResolvedValue(resolvedRun);
     mocks.outputObject.mockReturnValue(outputSpec);
+    mocks.firecrawlSearch.mockResolvedValue({ web: [{ url: 'https://example.com', title: 'Example', description: 'Evidence' }] });
   });
 
   it('invokes generateText with the structured output schema and returns { output, usage, steps }', async () => {
@@ -155,7 +158,15 @@ describe('runAgent (09-01-01)', () => {
   it('accepts an injected grounded prompt without changing the provider loop', async () => {
     await runAgent({ company, liveSignals: [], prompt: 'safe grounded prompt' });
 
-    expect({ prompt: mocks.generateText.mock.calls[0][0].prompt, earlier: mocks.generateText.mock.calls[0][0].prepareStep({ stepNumber: 10 }), final: mocks.generateText.mock.calls[0][0].prepareStep({ stepNumber: 11 }) }).toEqual({ prompt: 'safe grounded prompt', earlier: undefined, final: { toolChoice: 'none', activeTools: [] } });
+    expect({ prompt: mocks.generateText.mock.calls[0][0].prompt, earlier: mocks.generateText.mock.calls[0][0].prepareStep({ stepNumber: 5 }), final: mocks.generateText.mock.calls[0][0].prepareStep({ stepNumber: 6 }) }).toEqual({ prompt: 'safe grounded prompt', earlier: undefined, final: { toolChoice: 'none', activeTools: [] } });
+  });
+
+  it('caps an oversized tool-call budget at six calls', async () => {
+    await runAgent({ company, liveSignals: [], maxToolCalls: 99 });
+
+    const call = mocks.generateText.mock.calls[0][0];
+    expect(call.prepareStep({ stepNumber: 5 })).toBeUndefined();
+    expect(call.prepareStep({ stepNumber: 6 })).toEqual({ toolChoice: 'none', activeTools: [] });
   });
 });
 
@@ -173,6 +184,30 @@ describe('runAgent failover loop (FAL-03/04)', () => {
   // classifies them by marker + statusCode.
   const apiErr = (statusCode: number) =>
     new APICallError({ message: `http ${statusCode}`, url: 'u', requestBodyValues: {}, statusCode });
+
+  it('reuses one scoped search tool and its cached promise across model fallback', async () => {
+    const groundedSearch = createGroundedWebSearchTool([1]);
+    const context = { toolCallId: 'test', messages: [], context: {} };
+    const generateOptions = {
+      tools: { webSearch: groundedSearch.tool },
+    };
+    mocks.generateText
+      .mockImplementationOnce(async (options: typeof generateOptions) => {
+        await options.tools.webSearch.execute({ signalId: 1, query: 'first query' }, context);
+        throw apiErr(404);
+      })
+      .mockImplementationOnce(async (options: typeof generateOptions) => {
+        await options.tools.webSearch.execute({ signalId: 1, query: 'fallback query' }, context);
+        return resolvedRun;
+      });
+
+    await runAgent({ company, liveSignals: [], models: ['m1', 'm1'], webSearchTool: groundedSearch.tool });
+
+    expect(mocks.generateText.mock.calls[0][0].tools.webSearch).toBe(groundedSearch.tool);
+    expect(mocks.generateText.mock.calls[1][0].tools.webSearch).toBe(groundedSearch.tool);
+    expect(mocks.firecrawlSearch).toHaveBeenCalledTimes(1);
+    expect(groundedSearch.externalToolCallCount).toBe(1);
+  });
 
   it('primary 404 advances to the fallback with the fallback budget on attempt 2', async () => {
     mocks.generateText
