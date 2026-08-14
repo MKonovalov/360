@@ -69,9 +69,9 @@ describe('Phase 39 deterministic fixtures', () => {
       liveSignals: [{ signalType: String(fixture.signalId) }],
     });
 
-    expect(execution.output.findings).toHaveLength(1);
+    expect(execution.submittedGroundedReport.findings).toHaveLength(1);
     expect(execution.steps[0]?.toolResults[0]?.toolName).toBe('webSearch');
-    expect(execution.output.findings[0]?.signalId).toBe(fixture.signalId);
+    expect(execution.submittedGroundedReport.findings[0]?.signalId).toBe(fixture.signalId);
   });
 
   it('selects the Phase 39 executor and policy in guarded fixture mode', async () => {

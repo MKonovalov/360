@@ -142,7 +142,7 @@ export function createPhase36Fixture(targetType: AnalysisTargetType): Phase36Fix
         );
       }
       return {
-        output: {
+        submittedGroundedReport: {
           narrative: packetInput.narrative,
           findings: packetInput.findings.map((finding) => ({
             ...finding,

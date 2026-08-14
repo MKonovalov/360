@@ -148,7 +148,7 @@ export function createPhase39Fixture(targetType: AnalysisTargetType): Phase39Fix
         );
       }
       return {
-        output: {
+        submittedGroundedReport: {
           narrative: packetInput.narrative,
           findings: packetInput.findings.map((finding) => ({ ...finding, signalId: Number(input.liveSignals[0]?.signalType ?? signalId) })),
         },
