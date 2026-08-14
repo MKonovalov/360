@@ -23,7 +23,7 @@ const mocks = vi.hoisted(() => ({
   getProviderForModelId: vi.fn((_catalog: unknown, id: string) =>
     id.includes('/') || id === 'm2'
       ? 'openrouter'
-      : id === 'm3'
+      : id === 'm3' || id.includes('deepseek')
         ? 'opencode'
         : id === 'm4'
           ? 'nousresearch'
@@ -217,6 +217,53 @@ describe('runAgent (09-01-01)', () => {
     });
     expect(call.stopWhen).toHaveLength(2);
     expect(result.submittedGroundedReport).toEqual(submittedGroundedReport);
+  });
+
+  it('disables DeepSeek/OpenCode thinking only on forced search turns', async () => {
+    mocks.defaultChain.mockReturnValue(['deepseek-v4-flash-free']);
+
+    await runAgent({
+      company,
+      liveSignals: [],
+      isWebSearchComplete: () => false,
+    });
+
+    const call = mocks.generateText.mock.calls[0][0];
+    expect(call.prepareStep({ stepNumber: 0 })).toEqual({
+      toolChoice: { type: 'tool', toolName: 'webSearch' },
+      activeTools: ['webSearch'],
+      providerOptions: {
+        opencodeZen: { thinking: { type: 'disabled' } },
+        opencodeGo: { thinking: { type: 'disabled' } },
+      },
+    });
+  });
+
+  it('disables DeepSeek/OpenCode thinking on forced report submission turns', async () => {
+    mocks.defaultChain.mockReturnValue(['deepseek-v4-flash-free']);
+    mocks.generateText.mockResolvedValueOnce({
+      ...resolvedRun,
+      steps: [{
+        toolCalls: [{ toolName: 'submit_grounded_report', input: { narrative: 'Grounded.', findings: [] } }],
+      }],
+    });
+
+    await runAgent({
+      company,
+      liveSignals: [],
+      outputMode: { type: 'grounded-report-tool', schema: outputSchema },
+      isWebSearchComplete: () => true,
+    });
+
+    const call = mocks.generateText.mock.calls[0][0];
+    expect(call.prepareStep({ stepNumber: 0 })).toEqual({
+      toolChoice: { type: 'tool', toolName: 'submit_grounded_report' },
+      activeTools: ['submit_grounded_report'],
+      providerOptions: {
+        opencodeZen: { thinking: { type: 'disabled' } },
+        opencodeGo: { thinking: { type: 'disabled' } },
+      },
+    });
   });
 });
 
