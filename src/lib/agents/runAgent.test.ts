@@ -168,6 +168,26 @@ describe('runAgent (09-01-01)', () => {
     expect(call.prepareStep({ stepNumber: 5 })).toBeUndefined();
     expect(call.prepareStep({ stepNumber: 6 })).toEqual({ toolChoice: 'none', activeTools: [] });
   });
+
+  it('forces grounded webSearch until the completeness predicate succeeds', async () => {
+    let isComplete = false;
+
+    await runAgent({
+      company,
+      liveSignals: [],
+      isWebSearchComplete: () => isComplete,
+    });
+
+    const call = mocks.generateText.mock.calls[0][0];
+    expect(call.prepareStep({ stepNumber: 0 })).toEqual({
+      toolChoice: { type: 'tool', toolName: 'webSearch' },
+      activeTools: ['webSearch'],
+    });
+
+    isComplete = true;
+    expect(call.prepareStep({ stepNumber: 1 })).toBeUndefined();
+    expect(call.prepareStep({ stepNumber: 6 })).toEqual({ toolChoice: 'none', activeTools: [] });
+  });
 });
 
 describe('runAgent failover loop (FAL-03/04)', () => {

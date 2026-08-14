@@ -197,6 +197,7 @@ export class GroundedExecutionAdapter {
           outputSchema: customSchema === null ? groundedModelOutputSchema : buildCustomModelOutputSchema(customSchema),
           maxToolCalls: policy.limits.maxToolCalls,
           webSearchTool: groundedSearch.tool,
+          isWebSearchComplete: () => groundedSearch.isComplete(),
           timeouts: {
             primaryMs: policy.limits.maxExecutionSeconds * 1000,
             fallbackMs: policy.limits.maxExecutionSeconds * 1000,

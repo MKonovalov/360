@@ -36,6 +36,7 @@ export interface RunAgentInput {
   outputSchema?: FlexibleSchema;
   maxToolCalls?: number;
   webSearchTool?: typeof webSearchTool | GroundedWebSearchTool;
+  isWebSearchComplete?: () => boolean;
 }
 
 // FAL-04 loop wall: Vercel Hobby permits 300s with fluid compute, and the
@@ -86,6 +87,7 @@ export async function runAgent({
   outputSchema: requestedOutputSchema = outputSchema,
   maxToolCalls = 6,
   webSearchTool: requestedWebSearchTool = webSearchTool,
+  isWebSearchComplete,
 }: RunAgentInput) {
   const startedAt = Date.now();
   let lastError: unknown;
@@ -113,8 +115,16 @@ export async function runAgent({
         tools: { webSearch: requestedWebSearchTool },
         prompt: prompt ?? buildAnalyzePrompt(company, liveSignals),
         stopWhen: isStepCount(finalStepCount),
-        prepareStep: ({ stepNumber }) =>
-          stepNumber >= finalStepCount - 1 ? { toolChoice: 'none' as const, activeTools: [] } : undefined,
+        prepareStep: ({ stepNumber }) => {
+          if (stepNumber >= finalStepCount - 1) return { toolChoice: 'none' as const, activeTools: [] };
+          if (isWebSearchComplete?.() === false) {
+            return {
+              toolChoice: { type: 'tool' as const, toolName: 'webSearch' },
+              activeTools: ['webSearch' as const],
+            };
+          }
+          return undefined;
+        },
         output: Output.object({ schema: requestedOutputSchema }),
         telemetry: {
           functionId: 'arclumen-analysis-agent',
