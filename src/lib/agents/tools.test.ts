@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 
 const mocks = vi.hoisted(() => ({
   firecrawlClient: { search: vi.fn() },
@@ -7,7 +8,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/env', () => ({ env: { FIRECRAWL_API_KEY: 'test-key' } }));
 vi.mock('firecrawl', () => ({ Firecrawl: vi.fn(function Firecrawl() { return mocks.firecrawlClient; }) }));
 
-import { createGroundedWebSearchTool } from './tools';
+import { createGroundedWebSearchTool, createSubmitGroundedReportTool } from './tools';
 
 const context = { toolCallId: 'test', messages: [], context: {} };
 const searchResult = { web: [{ url: 'https://example.com', title: 'Example', description: 'Evidence' }] };
@@ -27,6 +28,22 @@ describe('createGroundedWebSearchTool', () => {
     expect(second).toEqual(first);
     expect(mocks.firecrawlClient.search).toHaveBeenCalledTimes(1);
     expect(groundedSearch.externalToolCallCount).toBe(1);
+  });
+
+  it('replays cached results into a fresh attempt-local completeness set', async () => {
+    const groundedSearch = createGroundedWebSearchTool([1]);
+
+    await groundedSearch.tool.execute({ signalId: 1, query: 'first query' }, context);
+    expect(groundedSearch.isComplete()).toBe(true);
+
+    groundedSearch.startAttempt();
+    expect(groundedSearch.isComplete()).toBe(false);
+
+    await expect(groundedSearch.tool.execute({ signalId: 1, query: 'fallback query' }, context)).resolves.toEqual([
+      { url: 'https://example.com', title: 'Example', snippet: 'Evidence' },
+    ]);
+    expect(groundedSearch.isComplete()).toBe(true);
+    expect(mocks.firecrawlClient.search).toHaveBeenCalledTimes(1);
   });
 
   it('caches rejected promises so a fallback cannot retry externally', async () => {
@@ -66,5 +83,13 @@ describe('createGroundedWebSearchTool', () => {
     expect(groundedSearch.externalToolCallCount).toBe(6);
     expect(groundedSearch.hasPolicyViolation).toBe(true);
     expect(groundedSearch.isComplete()).toBe(false);
+  });
+});
+
+describe('createSubmitGroundedReportTool', () => {
+  it('returns only an acknowledgement after receiving the validated report input', async () => {
+    const submit = createSubmitGroundedReportTool(z.object({ narrative: z.string() }));
+
+    await expect(submit.execute({ narrative: 'report' }, context)).resolves.toEqual({ submitted: true });
   });
 });
