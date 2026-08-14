@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   getTraceUrl: vi.fn(),
   instantiateChain: vi.fn(),
   firecrawlClient: { search: vi.fn() },
+  env: { FIRECRAWL_API_KEY: 'test-key', LANGFUSE_CAPTURE_GROUNDED_REPORT: 'false' },
 }));
 
 vi.mock('@/lib/agents/runAgent', () => ({ runAgent: mocks.runAgent }));
@@ -14,7 +15,7 @@ vi.mock('@/lib/telemetry/langfuse', () => ({
   runWithPhase33Trace: mocks.runWithPhase33Trace,
 }));
 vi.mock('@/lib/agents/modelFactory', () => ({ instantiateChain: mocks.instantiateChain }));
-vi.mock('@/lib/env', () => ({ env: { FIRECRAWL_API_KEY: 'test-key' } }));
+vi.mock('@/lib/env', () => ({ env: mocks.env }));
 vi.mock('firecrawl', () => ({ Firecrawl: vi.fn(function Firecrawl() { return mocks.firecrawlClient; }) }));
 
 import { GroundedExecutionAdapter } from './execution';
@@ -51,7 +52,7 @@ const approvedPolicy = {
 } as const;
 
 const validRun = {
-  output: { narrative: 'No supported signal found.', findings: [] },
+  submittedGroundedReport: { narrative: 'No supported signal found.', findings: [] },
   modelUsed: 'model.primary',
   usedFallback: false,
   usage: { inputTokens: 10, outputTokens: 5 },
@@ -87,6 +88,7 @@ async function runAllGroundedSearches(input: GroundedAgentInput) {
 describe('GroundedExecutionAdapter', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.env.LANGFUSE_CAPTURE_GROUNDED_REPORT = 'false';
     mocks.instantiateChain.mockReturnValue(['model-object']);
     mocks.runAgent.mockImplementation(runAllGroundedSearches);
     mocks.firecrawlClient.search.mockResolvedValue({ web: [{ url: 'https://example.com', title: 'Example', description: 'Evidence' }] });
@@ -318,6 +320,122 @@ describe('GroundedExecutionAdapter', () => {
     expect(JSON.stringify(options)).not.toContain('narrative');
   });
 
+  it('omits grounded report content from the trace output by default', async () => {
+    const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });
+
+    await adapter.execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist,
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+    });
+
+    const options = mocks.runWithPhase33Trace.mock.calls[0]?.[2];
+    expect(options?.output?.({
+      run: validRun,
+      output: validRun.submittedGroundedReport,
+      toolResults: [],
+    })).not.toHaveProperty('groundedReport');
+  });
+
+  it('includes only the fixed grounded report envelope when explicitly enabled', async () => {
+    mocks.env.LANGFUSE_CAPTURE_GROUNDED_REPORT = 'true';
+    const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });
+
+    await adapter.execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist,
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+    });
+
+    const options = mocks.runWithPhase33Trace.mock.calls[0]?.[2];
+    const output = options?.output?.({
+      run: validRun,
+      output: {
+        narrative: 'Validated narrative',
+        findings: [{
+          findingId: 'finding-1',
+          signalId: 1,
+          status: 'strong',
+          confidence: 'high',
+          claim: 'Validated claim',
+          reasoningSummary: 'Bounded reasoning',
+          custom: 'omit me',
+        }],
+      },
+      toolResults: [],
+    });
+
+    expect(output).toEqual({
+      modelId: 'model.primary',
+      modelProvider: null,
+      usedFallback: false,
+      durationMs: expect.any(Number),
+      toolCallCount: 0,
+      groundedReport: {
+        narrative: 'Validated narrative',
+        findings: [{
+          identity: { signalId: 1 },
+          status: 'strong',
+          confidence: 'high',
+          claim: 'Validated claim',
+          reasoningSummary: 'Bounded reasoning',
+        }],
+      },
+      usage: { inputTokens: 10, outputTokens: 5, totalTokens: undefined },
+    });
+    expect(JSON.stringify(output)).not.toContain('omit me');
+  });
+
+  it('fails before trace output capture when the grounded report is malformed', async () => {
+    mocks.env.LANGFUSE_CAPTURE_GROUNDED_REPORT = 'true';
+    mocks.runAgent.mockResolvedValueOnce({
+      ...validRun,
+      submittedGroundedReport: { narrative: 'invalid', findings: [{ signalId: 'bad' }] },
+    });
+    const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });
+
+    const result = await adapter.execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist,
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+    });
+    expect(result).toMatchObject({ ok: false, failureReason: 'invalid_packet' });
+  });
+
+  it('requires the exact lowercase opt-in flag for grounded report capture', async () => {
+    mocks.env.LANGFUSE_CAPTURE_GROUNDED_REPORT = 'TRUE';
+    const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });
+
+    await adapter.execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist,
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+    });
+
+    const options = mocks.runWithPhase33Trace.mock.calls[0]?.[2];
+    expect(options?.output?.({
+      run: validRun,
+      output: { narrative: 'private', findings: [] },
+      toolResults: [],
+    })).not.toHaveProperty('groundedReport');
+  });
+
   it('keeps trace linkage null when the test-environment wrapper is a no-op', async () => {
     const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });
 
@@ -435,7 +553,7 @@ describe('GroundedExecutionAdapter', () => {
       policy: approvedPolicy,
     } as const;
 
-    mocks.runAgent.mockResolvedValueOnce({ ...validRun, output: { unexpected: true } });
+    mocks.runAgent.mockResolvedValueOnce({ ...validRun, submittedGroundedReport: { unexpected: true } });
     const malformed = await adapter.execute(input);
     expect(malformed).toMatchObject({ ok: false, failureReason: 'invalid_packet' });
 
@@ -548,7 +666,7 @@ describe('GroundedExecutionAdapter custom output', () => {
   it('returns a named customOutput for a custom run and validates the bounded value', async () => {
     mocks.runAgent.mockImplementationOnce(async (input: GroundedAgentInput) => ({
       ...(await runAllGroundedSearches(input)),
-      output: {
+      submittedGroundedReport: {
         narrative: 'No supported signal found.',
         findings: [],
         custom: { headline: 'Cost pressure rising', score: 7, tier: 'gold' },
@@ -574,7 +692,7 @@ describe('GroundedExecutionAdapter custom output', () => {
     const prompt = mocks.runAgent.mock.calls[0]?.[0].prompt as string;
     expect(prompt).toContain('Custom output fields');
     expect(prompt).toContain('- headline: string (required)');
-    const providerSchema = mocks.runAgent.mock.calls[0]?.[0].outputSchema;
+    const providerSchema = mocks.runAgent.mock.calls[0]?.[0].outputMode?.schema;
     expect(providerSchema).toBeDefined();
     if (!providerSchema) throw new Error('expected provider output schema');
     expect(providerSchema.safeParse({
@@ -597,7 +715,7 @@ describe('GroundedExecutionAdapter custom output', () => {
   it('fails with invalid_packet when the custom value violates the bounded schema', async () => {
     mocks.runAgent.mockResolvedValueOnce({
       ...validRun,
-      output: { narrative: 'No supported signal found.', findings: [], custom: { headline: 'x', score: 1, tier: 'platinum' } },
+      submittedGroundedReport: { narrative: 'No supported signal found.', findings: [], custom: { headline: 'x', score: 1, tier: 'platinum' } },
     });
     const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });
 
@@ -636,7 +754,7 @@ describe('GroundedExecutionAdapter custom output', () => {
   it('requires the custom object for a custom run and rejects its absence', async () => {
     mocks.runAgent.mockResolvedValueOnce({
       ...validRun,
-      output: { narrative: 'No supported signal found.', findings: [] },
+      submittedGroundedReport: { narrative: 'No supported signal found.', findings: [] },
     });
     const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });
 
@@ -657,7 +775,7 @@ describe('GroundedExecutionAdapter custom output', () => {
   it('rejects a custom object on a fixed run so the legacy envelope stays strict', async () => {
     mocks.runAgent.mockResolvedValueOnce({
       ...validRun,
-      output: { narrative: 'No supported signal found.', findings: [], custom: { headline: 'x', score: 1, tier: 'gold' } },
+      submittedGroundedReport: { narrative: 'No supported signal found.', findings: [], custom: { headline: 'x', score: 1, tier: 'gold' } },
     });
     const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });
 
@@ -688,7 +806,7 @@ describe('GroundedExecutionAdapter custom output', () => {
   ] as const)('rejects a custom value that tries to supply %s', async (_label, reserved) => {
     mocks.runAgent.mockResolvedValueOnce({
       ...validRun,
-      output: {
+      submittedGroundedReport: {
         narrative: 'No supported signal found.',
         findings: [],
         custom: { headline: 'x', score: 1, tier: 'gold', ...reserved },

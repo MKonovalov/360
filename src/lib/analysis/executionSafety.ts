@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { SUBMIT_GROUNDED_REPORT_TOOL_NAME } from '@/lib/agents/tools';
 
 const safeToolItemSchema = z
   .object({
@@ -19,6 +20,7 @@ export function safeToolResults(
   let sourceBytes = 0;
   for (const step of steps) {
     for (const result of step.toolResults ?? []) {
+      if (result.toolName === SUBMIT_GROUNDED_REPORT_TOOL_NAME) continue;
       if (result.toolName !== 'webSearch') throw new Error('invalid_tool_policy');
       if (!Array.isArray(result.output)) throw new Error('invalid_tool_policy');
       for (const item of result.output) {
