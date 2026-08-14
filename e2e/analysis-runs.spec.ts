@@ -66,7 +66,7 @@ const statusSchema = z.object({
       resolvedModelChain: z.array(z.string()),
       futureBudget: z.object({
         maxAttempts: z.literal(2),
-        maxToolCalls: z.literal(12),
+        maxToolCalls: z.literal(6),
         maxExecutionSeconds: z.literal(300),
         maxSpendUsd: z.literal(2.5),
       }).strict(),
@@ -251,7 +251,7 @@ test('RUN-05/06: concurrent authenticated starts return one duplicate error and 
   const terminal = await waitForTerminal(page, started.applicationRunId);
   expect(terminal.snapshotSummary.execution.futureBudget).toEqual({
     maxAttempts: 2,
-    maxToolCalls: 12,
+    maxToolCalls: 6,
     maxExecutionSeconds: 300,
     maxSpendUsd: 2.5,
   });
