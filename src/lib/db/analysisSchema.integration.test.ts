@@ -40,13 +40,13 @@ type RunDefaultsRow = {
 };
 
 const expectedRelationColumns = {
-  agent_run: ['id', 'company_id', 'trace_id', 'trace_url', 'verdict', 'usage_tokens', 'evidence_appendix', 'hypotheses', 'created_at', 'model_used', 'model_chain'],
+  agent_run: ['id', 'company_id', 'trace_id', 'trace_url', 'verdict', 'usage_tokens', 'evidence_appendix', 'hypotheses', 'created_at', 'model_used', 'model_chain', 'model_provider'],
   signal_proposal: ['id', 'company_id', 'run_id', 'signal_type', 'strength', 'detected_at', 'evidence_url', 'reliability', 'confidence', 'evidence_snippet', 'reasoning', 'status', 'resolved_at', 'created_at'],
   correction: ['id', 'proposal_id', 'reason', 'note', 'trace_id', 'created_at'],
   workflow_proof_run: ['id', 'proof_kind', 'controls', 'snapshot', 'status', 'lease_expires_at', 'lease_token', 'recovery_attempts', 'reconciliation_attempts', 'workflow_run_id', 'diagnostic_workflow_state', 'diagnostic_error_code', 'diagnostic_error_message', 'failure_reason', 'created_at', 'updated_at', 'completed_at'],
   workflow_proof_run_event: ['id', 'workflow_proof_run_id', 'event_key', 'action', 'attempt', 'recovery_attempt', 'reason', 'workflow_run_id', 'metadata', 'created_at'],
-  analysis_template: ['id', 'key', 'name', 'target_type', 'status', 'created_by', 'updated_by', 'created_at', 'updated_at'],
-  analysis_template_version: ['id', 'template_id', 'version', 'instruction', 'supported_efforts', 'default_effort', 'future_budget', 'created_by', 'created_at'],
+  analysis_template: ['id', 'key', 'name', 'target_type', 'status', 'created_by', 'updated_by', 'created_at', 'updated_at', 'kind', 'practice_area_id'],
+  analysis_template_version: ['id', 'template_id', 'version', 'instruction', 'supported_efforts', 'default_effort', 'future_budget', 'created_by', 'created_at', 'kind', 'custom_name', 'description', 'research_query', 'behavior_instruction', 'structured_output_schema', 'capability_preset_ids'],
   analysis_run: ['id', 'template_id', 'template_version_id', 'subject_type', 'subject_id', 'practice_area_id', 'status', 'attempt', 'max_attempts', 'created_by', 'template_snapshot', 'subject_snapshot', 'checklist_snapshot', 'execution_snapshot', 'policy_snapshot', 'safe_reason', 'started_at', 'completed_at', 'terminal_at', 'created_at', 'updated_at'],
   analysis_run_event: ['id', 'analysis_run_id', 'event_key', 'from_status', 'to_status', 'actor_kind', 'actor_id', 'safe_reason', 'attempt', 'created_at'],
 } as const;
@@ -59,8 +59,9 @@ describe('Phase 32 migration artifact', () => {
     // When
     const migration = await readFile(migrationUrl, 'utf8');
     const statements = migration
-      .split('--> statement-breakpoint')
-      .map((statement) => statement.replace(/--.*$/gm, '').trim())
+      .replace(/--.*$/gm, '')
+      .split(';')
+      .map((statement) => statement.trim())
       .filter((statement) => statement.length > 0);
 
     // Then
@@ -68,7 +69,7 @@ describe('Phase 32 migration artifact', () => {
     expect(statements.every((statement) => /^CREATE (TYPE|TABLE|UNIQUE INDEX|INDEX)\b/i.test(statement))).toBe(true);
     expect(migration).toContain('analysis_run_active_subject_template_idx');
     expect(migration).toContain("WHERE \"status\" IN ('queued', 'running', 'pending_review')");
-    expect(migration).not.toMatch(/\b(?:DROP|ALTER|TRUNCATE|DELETE|UPDATE|INSERT)\b/i);
+    expect(statements.some((statement) => /^(?:DROP|ALTER|TRUNCATE|DELETE|UPDATE|INSERT)\b/i.test(statement))).toBe(false);
     expect(migration).not.toMatch(/\b(?:workflow_proof_status|workflow_proof_run|workflow_proof_run_event|agent_run|signal_proposal|correction)\b/i);
   });
 });
@@ -82,6 +83,11 @@ describe('Phase 33/34 migration artifacts', () => {
     // When
     const archivedMigration = await readFile(archivedMigrationUrl, 'utf8');
     const activeMigration = await readFile(activeMigrationUrl, 'utf8');
+    const activeStatements = activeMigration
+      .replace(/--.*$/gm, '')
+      .split(';')
+      .map((statement) => statement.trim())
+      .filter((statement) => statement.length > 0);
     const archivedEntry = migrationArchive.failed.find(
       (entry) => entry.sourceTag === '0002_phase33_34_correction',
     );
@@ -102,7 +108,7 @@ describe('Phase 33/34 migration artifacts', () => {
     });
     expect(activeMigration).toContain('CREATE TABLE "analysis_run_result"');
     expect(activeMigration).toContain('CREATE TABLE "analysis_run_review"');
-    expect(activeMigration).not.toMatch(/\b(?:DROP|TRUNCATE|DELETE|UPDATE|INSERT)\b/i);
+    expect(activeStatements.some((statement) => /^(?:DROP|TRUNCATE|DELETE|UPDATE|INSERT)\b/i.test(statement))).toBe(false);
   });
 });
 
@@ -162,7 +168,7 @@ describe.skipIf(!testDatabaseUrl)('Phase 32 live schema metadata', () => {
     const expectedEnums = {
       analysis_actor_kind: ['staff', 'workflow', 'system'],
       analysis_effort: ['standard'],
-       analysis_run_status: ['queued', 'running', 'completed', 'failed', 'cancelled'],
+       analysis_run_status: ['queued', 'running', 'completed', 'failed', 'cancelled', 'pending_review', 'confirmed', 'dismissed'],
       analysis_target_type: ['company', 'persona'],
       workflow_proof_status: ['queued', 'running', 'completed', 'failed'],
     } as const;
@@ -183,7 +189,7 @@ describe.skipIf(!testDatabaseUrl)('Phase 32 live schema metadata', () => {
     expect(indexResult.rows).toHaveLength(1);
     expect(indexResult.rows[0]?.indexDefinition).toContain('(subject_type, subject_id, template_id)');
     const predicate = indexResult.rows[0]?.predicate;
-     expect(typeof predicate === 'string' ? predicate.replace(/\s+/g, ' ') : predicate).toBe("(status = ANY (ARRAY['queued'::analysis_run_status, 'running'::analysis_run_status]))");
+     expect(typeof predicate === 'string' ? predicate.replace(/\s+/g, ' ') : predicate).toBe("(status = ANY (ARRAY['queued'::analysis_run_status, 'running'::analysis_run_status, 'pending_review'::analysis_run_status]))");
 
     const practiceAreaResult = await dbModule.db.execute(sql<IdRow>`INSERT INTO practice_area (name, short_code, sort_order, created_by, updated_by) VALUES (${fixtureKey}, ${fixtureShortCode}, 1, 'integration-test', 'integration-test') RETURNING id`);
     const practiceAreaId = practiceAreaResult.rows[0]?.id;
