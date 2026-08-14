@@ -73,6 +73,18 @@ function providerOfSelection(
     : selection.provider;
 }
 
+function deepSeekOpenCodeToolOptions(
+  model: LanguageModel,
+  provider: ModelProviderId | null,
+): Record<string, { readonly thinking: { readonly type: 'disabled' } }> | undefined {
+  if (provider !== 'opencode' || !modelIdOf(model).toLowerCase().includes('deepseek')) return undefined;
+
+  return {
+    opencodeZen: { thinking: { type: 'disabled' } },
+    opencodeGo: { thinking: { type: 'disabled' } },
+  };
+}
+
 // runAgent — the mockable seam (09-01-01; D-16: zero live calls in tests).
 // Flat v7 generateText contract: plan L190-195's ToolLoopAgent/agent: syntax
 // is stale for ai@7, where the tool loop runs identically via stopWhen +
@@ -140,10 +152,12 @@ export async function runAgent({
           ? { stopWhen: [hasToolCall(SUBMIT_GROUNDED_REPORT_TOOL_NAME), isStepCount(finalStepCount)] }
           : { stopWhen: isStepCount(finalStepCount) }),
         prepareStep: ({ stepNumber }) => {
+          const selectedProvider = providerOfSelection(modelSelections?.[i], models[i]);
           if (isGroundedReportMode && isWebSearchComplete?.() === true) {
             return {
               toolChoice: { type: 'tool' as const, toolName: SUBMIT_GROUNDED_REPORT_TOOL_NAME },
               activeTools: [SUBMIT_GROUNDED_REPORT_TOOL_NAME],
+              providerOptions: deepSeekOpenCodeToolOptions(models[i], selectedProvider),
             };
           }
           if (stepNumber >= finalStepCount - 1) return { toolChoice: 'none' as const, activeTools: [] };
@@ -151,6 +165,7 @@ export async function runAgent({
             return {
               toolChoice: { type: 'tool' as const, toolName: 'webSearch' },
               activeTools: ['webSearch' as const],
+              providerOptions: deepSeekOpenCodeToolOptions(models[i], selectedProvider),
             };
           }
           return undefined;
