@@ -41,24 +41,26 @@ describeWithDatabase('analysis result persistence against Neon HTTP', () => {
   const versionIds: number[] = [];
   const runIds: number[] = [];
 
-  const companyPacket = {
-    schemaVersion: 1 as const,
-    targetType: 'company' as const,
-    narrative: 'The company announced a transformation program.',
-    findings: [],
-    sources: [],
-    links: [],
-    audit: {
-      attempt: 1,
-      modelId: 'integration-model',
-      toolCallCount: 0,
-      sourceCount: 0,
-      findingCount: 0,
-      durationMs: 1,
-      traceId: null,
-      failureReason: null,
-    },
-  };
+  function companyPacketForRun(runId: number, targetType: 'company' | 'persona' = 'company') {
+    return {
+      schemaVersion: 1 as const,
+      targetType,
+      narrative: `The ${targetType} announced a transformation program for run ${runId}.`,
+      findings: [],
+      sources: [],
+      links: [],
+      audit: {
+        attempt: 1,
+        modelId: 'integration-model',
+        toolCallCount: 0,
+        sourceCount: 0,
+        findingCount: 0,
+        durationMs: 1,
+        traceId: null,
+        failureReason: null,
+      },
+    };
+  }
 
   beforeAll(async () => {
     process.env.DATABASE_URL = testDatabaseUrl;
@@ -168,6 +170,7 @@ describeWithDatabase('analysis result persistence against Neon HTTP', () => {
       name: `Custom Evidence ${suffix}`,
       targetType,
       kind: 'custom',
+      practiceAreaId: practiceArea.id,
       status: 'active',
       createdBy: 'integration-test',
       updatedBy: 'integration-test',
@@ -177,12 +180,13 @@ describeWithDatabase('analysis result persistence against Neon HTTP', () => {
       templateId: template.id,
       version: 1,
       kind: 'custom',
-      instruction: 'Custom integration fixture.',
+      instruction: null,
       customName: `Custom Evidence ${suffix}`,
       description: 'Custom integration fixture.',
       researchQuery: 'Assess cost pressure.',
       behaviorInstruction: 'Return the bounded custom fields.',
       structuredOutputSchema: PHASE38_CUSTOM_OUTPUT_SCHEMA,
+      capabilityPresetIds: [],
       createdBy: 'integration-test',
     }).returning({ id: schema.analysisTemplateVersion.id });
     versionIds.push(version.id);
@@ -234,8 +238,9 @@ describeWithDatabase('analysis result persistence against Neon HTTP', () => {
 
   it('replays one company packet without duplicate children', async () => {
     const runId = await createRun('company', 910001);
-    const first = await resultQueries.persistAnalysisPacket({ runId, packet: companyPacket, checklistSignalIds: [] });
-    const replay = await resultQueries.persistAnalysisPacket({ runId, packet: companyPacket, checklistSignalIds: [] });
+    const inputPacket = companyPacketForRun(runId);
+    const first = await resultQueries.persistAnalysisPacket({ runId, packet: inputPacket, checklistSignalIds: [] });
+    const replay = await resultQueries.persistAnalysisPacket({ runId, packet: inputPacket, checklistSignalIds: [] });
 
     expect(first.replayed).toBe(false);
     expect(replay).toMatchObject({ resultId: first.resultId, packetHash: first.packetHash, replayed: true });
@@ -255,7 +260,7 @@ describeWithDatabase('analysis result persistence against Neon HTTP', () => {
       auditVisibility: 'allowlisted_safe_metadata_only' as const, failureReason: null, networkAccess: true as const, writesAllowed: false as const,
       effectiveMaxAttempts: 1, effectiveMaxToolCalls: 1, effectiveMaxExecutionSeconds: 60, effectiveMaxSpendUsd: 0,
     };
-    await resultQueries.persistAnalysisPacket({ runId, packet: { ...companyPacket, targetType: 'persona' as const }, checklistSignalIds: [], policy, now: new Date('2026-08-07T12:00:00.000Z') });
+    await resultQueries.persistAnalysisPacket({ runId, packet: companyPacketForRun(runId, 'persona'), checklistSignalIds: [], policy, now: new Date('2026-08-07T12:00:00.000Z') });
     expect(await resultQueries.getAnalysisPacket(runId, new Date('2026-08-07T12:00:30.000Z'))).toBeDefined();
     expect(await resultQueries.enforcePersonaArtifactRetention(new Date('2026-08-07T12:01:00.000Z'))).toContainEqual(expect.any(Number));
     expect(await resultQueries.enforcePersonaArtifactRetention(new Date('2026-08-07T12:02:00.000Z'))).toEqual([]);
@@ -264,9 +269,10 @@ describeWithDatabase('analysis result persistence against Neon HTTP', () => {
 
   it('persists custom output at raw_audit.customOutput for a custom run', async () => {
     const runId = await createCustomRun('company', 910003);
+    const packet = companyPacketForRun(runId);
     const persisted = await resultQueries.persistAnalysisPacket({
       runId,
-      packet: companyPacket,
+      packet,
       checklistSignalIds: [],
       customOutput: PHASE38_CUSTOM_OUTPUT,
     });
@@ -283,7 +289,7 @@ describeWithDatabase('analysis result persistence against Neon HTTP', () => {
 
   it('keeps raw_audit.customOutput null for a fixed run', async () => {
     const runId = await createRun('company', 910004);
-    await resultQueries.persistAnalysisPacket({ runId, packet: companyPacket, checklistSignalIds: [], customOutput: null });
+    await resultQueries.persistAnalysisPacket({ runId, packet: companyPacketForRun(runId), checklistSignalIds: [], customOutput: null });
 
     const rows = await dbModule.db.execute<{ rawAudit: Readonly<Record<string, unknown>> }>(
       sql`SELECT raw_audit AS "rawAudit" FROM analysis_run_result WHERE analysis_run_id = ${runId}`,
@@ -294,9 +300,10 @@ describeWithDatabase('analysis result persistence against Neon HTTP', () => {
 
   it('rejects a replay whose custom output changed via packet-hash conflict', async () => {
     const runId = await createCustomRun('company', 910005);
+    const packet = companyPacketForRun(runId);
     const first = await resultQueries.persistAnalysisPacket({
       runId,
-      packet: companyPacket,
+      packet,
       checklistSignalIds: [],
       customOutput: PHASE38_CUSTOM_OUTPUT,
     });
@@ -305,7 +312,7 @@ describeWithDatabase('analysis result persistence against Neon HTTP', () => {
     await expect(
       resultQueries.persistAnalysisPacket({
         runId,
-        packet: companyPacket,
+        packet,
         checklistSignalIds: [],
         customOutput: { priority: 'low', score: 1 },
       }),
@@ -314,6 +321,7 @@ describeWithDatabase('analysis result persistence against Neon HTTP', () => {
 
   it('persists the packet before completion and reads it back while the run is still running', async () => {
     const runId = await createCustomRun('company', 910006);
+    const packet = companyPacketForRun(runId);
     const claimed = await runQueries.transitionAnalysisRun({
       runId,
       expectedStatus: 'queued',
@@ -327,7 +335,7 @@ describeWithDatabase('analysis result persistence against Neon HTTP', () => {
 
     const persisted = await resultQueries.persistAnalysisPacket({
       runId,
-      packet: companyPacket,
+      packet,
       checklistSignalIds: [],
       customOutput: PHASE38_CUSTOM_OUTPUT,
     });

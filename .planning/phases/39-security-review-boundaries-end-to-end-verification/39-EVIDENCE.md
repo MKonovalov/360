@@ -4,7 +4,7 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 
 ## Final Disposition
 
-**PASS WITH QUALIFICATIONS:** The append-only reset blocker is fixed narrowly: review-event history is never deleted, event-bearing runs/results/reviews remain preserved, and cleanable runs are selected with a run-scoped `NOT EXISTS`. The guarded lifecycle, Company, and Persona Chromium lanes pass. Review integration remains limited by the existing Vitest config's intentional integration exclusion, and the Phase 38 cumulative audit remains a separate historical blocker.
+**PASS:** The append-only reset blocker is fixed narrowly: review-event history is never deleted, event-bearing runs/results/reviews remain preserved, and cleanable runs are selected with a run-scoped `NOT EXISTS`. The guarded lifecycle, Company, and Persona Chromium lanes pass. The dedicated review integration runner executes all 13 tests successfully. The Phase 38 cumulative audit passes through its tracked wrapper.
 
 ## Prior Summary Readability
 
@@ -20,14 +20,14 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 | `npm run test:artifacts` | PASS | Exit 0; migration/artifact suite completed. |
 | `npm run build` | PASS | Exit 0; Next production build completed. |
 | Phase 33 scope audit | PASS | `npm exec tsx scripts/phase33-scope-audit.ts`; zero findings. |
-| Phase 38 scope audit | BLOCKED | The planned `scripts/phase38-scope-audit.ts` entrypoint does not exist; the existing cumulative packet-path canary remains unresolved and is not silently passed. |
+| Phase 38 scope audit | PASS | `npm exec tsx scripts/phase38-scope-audit.ts`; 17 selected tracked implementation files scanned; zero findings, including the shared internal normalizer/quarantine facade canary. |
 | Phase 39 canonical database preflight | PASS | `.env.local` was loaded in-process, `#phase39-fixture` was injected only into `TEST_DATABASE_URL`, and normalized identities passed. Credentials were not printed or persisted. |
 | `npm run db:check` | PASS | Canonical preflight immediately preceded the command; Drizzle reported `Everything's fine`. |
 | `npm run db:validate` | PASS | Canonical preflight immediately preceded the command; 4 journaled migrations and documented baseline exceptions validated. |
 | `analysisReviews.test.ts` | PASS | Focused unit lane: 22 tests passed; SQL contract asserts `concat('analysis-review:', runId::text)` while preserving the advisory lock call. |
-| `analysisReviews.integration.test.ts` | NOT-RUN | Existing `vitest.config.ts` excludes `*.integration.test.ts`; the attempted direct invocation with that config correctly found no files. No alternate runner or config was invented. |
+| `analysisReviews.integration.test.ts` | PASS | The dedicated isolated config discovered exactly 13 tests; all passed. Teardown completed without deleting immutable review events. |
 | Phase 39 fixture reset | PASS | Dotenv-loaded marker injection, canonical preflight immediately before reset, repeated reset, and stable fixture IDs passed. Review-event history is referenced only by cleanup guards; there is no `DELETE FROM analysis_run_review_event`. |
-| Focused review integration invocation | NOT-RUN | Default Vitest excludes `*.integration.test.ts`; the existing config was retained and no missing audit script or alternate runner was invented. |
+| Focused review integration invocation | PASS | `npm run test:integration:analysis-reviews` passed disposable-database preflight and ran the single suite; 13/13 passed. |
 | Authenticated lifecycle rerun after scoped fixes | PASS | Fresh project-owned dev server, real Clerk setup, canonical preflight immediately before reset and Playwright, and lifecycle assertions passed. |
 | `npx tsc --noEmit && npm run build` | PASS | TypeScript and Next production build completed successfully. |
 | `npm run test:workflow` | PASS | Canonical preflight immediately preceded the command; 2 files and 14 tests passed. |
@@ -41,11 +41,11 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 | Requirement / decision | Status | Evidence and ownership |
 |---|---|---|
 | SAFE-01 | PASS | 39-01/39-02 summaries: grounded quarantine, adversarial forged-input and no-live-write boundary tests. |
-| SAFE-02 | PASS | 39-03/39-04 summaries: append-only review events, server-owned actor, replay and stale-conflict contracts. DB integration remains blocked. |
-| SAFE-03 | PASS | 39-05 summary: confirmed-only effective projection and discriminator-safe provenance contracts. DB integration remains blocked. |
+| SAFE-02 | PASS | 39-03/39-04 summaries plus dedicated 13/13 integration proof: append-only review events, server-owned actor, replay, correction, and stale-conflict contracts. |
+| SAFE-03 | PASS | 39-05 summary plus dedicated 13/13 integration proof: confirmed-only effective projection and discriminator-safe provenance contracts. |
 | UX-02 | PASS | 39-05/39-06 summaries: target compatibility, fixed templates, bounded fixtures, lifecycle contracts. |
-| UX-03 | PASS | Final guarded lifecycle, Company, and Persona reload/source journeys passed; review integration remains not-run under the existing Vitest exclusion. |
-| E2E-01 | PASS | Final guarded lifecycle, Company, and Persona authenticated journeys passed; the Phase 38 cumulative audit remains separately blocked. |
+| UX-03 | PASS | Final guarded lifecycle, Company, and Persona reload/source journeys passed; review integration passes 13/13. |
+| E2E-01 | PASS | Final guarded lifecycle, Company, and Persona authenticated journeys passed; Phase 38 scope audit and review integration pass. |
 | D-39-01..D-39-04 | PASS | 39-01/39-02 boundary contracts and adversarial tests. |
 | D-39-05..D-39-08 | PASS | 39-03/39-04 append-only correction and effective projection contracts; DB lane remains blocked. |
 | D-39-09..D-39-11 | PASS | 39-05 candidate aggregation/provenance contracts; DB lane remains blocked. |
@@ -70,7 +70,7 @@ This ledger is exclusive to Plan 39-08. A blocked prerequisite is not a pass, ev
 - Every attempted DB/Workflow/E2E lane had the exact canonical preflight immediately before it with `PHASE39_FIXTURE_ONLY=1` inherited.
 - The canonical preflight passed immediately before every executed DB/Workflow/E2E lane. The reset blocker was that cleanup attempted to delete append-only review events. The reset now selects only runs with no review-event history, deletes cleanable child rows first, and preserves event-bearing run/result/review subtrees and immutable audit history. The same guard is applied before custom-agent cleanup.
 - The runtime wiring defect was the Phase 36-only selection in the grounded adapter and analysis-run policy route. Phase 39 now has an explicit marker-plus-normalized-identity guard, fixture executor selection, and server-owned approved policy selection; the real authenticated app/API/Workflow path remains intact.
-- The proven review-path parameter inference defect is fixed in `analysisReviews.ts` by casting only the interpolated `runId` inside `concat('analysis-review:', ...)` to text. Advisory lock semantics and surrounding SQL are unchanged. Focused unit, typecheck, and build gates pass; the focused Neon integration lane remains status-qualified because three unrelated fixture/eligibility failures remain.
+- The proven review-path parameter inference defect is fixed in `analysisReviews.ts` by casting only the interpolated `runId` inside `concat('analysis-review:', ...)` to text. Advisory lock semantics and surrounding SQL are unchanged. Focused unit, typecheck, build, and dedicated Neon integration gates pass 13/13.
 - The first-review correction blocker is fixed in `analysisReviews.ts` by coalescing only the effective event/sequence projection to sentinel `0`; positive correction/concurrency semantics remain guarded by the expected-event predicate.
 - `STATE.md` and `ROADMAP.md` were not modified.
 

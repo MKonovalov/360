@@ -1,11 +1,11 @@
 import { createHash } from 'node:crypto';
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { GroundedExecutionAdapter } from '@/lib/analysis/execution';
 import { AnalysisPacketValidationError, normalizeAnalysisPacket } from '@/lib/analysis/results';
 import { createPhase38FixedFixture, PHASE38_TARGETS } from './phase38Fixtures';
-import { parseFixtureDatabaseUrl } from './databaseIdentity';
+import { assertPhase39Preflight, parseFixtureDatabaseUrl } from './databaseIdentity';
 
 function validPacket(targetType: (typeof PHASE38_TARGETS)[number]) {
   return createPhase38FixedFixture(targetType).packetInput;
@@ -123,6 +123,31 @@ describe('Phase 39 adversarial execution boundary', () => {
 });
 
 describe('Phase 39 disposable identity boundary', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('rejects an unmarked fixture URL', () => {
+    vi.stubEnv('DATABASE_URL', 'postgresql://app:secret@ep-prod.example.test/app');
+    vi.stubEnv('TEST_DATABASE_URL', 'postgresql://app:secret@ep-fixture.example.test/app');
+
+    expect(() => assertPhase39Preflight()).toThrow('TEST_DATABASE_URL must carry the phase39-fixture marker');
+  });
+
+  it('rejects a marked fixture URL with the production identity', () => {
+    vi.stubEnv('DATABASE_URL', 'postgresql://app:secret@ep-prod.example.test/app');
+    vi.stubEnv('TEST_DATABASE_URL', 'postgresql://app:secret@ep-prod.example.test/app#phase39-fixture');
+
+    expect(() => assertPhase39Preflight()).toThrow('TEST_DATABASE_URL must not identify DATABASE_URL');
+  });
+
+  it('accepts a marked fixture URL with a distinct identity', () => {
+    vi.stubEnv('DATABASE_URL', 'postgresql://app:secret@ep-prod.example.test/app');
+    vi.stubEnv('TEST_DATABASE_URL', 'postgresql://app:secret@ep-fixture.example.test/app#phase39-fixture');
+
+    expect(() => assertPhase39Preflight()).not.toThrow();
+  });
+
   it('normalizes pooler aliases but keeps database identity distinct from production', () => {
     const production = parseFixtureDatabaseUrl('postgresql://app:secret@ep-prod.example.test/app');
     const fixture = parseFixtureDatabaseUrl('postgresql://app:secret@ep-fixture-pooler.example.test/app#phase39-fixture');

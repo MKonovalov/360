@@ -433,14 +433,14 @@ export async function transitionReviewDecision(
       WHERE run.id = event.analysis_run_id
       RETURNING run.id
     )
-    SELECT 'corrected'::text AS kind, projection.id AS "eventId",
+    SELECT 'corrected'::text AS kind, event.id AS "eventId",
       projection.analysis_run_id AS "runId", projection.result_id AS "resultId",
-      projection.effective_sequence AS sequence, NULL::analysis_review_decision AS "priorDecision",
+      event.sequence, event.prior_decision AS "priorDecision",
       projection.decision, ${expectedPriorEventId} AS "expectedPriorEventId",
       projection.decided_by AS "decidedBy", projection.decided_at AS "decidedAt",
       projection.packet_hash AS "packetHash", NULL::integer AS "effectiveEventId",
       NULL::integer AS "effectiveSequence", NULL::text AS reason
-    FROM projection
+    FROM projection CROSS JOIN inserted_event AS event
     UNION ALL
     SELECT 'replayed', event.id, event.analysis_run_id, event.result_id,
       event.sequence, event.prior_decision, event.decision,

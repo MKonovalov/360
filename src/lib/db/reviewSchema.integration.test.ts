@@ -13,9 +13,9 @@ const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 const describeWithDatabase = testDatabaseUrl ? describe : describe.skip;
 
 const expectedLegacyAndPacketColumns = {
-  agent_run: ['id', 'company_id', 'trace_id', 'trace_url', 'verdict', 'usage_tokens', 'evidence_appendix', 'hypotheses', 'created_at', 'model_used', 'model_chain'],
+  agent_run: ['id', 'company_id', 'trace_id', 'trace_url', 'verdict', 'usage_tokens', 'evidence_appendix', 'hypotheses', 'created_at', 'model_used', 'model_chain', 'model_provider'],
   signal_proposal: ['id', 'company_id', 'run_id', 'signal_type', 'strength', 'detected_at', 'evidence_url', 'reliability', 'confidence', 'evidence_snippet', 'reasoning', 'status', 'resolved_at', 'created_at'],
-  analysis_run_result: ['id', 'analysis_run_id', 'schema_version', 'target_type', 'narrative', 'raw_audit', 'model_id', 'model_chain', 'trace_id', 'trace_url', 'started_at', 'completed_at', 'duration_ms', 'finding_count', 'source_count', 'link_count', 'packet_hash', 'policy_version', 'classification', 'expires_at', 'created_at'],
+  analysis_run_result: ['id', 'analysis_run_id', 'schema_version', 'target_type', 'narrative', 'raw_audit', 'model_id', 'model_chain', 'trace_id', 'trace_url', 'started_at', 'completed_at', 'duration_ms', 'finding_count', 'source_count', 'link_count', 'packet_hash', 'policy_version', 'classification', 'expires_at', 'created_at', 'model_provider'],
   analysis_finding: ['id', 'result_id', 'analysis_run_id', 'finding_id', 'signal_id', 'signal_name', 'signal_category', 'buyer_role_id', 'status', 'confidence', 'claim', 'reasoning_summary', 'policy_version', 'classification', 'expires_at', 'created_at'],
   analysis_source: ['id', 'result_id', 'source_id', 'canonical_url', 'title', 'retrieved_at', 'excerpt', 'content_hash', 'classification', 'provider_name', 'provider_version', 'policy_version', 'expires_at', 'created_at'],
   analysis_finding_source: ['id', 'result_id', 'finding_id', 'source_id', 'locator', 'support_role', 'created_at'],
@@ -47,9 +47,11 @@ describeWithDatabase('analysis review decision schema metadata', () => {
       'result_id',
       'decision',
       'decided_by',
-      'decided_at',
-      'packet_hash',
-      'created_at',
+       'decided_at',
+       'packet_hash',
+       'created_at',
+       'effective_event_id',
+       'effective_sequence',
     ]);
   });
 

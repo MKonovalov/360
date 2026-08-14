@@ -38,6 +38,7 @@ const contentInputSchema = z
   .object({
     operation: z.literal('content'),
     templateKey: templateKeySchema,
+    expectedVersion: z.number().int().positive(),
     instruction: z.string().trim().min(1).max(20_000),
     defaultEffort: templateEffortSchema,
   })

@@ -235,7 +235,8 @@ export async function saveAnalysisTemplateVersion(
       ${JSON.stringify(STANDARD_EXECUTION_BUDGET)}::jsonb,
       ${actorId}
     FROM current_version
-    WHERE instruction <> ${input.instruction} OR default_effort <> ${input.defaultEffort}
+    WHERE next_version = ${input.expectedVersion} + 1
+      AND (instruction <> ${input.instruction} OR default_effort <> ${input.defaultEffort})
     ON CONFLICT (template_id, version) DO NOTHING
     RETURNING id AS "templateVersionId"
   `);
@@ -244,6 +245,7 @@ export async function saveAnalysisTemplateVersion(
   const template = findManagedTemplate(templates, input.templateKey);
   if (!template) return { ok: false, reason: 'not_found' };
   if (result.rows[0]) return { ok: true, kind: 'version_appended', template };
+  if (template.latest.version !== input.expectedVersion) return { ok: false, reason: 'conflict' };
   if (
     template.latest.instruction === input.instruction &&
     template.latest.defaultEffort === input.defaultEffort

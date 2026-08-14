@@ -211,7 +211,7 @@ describe('analysisTemplates query module', () => {
     expect(query.match(/fixed/g) ?? []).toHaveLength(2);
   });
 
-  it('D-36-03/D-36-05: appends content atomically without exposing actor or version input', async () => {
+  it('D-36-03/D-36-05: appends content atomically with an expected version', async () => {
     const execute = vi.fn()
       .mockResolvedValueOnce({ rows: [{ templateVersionId: 13 }] })
       .mockResolvedValueOnce({ rows: [managedTemplateRow(13, 2, 'updated instruction')] });
@@ -221,6 +221,7 @@ describe('analysisTemplates query module', () => {
       {
         operation: 'content',
         templateKey: 'company-buying-signal-analysis',
+        expectedVersion: 1,
         instruction: 'updated instruction',
         defaultEffort: 'standard',
       },
@@ -262,6 +263,7 @@ describe('analysisTemplates query module', () => {
       {
         operation: 'content',
         templateKey: 'company-buying-signal-analysis',
+        expectedVersion: 1,
         instruction: 'concurrent instruction',
         defaultEffort: 'standard',
       },

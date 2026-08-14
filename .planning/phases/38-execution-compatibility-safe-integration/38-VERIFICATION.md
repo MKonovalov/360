@@ -2,18 +2,18 @@
 ---
 phase: 38-execution-compatibility-safe-integration
 plan: 06
-status: partial
-updated: 2026-08-12T03:10:00Z
+status: pass
+updated: 2026-08-13T23:58:00Z
 deterministic_matrix: pass
 scope_audit: pass
-database_integration: blocked
+database_integration: pass
 live_provider: not_run
 diff_check: pass
 lsp_diagnostics: clean
 full_test_suite: fail_prerequisite_gated_and_preexisting
 build: pass
 migration_checks: not_applicable_no_schema_changes
-test_workflow: blocked
+test_workflow: pass
 review_blockers: resolved_with_environment_limitations
 ---
 
@@ -28,7 +28,7 @@ confirmed-only candidate, or authenticated Company/Persona E2E proof.
 
 | Item | Observed state | Evidence consequence |
 |---|---|---|
-| `TEST_DATABASE_URL` | unavailable; malformed values are now rejected by `parseFixtureDatabaseUrl` before the gate is selected | `npm run test:workflow` (Neon/Workflow integration) remains **BLOCKED**; the 18 gated integration fixtures added in Plan 38-05 are not executed. |
+| `TEST_DATABASE_URL` | available in `.env.local` and loaded in-process for the guarded run | Neon/Workflow integration executed successfully; no credentials were printed or persisted. |
 | Live Firecrawl/provider credentials and approved live policy | unavailable | Live provider execution remains **NOT-RUN**, reason `policy_or_credentials_unavailable`; deterministic injected-executor fixtures are the only execution evidence. |
 | Clerk shell credentials / authenticated browser state | unavailable | Authenticated Company/Persona custom-agent E2E is **BLOCKED**/out of scope; it is the Phase 39 handoff, not claimed here. |
 | `src/lib/verification/phase38Fixtures.ts` (Plan 38-05) | present on disk but untracked (`git status` reports `??`) | Excluded from the scope audit's "selected tracked scope" per the plan's own wording rather than treated as audited; recorded here as observed evidence, not a pass. |
@@ -38,10 +38,10 @@ confirmed-only candidate, or authenticated Company/Persona E2E proof.
 | Command | Result | Sanitized evidence / limitation |
 |---|---|---|
 | `npm test -- --run src/lib/analysis/customAgentContracts.test.ts src/lib/analysis/capabilityPresets.test.ts src/lib/analysis/checklist.test.ts src/lib/analysis/compatibility.test.ts src/lib/analysis/snapshots.test.ts src/lib/analysis/execution.test.ts src/lib/analysis/groundedContracts.test.ts src/lib/db/queries/analysisRuns.test.ts` | **PASS** | Prior matrix: 8 files, 139/139 tests passed. New focused fixture/runtime-seam suite: 8/8. Environment: local, deterministic injected executor/modelFactory/workflow-boundary seams, no live network/DB. |
-| `npm exec tsx src/lib/verification/phase38ScopeAudit.ts` | **PASS** | 17 selected tracked implementation files scanned; `findingCount: 0`; positive canaries (one `GroundedExecutionAdapter`, `analysisRun(applicationRunId)`, `normalizeAnalysisPacketWithCustomOutput`/`persistAnalysisPacket`, `reconcileCompletedRunForReview`, `confirmedCandidateDisplayRowSchema`, `modelFactory`) and zero forbidden-surface findings. |
+| `npm exec tsx scripts/phase38-scope-audit.ts` | **PASS** | 17 selected tracked implementation files scanned; `findingCount: 0`; positive canaries include the shared internal normalizer and quarantine facade, with zero forbidden-surface findings. |
 | `git diff --check` | **PASS** | No whitespace errors. |
 | `lsp_diagnostics` on `src/lib/verification/phase38ScopeAudit.ts` | **PASS** | No errors, warnings, or hints. |
-| `npm run test:workflow` | **BLOCKED** | Command refuses to run (`TEST_DATABASE_URL is required`); no Neon/Workflow evidence is claimed. |
+| `npm run test:workflow` | **PASS** | In-process dotenv loading supplied `TEST_DATABASE_URL`; 2 workflow test files and 14 tests passed. |
 | Live Firecrawl/provider smoke | **NOT-RUN** | Reason `policy_or_credentials_unavailable`; no live credentials or approved live policy were supplied in this environment. |
 | Authenticated Company/Persona custom-agent E2E | **BLOCKED / Phase 39 handoff** | No Clerk shell credentials/storage state in this environment; ownership belongs to Phase 39, not claimed here. |
 
@@ -102,12 +102,12 @@ No secrets, credential-bearing URLs, or raw provider responses are reproduced ab
 | VAL-03 | Only active signals for the selected target/Practice Area enter the launch checklist snapshot; launch re-resolves current data on the server. | Deterministic matrix above (`checklist.test.ts`, `compatibility.test.ts`); DB-authoritative round-trip in Plan 38-05 gated fixtures | local, deterministic fixtures; DB layer blocked | **PASS (deterministic) / BLOCKED (DB)** | Checklist/compatibility assertions pass; the 18 `TEST_DATABASE_URL`-gated integration fixtures from Plan 38-05 are not executed here. |
 | VAL-04 | Server policy wins for effort, limits, model chain, capabilities, tools, and providers; authored arbitrary fields are rejected. | Deterministic matrix above (`customAgentContracts.test.ts`, `capabilityPresets.test.ts`, `compatibility.test.ts`) | local, deterministic fixtures | **PASS** | Reserved-channel/server-policy assertions pass; scope audit's "arbitrary provider/tool/data source" and "direct Signal/Offering/link write" forbidden-surface checks report zero findings. |
 | VAL-05 | Bounded shallow custom fields are additive; reserved grounding, evidence, review, citation, finding, and candidate channels remain server-owned. | Deterministic matrix above (`groundedContracts.test.ts`, `execution.test.ts`) | local, deterministic fixtures | **PASS** | 34 table-driven reserved-channel rejection cases (Plan 38-04) pass; scope audit's positive canary for `confirmedCandidateDisplayRowSchema` (existing candidate seam, untouched) is present. |
-| RUN-01 | Fixed and custom launches converge on the existing snapshot, one scalar Workflow (`analysisRun(applicationRunId)`), one `GroundedExecutionAdapter`, one grounded packet/evidence path, and the existing review/candidate read path — without Exa. | Deterministic matrix above; scope audit canaries; `npm run test:workflow` (blocked) | local, deterministic fixtures; live Workflow blocked | **PASS (deterministic) / BLOCKED (live Workflow)** | Scope audit proves exactly one `GroundedExecutionAdapter` class and exactly one `analysisRun(applicationRunId)` workflow entry in tracked scope, with `reconcileCompletedRunForReview` and `persistAnalysisPacket` referenced (not reimplemented). Live Neon/Workflow claim/reload/replay evidence is blocked pending `TEST_DATABASE_URL`. |
-| RUN-02 | Duplicate active starts, bounded attempts, safe failure, claim recovery, and replay behavior apply identically to fixed and custom template identities; no global subject uniqueness change. | Deterministic matrix above (`analysisRuns.test.ts`); DB-authoritative duplicate/replay fixtures in Plan 38-05 | local, deterministic fixtures; DB layer blocked | **PASS (deterministic) / BLOCKED (DB)** | Deterministic duplicate/replay assertions pass; scope audit's "global subject uniqueness" forbidden-surface check (`ON CONFLICT (subject_type, subject_id)`) reports zero findings, confirming duplicate semantics remain per-template. Live duplicate-active-custom-run DB proof is blocked pending `TEST_DATABASE_URL`. |
+| RUN-01 | Fixed and custom launches converge on the existing snapshot, one scalar Workflow (`analysisRun(applicationRunId)`), one `GroundedExecutionAdapter`, one grounded packet/evidence path, and the existing review/candidate read path — without Exa. | Deterministic matrix above; scope audit canaries; `npm run test:workflow` | local deterministic fixtures plus guarded Neon/Workflow run | **PASS** | Scope audit proves exactly one `GroundedExecutionAdapter` class and exactly one `analysisRun(applicationRunId)` workflow entry in tracked scope, with `reconcileCompletedRunForReview` and `persistAnalysisPacket` referenced (not reimplemented). Guarded Neon/Workflow claim/reload/replay evidence passed. |
+| RUN-02 | Duplicate active starts, bounded attempts, safe failure, claim recovery, and replay behavior apply identically to fixed and custom template identities; no global subject uniqueness change. | Deterministic matrix above (`analysisRuns.test.ts`); DB-authoritative duplicate/replay fixtures in Plan 38-05 | local deterministic fixtures plus guarded disposable DB | **PASS** | Deterministic duplicate/replay assertions and guarded DB proof pass; scope audit's "global subject uniqueness" forbidden-surface check (`ON CONFLICT (subject_type, subject_id)`) reports zero findings, confirming duplicate semantics remain per-template. |
 
 ## Scope audit
 
-`src/lib/verification/phase38ScopeAudit.ts` scans exactly 17 selected tracked
+`scripts/phase38-scope-audit.ts` invokes `src/lib/verification/phase38ScopeAudit.ts`, which scans exactly 17 selected tracked
 Phase 38 implementation files (contracts, snapshots, custom-agent contracts,
 compatibility resolver, subject resolution, custom-agent queries, the three
 analysis API routes, the launcher client/component, the grounded execution
@@ -173,12 +173,11 @@ and does not claim, any of the following — Phase 39 owns them:
 
 Phase 38's deterministic compatibility, snapshot, adapter, launcher, and
 Workflow-entry regression matrix passes (prior 139/139 plus 8 runtime-seam
-fixture assertions), the non-vacuous selected
-tracked-scope audit reports zero findings with positive canaries, and
-`git diff --check`/`lsp_diagnostics` are clean. Neon/Workflow-authoritative
-persistence evidence, live provider execution, and every Phase 39 boundary
-remain explicitly blocked, not-run, or unclaimed rather than reported as
-passing.
+fixture assertions), the non-vacuous selected tracked-scope audit reports zero
+findings with positive canaries, and `git diff --check`/`lsp_diagnostics` are
+clean. Neon/Workflow-authoritative persistence evidence now passes through the
+guarded integration run. Live provider execution remains not-run, and Phase 39
+owns the adversarial/review boundary evidence.
 
 **Task 3 (final project gate) adds:** `npm run build` passes cleanly (exit 0,
 28s, Next.js 16.2.11 Turbopack production build including the TypeScript
@@ -195,7 +194,7 @@ working-tree diff. `npm run test:workflow` remains blocked
 (`TEST_DATABASE_URL is required`), consistent with the Task 2 disposition and
 not re-run here.
 
-**Phase 39 handoff confirmed unchanged:** broad adversarial verification,
+**Phase 39 handoff confirmed:** broad adversarial verification,
 no-live-write invariants against Signal/Offering/signal-offering-link tables,
 one whole-run review idempotency proof, confirmed-only candidate aggregation
 with provenance, canonical `/agents` routing proof, and authenticated

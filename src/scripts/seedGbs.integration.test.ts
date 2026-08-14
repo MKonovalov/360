@@ -1,14 +1,17 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
-// 30-06: GBS seed row counts against a live DB. Gated on TEST_DATABASE_URL —
-// skips cleanly when absent. Mirrors userModelSettings.integration.test.ts's
+// 30-06: GBS seed row counts against a dedicated catalog DB. Gated on
+// GBS_TEST_DATABASE_URL — skips cleanly in the shared analysis DB lane because
+// seedGbs owns practice_area and its nine catalog tables, while analysis runs
+// may retain foreign-key references to that same table. Mirrors
+// userModelSettings.integration.test.ts's
 // structure verbatim (env swap, vi.resetModules, alias imports for db/schema).
-// This is a read-only count-check of seedGbs()'s own output: beforeAll calls
-// the exported seedGbs() against TEST_DATABASE_URL, then each assertion counts
-// rows per table. No per-test fixture cleanup is needed — seedGbs() is
+// This is a destructive reseed/count-check of seedGbs()'s own output: beforeAll
+// calls the exported seedGbs() against GBS_TEST_DATABASE_URL, then each
+// assertion counts rows per table. No per-test fixture cleanup is needed — seedGbs() is
 // idempotent (deletes all 9 Phase 30 tables children-first before inserting),
 // so a fresh call re-establishes the exact same 1/3/5/11/22/11/27/12/10 state.
-const testDatabaseUrl = process.env.TEST_DATABASE_URL;
+const testDatabaseUrl = process.env.GBS_TEST_DATABASE_URL;
 const describeWithDatabase = testDatabaseUrl ? describe : describe.skip;
 
 describeWithDatabase('GBS seed row counts (30-06)', () => {

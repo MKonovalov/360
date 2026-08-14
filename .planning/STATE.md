@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-09)
 
 **Core value:** Fast, shared ICP lookup — anyone on the team can pull up a company or persona and see a complete, trustworthy 360 view with buying signals in seconds.
-**Current focus:** Phase 38 — Execution Compatibility & Safe Integration
+**Current focus:** v1.8 milestone closeout
 
 ## Current Position
 
-Phase: 38 — Execution Compatibility & Safe Integration
-Plan: pending historical gate
-Status: Phase 39 complete with qualifications; Phase 38 remains pending
-Last activity: 2026-08-13 -- Production migration 0010 applied and Phase 39 evidence reconciled
+Phase: 39 — Security, Review Boundaries & End-to-End Verification
+Plan: complete with qualifications
+Status: Phases 38 and 39 complete; v1.8 closeout remains
+Last activity: 2026-08-13 -- Phase 38 Neon/Workflow and authenticated Company/Persona UAT passed
 
 ## Performance Metrics
 
@@ -138,13 +138,13 @@ Last activity: 2026-08-13 -- Production migration 0010 applied and Phase 39 evid
 
 ### Pending Todos
 
-- Phase 38 cumulative packet-path scope audit remains unresolved; do not reclassify it as passed.
+- Phase 38 Neon/Workflow integration and authenticated Company/Persona UAT passed; live provider smoke remains not-run.
 
 ### Blockers/Concerns
 
 - v1.7 Phase 36's separate Neon/Workflow matrix remains a historical partial verification item because `TEST_DATABASE_URL` was unavailable; v1.8 must not silently reclassify it.
 - Phase 37 must define custom-agent identity/ownership, schema boundaries, and additive migration details without changing the fixed-template keys.
-- Phase 38 must preserve the v1.7 durable executor, evidence, review, and confirmed-only candidate boundaries for custom agents.
+- Phase 38 preserved the v1.7 durable executor, evidence, review, and confirmed-only candidate boundaries for custom agents; Neon/Workflow proof now passes.
 - Phase 39 must prove adversarial fail-closed behavior and no-live-write invariants with deterministic fixtures plus authenticated `/agents`, Company, and Persona E2E.
 - Phase 39 is complete with qualifications: focused review integration remains not-run under the existing Vitest exclusion, and Production migration 0010 was applied successfully.
 - Phase 31 executor selection and deployed proof are complete; detached execution may now proceed through the planned ledger gates.

@@ -23,31 +23,31 @@ Requirements for creating and safely managing custom agents from the canonical `
 
 - [x] **VER-01**: Saving a valid custom-agent configuration appends a new immutable version and makes that version current for future launches.
 - [x] **VER-02**: Historical custom-agent versions are read-only and remain inspectable with their configuration, actor, and timestamp; no save edits or deletes a prior version.
-- [ ] **VER-03**: A run snapshots the selected custom-agent version and resolved configuration before execution, and later edits never change that run, result, evidence, or review packet.
+- [x] **VER-03**: A run snapshots the selected custom-agent version and resolved configuration before execution, and later edits never change that run, result, evidence, or review packet.
 - [x] **LIFE-01**: Staff can activate, retire, and reactivate a custom agent; retirement blocks future launches while preserving versions, runs, results, and review history, and reactivation uses the latest immutable version.
 
 ### Validation and Execution Compatibility
 
 - [x] **VAL-01**: Server-side validation rejects missing, malformed, oversized, or unsupported custom-agent fields before a version can become current or runnable.
-- [ ] **VAL-02**: The system rejects a run when a custom agent's target type is incompatible with the selected Company or Persona record, before creating an active run.
-- [ ] **VAL-03**: A runnable custom agent resolves only active Signals for its configured target type and Practice Area, and the resolved checklist/schema is snapshotted with the run.
-- [ ] **VAL-04**: Effort, execution limits, model-chain resolution, research capabilities, and tool/provider access remain server-owned and compatible with the existing v1.7 executor; staff-authored configuration cannot select arbitrary providers or tools.
-- [ ] **VAL-05**: If a custom agent exposes structured output configuration, the system keeps behavior instructions separate from output shape and accepts only a shallow, bounded, essential-field schema; grounding/evidence remains a server-owned output channel.
-- [ ] **RUN-01**: An active, valid custom agent can execute through the existing durable v1.7 run path for its compatible target without adding Exa or another research provider.
-- [ ] **RUN-02**: Duplicate active-run prevention, bounded retries/tool calls/time/spend, safe failure audit, and lifecycle recovery apply equally to custom agents and the two fixed templates.
+- [x] **VAL-02**: The system rejects a run when a custom agent's target type is incompatible with the selected Company or Persona record, before creating an active run.
+- [x] **VAL-03**: A runnable custom agent resolves only active Signals for its configured target type and Practice Area, and the resolved checklist/schema is snapshotted with the run.
+- [x] **VAL-04**: Effort, execution limits, model-chain resolution, research capabilities, and tool/provider access remain server-owned and compatible with the existing v1.7 executor; staff-authored configuration cannot select arbitrary providers or tools.
+- [x] **VAL-05**: If a custom agent exposes structured output configuration, the system keeps behavior instructions separate from output shape and accepts only a shallow, bounded, essential-field schema; grounding/evidence remains a server-owned output channel.
+- [x] **RUN-01**: An active, valid custom agent can execute through the existing durable v1.7 run path for its compatible target without adding Exa or another research provider.
+- [x] **RUN-02**: Duplicate active-run prevention, bounded retries/tool calls/time/spend, safe failure audit, and lifecycle recovery apply equally to custom agents and the two fixed templates.
 
 ### Security, Review, and Candidate Boundaries
 
-- [ ] **SAFE-01**: Custom-agent instructions, structured configuration, research output, citations, and tools are validated against the existing fail-closed prompt-injection, unsafe-citation, unsupported-source, duplicate-evidence, and forbidden-write policies.
-- [ ] **SAFE-02**: Every successfully completed custom-agent run enters the existing one whole-run review contract; Confirm/Dismiss is attributable, idempotent, and cannot write live Signals or signal-offering links.
-- [ ] **SAFE-03**: Company and Persona candidate-offering views include custom-agent findings only after Confirmed review and retain run/version/finding/source provenance; pending, failed, cancelled, and dismissed runs are excluded.
+- [x] **SAFE-01**: Custom-agent instructions, structured configuration, research output, citations, and tools are validated against the existing fail-closed prompt-injection, unsafe-citation, unsupported-source, duplicate-evidence, and forbidden-write policies.
+- [x] **SAFE-02**: Every successfully completed custom-agent run enters the existing one whole-run review contract; Confirm/Dismiss is attributable, idempotent, and cannot write live Signals or signal-offering links.
+- [x] **SAFE-03**: Company and Persona candidate-offering views include custom-agent findings only after Confirmed review and retain run/version/finding/source provenance; pending, failed, cancelled, and dismissed runs are excluded.
 
 ### Staff Experience and End-to-End Verification
 
 - [x] **UX-01**: Authenticated staff can create, edit, inspect current/history versions, activate/retire/reactivate, and understand validation failures from `/agents` without a `/reviews/agents` route.
-- [ ] **UX-02**: Automated verification covers custom-agent contracts, immutable versioning, lifecycle recovery, target/Practice Area compatibility, bounded schema policy, duplicate-run protection, and backward compatibility of both fixed v1.7 templates.
-- [ ] **UX-03**: Authenticated Company and Persona E2E flows prove custom-agent preview/launch, durable status after navigation or reload, settled result/source inspection, one whole-run decision, and confirmed-only candidate visibility.
-- [ ] **E2E-01**: The final verification gate proves server-derived actor authorization, adversarial fail-closed behavior, no-live-write invariants, review idempotency, confirmed-only aggregation, and the canonical `/agents` route plus both target flows.
+- [x] **UX-02**: Automated verification covers custom-agent contracts, immutable versioning, lifecycle recovery, target/Practice Area compatibility, bounded schema policy, duplicate-run protection, and backward compatibility of both fixed v1.7 templates.
+- [x] **UX-03**: Authenticated Company and Persona E2E flows prove custom-agent preview/launch, durable status after navigation or reload, settled result/source inspection, one whole-run decision, and confirmed-only candidate visibility.
+- [x] **E2E-01**: The final verification gate proves server-derived actor authorization, adversarial fail-closed behavior, no-live-write invariants, review idempotency, confirmed-only aggregation, and the canonical `/agents` route plus both target flows.
 
 ## Future Requirements
 
@@ -94,22 +94,22 @@ Deferred beyond v1.8; these are acknowledged but not in the current roadmap.
 | AGT-04 | Phase 37 | Complete |
 | VER-01 | Phase 37 | Complete |
 | VER-02 | Phase 37 | Complete |
-| VER-03 | Phase 38 | Pending |
+| VER-03 | Phase 38 | Complete |
 | LIFE-01 | Phase 37 | Complete |
 | VAL-01 | Phase 37 | Complete |
-| VAL-02 | Phase 38 | Pending |
-| VAL-03 | Phase 38 | Pending |
-| VAL-04 | Phase 38 | Pending |
-| VAL-05 | Phase 38 | Pending |
-| RUN-01 | Phase 38 | Pending |
-| RUN-02 | Phase 38 | Pending |
-| SAFE-01 | Phase 39 | Pending |
-| SAFE-02 | Phase 39 | Pending |
-| SAFE-03 | Phase 39 | Pending |
+| VAL-02 | Phase 38 | Complete |
+| VAL-03 | Phase 38 | Complete |
+| VAL-04 | Phase 38 | Complete |
+| VAL-05 | Phase 38 | Complete |
+| RUN-01 | Phase 38 | Complete |
+| RUN-02 | Phase 38 | Complete |
+| SAFE-01 | Phase 39 | Complete |
+| SAFE-02 | Phase 39 | Complete |
+| SAFE-03 | Phase 39 | Complete |
 | UX-01 | Phase 37 | Complete |
-| UX-02 | Phase 39 | Pending |
-| UX-03 | Phase 39 | Pending |
-| E2E-01 | Phase 39 | Pending |
+| UX-02 | Phase 39 | Complete |
+| UX-03 | Phase 39 | Complete |
+| E2E-01 | Phase 39 | Complete |
 
 **Coverage:**
 
