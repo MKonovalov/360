@@ -183,6 +183,54 @@ describe('GroundedExecutionAdapter', () => {
     expect(mocks.firecrawlClient.search).toHaveBeenCalledWith('Acme new CFO', { limit: 3 });
   });
 
+  it('wires grounded search completeness for a six-call category run', async () => {
+    const categoryPolicy = {
+      ...approvedPolicy,
+      limits: { ...approvedPolicy.limits, maxToolCalls: 6 },
+      effectiveMaxToolCalls: 6,
+    } as const;
+    const categoryChecklist = [1, 2, 3, 4].map((signalId) => ({
+      signalId,
+      name: `Signal ${signalId}`,
+      category: 'GBS-state',
+      description: `Signal ${signalId} description.`,
+    }));
+
+    mocks.runAgent.mockImplementationOnce(async (input: {
+      readonly liveSignals: readonly { readonly signalType: string }[];
+      readonly isWebSearchComplete: () => boolean;
+      readonly webSearchTool: {
+        readonly execute: (value: { readonly signalId: number; readonly query: string }, context: unknown) => Promise<readonly unknown[]>;
+      };
+    }) => {
+      expect(input.isWebSearchComplete()).toBe(false);
+      const steps = [];
+      for (const [index, signal] of input.liveSignals.entries()) {
+        const signalId = Number(signal.signalType);
+        const output = await input.webSearchTool.execute(
+          { signalId, query: `Acme signal ${signalId}` },
+          { toolCallId: `test-${signalId}`, messages: [], context: {} },
+        );
+        steps.push({ toolResults: [{ toolName: 'webSearch', output }] });
+        expect(input.isWebSearchComplete()).toBe(index === input.liveSignals.length - 1);
+      }
+      return { ...validRun, steps };
+    });
+
+    const result = await new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain }).execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist: categoryChecklist,
+      modelChain: ['model.primary'],
+      policy: categoryPolicy,
+    });
+
+    expect(result).toMatchObject({ ok: true, externalToolCallCount: 4 });
+    expect(mocks.runAgent.mock.calls[0]?.[0]).toMatchObject({ maxToolCalls: 6 });
+  });
+
   it('fails closed through invalid_tool_policy when the model searches a signal ID outside the checklist', async () => {
     mocks.runAgent.mockImplementationOnce(async (input: {
       readonly webSearchTool: {
