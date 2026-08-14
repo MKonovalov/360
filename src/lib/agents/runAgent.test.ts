@@ -183,10 +183,40 @@ describe('runAgent (09-01-01)', () => {
       toolChoice: { type: 'tool', toolName: 'webSearch' },
       activeTools: ['webSearch'],
     });
-
     isComplete = true;
     expect(call.prepareStep({ stepNumber: 1 })).toBeUndefined();
     expect(call.prepareStep({ stepNumber: 6 })).toEqual({ toolChoice: 'none', activeTools: [] });
+  });
+
+  it('forces submit_grounded_report after search and returns its tool input', async () => {
+    const submittedGroundedReport = { narrative: 'No supported signal found.', findings: [] };
+    mocks.generateText.mockResolvedValueOnce({
+      ...resolvedRun,
+      steps: [{
+        toolCalls: [{ toolName: 'submit_grounded_report', input: submittedGroundedReport }],
+        toolResults: [{ toolName: 'submit_grounded_report', output: { submitted: true } }],
+      }],
+    });
+
+    const result = await runAgent({
+      company,
+      liveSignals: [],
+      outputMode: { type: 'grounded-report-tool', schema: outputSchema },
+      isWebSearchComplete: () => true,
+    });
+
+    const call = mocks.generateText.mock.calls[0][0];
+    expect(call.output).toBeUndefined();
+    expect(call.prepareStep({ stepNumber: 0 })).toEqual({
+      toolChoice: { type: 'tool', toolName: 'submit_grounded_report' },
+      activeTools: ['submit_grounded_report'],
+    });
+    expect(call.prepareStep({ stepNumber: 6 })).toEqual({
+      toolChoice: { type: 'tool', toolName: 'submit_grounded_report' },
+      activeTools: ['submit_grounded_report'],
+    });
+    expect(call.stopWhen).toHaveLength(2);
+    expect(result.submittedGroundedReport).toEqual(submittedGroundedReport);
   });
 });
 
@@ -227,6 +257,54 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     expect(mocks.generateText.mock.calls[1][0].tools.webSearch).toBe(groundedSearch.tool);
     expect(mocks.firecrawlSearch).toHaveBeenCalledTimes(1);
     expect(groundedSearch.externalToolCallCount).toBe(1);
+  });
+
+  it('resets completeness per attempt so fallback replays every cached search before submitting', async () => {
+    const groundedSearch = createGroundedWebSearchTool([1, 2, 3]);
+    const submittedGroundedReport = { narrative: 'Grounded report.', findings: [] };
+    const context = { toolCallId: 'test', messages: [], context: {} };
+    const searchInput = (signalId: number) => ({ signalId, query: `signal ${signalId}` });
+    const generateOptions = {
+      tools: { webSearch: groundedSearch.tool },
+    };
+    const steps = (inputs: readonly { signalId: number; query: string }[]) => [{
+      toolCalls: [
+        ...inputs.map((input) => ({ toolName: 'webSearch', input })),
+        { toolName: 'submit_grounded_report', input: submittedGroundedReport },
+      ],
+    }];
+
+    mocks.generateText
+      .mockImplementationOnce(async (options: typeof generateOptions) => {
+        for (const signalId of [1, 2, 3]) {
+          await options.tools.webSearch.execute(searchInput(signalId), context);
+        }
+        throw apiErr(404);
+      })
+      .mockImplementationOnce(async (options: typeof generateOptions) => {
+        expect(groundedSearch.isComplete()).toBe(false);
+        const inputs = [1, 2, 3].map(searchInput);
+        for (const input of inputs) {
+          await options.tools.webSearch.execute(input, context);
+        }
+        expect(groundedSearch.isComplete()).toBe(true);
+        return { ...resolvedRun, steps: steps(inputs) };
+      });
+
+    const result = await runAgent({
+      company,
+      liveSignals: [],
+      models: ['m1', 'm1'],
+      outputMode: { type: 'grounded-report-tool', schema: outputSchema },
+      webSearchTool: groundedSearch.tool,
+      isWebSearchComplete: () => groundedSearch.isComplete(),
+      onAttemptStart: groundedSearch.startAttempt,
+    });
+
+    expect(result.usedFallback).toBe(true);
+    expect(result.submittedGroundedReport).toEqual(submittedGroundedReport);
+    expect(mocks.firecrawlSearch).toHaveBeenCalledTimes(3);
+    expect(groundedSearch.externalToolCallCount).toBe(3);
   });
 
   it('primary 404 advances to the fallback with the fallback budget on attempt 2', async () => {
