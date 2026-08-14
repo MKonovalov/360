@@ -36,16 +36,20 @@ const initialOptionsSchema = z.object({
   practiceAreas: z.array(practiceAreaSchema),
 }).strict();
 // Follow-up step (Practice Area selected): fixed option first, then every
-// matching active custom option, alongside Practice Areas.
+// matching active custom option, alongside Practice Areas and the active
+// target-specific signal categories for that Practice Area. `.default([])`
+// keeps this tolerant of a server response that omits the field, matching
+// the initial-step schema's own forward-compatible parsing posture.
 const followUpOptionsSchema = z.object({
   agents: z.array(agentOptionSchema),
   practiceAreas: z.array(practiceAreaSchema),
+  signalCategories: z.array(z.string().min(1)).default([]),
 }).strict();
 
 const createRunResponseSchema = z.object({ applicationRunId: z.number().int().positive() }).strict();
 
 export const ANALYSIS_LAUNCHER_ERROR_COPY = {
-  invalid_input: 'Choose a valid Practice Area, then try again.',
+  invalid_input: 'Choose a valid Practice Area and Buying Signal Category, then try again.',
   template_not_found: 'No compatible analysis template is available for this record.',
   template_configuration_invalid: 'Analysis templates are not configured for this record type.',
   template_version_not_found: 'The analysis template is no longer available. Refresh and try again.',
@@ -78,6 +82,7 @@ export interface AnalysisRunPayloadInput {
   readonly subjectType: AnalysisSubjectType;
   readonly subjectId: number;
   readonly practiceAreaId: number;
+  readonly signalCategory: string;
   readonly selection: AgentSelection;
 }
 
@@ -85,35 +90,48 @@ export function createAnalysisRunPayload({
   subjectType,
   subjectId,
   practiceAreaId,
+  signalCategory,
   selection,
 }: AnalysisRunPayloadInput) {
   const subject = { type: subjectType, id: subjectId };
-  // Fixed selection preserves the existing flat request shape exactly (no
-  // `selection` wrapper) for compatibility with the legacy launch path.
+  // Fixed selection preserves the existing flat request shape (no
+  // `selection` wrapper) while carrying the required category.
   // Custom selection carries only its opaque identity/version inside a
   // discriminated `selection` object. Fields are picked explicitly (never
   // spread) so no extra property on a loosely-typed selection can leak in.
-  return selection.kind === 'fixed'
-    ? { templateVersionId: selection.templateVersionId, subject, practiceAreaId }
-    : {
+  switch (selection.kind) {
+    case 'fixed':
+      return { templateVersionId: selection.templateVersionId, subject, practiceAreaId, signalCategory };
+    case 'custom':
+      return {
         subject,
         practiceAreaId,
+        signalCategory,
         selection: {
           kind: 'custom' as const,
           customAgentId: selection.customAgentId,
           templateVersionId: selection.templateVersionId,
         },
       };
+    default:
+      return assertNever(selection);
+  }
 }
 
 export type AnalysisOptionsResult =
-  | { readonly ok: true; readonly practiceAreas: readonly PracticeArea[]; readonly agents: readonly AgentOption[] }
+  | {
+      readonly ok: true;
+      readonly practiceAreas: readonly PracticeArea[];
+      readonly agents: readonly AgentOption[];
+      readonly signalCategories: readonly string[];
+    }
   | { readonly ok: false; readonly message: string };
 
 // `practiceAreaId === undefined` requests/parses the initial `{ practiceAreas }`
 // step. A defined `practiceAreaId` sends the follow-up query (subjectType +
-// practiceAreaId) and parses the server-projected `{ agents, practiceAreas }`
-// response -- fixed first, then every matching active custom option.
+// practiceAreaId) and parses the server-projected `{ agents, practiceAreas,
+// signalCategories }` response -- fixed first, then every matching active
+// custom option.
 export async function fetchAnalysisOptions(
   subjectType: AnalysisSubjectType,
   practiceAreaId: number | undefined,
@@ -128,13 +146,18 @@ export async function fetchAnalysisOptions(
   if (practiceAreaId === undefined) {
     const parsed = initialOptionsSchema.safeParse(payload);
     return parsed.success
-      ? { ok: true, practiceAreas: parsed.data.practiceAreas, agents: [] }
+      ? { ok: true, practiceAreas: parsed.data.practiceAreas, agents: [], signalCategories: [] }
       : { ok: false, message: 'Analysis options could not be loaded. Refresh and try again.' };
   }
 
   const parsed = followUpOptionsSchema.safeParse(payload);
   return parsed.success
-    ? { ok: true, practiceAreas: parsed.data.practiceAreas, agents: parsed.data.agents }
+    ? {
+        ok: true,
+        practiceAreas: parsed.data.practiceAreas,
+        agents: parsed.data.agents,
+        signalCategories: parsed.data.signalCategories,
+      }
     : { ok: false, message: 'Analysis options could not be loaded. Refresh and try again.' };
 }
 
@@ -146,6 +169,8 @@ export interface AnalysisPreviewRequest {
   readonly subjectType: AnalysisSubjectType;
   readonly subjectId: number;
   readonly practiceAreaId: number;
+  readonly signalCategory: string;
+  readonly selection: AgentSelection;
   readonly signal: AbortSignal;
 }
 
@@ -153,13 +178,29 @@ export async function fetchAnalysisPreview({
   subjectType,
   subjectId,
   practiceAreaId,
+  signalCategory,
+  selection,
   signal,
 }: AnalysisPreviewRequest): Promise<AnalysisPreviewResult> {
+  const selectionPayload = (() => {
+    switch (selection.kind) {
+      case 'fixed':
+        return { kind: 'fixed' as const, templateVersionId: selection.templateVersionId };
+      case 'custom':
+        return {
+          kind: 'custom' as const,
+          customAgentId: selection.customAgentId,
+          templateVersionId: selection.templateVersionId,
+        };
+      default:
+        return assertNever(selection);
+    }
+  })();
   const response = await fetch('/api/analysis-preview', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     signal,
-    body: JSON.stringify({ subject: { type: subjectType, id: subjectId }, practiceAreaId }),
+    body: JSON.stringify({ subject: { type: subjectType, id: subjectId }, practiceAreaId, signalCategory, selection: selectionPayload }),
   });
   const payload = await readJson(response);
   if (!response.ok) return { ok: false, message: getErrorCopy(payload) };
@@ -190,4 +231,8 @@ export async function readJson(response: Response): Promise<unknown> {
     if (error instanceof SyntaxError) return null;
     throw error;
   }
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unexpected analysis agent selection: ${String(value)}`);
 }

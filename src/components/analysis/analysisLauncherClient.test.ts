@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createAnalysisRunPayload,
   fetchAnalysisOptions,
+  fetchAnalysisPreview,
   getErrorCopy,
   parseCreateRunResponse,
   readJson,
@@ -34,14 +35,16 @@ describe('analysisLauncherClient', () => {
         ok: true,
         practiceAreas: [{ id: 3, name: 'GBS', shortCode: 'GBS' }],
         agents: [],
+        signalCategories: [],
       });
     });
 
-    it('sends subjectType and practiceAreaId on the follow-up step and parses { agents, practiceAreas }', async () => {
+    it('sends subjectType and practiceAreaId on the follow-up step and parses { agents, practiceAreas, signalCategories }', async () => {
       const fetchMock = vi.fn().mockResolvedValue(
         jsonResponse({
           agents: [{ kind: 'fixed', templateVersionId: 11, key: 'company-buying-signal-analysis', name: 'Fixed', targetType: 'company', version: 1 }],
           practiceAreas: [{ id: 3, name: 'GBS', shortCode: 'GBS' }],
+          signalCategories: ['GBS-state', 'financial'],
         }),
       );
       vi.stubGlobal('fetch', fetchMock);
@@ -54,6 +57,22 @@ describe('analysisLauncherClient', () => {
         ok: true,
         practiceAreas: [{ id: 3, name: 'GBS', shortCode: 'GBS' }],
         agents: [{ kind: 'fixed', templateVersionId: 11, key: 'company-buying-signal-analysis', name: 'Fixed', targetType: 'company', version: 1 }],
+        signalCategories: ['GBS-state', 'financial'],
+      });
+    });
+
+    it('defaults signalCategories to an empty list when the follow-up response omits it', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+        jsonResponse({ agents: [], practiceAreas: [{ id: 3, name: 'GBS', shortCode: 'GBS' }] }),
+      ));
+
+      const result = await fetchAnalysisOptions('company', 3, new AbortController().signal);
+
+      expect(result).toEqual({
+        ok: true,
+        practiceAreas: [{ id: 3, name: 'GBS', shortCode: 'GBS' }],
+        agents: [],
+        signalCategories: [],
       });
     });
 
@@ -109,6 +128,7 @@ describe('analysisLauncherClient', () => {
           targetType: 'company',
           version: 2,
         }],
+        signalCategories: [],
       });
     });
 
@@ -146,12 +166,37 @@ describe('analysisLauncherClient', () => {
     });
   });
 
+  describe('fetchAnalysisPreview', () => {
+    it('sends the required signalCategory alongside subject and practiceAreaId', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ error: 'invalid_input' }, 400));
+      vi.stubGlobal('fetch', fetchMock);
+
+      await fetchAnalysisPreview({
+        subjectType: 'company',
+        subjectId: 42,
+        practiceAreaId: 3,
+        signalCategory: 'GBS-state',
+        selection: { kind: 'fixed', templateVersionId: 11 },
+        signal: new AbortController().signal,
+      });
+
+      const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(JSON.parse(init.body as string)).toEqual({
+        subject: { type: 'company', id: 42 },
+        practiceAreaId: 3,
+        signalCategory: 'GBS-state',
+        selection: { kind: 'fixed', templateVersionId: 11 },
+      });
+    });
+  });
+
   describe('createAnalysisRunPayload', () => {
-    it('preserves the existing fixed request shape exactly, omitting any selection wrapper', () => {
+    it('preserves the fixed request shape with signalCategory while omitting a selection wrapper', () => {
       const payload = createAnalysisRunPayload({
         subjectType: 'company',
         subjectId: 42,
         practiceAreaId: 3,
+        signalCategory: 'GBS-state',
         selection: { kind: 'fixed', templateVersionId: 11 },
       });
 
@@ -159,6 +204,7 @@ describe('analysisLauncherClient', () => {
         templateVersionId: 11,
         subject: { type: 'company', id: 42 },
         practiceAreaId: 3,
+        signalCategory: 'GBS-state',
       });
       expect(payload).not.toHaveProperty('selection');
     });
@@ -168,15 +214,17 @@ describe('analysisLauncherClient', () => {
         subjectType: 'persona',
         subjectId: 9,
         practiceAreaId: 5,
+        signalCategory: 'Financial',
         selection: { kind: 'custom', customAgentId: 'custom-7', templateVersionId: 71 },
       });
 
       expect(payload).toEqual({
         subject: { type: 'persona', id: 9 },
         practiceAreaId: 5,
+        signalCategory: 'Financial',
         selection: { kind: 'custom', customAgentId: 'custom-7', templateVersionId: 71 },
       });
-      expect(Object.keys(payload)).toEqual(['subject', 'practiceAreaId', 'selection']);
+      expect(Object.keys(payload)).toEqual(['subject', 'practiceAreaId', 'signalCategory', 'selection']);
       if (!('selection' in payload)) throw new Error('expected a custom selection payload');
       expect(Object.keys(payload.selection!)).toEqual(['kind', 'customAgentId', 'templateVersionId']);
     });
@@ -203,6 +251,7 @@ describe('analysisLauncherClient', () => {
         subjectType: 'company',
         subjectId: 42,
         practiceAreaId: 3,
+        signalCategory: 'GBS-state',
         selection: taintedSelection,
       });
 
@@ -210,6 +259,7 @@ describe('analysisLauncherClient', () => {
         templateVersionId: 11,
         subject: { type: 'company', id: 42 },
         practiceAreaId: 3,
+        signalCategory: 'GBS-state',
       });
       expect(payload).not.toHaveProperty(field);
     });
@@ -241,12 +291,14 @@ describe('analysisLauncherClient', () => {
         subjectType: 'company',
         subjectId: 42,
         practiceAreaId: 3,
+        signalCategory: 'GBS-state',
         selection: taintedSelection,
       });
 
       expect(payload).toEqual({
         subject: { type: 'company', id: 42 },
         practiceAreaId: 3,
+        signalCategory: 'GBS-state',
         selection: { kind: 'custom', customAgentId: 'custom-7', templateVersionId: 71 },
       });
       expect(payload.selection).not.toHaveProperty(field);
