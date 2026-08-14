@@ -33,7 +33,7 @@ const checklist = [{
 }] as const;
 
 const validRun = {
-  output: { narrative: 'No supported signal found.', findings: [] },
+  submittedGroundedReport: { narrative: 'No supported signal found.', findings: [] },
   modelUsed: 'model.primary',
   usedFallback: false,
   usage: { inputTokens: 10, outputTokens: 5 },

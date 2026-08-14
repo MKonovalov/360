@@ -7,6 +7,7 @@ import { instantiateChain } from '@/lib/agents/modelFactory';
 import { runAgent, type RunAgentInput } from '@/lib/agents/runAgent';
 import { createGroundedWebSearchTool } from '@/lib/agents/tools';
 import { getTraceUrl, runWithPhase33Trace } from '@/lib/telemetry/langfuse';
+import { env } from '@/lib/env';
 import { buildCustomModelOutputSchema as buildBoundedModelOutputSchema } from './customOutputModelSchema';
 import { groundedExecutionInputSchema, validateCustomOutput, type GroundedExecutionInput } from './groundedContracts';
 import { customOutputSchemaSnapshotSchema, modelRefSchema, phase33PolicySnapshotSchema } from './contracts';
@@ -61,6 +62,55 @@ function describeCustomFields(schema: BoundedOutputSchema): string {
     .join('\n');
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function buildGroundedReportTelemetryOutput(value: unknown): unknown {
+  if (!isRecord(value)) return value;
+  const report = value;
+  if (!Array.isArray(report.findings)) return value;
+  return {
+    narrative: report.narrative,
+    findings: report.findings.map((finding) => {
+      if (!isRecord(finding)) return finding;
+      const item = finding;
+      return {
+        identity: { signalId: item.signalId },
+        status: item.status,
+        confidence: item.confidence,
+        claim: item.claim,
+        reasoningSummary: item.reasoningSummary,
+      };
+    }),
+  };
+}
+
+function validateGroundedExecutionAttempt(
+  run: RunAgentResult,
+  context: GroundedExecutionValidationContext,
+): GroundedExecutionAttempt {
+  const submittedGroundedReport = run.submittedGroundedReport;
+  if (submittedGroundedReport === undefined) throw new Error('invalid_grounded_submission');
+
+  let output: GroundedModelOutput;
+  let customOutput: Readonly<Record<string, unknown>> | undefined;
+  if (context.customSchema === null) {
+    output = groundedModelOutputSchema.parse(submittedGroundedReport);
+  } else {
+    const parsedOutput = buildCustomModelOutputSchema(context.customSchema).parse(submittedGroundedReport);
+    output = { narrative: parsedOutput.narrative, findings: parsedOutput.findings };
+    customOutput = validateCustomOutput(parsedOutput.custom, context.customSchema);
+  }
+
+  const toolResults = safeToolResults(run.steps, context.limits);
+  if (context.groundedSearch.hasPolicyViolation || !context.groundedSearch.isComplete()) {
+    throw new Error('invalid_tool_policy');
+  }
+
+  return { run, output, ...(customOutput === undefined ? {} : { customOutput }), toolResults };
+}
+
 const executionInputSchema = groundedExecutionInputSchema.extend({
   modelChain: z.array(z.union([modelRefSchema, z.string().trim().min(1).max(120).regex(/^(?!.*:\/\/)[a-zA-Z0-9][a-zA-Z0-9._:/-]*$/)])).min(1).max(8),
   customOutputSchema: customOutputSchemaSnapshotSchema.shape.fields.optional(),
@@ -69,6 +119,19 @@ const executionInputSchema = groundedExecutionInputSchema.extend({
 type GroundedModelOutput = zodV3.infer<typeof groundedModelOutputSchema>;
 type RunAgentResult = Awaited<ReturnType<typeof runAgent>> & Readonly<{
   citations?: readonly Readonly<Record<string, unknown>>[];
+}>;
+
+type GroundedExecutionAttempt = Readonly<{
+  run: RunAgentResult;
+  output: GroundedModelOutput;
+  customOutput?: Readonly<Record<string, unknown>>;
+  toolResults: readonly SafeToolItem[];
+}>;
+
+type GroundedExecutionValidationContext = Readonly<{
+  customSchema: BoundedOutputSchema | null;
+  limits: Parameters<typeof safeToolResults>[1];
+  groundedSearch: ReturnType<typeof createGroundedWebSearchTool>;
 }>;
 
 export type GroundedExecutionSuccess = Readonly<{
@@ -143,9 +206,11 @@ function mapFailure(error: unknown): GroundedExecutionFailure['failureReason'] {
   if (/invalid_tool_policy/i.test(message)) return 'invalid_tool_policy';
   if (/unsafe_research_content/i.test(message)) return 'unsafe_research_content';
   if (/not configured|api key/i.test(message)) return 'missing_key';
+  if (/invalid_grounded_submission/i.test(message)) return 'invalid_packet';
   if (error instanceof Error && /timeout|abort/i.test(error.name)) return 'timeout';
   if (error instanceof z.ZodError || error instanceof zodV3.ZodError) return 'invalid_packet';
-  if (/invalidresponse|noobject|output|schema/i.test(error instanceof Error ? error.constructor.name : '')) return 'invalid_packet';
+  const errorType = error instanceof Error ? `${error.constructor.name} ${error.name}` : '';
+  if (/invalidresponse|invalidtoolinput|noobject|output|schema/i.test(errorType)) return 'invalid_packet';
   return 'model_failure';
 }
 
@@ -186,23 +251,34 @@ export class GroundedExecutionAdapter {
       const groundedSearch = createGroundedWebSearchTool(parsed.checklist.map((item) => item.signalId));
       // Keep the observation at this seam so every current and future custom
       // agent version routed through execute inherits one parent trace.
-      const { result: run, traceId } = await runWithPhase33Trace(
+      const { result: attempt, traceId } = await runWithPhase33Trace<GroundedExecutionAttempt>(
         'analyze-company',
-        () => dependencies.runAgent({
-          company: { id: parsed.subjectId, name: parsed.subjectDisplayName },
-          liveSignals: parsed.checklist.map((item) => ({ signalType: String(item.signalId) })),
-          models,
-          modelSelections: modelIds,
-          prompt: buildGroundedPrompt(parsed, customSchema),
-          outputSchema: customSchema === null ? groundedModelOutputSchema : buildCustomModelOutputSchema(customSchema),
-          maxToolCalls: policy.limits.maxToolCalls,
-          webSearchTool: groundedSearch.tool,
-          isWebSearchComplete: () => groundedSearch.isComplete(),
-          timeouts: {
-            primaryMs: policy.limits.maxExecutionSeconds * 1000,
-            fallbackMs: policy.limits.maxExecutionSeconds * 1000,
-          },
-        }),
+        async () => {
+          const run = await dependencies.runAgent({
+            company: { id: parsed.subjectId, name: parsed.subjectDisplayName },
+            liveSignals: parsed.checklist.map((item) => ({ signalType: String(item.signalId) })),
+            models,
+            modelSelections: modelIds,
+            prompt: buildGroundedPrompt(parsed, customSchema),
+            outputMode: {
+              type: 'grounded-report-tool',
+              schema: customSchema === null ? groundedModelOutputSchema : buildCustomModelOutputSchema(customSchema),
+            },
+            maxToolCalls: policy.limits.maxToolCalls,
+            webSearchTool: groundedSearch.tool,
+            isWebSearchComplete: () => groundedSearch.isComplete(),
+            onAttemptStart: groundedSearch.startAttempt,
+            timeouts: {
+              primaryMs: policy.limits.maxExecutionSeconds * 1000,
+              fallbackMs: policy.limits.maxExecutionSeconds * 1000,
+            },
+          });
+          return validateGroundedExecutionAttempt(run, {
+            customSchema,
+            limits: policy.limits,
+            groundedSearch,
+          });
+        },
         {
           input: {
             runId: parsed.runId,
@@ -210,36 +286,28 @@ export class GroundedExecutionAdapter {
             modelChain: modelIds,
           },
           output: (result) => ({
-            modelId: result.modelUsed,
-            modelProvider: result.modelUsedProvider ?? null,
-            usedFallback: result.usedFallback,
+            modelId: result.run.modelUsed,
+            modelProvider: result.run.modelUsedProvider ?? null,
+            usedFallback: result.run.usedFallback,
             durationMs: Date.now() - startedAt,
-            toolCallCount: result.steps.reduce(
-              (count: number, step: { readonly toolResults?: readonly unknown[] }) => count + (step.toolResults?.length ?? 0),
+            toolCallCount: result.run.steps.reduce(
+              (count: number, step: { readonly toolResults?: readonly { readonly toolName?: string }[] }) =>
+                count + (step.toolResults?.filter((toolResult) => toolResult.toolName === 'webSearch').length ?? 0),
               0,
             ),
             usage: {
-              inputTokens: typeof result.usage.inputTokens === 'number' ? result.usage.inputTokens : undefined,
-              outputTokens: typeof result.usage.outputTokens === 'number' ? result.usage.outputTokens : undefined,
-              totalTokens: typeof result.usage.totalTokens === 'number' ? result.usage.totalTokens : undefined,
+              inputTokens: typeof result.run.usage.inputTokens === 'number' ? result.run.usage.inputTokens : undefined,
+              outputTokens: typeof result.run.usage.outputTokens === 'number' ? result.run.usage.outputTokens : undefined,
+              totalTokens: typeof result.run.usage.totalTokens === 'number' ? result.run.usage.totalTokens : undefined,
             },
+            ...(env.LANGFUSE_CAPTURE_GROUNDED_REPORT === 'true'
+              ? { groundedReport: buildGroundedReportTelemetryOutput(result.output) }
+              : {}),
           }),
           sessionId: `run-${parsed.runId}`,
         },
       );
-      let output: GroundedModelOutput;
-      let customOutput: Readonly<Record<string, unknown>> | undefined;
-      if (customSchema === null) {
-        output = groundedModelOutputSchema.parse(run.output);
-      } else {
-        const parsedOutput = buildCustomModelOutputSchema(customSchema).parse(run.output);
-        output = { narrative: parsedOutput.narrative, findings: parsedOutput.findings };
-        customOutput = validateCustomOutput(parsedOutput.custom, customSchema);
-      }
-      const toolResults = safeToolResults(run.steps, policy.limits);
-      if (groundedSearch.hasPolicyViolation || !groundedSearch.isComplete()) {
-        throw new Error('invalid_tool_policy');
-      }
+      const { run, output, customOutput, toolResults } = attempt;
       const traceUrl = traceId ? await getTraceUrl(traceId).catch(() => undefined) : undefined;
       return {
         ok: true,
@@ -258,12 +326,6 @@ export class GroundedExecutionAdapter {
         traceUrl: traceUrl ?? null,
       };
     } catch (error) {
-      // TEMP DIAGNOSTIC (round 2 — the prepareStep/toolChoice:none fix did
-      // not resolve run #32; re-instrumenting to see the NEW real error
-      // rather than guess again). Remove once root-caused.
-      console.error('[GroundedExecutionAdapter] execute() threw (round2):', error instanceof Error
-        ? { name: error.name, message: error.message, stack: error.stack?.slice(0, 3000) }
-        : error);
       return { ok: false, failureReason: mapFailure(error), durationMs: Date.now() - startedAt };
     }
   }

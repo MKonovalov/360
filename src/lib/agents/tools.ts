@@ -1,4 +1,4 @@
-import { tool } from 'ai';
+import { tool, type FlexibleSchema } from 'ai';
 import { z } from 'zod';
 import { Firecrawl } from 'firecrawl';
 import { env } from '@/lib/env';
@@ -14,6 +14,8 @@ export const WEB_SEARCH_LIMITS = Object.freeze({
 export const GROUNDED_SEARCH_LIMITS = Object.freeze({
   maxExternalToolCalls: 6,
 });
+
+export const SUBMIT_GROUNDED_REPORT_TOOL_NAME = 'submit_grounded_report' as const;
 
 const searchQuerySchema = z
   .string()
@@ -95,7 +97,11 @@ export function createGroundedWebSearchTool(allowedSignalIds: readonly number[])
       }
 
       const cached = cachedSearches.get(parsed.data.signalId);
-      if (cached) return cached;
+      if (cached) {
+        const results = await cached;
+        searchedSignalIds.add(parsed.data.signalId);
+        return results;
+      }
 
       if (externalToolCallCount >= GROUNDED_SEARCH_LIMITS.maxExternalToolCalls) {
         hasPolicyViolation = true;
@@ -125,6 +131,9 @@ export function createGroundedWebSearchTool(allowedSignalIds: readonly number[])
     get hasPolicyViolation() {
       return hasPolicyViolation;
     },
+    startAttempt() {
+      searchedSignalIds.clear();
+    },
     isComplete() {
       return [...allowed].every((signalId) => searchedSignalIds.has(signalId));
     },
@@ -132,6 +141,14 @@ export function createGroundedWebSearchTool(allowedSignalIds: readonly number[])
 }
 
 export type GroundedWebSearchTool = ReturnType<typeof createGroundedWebSearchTool>['tool'];
+
+export function createSubmitGroundedReportTool(inputSchema: FlexibleSchema) {
+  return tool({
+    description: 'Submit the final grounded analysis report after all required searches are complete.',
+    inputSchema,
+    execute: async () => ({ submitted: true as const }),
+  });
+}
 
 function readWebResults(response: unknown): readonly unknown[] {
   if (!response || typeof response !== 'object' || !('web' in response)) throw new Error('invalid_firecrawl_response');

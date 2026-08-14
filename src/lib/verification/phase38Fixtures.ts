@@ -174,7 +174,7 @@ function buildPhase38Fixture(targetType: AnalysisTargetType, custom: boolean): P
         );
       }
       return {
-        output: {
+        submittedGroundedReport: {
           narrative: packetInput.narrative,
           findings: packetInput.findings.map((finding) => ({
             ...finding,

@@ -1,13 +1,20 @@
 import {
   APICallError,
   generateText,
+  hasToolCall,
   isStepCount,
   Output,
   type FlexibleSchema,
   type LanguageModel,
+  type ToolSet,
 } from 'ai';
 import { buildAnalyzePrompt } from './prompt';
-import { webSearchTool, type GroundedWebSearchTool } from './tools';
+import {
+  createSubmitGroundedReportTool,
+  SUBMIT_GROUNDED_REPORT_TOOL_NAME,
+  webSearchTool,
+  type GroundedWebSearchTool,
+} from './tools';
 import { outputSchema, type CompanyInput, type LiveSignalInput } from './types';
 import { classifyModelError, isFailoverEligible, shouldAdvance } from './modelConfig';
 import { defaultChain } from './modelFactory';
@@ -34,9 +41,11 @@ export interface RunAgentInput {
   timeouts?: { primaryMs: number; fallbackMs: number };
   prompt?: string;
   outputSchema?: FlexibleSchema;
+  outputMode?: { readonly type: 'grounded-report-tool'; readonly schema: FlexibleSchema };
   maxToolCalls?: number;
   webSearchTool?: typeof webSearchTool | GroundedWebSearchTool;
   isWebSearchComplete?: () => boolean;
+  onAttemptStart?: () => void | Promise<void>;
 }
 
 // FAL-04 loop wall: Vercel Hobby permits 300s with fluid compute, and the
@@ -85,13 +94,16 @@ export async function runAgent({
   timeouts = { primaryMs: 290_000, fallbackMs: 280_000 },
   prompt,
   outputSchema: requestedOutputSchema = outputSchema,
+  outputMode,
   maxToolCalls = 6,
   webSearchTool: requestedWebSearchTool = webSearchTool,
   isWebSearchComplete,
+  onAttemptStart,
 }: RunAgentInput) {
   const startedAt = Date.now();
   let lastError: unknown;
   for (let i = 0; i < models.length; i++) {
+    await onAttemptStart?.();
     // FAL-04: every attempt is clamped to the remaining LOOP_BUDGET_MS so the
     // 290s Vercel wall holds for ANY chain length (WR-03 closure), and a real
     // 43-50s tool-loop analysis is never aborted by a static per-attempt cap.
@@ -109,13 +121,31 @@ export async function runAgent({
     // that step MUST answer in text/schema form instead of requesting more
     // tools, guaranteeing Output.object() has something to parse.
     const finalStepCount = Math.max(1, Math.min(6, maxToolCalls) + 1);
+    const isGroundedReportMode = outputMode?.type === 'grounded-report-tool';
+    const submitGroundedReportTool = isGroundedReportMode
+      ? createSubmitGroundedReportTool(outputMode.schema)
+      : undefined;
+    const tools: ToolSet = {
+      webSearch: requestedWebSearchTool,
+      ...(isGroundedReportMode && submitGroundedReportTool !== undefined
+        ? { [SUBMIT_GROUNDED_REPORT_TOOL_NAME]: submitGroundedReportTool }
+        : {}),
+    };
     try {
       const result = await generateText({
         model: models[i],
-        tools: { webSearch: requestedWebSearchTool },
+        tools,
         prompt: prompt ?? buildAnalyzePrompt(company, liveSignals),
-        stopWhen: isStepCount(finalStepCount),
+        ...(isGroundedReportMode
+          ? { stopWhen: [hasToolCall(SUBMIT_GROUNDED_REPORT_TOOL_NAME), isStepCount(finalStepCount)] }
+          : { stopWhen: isStepCount(finalStepCount) }),
         prepareStep: ({ stepNumber }) => {
+          if (isGroundedReportMode && isWebSearchComplete?.() === true) {
+            return {
+              toolChoice: { type: 'tool' as const, toolName: SUBMIT_GROUNDED_REPORT_TOOL_NAME },
+              activeTools: [SUBMIT_GROUNDED_REPORT_TOOL_NAME],
+            };
+          }
           if (stepNumber >= finalStepCount - 1) return { toolChoice: 'none' as const, activeTools: [] };
           if (isWebSearchComplete?.() === false) {
             return {
@@ -125,7 +155,7 @@ export async function runAgent({
           }
           return undefined;
         },
-        output: Output.object({ schema: requestedOutputSchema }),
+        ...(isGroundedReportMode ? {} : { output: Output.object({ schema: requestedOutputSchema }) }),
         telemetry: {
           functionId: 'arclumen-analysis-agent',
           recordInputs: false,
@@ -150,10 +180,18 @@ export async function runAgent({
       const selectedProvider = modelSelections
         ? providerOfSelection(modelSelections[i], models[i])
         : undefined;
+      const submittedGroundedReport = isGroundedReportMode
+        ? result.steps.flatMap((step) => step.toolCalls)
+          .filter((call) => call.toolName === SUBMIT_GROUNDED_REPORT_TOOL_NAME)
+        : [];
+      if (isGroundedReportMode && submittedGroundedReport.length !== 1) {
+        throw new Error('invalid_grounded_submission');
+      }
       return Object.assign(Object.create(Object.getPrototypeOf(result)), result, {
         modelUsed: modelIdOf(models[i]),
         ...(selectedProvider === undefined ? {} : { modelUsedProvider: selectedProvider }),
         usedFallback: i > 0,
+        ...(isGroundedReportMode ? { submittedGroundedReport: submittedGroundedReport[0]?.input } : {}),
       });
     } catch (err) {
       lastError = err;
