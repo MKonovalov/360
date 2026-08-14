@@ -29,6 +29,7 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
   const COMPLETED_AT = new Date('2026-08-08T09:00:00.000Z');
   const DECIDED_AT = new Date('2026-08-08T10:00:00.000Z');
   const STAFF_ACTOR = 'user_integration_candidate';
+  const SUBJECT_NAMESPACE = 1_000_000 + Math.floor(Math.random() * 100_000);
 
   // Phase-33 approved persona policy fixture (60s retention window).
   const personaPolicy = {
@@ -168,39 +169,18 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
     for (const id of buyerRoleIds) {
       await dbModule.db.delete(schema.buyerRole).where(eq(schema.buyerRole.id, id));
     }
-    // Run fixtures: evidence, retention, findings, sources, review rows,
-    // results, events, runs, then template/practice-area parents.
-    for (const runId of runIds) {
-      await dbModule.db.execute(
-        drizzleSql`DELETE FROM analysis_finding_source WHERE result_id IN (SELECT id FROM analysis_run_result WHERE analysis_run_id = ${runId})`,
-      );
-      await dbModule.db.execute(
-        drizzleSql`DELETE FROM analysis_result_retention WHERE result_id IN (SELECT id FROM analysis_run_result WHERE analysis_run_id = ${runId})`,
-      );
-      await dbModule.db.execute(drizzleSql`DELETE FROM analysis_finding WHERE analysis_run_id = ${runId}`);
-      await dbModule.db.execute(
-        drizzleSql`DELETE FROM analysis_source WHERE result_id IN (SELECT id FROM analysis_run_result WHERE analysis_run_id = ${runId})`,
-      );
-      await dbModule.db.execute(drizzleSql`DELETE FROM analysis_run_review WHERE analysis_run_id = ${runId}`);
-      await dbModule.db.execute(
-        drizzleSql`DELETE FROM analysis_run_result WHERE analysis_run_id = ${runId}`,
-      );
-      await dbModule.db.execute(drizzleSql`DELETE FROM analysis_run_event WHERE analysis_run_id = ${runId}`);
-      await dbModule.db.execute(drizzleSql`DELETE FROM analysis_run WHERE id = ${runId}`);
-    }
-    for (const versionId of versionIds) {
-      await dbModule.db.delete(schema.analysisTemplateVersion).where(eq(schema.analysisTemplateVersion.id, versionId));
-    }
-    for (const templateId of templateIds) {
-      await dbModule.db.delete(schema.analysisTemplate).where(eq(schema.analysisTemplate.id, templateId));
-    }
-    for (const practiceAreaId of practiceAreaIds) {
-      await dbModule.db.delete(schema.practiceArea).where(eq(schema.practiceArea.id, practiceAreaId));
-    }
+    // Review events are append-only and deliberately cannot be deleted. Run
+    // chains therefore remain in the disposable database; random subject
+    // namespacing keeps repeated lane runs isolated without mutating history.
   });
 
-  async function createRun(targetType: 'company' | 'persona', subjectId: number): Promise<number> {
+  async function createRun(
+    targetType: 'company' | 'persona',
+    subjectId: number,
+    checklistSignalIds: readonly number[],
+  ): Promise<number> {
     const suffix = randomUUID().slice(0, 12);
+    const scopedSubjectId = SUBJECT_NAMESPACE + subjectId;
     const [practiceArea] = await dbModule.db
       .insert(schema.practiceArea)
       .values({
@@ -250,13 +230,19 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
         resolvedInstruction: 'Integration fixture.',
         effort: 'standard',
       },
-      subject: { type: targetType, id: subjectId, displayName: `Subject ${subjectId}` },
+       subject: { type: targetType, id: scopedSubjectId, displayName: `Subject ${scopedSubjectId}` },
       checklist: {
         schemaVersion: 1,
         targetType,
         practiceAreaId: practiceArea.id,
         practiceAreaName: `Integration Candidate PA ${suffix}`,
-        items: [],
+        items: checklistSignalIds.map((signalId) => ({
+          signalId,
+          status: 'active' as const,
+          name: `Signal ${signalId}`,
+          category: 'Financial',
+          description: 'Integration fixture signal.',
+        })),
       },
       resolvedModelChain: ['integration-model'],
     });
@@ -265,7 +251,7 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
       templateId: template.id,
       templateVersionId: version.id,
       subjectType: targetType,
-      subjectId,
+       subjectId: scopedSubjectId,
       practiceAreaId: practiceArea.id,
       createdBy: 'integration-candidate',
       templateSnapshot: built.templateSnapshot,
@@ -421,14 +407,14 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
   }
 
   async function confirmRun(runId: number, decidedAt = DECIDED_AT): Promise<void> {
-    const reconciled = await reviewQueries.reconcileCompletedRunForReview({ runId });
+    const reconciled = await reviewQueries.reconcileCompletedRunForReview({ runId }, { now: decidedAt });
     if (!reconciled.ok) throw new Error(`reconcile failed: ${JSON.stringify(reconciled)}`);
-    const decided = await reviewQueries.decideAnalysisRun(
-      { runId, decision: 'confirmed' },
+    const decided = await reviewQueries.transitionReviewDecision(
+      { runId, decision: 'confirmed', expectedPriorEventId: 0 },
       STAFF_ACTOR,
       { decidedAt },
     );
-    if (!decided.ok) throw new Error(`decide failed: ${JSON.stringify(decided)}`);
+    if (decided.kind !== 'corrected') throw new Error(`decide failed: ${JSON.stringify(decided)}`);
   }
 
   it('returns candidates only for confirmed runs with a confirmed review identity', async () => {
@@ -438,7 +424,7 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
     // link. Only the confirmed run may produce a candidate row.
     const statusRuns: { status: string; runId: number; signalId: number; offeringId: number }[] = [];
     const setup = async (status: string, signalId: number) => {
-      const runId = await createRun('company', 920000 + signalId);
+      const runId = await createRun('company', 920000 + signalId, [signalId]);
       const offeringId = await insertOffering(catalogPa, 'active');
       await insertSignalOfferingLink('company', signalId, offeringId);
       await persistPacket(runId, 'company', [
@@ -508,20 +494,28 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
     await completeRun(confirmedId);
     await confirmRun(confirmedId);
 
-    const candidates = await candidateQueries.listConfirmedCandidateOfferings();
+    const [persistedFinding] = await dbModule.db
+      .select({ signalName: schema.analysisFinding.signalName, signalCategory: schema.analysisFinding.signalCategory })
+      .from(schema.analysisFinding)
+      .where(eq(schema.analysisFinding.analysisRunId, confirmedId));
+    expect(persistedFinding?.signalName).toBe('Signal 5108');
+    expect(persistedFinding?.signalCategory).toBe('Financial');
+
+    const candidates = await candidateQueries.listConfirmedCandidateOfferings({ now: new Date(DECIDED_AT.getTime() + 30_000) });
 
     // Exactly one candidate row, from the confirmed run only.
     const confirmedCandidate = candidates.find((candidate) => candidate.analysisRunId === confirmedId);
     expect(confirmedCandidate).toBeDefined();
-    expect(confirmedCandidate?.subjectId).toBe(920000 + 5108);
-    expect(candidates).toHaveLength(1);
+    expect(confirmedCandidate?.subjectId).toBe(SUBJECT_NAMESPACE + 920000 + 5108);
+    const currentRunIds = new Set(statusRuns.map((run) => run.runId));
+    expect(candidates.filter((candidate) => currentRunIds.has(candidate.analysisRunId))).toHaveLength(1);
     for (const run of statusRuns.filter((candidate) => candidate.status !== 'confirmed')) {
       expect(candidates.some((candidate) => candidate.analysisRunId === run.runId)).toBe(false);
     }
   });
 
   it('removes a corrected-away candidate while preserving its review history', async () => {
-    const runId = await createRun('company', 920050);
+    const runId = await createRun('company', 920050, [5150]);
     await completeRun(runId);
     await persistPacket(runId, 'company', [
       { key: `f-correction-${runId}`, signalId: 5150, status: 'strong', sourceKeys: [`s-annual-${runId}`] },
@@ -550,7 +544,7 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
   });
 
   it('includes only strong/weak findings with persisted finding-source links', async () => {
-    const runId = await createRun('company', 920100);
+    const runId = await createRun('company', 920100, [5201, 5202, 5203, 5204, 5205]);
     await completeRun(runId);
     await persistPacket(runId, 'company', [
       { key: `f-strong-${runId}`, signalId: 5201, status: 'strong', sourceKeys: [`s-annual-${runId}`] },
@@ -568,7 +562,7 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
       await insertSignalOfferingLink('company', signalId, offeringId);
     }
 
-    const candidates = await candidateQueries.listConfirmedCandidateOfferings();
+    const candidates = await candidateQueries.listConfirmedCandidateOfferings({ now: new Date(DECIDED_AT.getTime() + 30_000) });
     const rows = candidates.filter((candidate) => candidate.analysisRunId === runId);
 
     expect(rows).toHaveLength(2);
@@ -590,14 +584,14 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
     await insertSignalOfferingLink('company', 5301, companyOffering);
     await insertSignalOfferingLink('persona', 5301, personaOffering);
 
-    const companyRunId = await createRun('company', 920200);
+    const companyRunId = await createRun('company', 920200, [5301]);
     await completeRun(companyRunId);
     await persistPacket(companyRunId, 'company', [
       { key: `f-company-${companyRunId}`, signalId: 5301, status: 'strong', sourceKeys: [`s-annual-${companyRunId}`] },
     ]);
     await confirmRun(companyRunId);
 
-    const personaRunId = await createRun('persona', 920201);
+    const personaRunId = await createRun('persona', 920201, [5301]);
     await completeRun(personaRunId);
     // Persona retention is 60s from persist-now; persist at DECIDED_AT so the
     // retention window still covers the decide and the default-now query.
@@ -607,9 +601,9 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
       [{ key: `f-persona-${personaRunId}`, signalId: 5301, status: 'strong', sourceKeys: [`s-annual-${personaRunId}`] }],
       { now: DECIDED_AT },
     );
-    await confirmRun(personaRunId);
+    await confirmRun(personaRunId, DECIDED_AT);
 
-    const candidates = await candidateQueries.listConfirmedCandidateOfferings();
+    const candidates = await candidateQueries.listConfirmedCandidateOfferings({ now: new Date(DECIDED_AT.getTime() + 30_000) });
     const companyRows = candidates.filter((candidate) => candidate.analysisRunId === companyRunId);
     const personaRows = candidates.filter((candidate) => candidate.analysisRunId === personaRunId);
 
@@ -628,14 +622,14 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
     await insertSignalOfferingLink('company', 5701, companyOffering);
     await insertSignalOfferingLink('persona', 5701, personaOffering);
 
-    const companyRunId = await createRun('company', 920700);
+    const companyRunId = await createRun('company', 920700, [5701]);
     await completeRun(companyRunId);
     await persistPacket(companyRunId, 'company', [
       { key: `f-company-subject-${companyRunId}`, signalId: 5701, status: 'strong', sourceKeys: [`s-annual-${companyRunId}`] },
     ]);
     await confirmRun(companyRunId);
 
-    const personaRunId = await createRun('persona', 920700);
+    const personaRunId = await createRun('persona', 920700, [5701]);
     await completeRun(personaRunId);
     await persistPacket(
       personaRunId,
@@ -643,17 +637,17 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
       [{ key: `f-persona-subject-${personaRunId}`, signalId: 5701, status: 'strong', sourceKeys: [`s-annual-${personaRunId}`] }],
       { now: COMPLETED_AT },
     );
-    await confirmRun(personaRunId);
+    await confirmRun(personaRunId, new Date(COMPLETED_AT.getTime() + 30_000));
 
     const queryNow = new Date(COMPLETED_AT.getTime() + 30_000);
     const companyRows = await candidateQueries.listConfirmedCandidateOfferingsForSubject({
       targetType: 'company',
-      subjectId: 920700,
+      subjectId: SUBJECT_NAMESPACE + 920700,
       now: queryNow,
     });
     const personaRows = await candidateQueries.listConfirmedCandidateOfferingsForSubject({
       targetType: 'persona',
-      subjectId: 920700,
+      subjectId: SUBJECT_NAMESPACE + 920700,
       now: queryNow,
     });
 
@@ -666,7 +660,7 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
   });
 
   it('presents active offerings as the default display and retains retired/draft historical identity', async () => {
-    const runId = await createRun('company', 920300);
+    const runId = await createRun('company', 920300, [5401]);
     await completeRun(runId);
     await persistPacket(runId, 'company', [
       { key: `f-status-${runId}`, signalId: 5401, status: 'strong', sourceKeys: [`s-annual-${runId}`] },
@@ -698,7 +692,7 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
   });
 
   it('keeps duplicate provenance as deterministic separate evidence rows', async () => {
-    const runId = await createRun('company', 920400);
+    const runId = await createRun('company', 920400, [5501]);
     await completeRun(runId);
     await persistPacket(
       runId,
@@ -738,7 +732,7 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
     await insertSignalOfferingLink('persona', 5601, offeringId);
 
     // Live persona candidate: retention valid at query time.
-    const liveRunId = await createRun('persona', 920500);
+    const liveRunId = await createRun('persona', 920500, [5601]);
     await completeRun(liveRunId);
     await persistPacket(
       liveRunId,
@@ -749,7 +743,7 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
     await confirmRun(liveRunId, new Date(COMPLETED_AT.getTime() + 30_000));
 
     // Expired persona candidate: retention lapses before the query time.
-    const expiredRunId = await createRun('persona', 920501);
+    const expiredRunId = await createRun('persona', 920501, [5601]);
     await completeRun(expiredRunId);
     await persistPacket(
       expiredRunId,
@@ -760,7 +754,7 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
     await confirmRun(expiredRunId, new Date(COMPLETED_AT.getTime() + 30_000));
 
     // Tombstoned persona candidate: even an unexpired timestamp is invisible.
-    const tombstonedRunId = await createRun('persona', 920502);
+    const tombstonedRunId = await createRun('persona', 920502, [5601]);
     await completeRun(tombstonedRunId);
     await persistPacket(
       tombstonedRunId,
@@ -803,7 +797,7 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
     await insertSignalOfferingLink('company', companySignalId, offeringId);
     await insertSignalOfferingLink('persona', personaSignalId, offeringId);
 
-    const runId = await createRun('company', 920600);
+    const runId = await createRun('company', 920600, [companySignalId]);
     await completeRun(runId);
     await persistPacket(runId, 'company', [
       { key: `f-readonly-${runId}`, signalId: companySignalId, status: 'strong', sourceKeys: [`s-annual-${runId}`] },
@@ -841,15 +835,19 @@ describeWithDatabase('confirmed-only candidate projection against Neon HTTP', ()
       const subjectId = targetType === 'company' ? 920800 : 920801;
       const offeringId = await insertOffering(catalogPa, 'active');
       await insertSignalOfferingLink(targetType, signalId, offeringId);
-      const runId = await createRun(targetType, subjectId);
+      const runId = await createRun(targetType, subjectId, [signalId, signalId + 100]);
       await completeRun(runId);
       await persistPacket(runId, targetType, [
         { key: `f-eligible-${runId}`, signalId, status: 'weak', sourceKeys: [`s-annual-${runId}`] },
         { key: `f-excluded-${runId}`, signalId: signalId + 100, status: 'no_evidence' },
       ], { now: targetType === 'persona' ? COMPLETED_AT : undefined });
-      await confirmRun(runId);
+      await confirmRun(runId, new Date(COMPLETED_AT.getTime() + 30_000));
 
-      const rows = await candidateQueries.listConfirmedCandidateOfferingsForSubject({ targetType, subjectId });
+      const rows = await candidateQueries.listConfirmedCandidateOfferingsForSubject({
+        targetType,
+        subjectId: SUBJECT_NAMESPACE + subjectId,
+        now: new Date(COMPLETED_AT.getTime() + 30_000),
+      });
       expect(rows).toHaveLength(1);
       expect(rows[0]?.analysisRunId).toBe(runId);
       expect(rows[0]?.evidenceStatus).toBe('weak');
