@@ -75,3 +75,44 @@ export async function listDistinctPersonaSignalCategories(): Promise<string[]> {
     .orderBy(personaSignal.category);
   return rows.map((row) => row.category);
 }
+
+// Category selector shown beside Practice Area — narrower than
+// listDistinctPersonaSignalCategories: scoped to a single practice area AND
+// active status only (mirrors the picker-safe active/all split above, spec
+// Section 3 draft-exclusion rule). Category stays free text — no enum/table
+// — the distinct values currently in use for THIS practice area's active
+// signals are the only valid options a client may pick from. ORDER BY
+// category for a deterministic list.
+export async function listActivePersonaSignalCategoriesForPracticeArea(
+  practiceAreaId: number
+): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ category: personaSignal.category })
+    .from(personaSignal)
+    .where(and(eq(personaSignal.practiceAreaId, practiceAreaId), eq(personaSignal.status, 'active')))
+    .orderBy(personaSignal.category);
+  return rows.map((row) => row.category);
+}
+
+// Server-side re-resolution of a client-supplied category: the client never
+// sends signal ids, only a (practiceAreaId, category) pair, and this is the
+// ONLY safe source for the resulting signal set — active + practice-area +
+// exact category match, same guard rail as listActivePersonaSignalsForPracticeArea.
+// ORDER BY id for a deterministic result set (matches deriveActiveChecklist's
+// id-sort convention, checklist.ts).
+export async function listActivePersonaSignalsForPracticeAreaAndCategory(
+  practiceAreaId: number,
+  category: string
+) {
+  return db
+    .select()
+    .from(personaSignal)
+    .where(
+      and(
+        eq(personaSignal.practiceAreaId, practiceAreaId),
+        eq(personaSignal.status, 'active'),
+        eq(personaSignal.category, category)
+      )
+    )
+    .orderBy(personaSignal.id);
+}

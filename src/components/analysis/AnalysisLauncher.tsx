@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { analysisPreviewResponseSchema } from '@/lib/analysis/experienceContracts';
 import {
   Dialog,
   DialogContent,
@@ -23,12 +22,12 @@ import {
 import {
   ANALYSIS_LAUNCHER_ERROR_COPY,
   createAnalysisRunPayload as createClientAnalysisRunPayload,
+  fetchAnalysisPreview,
   fetchAnalysisOptions,
   getErrorCopy,
   parseCreateRunResponse,
   readJson,
   type AnalysisPreview,
-  type AnalysisPreviewResult,
   type AnalysisRunPayloadInput,
   type AnalysisSubjectType,
   type AgentOption,
@@ -44,6 +43,7 @@ type OptionsState =
       readonly status: 'ready';
       readonly practiceAreas: readonly PracticeArea[];
       readonly agents: readonly AgentOption[] | null;
+      readonly signalCategories: readonly string[];
       readonly loadedPracticeAreaId: number | null;
     }
   | { readonly status: 'error'; readonly message: string };
@@ -67,6 +67,7 @@ export interface AnalysisPreviewPayloadInput {
   readonly subjectType: AnalysisSubjectType;
   readonly subjectId: number;
   readonly practiceAreaId: number;
+  readonly signalCategory: string;
   readonly selection: AgentSelection;
 }
 
@@ -75,6 +76,7 @@ interface LegacyFixedAnalysisRunPayloadInput {
   readonly subjectType: AnalysisSubjectType;
   readonly subjectId: number;
   readonly practiceAreaId: number;
+  readonly signalCategory: string;
 }
 
 type LauncherAnalysisRunPayloadInput = AnalysisRunPayloadInput | LegacyFixedAnalysisRunPayloadInput;
@@ -88,6 +90,7 @@ export function createAnalysisRunPayload(input: LauncherAnalysisRunPayloadInput)
     subjectType: input.subjectType,
     subjectId: input.subjectId,
     practiceAreaId: input.practiceAreaId,
+    signalCategory: input.signalCategory,
     selection: { kind: 'fixed', templateVersionId: input.templateVersionId },
   });
 }
@@ -134,18 +137,29 @@ export function createAnalysisPreviewPayload({
   subjectType,
   subjectId,
   practiceAreaId,
+  signalCategory,
   selection,
 }: AnalysisPreviewPayloadInput) {
   const subject = { type: subjectType, id: subjectId };
-  if (selection.kind === 'fixed') return { subject, practiceAreaId };
+  const selectionPayload = (() => {
+    switch (selection.kind) {
+      case 'fixed':
+        return { kind: 'fixed' as const, templateVersionId: selection.templateVersionId };
+      case 'custom':
+        return {
+          kind: 'custom' as const,
+          customAgentId: selection.customAgentId,
+          templateVersionId: selection.templateVersionId,
+        };
+      default:
+        return assertNever(selection);
+    }
+  })();
   return {
     subject,
     practiceAreaId,
-    selection: {
-      kind: 'custom' as const,
-      customAgentId: selection.customAgentId,
-      templateVersionId: selection.templateVersionId,
-    },
+    signalCategory,
+    selection: selectionPayload,
   };
 }
 
@@ -158,6 +172,7 @@ export function AnalysisLauncher({
   const router = useRouter();
   const [optionsState, setOptionsState] = useState<OptionsState>({ status: 'loading' });
   const [practiceAreaId, setPracticeAreaId] = useState('');
+  const [signalCategory, setSignalCategory] = useState('');
   const [selectedAgentKey, setSelectedAgentKey] = useState('');
   const [previewState, setPreviewState] = useState<PreviewState>({ status: 'idle' });
   const [launchState, setLaunchState] = useState<LaunchState>({ status: 'idle' });
@@ -168,6 +183,7 @@ export function AnalysisLauncher({
   const pollControllerRef = useRef<AbortController | null>(null);
   const optionPracticeAreas = optionsState.status === 'ready' ? optionsState.practiceAreas : null;
   const optionAgents = optionsState.status === 'ready' ? optionsState.agents : null;
+  const optionSignalCategories = optionsState.status === 'ready' ? optionsState.signalCategories : null;
   const loadedPracticeAreaId = optionsState.status === 'ready' ? optionsState.loadedPracticeAreaId : null;
 
   function abortRequests() {
@@ -186,6 +202,7 @@ export function AnalysisLauncher({
     abortRequests();
     setOptionsState({ status: 'loading' });
     setPracticeAreaId('');
+    setSignalCategory('');
     setSelectedAgentKey('');
     setPreviewState({ status: 'idle' });
     setLaunchState({ status: 'idle' });
@@ -213,8 +230,10 @@ export function AnalysisLauncher({
     optionsControllerRef.current = null;
     previewControllerRef.current = null;
     setOptionsState((current) => current.status === 'ready' ? { ...current, agents: null } : current);
+    setSignalCategory('');
     setSelectedAgentKey('');
     setPreviewState({ status: 'idle' });
+    setLaunchState({ status: 'idle' });
     const controller = new AbortController();
     optionsControllerRef.current = controller;
     void loadOptions(controller, generation, selectedId);
@@ -227,7 +246,7 @@ export function AnalysisLauncher({
   const agentPickerReady = isAnalysisAgentPickerReady(optionsState.status, agentOptions);
 
   useEffect(() => {
-    if (!open || !practiceAreaId || optionsState.status !== 'ready' || optionsState.agents === null || selectedAgent === null) return;
+    if (!open || !practiceAreaId || !signalCategory || optionsState.status !== 'ready' || optionsState.agents === null || selectedAgent === null) return;
     const selectedId = Number(practiceAreaId);
     if (!Number.isInteger(selectedId) || selectedId <= 0 || optionsState.loadedPracticeAreaId !== selectedId) return;
 
@@ -236,10 +255,16 @@ export function AnalysisLauncher({
     previewControllerRef.current?.abort();
     previewControllerRef.current = controller;
     setPreviewState({ status: 'loading' });
-    void loadPreview(controller, generation, selectedId, analysisAgentSelection(selectedAgent));
+    void loadPreview({
+      controller,
+      generation,
+      selectedId,
+      signalCategory,
+      selection: analysisAgentSelection(selectedAgent),
+    });
 
     return () => controller.abort();
-  }, [agentOptions, loadedPracticeAreaId, open, optionsState.status, practiceAreaId, selectedAgentKey, subjectId, subjectType]);
+  }, [agentOptions, loadedPracticeAreaId, open, optionsState.status, practiceAreaId, selectedAgentKey, signalCategory, subjectId, subjectType]);
 
   async function loadOptions(controller: AbortController, generation: number, selectedPracticeAreaId: number | undefined) {
     try {
@@ -254,6 +279,7 @@ export function AnalysisLauncher({
           status: 'ready',
           practiceAreas: result.practiceAreas,
           agents: null,
+          signalCategories: [],
           loadedPracticeAreaId: null,
         });
         setPracticeAreaId(String(result.practiceAreas[0]?.id ?? ''));
@@ -263,6 +289,7 @@ export function AnalysisLauncher({
         status: 'ready',
         practiceAreas: result.practiceAreas,
         agents: result.agents,
+        signalCategories: result.signalCategories,
         loadedPracticeAreaId: selectedPracticeAreaId,
       });
       setSelectedAgentKey(defaultAnalysisAgentKey(result.agents));
@@ -272,17 +299,25 @@ export function AnalysisLauncher({
     }
   }
 
-  async function loadPreview(
-    controller: AbortController,
-    generation: number,
-    selectedId: number,
-    selection: AgentSelection,
-  ) {
+  async function loadPreview({
+    controller,
+    generation,
+    selectedId,
+    signalCategory: selectedSignalCategory,
+    selection,
+  }: {
+    readonly controller: AbortController;
+    readonly generation: number;
+    readonly selectedId: number;
+    readonly signalCategory: string;
+    readonly selection: AgentSelection;
+  }) {
     try {
-      const result = await fetchAnalysisPreviewWithSelection({
+      const result = await fetchAnalysisPreview({
         subjectType,
         subjectId,
         practiceAreaId: selectedId,
+        signalCategory: selectedSignalCategory,
         selection,
         signal: controller.signal,
       });
@@ -296,24 +331,9 @@ export function AnalysisLauncher({
     }
   }
 
-  async function fetchAnalysisPreviewWithSelection({ signal, ...input }: AnalysisPreviewPayloadInput & { readonly signal: AbortSignal }): Promise<AnalysisPreviewResult> {
-    const response = await fetch('/api/analysis-preview', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      signal,
-      body: JSON.stringify(createAnalysisPreviewPayload(input)),
-    });
-    const payload = await readJson(response);
-    if (!response.ok) return { ok: false, message: getErrorCopy(payload) };
-    const parsed = analysisPreviewResponseSchema.safeParse(payload);
-    return parsed.success
-      ? { ok: true, preview: parsed.data }
-      : { ok: false, message: 'The analysis preview could not be loaded. Refresh and try again.' };
-  }
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (previewState.status !== 'ready' || selectedAgent === null || launchState.status === 'launching' || launchState.status === 'started') return;
+    if (!signalCategory || previewState.status !== 'ready' || selectedAgent === null || launchState.status === 'launching' || launchState.status === 'started') return;
     const generation = generationRef.current;
     const controller = new AbortController();
     launchControllerRef.current?.abort();
@@ -328,6 +348,7 @@ export function AnalysisLauncher({
           subjectType,
           subjectId,
           practiceAreaId: previewState.preview.practiceArea.id,
+          signalCategory,
           selection: analysisAgentSelection(selectedAgent),
         })),
       });
@@ -378,6 +399,7 @@ export function AnalysisLauncher({
       setLaunchState({ status: 'idle' });
       setPreviewState({ status: 'idle' });
       setPracticeAreaId('');
+      setSignalCategory('');
       setSelectedAgentKey('');
     }
     onOpenChange(nextOpen);
@@ -385,6 +407,7 @@ export function AnalysisLauncher({
 
   const heading = subjectType === 'company' ? 'Company analysis' : 'Persona analysis';
   const practiceAreas = optionsState.status === 'ready' ? optionsState.practiceAreas : [];
+  const signalCategories = optionSignalCategories ?? [];
   const availableAgents = agentOptions ?? [];
   const preview = previewState.status === 'ready' ? previewState.preview : null;
 
@@ -393,18 +416,30 @@ export function AnalysisLauncher({
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{heading}</DialogTitle>
-          <DialogDescription>Choose a Practice Area, inspect the resolved preview, then start the durable analysis run.</DialogDescription>
+          <DialogDescription>Choose a Practice Area and Buying Signal Category, inspect the resolved preview, then start the durable analysis run.</DialogDescription>
         </DialogHeader>
         {optionsState.status === 'loading' ? <p role="status">Loading analysis options…</p> : null}
         {optionsState.status === 'error' ? <p role="alert" className="text-red-600">{optionsState.message}</p> : null}
         {optionsState.status === 'ready' && practiceAreas.length === 0 ? <p role="status">No Practice Areas are available for analysis.</p> : null}
         {optionsState.status === 'ready' && practiceAreas.length > 0 ? (
           <form id={`analysis-launch-${subjectType}-${subjectId}`} onSubmit={handleSubmit} className="space-y-4">
-             <label htmlFor={`analysis-practice-area-${subjectType}-${subjectId}`} className="block text-sm font-medium text-slate-700">Practice Area</label>
-             <Select value={practiceAreaId || undefined} onValueChange={(value) => { setPracticeAreaId(value); setLaunchState({ status: 'idle' }); }} disabled={launchState.status === 'launching' || launchState.status === 'started'}>
-               <SelectTrigger id={`analysis-practice-area-${subjectType}-${subjectId}`}><SelectValue placeholder="Select a Practice Area" /></SelectTrigger>
-               <SelectContent>{practiceAreas.map((area) => <SelectItem key={area.id} value={String(area.id)}>{`${area.name} · ${area.shortCode}`}</SelectItem>)}</SelectContent>
-             </Select>
+             <div className="grid gap-4 sm:grid-cols-2">
+               <div className="space-y-2">
+                 <label htmlFor={`analysis-practice-area-${subjectType}-${subjectId}`} className="block text-sm font-medium text-slate-700">Practice Area</label>
+                 <Select value={practiceAreaId || undefined} onValueChange={(value) => { setPracticeAreaId(value); setSignalCategory(''); setSelectedAgentKey(''); setPreviewState({ status: 'idle' }); setLaunchState({ status: 'idle' }); }} disabled={launchState.status === 'launching' || launchState.status === 'started'}>
+                   <SelectTrigger id={`analysis-practice-area-${subjectType}-${subjectId}`} className="w-full"><SelectValue placeholder="Select a Practice Area" /></SelectTrigger>
+                   <SelectContent>{practiceAreas.map((area) => <SelectItem key={area.id} value={String(area.id)}>{`${area.name} · ${area.shortCode}`}</SelectItem>)}</SelectContent>
+                 </Select>
+               </div>
+               <div className="space-y-2">
+                 <label htmlFor={`analysis-signal-category-${subjectType}-${subjectId}`} className="block text-sm font-medium text-slate-700">Buying Signal Category</label>
+                 <Select value={signalCategory} onValueChange={(value) => { setSignalCategory(value); setLaunchState({ status: 'idle' }); }} disabled={!agentPickerReady || signalCategories.length === 0 || launchState.status === 'launching' || launchState.status === 'started'}>
+                   <SelectTrigger id={`analysis-signal-category-${subjectType}-${subjectId}`} className="w-full"><SelectValue placeholder="Select a Buying Signal Category" /></SelectTrigger>
+                   <SelectContent>{signalCategories.map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}</SelectContent>
+                 </Select>
+               </div>
+             </div>
+             {agentPickerReady && signalCategories.length === 0 ? <p role="status">No active Buying Signal Categories are available for this Practice Area.</p> : null}
              {agentPickerReady && availableAgents.length > 0 ? (
                <>
                  <label htmlFor={`analysis-agent-${subjectType}-${subjectId}`} className="block text-sm font-medium text-slate-700">Analysis agent</label>
@@ -420,7 +455,7 @@ export function AnalysisLauncher({
             {preview ? <AnalysisPreviewPanel preview={preview} /> : null}
             {launchState.status === 'error' ? <p role="alert" className="text-red-600">{launchState.message}</p> : null}
             {launchState.status === 'started' ? <p role="status">{`Analysis run #${launchState.applicationRunId} started${launchState.run && isTerminalAnalysisStatus(launchState.run.status) ? ` · ${launchState.run.status}` : ''}.`}</p> : null}
-             <Button type="submit" disabled={!preview || selectedAgent === null || launchState.status === 'launching' || launchState.status === 'started'}>{launchState.status === 'launching' ? 'Starting…' : launchState.status === 'started' ? 'Started' : 'Start analysis'}</Button>
+              <Button type="submit" disabled={!preview || !signalCategory || selectedAgent === null || launchState.status === 'launching' || launchState.status === 'started'}>{launchState.status === 'launching' ? 'Starting…' : launchState.status === 'started' ? 'Started' : 'Start analysis'}</Button>
           </form>
         ) : null}
         <DialogFooter>

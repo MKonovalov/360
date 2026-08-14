@@ -112,6 +112,18 @@ describe('Phase 33/34 migration artifacts', () => {
   });
 });
 
+describe('Phase 40 budget migration artifact', () => {
+  it('changes the default and backfills current template versions', async () => {
+    const migrationUrl = new URL('../../../drizzle/0012_phase40_standard_budget_tool_calls_six.sql', import.meta.url);
+    const migration = await readFile(migrationUrl, 'utf8');
+
+    expect(migration).toContain('maxToolCalls":6');
+    expect(migration).toContain('UPDATE "analysis_template_version"');
+    expect(migration).toContain('future_budget->>\'maxToolCalls\' = \'12\'');
+    expect(migration).toContain('MAX(current_version."version")');
+  });
+});
+
 describe.skipIf(!testDatabaseUrl)('Phase 32 live schema metadata', () => {
   let dbModule: typeof import('@/lib/db');
 
@@ -201,7 +213,7 @@ describe.skipIf(!testDatabaseUrl)('Phase 32 live schema metadata', () => {
     const version = versionResult.rows[0];
     expect(version?.supportedEfforts).toEqual(['standard']);
     expect(version?.defaultEffort).toBe('standard');
-    expect(version?.futureBudget).toEqual({ maxAttempts: 2, maxToolCalls: 12, maxExecutionSeconds: 300, maxSpendUsd: 2.5 });
+    expect(version?.futureBudget).toEqual({ maxAttempts: 2, maxToolCalls: 6, maxExecutionSeconds: 300, maxSpendUsd: 2.5 });
 
     const templateSnapshot = JSON.stringify({ schemaVersion: 1, templateId, templateVersionId: version?.id, templateKey: fixtureKey, templateName: 'Phase 32 integration template', targetType: 'company', version: 1, resolvedInstruction: 'Analyze the snapshotted subject.', effort: 'standard' });
     const subjectSnapshot = JSON.stringify({ type: 'company', id: 424242, displayName: 'Concurrent fixture' });

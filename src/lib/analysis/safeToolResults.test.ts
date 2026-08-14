@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   runWithPhase33Trace: vi.fn(),
   instantiateChain: vi.fn(),
   getTraceUrl: vi.fn(),
+  firecrawlClient: { search: vi.fn() },
 }));
 
 vi.mock('@/lib/agents/runAgent', () => ({ runAgent: mocks.runAgent }));
@@ -13,6 +14,8 @@ vi.mock('@/lib/telemetry/langfuse', () => ({
   runWithPhase33Trace: mocks.runWithPhase33Trace,
 }));
 vi.mock('@/lib/agents/modelFactory', () => ({ instantiateChain: mocks.instantiateChain }));
+vi.mock('@/lib/env', () => ({ env: { FIRECRAWL_API_KEY: 'test-key' } }));
+vi.mock('firecrawl', () => ({ Firecrawl: vi.fn(function Firecrawl() { return mocks.firecrawlClient; }) }));
 
 import { GroundedExecutionAdapter } from './execution';
 import { PHASE33_STANDARD_APPROVED_POLICY } from './contracts';
@@ -47,6 +50,27 @@ const input = {
   policy: approvedPolicy,
 } as const;
 
+type GroundedAgentInput = {
+  readonly webSearchTool: {
+    readonly execute: (value: { readonly signalId: number; readonly query: string }, context: unknown) => Promise<readonly unknown[]>;
+  };
+};
+
+// The grounded completeness gate (invalid_tool_policy) requires every checklist
+// signal to be searched through the scoped tool, so a mocked runAgent must
+// invoke it once per signal before returning its crafted steps.
+function completeGroundedRun(run: Omit<typeof validRun, 'steps'> & { readonly steps: readonly unknown[] }) {
+  return async (input: GroundedAgentInput) => {
+    for (const item of checklist) {
+      await input.webSearchTool.execute(
+        { signalId: item.signalId, query: 'Acme Corp signal evidence' },
+        { toolCallId: `test-${item.signalId}`, messages: [], context: {} },
+      );
+    }
+    return run;
+  };
+}
+
 describe('safeToolResults bounds', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -56,6 +80,7 @@ describe('safeToolResults bounds', () => {
       traceId: null,
     }));
     mocks.getTraceUrl.mockResolvedValue(undefined);
+    mocks.firecrawlClient.search.mockResolvedValue({ web: [{ url: 'https://example.com', title: 'Example', description: 'Evidence' }] });
   });
 
   it('retains the first five validated search results from accumulated tool calls', async () => {
@@ -64,12 +89,12 @@ describe('safeToolResults bounds', () => {
       title: `Result ${index + 1}`,
       snippet: `Evidence ${index + 1}`,
     }));
-    mocks.runAgent.mockResolvedValueOnce({
+    mocks.runAgent.mockImplementationOnce(completeGroundedRun({
       ...validRun,
       steps: Array.from({ length: 10 }, (_, stepIndex) => ({
         toolResults: [{ toolName: 'webSearch', output: searchItems.slice(stepIndex * 5, stepIndex * 5 + 5) }],
       })),
-    });
+    }));
 
     const result = await new GroundedExecutionAdapter().execute(input);
 
@@ -89,10 +114,10 @@ describe('safeToolResults bounds', () => {
     const first = { url: 'https://example.com/first', title: 'First', snippet: 'Evidence' };
     const second = { url: 'https://example.com/second', title: 'Second', snippet: 'More evidence' };
     const firstBytes = Buffer.byteLength(`${first.title}\n${first.snippet}`, 'utf8');
-    mocks.runAgent.mockResolvedValueOnce({
+    mocks.runAgent.mockImplementationOnce(completeGroundedRun({
       ...validRun,
       steps: [{ toolResults: [{ toolName: 'webSearch', output: [first, second] }] }],
-    });
+    }));
 
     const result = await new GroundedExecutionAdapter().execute({
       ...input,
@@ -113,10 +138,10 @@ describe('safeToolResults bounds', () => {
     ];
 
     for (const item of invalidResults) {
-      mocks.runAgent.mockResolvedValueOnce({
+      mocks.runAgent.mockImplementationOnce(completeGroundedRun({
         ...validRun,
         steps: [{ toolResults: [{ toolName: 'webSearch', output: [item] }] }],
-      });
+      }));
 
       const result = await new GroundedExecutionAdapter().execute(input);
 

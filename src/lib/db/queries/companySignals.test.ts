@@ -20,6 +20,8 @@ import {
   listAllCompanySignalsForPracticeArea,
   listActiveCompanySignalsForPracticeArea,
   listDistinctCompanySignalCategories,
+  listActiveCompanySignalCategoriesForPracticeArea,
+  listActiveCompanySignalsForPracticeAreaAndCategory,
 } from './companySignals';
 import { companySignal } from '../schema';
 
@@ -176,5 +178,73 @@ describe('companySignals query module (30-04)', () => {
     expect(from).toHaveBeenCalledWith(companySignal);
     expect(orderBy).toHaveBeenCalledWith(companySignal.category);
     expect(result).toEqual(['Automation & AI maturity', 'GBS-state', 'Organizational & restructuring']);
+  });
+
+  it('listActiveCompanySignalCategoriesForPracticeArea scopes the distinct-category query to practice area AND status=active', async () => {
+    const rows = [{ category: 'GBS-state' }];
+    const orderBy = vi.fn().mockResolvedValue(rows);
+    const where = vi.fn().mockReturnValue({ orderBy });
+    const from = vi.fn().mockReturnValue({ where });
+    mocks.db.selectDistinct.mockReturnValue({ from });
+
+    const result = await listActiveCompanySignalCategoriesForPracticeArea(7);
+
+    expect(mocks.db.selectDistinct).toHaveBeenCalledWith({ category: companySignal.category });
+    expect(from).toHaveBeenCalledWith(companySignal);
+    // Both the practice-area id (param 7) and the status='active' literal
+    // must be present in the where clause — draft/retired categories and
+    // other practice areas' categories must never leak into the picker.
+    const whereSql = flattenSql(where.mock.calls[0][0]);
+    expect(whereSql).toContain('7');
+    expect(whereSql).toContain('active');
+    expect(orderBy).toHaveBeenCalledWith(companySignal.category);
+    expect(result).toEqual(['GBS-state']);
+  });
+
+  it('listActiveCompanySignalsForPracticeAreaAndCategory filters by practice area, status=active, AND exact category, ordered by id', async () => {
+    const rows = [
+      { id: 3, category: 'GBS-state', status: 'active', practiceAreaId: 7 },
+      { id: 5, category: 'GBS-state', status: 'active', practiceAreaId: 7 },
+    ];
+    const orderBy = vi.fn().mockResolvedValue(rows);
+    const where = vi.fn().mockReturnValue({ orderBy });
+    const from = vi.fn().mockReturnValue({ where });
+    mocks.db.select.mockReturnValue({ from });
+
+    const result = await listActiveCompanySignalsForPracticeAreaAndCategory(7, 'GBS-state');
+
+    expect(from).toHaveBeenCalledWith(companySignal);
+    // Server-side re-resolution guard: the where clause carries all three
+    // params — practice area (7), status ('active'), and the exact category
+    // string ('GBS-state') — never trusting a caller-passed signal id.
+    const whereSql = flattenSql(where.mock.calls[0][0]);
+    expect(whereSql).toContain('7');
+    expect(whereSql).toContain('active');
+    expect(whereSql).toContain('GBS-state');
+    expect(orderBy).toHaveBeenCalledWith(companySignal.id);
+    expect(result).toEqual(rows);
+  });
+
+  it('listActiveCompanySignalsForPracticeAreaAndCategory excludes wrong category, wrong status, and wrong practice area (asserted via the where-clause params)', async () => {
+    // The mock DB cannot itself filter rows — the driver owns that. This
+    // asserts the query FUNCTION always builds the AND of all three
+    // predicates, which is what makes wrong-category/status/practice-area
+    // rows unreachable against a real Postgres WHERE clause.
+    const orderBy = vi.fn().mockResolvedValue([]);
+    const where = vi.fn().mockReturnValue({ orderBy });
+    const from = vi.fn().mockReturnValue({ where });
+    mocks.db.select.mockReturnValue({ from });
+
+    await listActiveCompanySignalsForPracticeAreaAndCategory(99, 'Automation & AI maturity');
+
+    const whereArg = where.mock.calls[0][0] as { queryChunks?: unknown[] };
+    // and(...) combines exactly 3 predicates: practiceAreaId, status, category.
+    expect(Array.isArray(whereArg.queryChunks)).toBe(true);
+    const whereSql = flattenSql(whereArg);
+    expect(whereSql).toContain('99');
+    expect(whereSql).toContain('active');
+    expect(whereSql).toContain('Automation & AI maturity');
+    expect(whereSql).not.toContain('draft');
+    expect(whereSql).not.toContain('retired');
   });
 });

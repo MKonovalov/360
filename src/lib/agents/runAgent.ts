@@ -7,7 +7,7 @@ import {
   type LanguageModel,
 } from 'ai';
 import { buildAnalyzePrompt } from './prompt';
-import { webSearchTool } from './tools';
+import { webSearchTool, type GroundedWebSearchTool } from './tools';
 import { outputSchema, type CompanyInput, type LiveSignalInput } from './types';
 import { classifyModelError, isFailoverEligible, shouldAdvance } from './modelConfig';
 import { defaultChain } from './modelFactory';
@@ -35,6 +35,7 @@ export interface RunAgentInput {
   prompt?: string;
   outputSchema?: FlexibleSchema;
   maxToolCalls?: number;
+  webSearchTool?: typeof webSearchTool | GroundedWebSearchTool;
 }
 
 // FAL-04 loop wall: Vercel Hobby permits 300s with fluid compute, and the
@@ -83,7 +84,8 @@ export async function runAgent({
   timeouts = { primaryMs: 290_000, fallbackMs: 280_000 },
   prompt,
   outputSchema: requestedOutputSchema = outputSchema,
-  maxToolCalls = 12,
+  maxToolCalls = 6,
+  webSearchTool: requestedWebSearchTool = webSearchTool,
 }: RunAgentInput) {
   const startedAt = Date.now();
   let lastError: unknown;
@@ -104,11 +106,11 @@ export async function runAgent({
     // allowed step (0-indexed stepNumber, matches stopWhen's threshold) so
     // that step MUST answer in text/schema form instead of requesting more
     // tools, guaranteeing Output.object() has something to parse.
-    const finalStepCount = Math.max(1, Math.min(12, maxToolCalls + 1));
+    const finalStepCount = Math.max(1, Math.min(6, maxToolCalls) + 1);
     try {
       const result = await generateText({
         model: models[i],
-        tools: { webSearch: webSearchTool },
+        tools: { webSearch: requestedWebSearchTool },
         prompt: prompt ?? buildAnalyzePrompt(company, liveSignals),
         stopWhen: isStepCount(finalStepCount),
         prepareStep: ({ stepNumber }) =>

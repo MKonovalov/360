@@ -121,7 +121,7 @@ export async function resetFixtures(): Promise<FixtureIds> {
     const [template] = await sql`SELECT id FROM analysis_template WHERE key = ${key}`;
     await sql`
       INSERT INTO analysis_template_version (template_id, version, instruction, supported_efforts, default_effort, future_budget, created_by)
-      VALUES (${template?.id}, 1, ${`Phase 36 deterministic ${key} instruction`}, '["standard"]'::jsonb, 'standard', '{"maxAttempts":2,"maxToolCalls":12,"maxExecutionSeconds":300,"maxSpendUsd":2.5}'::jsonb, ${FIXTURE_ACTOR})
+      VALUES (${template?.id}, 1, ${`Phase 36 deterministic ${key} instruction`}, '["standard"]'::jsonb, 'standard', '{"maxAttempts":2,"maxToolCalls":6,"maxExecutionSeconds":300,"maxSpendUsd":2.5}'::jsonb, ${FIXTURE_ACTOR})
       ON CONFLICT (template_id, version) DO NOTHING
     `;
   }

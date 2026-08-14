@@ -1,4 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  firecrawlClient: { search: vi.fn() },
+}));
+
+vi.mock('@/lib/env', () => ({ env: { FIRECRAWL_API_KEY: 'phase39-test-key' } }));
+vi.mock('firecrawl', () => ({ Firecrawl: vi.fn(function Firecrawl() { return mocks.firecrawlClient; }) }));
 
 import {
   createPhase39Fixture,
@@ -9,6 +16,11 @@ import {
   shouldCreatePhase39Run,
 } from './phase39Fixtures';
 import { GroundedExecutionAdapter } from '@/lib/analysis/execution';
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.firecrawlClient.search.mockResolvedValue({ web: [{ url: 'https://example.com', title: 'Example', description: 'Evidence' }] });
+});
 
 describe('Phase 39 deterministic fixtures', () => {
   it.each([

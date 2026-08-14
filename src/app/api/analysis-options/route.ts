@@ -5,6 +5,8 @@ import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { listActiveAnalysisTemplates } from '@/lib/db/queries/analysisTemplates';
 import { listActivePracticeAreas } from '@/lib/db/queries/practiceAreas';
 import { listActiveCustomAgentOptions } from '@/lib/db/queries/customAgents';
+import { listActiveCompanySignalCategoriesForPracticeArea } from '@/lib/db/queries/companySignals';
+import { listActivePersonaSignalCategoriesForPracticeArea } from '@/lib/db/queries/personaSignals';
 
 const optionsQuerySchema = z
   .object({
@@ -33,9 +35,12 @@ export async function GET(request: Request) {
     });
   }
 
-  const [templates, customAgents] = await Promise.all([
+  const [templates, customAgents, signalCategories] = await Promise.all([
     listActiveAnalysisTemplates(parsed.data.subjectType),
     listActiveCustomAgentOptions(parsed.data.subjectType, parsed.data.practiceAreaId),
+    parsed.data.subjectType === 'company'
+      ? listActiveCompanySignalCategoriesForPracticeArea(parsed.data.practiceAreaId)
+      : listActivePersonaSignalCategoriesForPracticeArea(parsed.data.practiceAreaId),
   ]);
   const fixed = templates.map((template) => ({
     kind: 'fixed' as const,
@@ -66,5 +71,6 @@ export async function GET(request: Request) {
       name: practiceArea.name,
       shortCode: practiceArea.shortCode,
     })),
+    signalCategories,
   });
 }

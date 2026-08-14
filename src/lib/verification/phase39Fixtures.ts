@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { buildPhase33AnalysisSnapshots, type BuiltAnalysisSnapshots } from '@/lib/analysis/snapshots';
 import { type GroundedExecutionDependencies } from '@/lib/analysis/execution';
 import { type AnalysisTargetType } from '@/lib/analysis/contracts';
+import type { GroundedWebSearchTool } from '@/lib/agents/tools';
 import { parseFixtureDatabaseUrl } from './databaseIdentity';
 
 export const PHASE39_TARGETS = ['company', 'persona'] as const satisfies readonly AnalysisTargetType[];
@@ -133,17 +134,31 @@ export function createPhase39Fixture(targetType: AnalysisTargetType): Phase39Fix
   };
   const executorDependencies: GroundedExecutionDependencies = {
     instantiateChain: () => [],
-    runAgent: async (input) => ({
-      output: {
-        narrative: packetInput.narrative,
-        findings: packetInput.findings.map((finding) => ({ ...finding, signalId: Number(input.liveSignals[0]?.signalType ?? signalId) })),
-      },
-      modelUsed: 'phase39.fixture',
-      usedFallback: false,
-      usage: {},
-      citations: packetInput.citations,
-      steps: [{ toolResults: [{ toolName: 'webSearch', output: [source] }] }],
-    }),
+    runAgent: async (input) => {
+      // The grounded completeness gate requires every checklist signal to be
+      // searched through the scoped tool, so a deterministic fixture run must
+      // exercise it once per live signal; the fixed packetInput evidence below
+      // is the source of truth, not the discarded search result.
+      const groundedTool = input.webSearchTool as GroundedWebSearchTool | undefined;
+      for (const live of input.liveSignals) {
+        const searchSignalId = Number(live.signalType ?? signalId);
+        await groundedTool?.execute(
+          { signalId: searchSignalId, query: `phase39 ${targetType} signal ${searchSignalId}` },
+          { toolCallId: `fixture-${searchSignalId}`, messages: [], context: {} },
+        );
+      }
+      return {
+        output: {
+          narrative: packetInput.narrative,
+          findings: packetInput.findings.map((finding) => ({ ...finding, signalId: Number(input.liveSignals[0]?.signalType ?? signalId) })),
+        },
+        modelUsed: 'phase39.fixture',
+        usedFallback: false,
+        usage: {},
+        citations: packetInput.citations,
+        steps: [{ toolResults: [{ toolName: 'webSearch', output: [source] }] }],
+      };
+    },
   };
   return Object.freeze({
     targetType,

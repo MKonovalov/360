@@ -432,7 +432,7 @@ describe('analysis run ledger guards', () => {
   it('persists the exact future and no-op limits through the snapshot values', () => {
     expect(built.executionSnapshot.futureBudget).toEqual({
       maxAttempts: 2,
-      maxToolCalls: 12,
+      maxToolCalls: 6,
       maxExecutionSeconds: 300,
       maxSpendUsd: 2.5,
     });

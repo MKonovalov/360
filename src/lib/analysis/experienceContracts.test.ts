@@ -63,37 +63,57 @@ describe('Phase 35 experience contracts', () => {
       subject: { type: 'company', id: 42 },
       practiceAreaId: 3,
       selection: { kind: 'fixed', templateVersionId: 11 },
+      signalCategory: 'GBS-state',
     }).selection).toEqual({ kind: 'fixed', templateVersionId: 11 });
     expect(analysisRunLaunchInputSchema.parse({
       subject: { type: 'company', id: 42 },
       practiceAreaId: 3,
       selection: { kind: 'custom', customAgentId: 'agent-opaque', templateVersionId: 12 },
+      signalCategory: 'GBS-state',
     }).selection).toEqual({ kind: 'custom', customAgentId: 'agent-opaque', templateVersionId: 12 });
     expect(analysisRunLaunchInputSchema.safeParse({
       subject: { type: 'company', id: 42 },
       practiceAreaId: 3,
       selection: { kind: 'custom', customAgentId: 'agent-opaque', templateVersionId: 12, modelChain: ['forged'] },
+      signalCategory: 'GBS-state',
     }).success).toBe(false);
   });
 
-  it('accepts only a subject and practice-area identifier as preview input', () => {
+  it('requires signalCategory for launch, rejecting a missing, blank, or non-string category', () => {
+    const base = {
+      subject: { type: 'company' as const, id: 42 },
+      practiceAreaId: 3,
+      selection: { kind: 'fixed' as const, templateVersionId: 11 },
+    };
+    expect(analysisRunLaunchInputSchema.safeParse(base).success).toBe(false);
+    expect(analysisRunLaunchInputSchema.safeParse({ ...base, signalCategory: '' }).success).toBe(false);
+    expect(analysisRunLaunchInputSchema.safeParse({ ...base, signalCategory: '   ' }).success).toBe(false);
+    expect(analysisRunLaunchInputSchema.safeParse({ ...base, signalCategory: 42 }).success).toBe(false);
+    expect(analysisRunLaunchInputSchema.parse({ ...base, signalCategory: 'GBS-state' }).signalCategory).toBe('GBS-state');
+  });
+
+  it('accepts only a subject, practice-area identifier, and signalCategory as preview input', () => {
     expect(
       analysisPreviewInputSchema.parse({
         subject: { type: 'company', id: 42 },
         practiceAreaId: 3,
+        signalCategory: 'GBS-state',
       }),
-    ).toEqual({ subject: { type: 'company', id: 42 }, practiceAreaId: 3 });
+    ).toEqual({ subject: { type: 'company', id: 42 }, practiceAreaId: 3, signalCategory: 'GBS-state' });
 
     for (const input of [
-      { subject: { type: 'company', id: 0 }, practiceAreaId: 3 },
-      { subject: { type: 'company', id: -1 }, practiceAreaId: 3 },
-      { subject: { type: 'company', id: 42 }, practiceAreaId: 0 },
-      { subject: { type: 'account', id: 42 }, practiceAreaId: 3 },
-      { subject: { type: 'company', id: 42 }, practiceAreaId: 3, instruction: 'forged' },
-      { subject: { type: 'company', id: 42 }, practiceAreaId: 3, checklist: [] },
-      { subject: { type: 'company', id: 42 }, practiceAreaId: 3, actorId: 'forged' },
-      { subject: { type: 'company', id: 42 }, practiceAreaId: 3, model: 'forged' },
-      { subject: { type: 'company', id: 42 }, practiceAreaId: 3, decision: 'confirmed' },
+      { subject: { type: 'company', id: 0 }, practiceAreaId: 3, signalCategory: 'GBS-state' },
+      { subject: { type: 'company', id: -1 }, practiceAreaId: 3, signalCategory: 'GBS-state' },
+      { subject: { type: 'company', id: 42 }, practiceAreaId: 0, signalCategory: 'GBS-state' },
+      { subject: { type: 'account', id: 42 }, practiceAreaId: 3, signalCategory: 'GBS-state' },
+      { subject: { type: 'company', id: 42 }, practiceAreaId: 3 },
+      { subject: { type: 'company', id: 42 }, practiceAreaId: 3, signalCategory: '' },
+      { subject: { type: 'company', id: 42 }, practiceAreaId: 3, signalCategory: 42 },
+      { subject: { type: 'company', id: 42 }, practiceAreaId: 3, signalCategory: 'GBS-state', instruction: 'forged' },
+      { subject: { type: 'company', id: 42 }, practiceAreaId: 3, signalCategory: 'GBS-state', checklist: [] },
+      { subject: { type: 'company', id: 42 }, practiceAreaId: 3, signalCategory: 'GBS-state', actorId: 'forged' },
+      { subject: { type: 'company', id: 42 }, practiceAreaId: 3, signalCategory: 'GBS-state', model: 'forged' },
+      { subject: { type: 'company', id: 42 }, practiceAreaId: 3, signalCategory: 'GBS-state', decision: 'confirmed' },
     ]) {
       expect(() => analysisPreviewInputSchema.parse(input)).toThrow();
     }

@@ -7,6 +7,7 @@ import {
   analysisSubjectSchema,
   analysisTargetTypeSchema,
   checklistSnapshotSchema,
+  signalCategorySchema,
   subjectSnapshotSchema,
   type AnalysisTargetType,
 } from './contracts';
@@ -26,6 +27,7 @@ export const analysisRunLaunchInputSchema = z
     subject: analysisSubjectSchema,
     practiceAreaId: positiveIdSchema,
     selection: analysisAgentSelectionSchema,
+    signalCategory: signalCategorySchema,
   })
   .strict();
 export type AnalysisRunLaunchInput = z.infer<typeof analysisRunLaunchInputSchema>;
@@ -54,6 +56,7 @@ export const analysisPreviewInputSchema = z
     subject: analysisSubjectSchema,
     practiceAreaId: positiveIdSchema,
     selection: analysisAgentSelectionSchema.optional(),
+    signalCategory: signalCategorySchema,
   })
   .strict();
 export type AnalysisPreviewInput = z.infer<typeof analysisPreviewInputSchema>;

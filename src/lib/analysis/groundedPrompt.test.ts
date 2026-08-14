@@ -22,7 +22,19 @@ const groundedInput = {
     category: 'executive_change',
     description: 'Company announced a new CFO.',
   }],
+  selectedCategory: null,
   policy: PHASE33_STANDARD_APPROVED_POLICY,
+} satisfies GroundedExecutionInput;
+
+const categoryScopedInput = {
+  ...groundedInput,
+  checklist: [{
+    signalId: 3,
+    name: 'No GBS/SSC exists',
+    category: 'GBS-state',
+    description: 'No shared services org exists yet.',
+  }],
+  selectedCategory: 'GBS-state',
 } satisfies GroundedExecutionInput;
 
 describe('buildGroundedPrompt', () => {
@@ -54,5 +66,18 @@ describe('buildGroundedPrompt', () => {
     expect(prompt).toContain(
       'Do not output top-level schema-document keys: type, properties, required, additionalProperties, or $schema.',
     );
+  });
+
+  it('omits any selected-category line for a v1 (unfiltered) checklist input', () => {
+    const prompt = buildGroundedPrompt(groundedInput);
+    expect(prompt).not.toContain('Selected buying-signal category');
+  });
+
+  it('explicitly states the selected category and only the category-scoped checklist for a v2 input', () => {
+    const prompt = buildGroundedPrompt(categoryScopedInput);
+    expect(prompt).toContain('Selected buying-signal category: GBS-state.');
+    expect(prompt).toContain('- 3: No GBS/SSC exists (GBS-state) — No shared services org exists yet.');
+    expect(prompt).not.toContain('New CFO');
+    expect(prompt).not.toContain('executive_change');
   });
 });

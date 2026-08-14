@@ -115,4 +115,98 @@ describeWithDatabase('companySignals query boundaries', () => {
     const categories = await queries.listDistinctCompanySignalCategories();
     expect(categories).toContain(category);
   });
+
+  it('listActiveCompanySignalCategoriesForPracticeArea returns only active categories scoped to the practice area, excluding a draft-only category and a sibling practice area', async () => {
+    const practiceAreaId = await insertPracticeAreaFixture();
+    const otherPracticeAreaId = await insertPracticeAreaFixture();
+
+    const active = await queries.insertCompanySignal({
+      practiceAreaId,
+      name: `IT-CS-${randomUUID()}`,
+      category: 'GBS-state',
+      description: 'integration-test fixture',
+      status: 'active',
+      createdBy: 'integration-test',
+    });
+    companySignalIds.push(active.id);
+
+    const draftOnlyCategory = `IT-CAT-DRAFT-${randomUUID()}`;
+    const draft = await queries.insertCompanySignal({
+      practiceAreaId,
+      name: `IT-CS-DRAFT-${randomUUID()}`,
+      category: draftOnlyCategory,
+      description: 'integration-test fixture',
+      status: 'draft',
+      createdBy: 'integration-test',
+    });
+    companySignalIds.push(draft.id);
+
+    const otherAreaCategory = `IT-CAT-OTHER-AREA-${randomUUID()}`;
+    const otherArea = await queries.insertCompanySignal({
+      practiceAreaId: otherPracticeAreaId,
+      name: `IT-CS-OTHER-AREA-${randomUUID()}`,
+      category: otherAreaCategory,
+      description: 'integration-test fixture',
+      status: 'active',
+      createdBy: 'integration-test',
+    });
+    companySignalIds.push(otherArea.id);
+
+    const categories = await queries.listActiveCompanySignalCategoriesForPracticeArea(practiceAreaId);
+    expect(categories).toContain('GBS-state');
+    expect(categories).not.toContain(draftOnlyCategory);
+    expect(categories).not.toContain(otherAreaCategory);
+  });
+
+  it('listActiveCompanySignalsForPracticeAreaAndCategory returns exact-category active signals for the practice area only, excluding wrong category/status/practice area', async () => {
+    const practiceAreaId = await insertPracticeAreaFixture();
+    const otherPracticeAreaId = await insertPracticeAreaFixture();
+
+    const matching = await queries.insertCompanySignal({
+      practiceAreaId,
+      name: `IT-CS-MATCH-${randomUUID()}`,
+      category: 'GBS-state',
+      description: 'integration-test fixture',
+      status: 'active',
+      createdBy: 'integration-test',
+    });
+    companySignalIds.push(matching.id);
+
+    const wrongCategory = await queries.insertCompanySignal({
+      practiceAreaId,
+      name: `IT-CS-WRONGCAT-${randomUUID()}`,
+      category: `IT-CAT-WRONG-${randomUUID()}`,
+      description: 'integration-test fixture',
+      status: 'active',
+      createdBy: 'integration-test',
+    });
+    companySignalIds.push(wrongCategory.id);
+
+    const wrongStatus = await queries.insertCompanySignal({
+      practiceAreaId,
+      name: `IT-CS-DRAFT-${randomUUID()}`,
+      category: 'GBS-state',
+      description: 'integration-test fixture',
+      status: 'draft',
+      createdBy: 'integration-test',
+    });
+    companySignalIds.push(wrongStatus.id);
+
+    const wrongPracticeArea = await queries.insertCompanySignal({
+      practiceAreaId: otherPracticeAreaId,
+      name: `IT-CS-OTHERAREA-${randomUUID()}`,
+      category: 'GBS-state',
+      description: 'integration-test fixture',
+      status: 'active',
+      createdBy: 'integration-test',
+    });
+    companySignalIds.push(wrongPracticeArea.id);
+
+    const result = await queries.listActiveCompanySignalsForPracticeAreaAndCategory(practiceAreaId, 'GBS-state');
+    const ids = result.map((row) => row.id);
+    expect(ids).toContain(matching.id);
+    expect(ids).not.toContain(wrongCategory.id);
+    expect(ids).not.toContain(wrongStatus.id);
+    expect(ids).not.toContain(wrongPracticeArea.id);
+  });
 });

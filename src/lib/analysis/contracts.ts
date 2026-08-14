@@ -60,7 +60,7 @@ export type AnalysisEffort = (typeof supportedEfforts)[number];
 
 export const STANDARD_EXECUTION_BUDGET = Object.freeze({
   maxAttempts: 2,
-  maxToolCalls: 12,
+  maxToolCalls: 6,
   maxExecutionSeconds: 300,
   maxSpendUsd: 2.5,
 });
@@ -293,10 +293,15 @@ export const templateSnapshotSchema = z
     custom: customTemplateSnapshotSchema.optional() })
   .strict();
 
+// maxToolCalls accepts both the current STANDARD_EXECUTION_BUDGET value (6)
+// and the prior value (12) so execution snapshots persisted before the
+// budget change (analysis_run.execution_snapshot, analysis_template_version
+// rows seeded under the old default) keep parsing exactly as before -- see
+// STANDARD_EXECUTION_BUDGET above for the current value.
 const budgetSchema = z
   .object({
     maxAttempts: z.literal(2),
-    maxToolCalls: z.literal(12),
+    maxToolCalls: z.union([z.literal(6), z.literal(12)]),
     maxExecutionSeconds: z.literal(300),
     maxSpendUsd: z.literal(2.5),
   })
@@ -394,7 +399,19 @@ export const checklistItemSchema = z
     description: z.string().trim().min(1).max(2_000), buyerRoleId: positiveIdSchema.optional() })
   .strict();
 
-export const checklistSnapshotSchema = z
+// Shape validation only for a client-supplied signal category (same free-text
+// constraints as checklist items' `category`/`selectedCategory` -- category
+// is never an enum, see companySignals.ts / personaSignals.ts). Whether the
+// category is a real, active, target-matching category is resolved
+// server-side by deriveActiveChecklistForCategory, never trusted from shape
+// validity alone.
+export const signalCategorySchema = safeNameSchema;
+
+// v1: practice-area-scoped checklist snapshot, unfiltered by category. Kept
+// byte-identical to the original (pre-category-scoping) shape so persisted
+// checklist_snapshot rows written before v2 shipped keep parsing exactly as
+// before -- this is the compatibility anchor for checklistSnapshotSchema below.
+export const checklistSnapshotV1Schema = z
   .object({
     schemaVersion: z.literal(1),
     targetType: analysisTargetTypeSchema,
@@ -403,6 +420,42 @@ export const checklistSnapshotSchema = z
     items: z.array(checklistItemSchema).max(100),
   })
   .strict();
+
+// v2: category-scoped checklist snapshot. Adds `selectedCategory` (free text,
+// e.g. "GBS-state" -- category is never an enum, see companySignals.ts /
+// personaSignals.ts) and requires the item set to be homogeneous (every item's
+// category equals selectedCategory) and non-empty -- a mixed-category or empty
+// checklist can never be persisted as a v2 snapshot.
+export const checklistSnapshotV2Schema = z
+  .object({
+    schemaVersion: z.literal(2),
+    targetType: analysisTargetTypeSchema,
+    practiceAreaId: positiveIdSchema,
+    practiceAreaName: safeNameSchema,
+    selectedCategory: safeNameSchema,
+    items: z.array(checklistItemSchema).min(1).max(100),
+  })
+  .strict()
+  .superRefine((snapshot, context) => {
+    snapshot.items.forEach((item, index) => {
+      if (item.category !== snapshot.selectedCategory) {
+        context.addIssue({ code: 'custom', path: ['items', index, 'category'], message: 'category_mismatch' });
+      }
+    });
+  });
+
+// Discriminated on schemaVersion so the legacy unfiltered shape (v1) and the
+// category-scoped shape (v2) both parse through this single public export --
+// every existing caller (results.ts, snapshots.ts, experienceContracts.ts)
+// keeps validating persisted v1 rows without any change.
+export const checklistSnapshotSchema = z.discriminatedUnion('schemaVersion', [
+  checklistSnapshotV1Schema,
+  checklistSnapshotV2Schema,
+]);
+
+export type ChecklistSnapshotV1 = z.infer<typeof checklistSnapshotV1Schema>;
+export type ChecklistSnapshotV2 = z.infer<typeof checklistSnapshotV2Schema>;
+export type ChecklistSnapshot = z.infer<typeof checklistSnapshotSchema>;
 
 export const executionSnapshotSchema = z
   .object({

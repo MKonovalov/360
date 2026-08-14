@@ -86,23 +86,36 @@ async function installFixtureOnlyRoutes(page: Page): Promise<FixtureGuard> {
   });
 
   await page.route('**/api/analysis-options**', (route) => {
-    const isPersona = new URL(route.request().url()).searchParams.get('subjectType') === 'persona';
+    const url = new URL(route.request().url());
+    const isPersona = url.searchParams.get('subjectType') === 'persona';
+    const selectedPracticeAreaId = url.searchParams.get('practiceAreaId');
+    const practiceAreas = [
+      { id: 3501, name: 'Fixture Practice Area', shortCode: 'FIX' },
+      { id: 3502, name: 'Second Fixture Practice Area', shortCode: 'FIX-2' },
+    ];
+    if (selectedPracticeAreaId === null) return fixtureResponse(route, { practiceAreas });
+
+    const signalCategory = selectedPracticeAreaId === '3502' ? 'Financial' : 'GBS-state';
     return fixtureResponse(route, {
-      templates: [{
-      templateId: 3501,
-      templateVersionId: 3501,
-      key: 'buying-signal-analysis',
-      name: isPersona ? 'Persona Buying Signal Analysis' : 'Company Buying Signal Analysis',
-      targetType: isPersona ? 'persona' : 'company',
-      version: 1,
-      supportedEfforts: ['standard'],
-      defaultEffort: 'standard',
+      agents: [{
+        kind: 'fixed',
+        templateVersionId: 3501,
+        key: 'buying-signal-analysis',
+        name: isPersona ? 'Persona Buying Signal Analysis' : 'Company Buying Signal Analysis',
+        targetType: isPersona ? 'persona' : 'company',
+        version: 1,
       }],
-      practiceAreas: [{ id: 3501, name: 'Fixture Practice Area', shortCode: 'FIX' }],
+      practiceAreas,
+      signalCategories: [signalCategory],
     });
   });
   await page.route('**/api/analysis-preview**', (route) => {
-    const isPersona = route.request().postData()?.includes('"subjectType":"persona"') === true;
+    const postData = route.request().postData() ?? '';
+    const isPersona = postData.includes('"type":"persona"');
+    const signalCategory = postData.includes('"signalCategory":"Financial"') ? 'Financial' : 'GBS-state';
+    const practiceArea = signalCategory === 'Financial'
+      ? { id: 3502, name: 'Second Fixture Practice Area', shortCode: 'FIX-2' }
+      : { id: 3501, name: 'Fixture Practice Area', shortCode: 'FIX' };
     return fixtureResponse(route, {
       template: {
       templateId: 3501,
@@ -113,14 +126,24 @@ async function installFixtureOnlyRoutes(page: Page): Promise<FixtureGuard> {
       version: 1,
       },
       subject: { type: isPersona ? 'persona' : 'company', id: 3501, displayName: 'Fixture subject' },
-      practiceArea: { id: 3501, name: 'Fixture Practice Area', shortCode: 'FIX' },
+      practiceArea,
       instruction: 'Fixture-only resolved instruction; no provider execution.',
       checklist: {
-        practiceAreaId: 3501,
-        practiceAreaName: 'Fixture Practice Area',
-        items: [{ signalId: 3501, name: 'Fixture signal' }],
+        schemaVersion: 2,
+        targetType: isPersona ? 'persona' : 'company',
+        practiceAreaId: practiceArea.id,
+        practiceAreaName: practiceArea.name,
+        selectedCategory: signalCategory,
+        items: [{
+          signalId: practiceArea.id,
+          status: 'active',
+          name: 'Fixture signal',
+          category: signalCategory,
+          description: 'Fixture signal description.',
+        }],
       },
       effort: 'standard',
+      selection: { kind: 'fixed', templateVersionId: 3501 },
     });
   });
   await page.route('**/api/analysis-runs', async (route) => {
@@ -173,6 +196,10 @@ async function openAnalysisLauncher(page: Page, subject: FixtureSubject): Promis
   await page.getByRole('button', { name: 'Menu' }).click();
   await page.getByRole('menuitem', { name: 'Analyze', exact: true }).click();
   await expect(page.getByRole('heading', { name: subject.heading, exact: true })).toBeVisible();
+  const categoryPicker = page.getByRole('combobox', { name: 'Buying Signal Category' });
+  await expect(categoryPicker).toBeEnabled();
+  await categoryPicker.click();
+  await page.getByRole('option').first().click();
   await expect(page.getByRole('region', { name: 'Analysis preview' })).toBeVisible();
 }
 
@@ -202,10 +229,28 @@ test.describe('Phase 35: Company and Persona analysis experiences (UX-01/UX-02)'
     await expect(preview).toContainText(subject.templateName);
     await expect(preview).toContainText('Resolved instruction');
     await expect(preview).toContainText('Fixture Practice Area');
+    await expect(preview).toContainText('GBS-state');
     await expect(preview).toContainText('Fixture signal');
     await expect(preview).toContainText('standard');
     await expect(page.getByRole('button', { name: 'Start analysis', exact: true })).toBeEnabled();
     await expect(page.getByText(/dynamic agent|template lifecycle|provider\/model control/i)).toHaveCount(0);
+    guard.assertNoForbiddenRequests();
+  });
+
+  test('UX-01: changing Practice Area clears category, agent, and preview state', async ({ page }) => {
+    requireFixturePrerequisites();
+    const subject = fixtureSubjects().company;
+    const guard = await installFixtureOnlyRoutes(page);
+
+    await openAnalysisLauncher(page, subject);
+    await expect(page.getByRole('region', { name: 'Analysis preview' })).toBeVisible();
+
+    await page.getByRole('combobox', { name: 'Practice Area' }).click();
+    await page.getByRole('option', { name: 'Second Fixture Practice Area · FIX-2', exact: true }).click();
+
+    await expect(page.getByRole('combobox', { name: 'Buying Signal Category' })).toContainText('Select a Buying Signal Category');
+    await expect(page.getByRole('region', { name: 'Analysis preview' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Start analysis', exact: true })).toBeDisabled();
     guard.assertNoForbiddenRequests();
   });
 

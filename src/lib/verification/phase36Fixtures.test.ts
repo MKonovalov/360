@@ -1,13 +1,23 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  firecrawlClient: { search: vi.fn() },
+}));
 
 vi.mock('@/lib/agents/runAgent', () => ({ runAgent: vi.fn() }));
 vi.mock('@/lib/agents/modelFactory', () => ({ instantiateChain: vi.fn() }));
 vi.mock('@/lib/env', () => ({ env: { FIRECRAWL_API_KEY: 'phase36-test-key' } }));
+vi.mock('firecrawl', () => ({ Firecrawl: vi.fn(function Firecrawl() { return mocks.firecrawlClient; }) }));
 
 import { GroundedExecutionAdapter } from '@/lib/analysis/execution';
 import { PHASE33_DEFERRED_POLICY } from '@/lib/analysis/contracts';
 import { normalizeAnalysisPacket } from '@/lib/analysis/results';
 import { createPhase36Fixture, isPhase36FixtureMode, PHASE36_TARGETS } from './phase36Fixtures';
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.firecrawlClient.search.mockResolvedValue({ web: [{ url: 'https://example.com', title: 'Example', description: 'Evidence' }] });
+});
 
 afterEach(() => {
   vi.unstubAllEnvs();

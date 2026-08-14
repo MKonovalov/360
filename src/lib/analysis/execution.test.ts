@@ -65,11 +65,31 @@ const checklist = [{
   description: 'Company announced a new CFO.',
 }] as const;
 
+type GroundedAgentInput = {
+  readonly liveSignals: readonly { readonly signalType: string }[];
+  readonly webSearchTool: {
+    readonly execute: (value: { readonly signalId: number; readonly query: string }, context: unknown) => Promise<readonly unknown[]>;
+  };
+};
+
+async function runAllGroundedSearches(input: GroundedAgentInput) {
+  const steps = await Promise.all(input.liveSignals.map(async ({ signalType }) => {
+    const signalId = Number(signalType);
+    const output = await input.webSearchTool.execute(
+      { signalId, query: `Acme signal ${signalId}` },
+      { toolCallId: `test-${signalId}`, messages: [], context: {} },
+    );
+    return { toolResults: [{ toolName: 'webSearch', output }] };
+  }));
+  return { ...validRun, steps };
+}
+
 describe('GroundedExecutionAdapter', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.instantiateChain.mockReturnValue(['model-object']);
-    mocks.runAgent.mockResolvedValue(validRun);
+    mocks.runAgent.mockImplementation(runAllGroundedSearches);
+    mocks.firecrawlClient.search.mockResolvedValue({ web: [{ url: 'https://example.com', title: 'Example', description: 'Evidence' }] });
     mocks.runWithPhase33Trace.mockImplementation(async (_name: string, fn: () => Promise<unknown>) => ({
       result: await fn(),
       traceId: null,
@@ -136,6 +156,88 @@ describe('GroundedExecutionAdapter', () => {
     expect(mocks.runAgent.mock.calls[0]?.[0]).toMatchObject({ maxToolCalls: 12, models: ['model-object'] });
   });
 
+  it('passes a scoped search tool and reports one external call per checklist signal', async () => {
+    mocks.runAgent.mockImplementationOnce(async (input: {
+      readonly webSearchTool: {
+        readonly execute: (value: { readonly signalId: number; readonly query: string }, context: unknown) => Promise<readonly unknown[]>;
+      };
+    }) => {
+      const output = await input.webSearchTool.execute(
+        { signalId: 1, query: 'Acme new CFO' },
+        { toolCallId: 'test', messages: [], context: {} },
+      );
+      return { ...validRun, steps: [{ toolResults: [{ toolName: 'webSearch', output }] }] };
+    });
+
+    const result = await new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain }).execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist,
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+    });
+
+    expect(result).toMatchObject({ ok: true, externalToolCallCount: 1 });
+    expect(mocks.firecrawlClient.search).toHaveBeenCalledWith('Acme new CFO', { limit: 3 });
+  });
+
+  it('fails closed through invalid_tool_policy when the model searches a signal ID outside the checklist', async () => {
+    mocks.runAgent.mockImplementationOnce(async (input: {
+      readonly webSearchTool: {
+        readonly execute: (value: { readonly signalId: number; readonly query: string }, context: unknown) => Promise<readonly unknown[]>;
+      };
+    }) => {
+      await input.webSearchTool.execute({ signalId: 1, query: 'Acme new CFO' }, { toolCallId: 'test-1', messages: [], context: {} });
+      await expect(
+        input.webSearchTool.execute({ signalId: 999, query: 'unrelated signal' }, { toolCallId: 'test-2', messages: [], context: {} }),
+      ).rejects.toThrow('unknown_grounded_signal');
+      return { ...validRun, steps: [] };
+    });
+
+    const result = await new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain }).execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist,
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+    });
+
+    expect(result).toMatchObject({ ok: false, failureReason: 'invalid_tool_policy' });
+  });
+
+  it('fails closed when grounded search completeness is missing a checklist signal', async () => {
+    mocks.runAgent.mockImplementationOnce(async (input: {
+      readonly webSearchTool: {
+        readonly execute: (value: { readonly signalId: number; readonly query: string }, context: unknown) => Promise<readonly unknown[]>;
+      };
+    }) => {
+      const output = await input.webSearchTool.execute(
+        { signalId: 1, query: 'Acme new CFO' },
+        { toolCallId: 'test', messages: [], context: {} },
+      );
+      return { ...validRun, steps: [{ toolResults: [{ toolName: 'webSearch', output }] }] };
+    });
+
+    const result = await new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain }).execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist: [
+        ...checklist,
+        { signalId: 2, name: 'Transformation', category: 'program', description: 'Company announced a transformation.' },
+      ],
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+    });
+
+    expect(result).toMatchObject({ ok: false, failureReason: 'invalid_tool_policy' });
+  });
+
   it('returns trace linkage from the execution seam when the observation creates a trace', async () => {
     mocks.runWithPhase33Trace.mockImplementationOnce(async (_name: string, fn: () => Promise<unknown>) => ({
       result: await fn(),
@@ -200,7 +302,7 @@ describe('GroundedExecutionAdapter', () => {
 
     expect(result).toMatchObject({ ok: true, modelId: 'model.primary', usedFallback: false });
     expect(mocks.runAgent).toHaveBeenCalled();
-    expect(mocks.runAgent.mock.calls[0]?.[0]).toMatchObject({ maxToolCalls: 12 });
+    expect(mocks.runAgent.mock.calls[0]?.[0]).toMatchObject({ maxToolCalls: 6 });
   });
 
   it('includes JSON, the current date, and semantic checklist details in the grounded prompt', async () => {
@@ -222,6 +324,36 @@ describe('GroundedExecutionAdapter', () => {
     expect(/json/i.test(prompt)).toBe(true);
     expect(prompt).toContain(`Today's date: ${today}.`);
     expect(prompt).toContain('- 1: New CFO (executive_change) — Company announced a new CFO.');
+  });
+
+  it('carries the server-derived selectedCategory explicitly into the prompt, and omits it when absent', async () => {
+    const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });
+
+    await adapter.execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist,
+      selectedCategory: 'executive_change',
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+    });
+    const scopedPrompt = mocks.runAgent.mock.calls[0]?.[0]?.prompt;
+    expect(scopedPrompt).toContain('Selected buying-signal category: executive_change.');
+
+    mocks.runAgent.mockClear();
+    await adapter.execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist,
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+    });
+    const unscopedPrompt = mocks.runAgent.mock.calls[0]?.[0]?.prompt;
+    expect(unscopedPrompt).not.toContain('Selected buying-signal category');
   });
 
   it('fails persona runs cleanly under the standard approved policy until a persona policy exists', async () => {
@@ -313,7 +445,7 @@ describe('GroundedExecutionAdapter', () => {
     mocks.firecrawlClient.search.mockResolvedValueOnce({ web: [{ url: 'https://example.com', title: 'Example', description: 'Evidence' }] });
     const result = await webSearchTool.execute({ query: 'Acme cost pressure' }, { toolCallId: 'test', messages: [], context: {} });
     expect(result).toEqual([{ url: 'https://example.com', title: 'Example', snippet: 'Evidence' }]);
-    expect(mocks.firecrawlClient.search).toHaveBeenCalledWith('Acme cost pressure', { limit: 5 });
+    expect(mocks.firecrawlClient.search).toHaveBeenCalledWith('Acme cost pressure', { limit: 3 });
 
     mocks.firecrawlClient.search.mockResolvedValueOnce({ web: [{ url: 'https://example.com', title: 'Example', description: 'Evidence', unexpected: true }] });
     const tolerated = await webSearchTool.execute({ query: 'Acme' }, { toolCallId: 'test', messages: [], context: {} });
@@ -335,7 +467,8 @@ describe('GroundedExecutionAdapter custom output', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.instantiateChain.mockReturnValue(['model-object']);
-    mocks.runAgent.mockResolvedValue(validRun);
+    mocks.runAgent.mockImplementation(runAllGroundedSearches);
+    mocks.firecrawlClient.search.mockResolvedValue({ web: [{ url: 'https://example.com', title: 'Example', description: 'Evidence' }] });
     mocks.runWithPhase33Trace.mockImplementation(async (_name: string, fn: () => Promise<unknown>) => ({
       result: await fn(),
       traceId: null,
@@ -365,14 +498,14 @@ describe('GroundedExecutionAdapter custom output', () => {
   });
 
   it('returns a named customOutput for a custom run and validates the bounded value', async () => {
-    mocks.runAgent.mockResolvedValueOnce({
-      ...validRun,
+    mocks.runAgent.mockImplementationOnce(async (input: GroundedAgentInput) => ({
+      ...(await runAllGroundedSearches(input)),
       output: {
         narrative: 'No supported signal found.',
         findings: [],
         custom: { headline: 'Cost pressure rising', score: 7, tier: 'gold' },
       },
-    });
+    }));
     const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });
 
     const result = await adapter.execute({

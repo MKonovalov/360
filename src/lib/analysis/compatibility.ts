@@ -1,10 +1,11 @@
 import {
   analysisAgentSelectionSchema,
   phase33PolicySnapshotSchema,
+  signalCategorySchema,
   type AnalysisEffort,
   type AnalysisTargetType,
 } from './contracts';
-import { deriveActiveChecklist } from './checklist';
+import { deriveActiveChecklist, deriveActiveChecklistForCategory } from './checklist';
 import {
   validateCapabilitySelection,
 } from './capabilityPresets';
@@ -74,7 +75,42 @@ export type AnalysisLaunchResolutionInput = {
   readonly practiceAreaId: unknown;
   readonly selection: unknown;
   readonly policy: unknown;
+  // Optional only for legacy v1 callers (the flat pre-category request shape
+  // in POST /api/analysis-runs' legacyFixedInputSchema fallback) that never
+  // send a category and keep resolving the unfiltered v1 checklist. Every
+  // new category-aware caller (analysis-preview, the structured
+  // analysis-runs shape) sends this via its schema-required signalCategory.
+  readonly signalCategory?: unknown;
 };
+
+type ChecklistResolution =
+  | { readonly ok: true; readonly value: Awaited<ReturnType<typeof deriveActiveChecklist>> }
+  | { readonly ok: false; readonly reason: 'invalid_input' };
+
+// The sole path from a client-supplied category to a checklist: shape-checks
+// the category, then re-resolves it against the server-derived targetType
+// and practiceArea via deriveActiveChecklistForCategory -- the client never
+// supplies signal ids or a checklist directly. That function throws (via
+// checklistSnapshotV2Schema's items.min(1)) whenever the resolved
+// (targetType, practiceArea, category) triple has no active signals, which
+// covers malformed, unknown, stale, and wrong-target categories uniformly as
+// invalid_input, never a persisted empty or mismatched v2 snapshot.
+async function resolveChecklistForLaunch(
+  targetType: AnalysisTargetType,
+  practiceArea: ResolvedPracticeArea,
+  signalCategoryInput: unknown,
+): Promise<ChecklistResolution> {
+  if (signalCategoryInput === undefined) {
+    return { ok: true, value: await deriveActiveChecklist(targetType, practiceArea) };
+  }
+  const category = signalCategorySchema.safeParse(signalCategoryInput);
+  if (!category.success) return { ok: false, reason: 'invalid_input' };
+  try {
+    return { ok: true, value: await deriveActiveChecklistForCategory(targetType, practiceArea, category.data) };
+  } catch {
+    return { ok: false, reason: 'invalid_input' };
+  }
+}
 
 export async function resolveAnalysisLaunch(
   input: AnalysisLaunchResolutionInput,
@@ -89,7 +125,9 @@ export async function resolveAnalysisLaunch(
   if (!subjectResolution.ok) return { ok: false, reason: subjectResolution.reason };
   const practiceAreaResolution = await resolveActivePracticeArea(input.practiceAreaId);
   if (!practiceAreaResolution.ok) return { ok: false, reason: practiceAreaResolution.reason };
-  const checklist = await deriveActiveChecklist(subjectType, practiceAreaResolution.value);
+  const checklistResolution = await resolveChecklistForLaunch(subjectType, practiceAreaResolution.value, input.signalCategory);
+  if (!checklistResolution.ok) return { ok: false, reason: checklistResolution.reason };
+  const checklist = checklistResolution.value;
   const modelSettings = await getModelSettingsForUser(input.userId);
   const resolvedModelChain = resolveModelChain(modelSettings);
   const policy = phase33PolicySnapshotSchema.safeParse(input.policy);

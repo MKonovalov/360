@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   getPersonaById: vi.fn(),
   listActivePracticeAreas: vi.fn(),
   deriveActiveChecklist: vi.fn(),
+  deriveActiveChecklistForCategory: vi.fn(),
   getModelSettingsForUser: vi.fn(),
   resolveModelChain: vi.fn(),
 }));
@@ -16,7 +17,10 @@ vi.mock('@/lib/db/queries/analysisTemplates', () => ({ getAnalysisTemplateVersio
 vi.mock('@/lib/db/queries/companies', () => ({ getCompanyById: mocks.getCompanyById }));
 vi.mock('@/lib/db/queries/personas', () => ({ getPersonaById: mocks.getPersonaById }));
 vi.mock('@/lib/db/queries/practiceAreas', () => ({ listActivePracticeAreas: mocks.listActivePracticeAreas }));
-vi.mock('@/lib/analysis/checklist', () => ({ deriveActiveChecklist: mocks.deriveActiveChecklist }));
+vi.mock('@/lib/analysis/checklist', () => ({
+  deriveActiveChecklist: mocks.deriveActiveChecklist,
+  deriveActiveChecklistForCategory: mocks.deriveActiveChecklistForCategory,
+}));
 vi.mock('@/lib/db/queries/userModelSettings', () => ({ getModelSettingsForUser: mocks.getModelSettingsForUser }));
 vi.mock('@/lib/agents/modelConfig', () => ({ resolveModelChain: mocks.resolveModelChain }));
 
@@ -97,5 +101,73 @@ describe('server compatibility resolver', () => {
   it('rejects forged execution configuration at the strict selection boundary', async () => {
     const result = await resolveAnalysisLaunch({ userId: 'staff', subject: { type: 'company', id: 42 }, practiceAreaId: 3, selection: { kind: 'custom', customAgentId: 'custom-7', templateVersionId: 71, provider: 'forged' }, policy });
     expect(result).toEqual({ ok: false, reason: 'invalid_input' });
+  });
+
+  describe('category-aware checklist resolution', () => {
+    const fixedTemplate = {
+      templateId: 1,
+      templateVersionId: 11,
+      key: 'company-buying-signal-analysis',
+      name: 'Fixed',
+      targetType: 'company' as const,
+      version: 1,
+      status: 'active' as const,
+      isCurrent: true,
+      instruction: 'Assess buying signals.',
+    };
+    const request = (signalCategory: unknown) => ({
+      userId: 'staff',
+      subject: { type: 'company' as const, id: 42 },
+      practiceAreaId: 3,
+      selection: { kind: 'fixed' as const, templateVersionId: 11 },
+      signalCategory,
+      policy,
+    });
+
+    beforeEach(() => {
+      mocks.getAnalysisTemplateVersion.mockResolvedValue(fixedTemplate);
+    });
+
+    it('resolves the checklist via the server-side category query when signalCategory is supplied', async () => {
+      const v2Checklist = {
+        schemaVersion: 2 as const,
+        targetType: 'company' as const,
+        practiceAreaId: 3,
+        practiceAreaName: 'GBS',
+        selectedCategory: 'GBS-state',
+        items: [{ signalId: 8, status: 'active' as const, name: 'GBS recently stood up', category: 'GBS-state', description: 'A GBS org stood up in the last year.' }],
+      };
+      mocks.deriveActiveChecklistForCategory.mockResolvedValue(v2Checklist);
+
+      const result = await resolveAnalysisLaunch(request('GBS-state'));
+
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.value.checklist).toEqual(v2Checklist);
+      expect(mocks.deriveActiveChecklistForCategory).toHaveBeenCalledWith('company', { id: 3, name: 'GBS', shortCode: 'GBS' }, 'GBS-state');
+      expect(mocks.deriveActiveChecklist).not.toHaveBeenCalled();
+    });
+
+    it('rejects a malformed signalCategory as invalid_input before any checklist query', async () => {
+      const result = await resolveAnalysisLaunch(request('   '));
+      expect(result).toEqual({ ok: false, reason: 'invalid_input' });
+      expect(mocks.deriveActiveChecklistForCategory).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      'an unknown category',
+      'a stale category with no remaining active signals',
+      'a category that only exists for the other target type',
+    ])('rejects %s as invalid_input when the server-side category query finds no active signals', async () => {
+      mocks.deriveActiveChecklistForCategory.mockRejectedValue(new Error('empty v2 checklist'));
+      const result = await resolveAnalysisLaunch(request('GBS-state'));
+      expect(result).toEqual({ ok: false, reason: 'invalid_input' });
+    });
+
+    it('keeps the unfiltered v1 checklist for legacy callers that omit signalCategory', async () => {
+      const result = await resolveAnalysisLaunch(request(undefined));
+      expect(result.ok).toBe(true);
+      expect(mocks.deriveActiveChecklist).toHaveBeenCalledWith('company', { id: 3, name: 'GBS', shortCode: 'GBS' });
+      expect(mocks.deriveActiveChecklistForCategory).not.toHaveBeenCalled();
+    });
   });
 });
