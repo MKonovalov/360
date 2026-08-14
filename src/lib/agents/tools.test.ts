@@ -41,6 +41,7 @@ describe('createGroundedWebSearchTool', () => {
     await expect(second).rejects.toBe(rejection);
     expect(mocks.firecrawlClient.search).toHaveBeenCalledTimes(1);
     expect(groundedSearch.externalToolCallCount).toBe(1);
+    expect(groundedSearch.isComplete()).toBe(false);
   });
 
   it('rejects omitted and unknown signal IDs without an external call', async () => {

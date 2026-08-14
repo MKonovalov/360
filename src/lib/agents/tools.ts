@@ -103,8 +103,12 @@ export function createGroundedWebSearchTool(allowedSignalIds: readonly number[])
       }
 
       externalToolCallCount += 1;
-      searchedSignalIds.add(parsed.data.signalId);
-      const search = Promise.resolve().then(() => executeWebSearch(parsed.data.query));
+      const search = Promise.resolve()
+        .then(() => executeWebSearch(parsed.data.query))
+        .then((results) => {
+          searchedSignalIds.add(parsed.data.signalId);
+          return results;
+        });
       cachedSearches.set(parsed.data.signalId, search);
       return search;
     },
