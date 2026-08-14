@@ -253,6 +253,7 @@ describeWithDatabase('analysis run ledger boundaries', () => {
         name: `Integration Custom Run Template ${suffix}`,
         targetType: 'company',
         kind: 'custom',
+        practiceAreaId,
         status: 'active',
         createdBy: 'integration-test',
         updatedBy: 'integration-test',
@@ -267,12 +268,13 @@ describeWithDatabase('analysis run ledger boundaries', () => {
         templateId: customTemplateId,
         version: 1,
         kind: 'custom',
-        instruction: 'Integration-test custom fixture instruction.',
+        instruction: null,
         customName: `Integration Custom Run Template ${suffix}`,
         description: 'Integration-test custom fixture.',
         researchQuery: 'Assess cost pressure.',
         behaviorInstruction: 'Return the bounded custom fields.',
         structuredOutputSchema: PHASE38_CUSTOM_OUTPUT_SCHEMA,
+        capabilityPresetIds: [],
         createdBy: 'integration-test',
       })
       .returning({ id: schema.analysisTemplateVersion.id });
@@ -381,7 +383,7 @@ describeWithDatabase('analysis run ledger boundaries', () => {
     expect(run.terminalAt).toBeNull();
     // Snapshots round-trip through jsonb unchanged (frozen objects survive).
     expect(run.templateSnapshot).toEqual(built.templateSnapshot);
-    expect(run.subjectSnapshot).toEqual({ type: 'company', id: subjectId, displayName: `IT Run Co ${subjectId}` });
+    expect(run.subjectSnapshot).toEqual({ type: 'company', id: subjectId, displayName: `IT Run company ${subjectId}` });
     expect(run.checklistSnapshot).toEqual(built.checklistSnapshot);
     expect(run.executionSnapshot).toEqual(built.executionSnapshot);
     expect(run.policySnapshot).toEqual(built.policySnapshot);
