@@ -8,11 +8,13 @@ const workflowMocks = vi.hoisted(() => ({
   buildPhase33TelemetryMetadata: vi.fn(),
   recordPhase33Telemetry: vi.fn(),
   runWithPhase33Trace: vi.fn(),
+  firecrawlClient: { search: vi.fn() },
 }));
 
 vi.mock('@/lib/agents/runAgent', () => ({ runAgent: vi.fn() }));
 vi.mock('@/lib/agents/modelFactory', () => ({ instantiateChain: vi.fn() }));
 vi.mock('@/lib/env', () => ({ env: { FIRECRAWL_API_KEY: 'phase38-test-key' } }));
+vi.mock('firecrawl', () => ({ Firecrawl: vi.fn(function Firecrawl() { return workflowMocks.firecrawlClient; }) }));
 vi.mock('@/lib/db/queries/analysisRuns', () => ({
   getAnalysisRun: workflowMocks.getAnalysisRun,
   transitionAnalysisRun: workflowMocks.transitionAnalysisRun,
@@ -108,6 +110,7 @@ function successfulExecution(fixture: ReturnType<typeof createPhase38CustomFixtu
     modelProvider: null,
     modelChain: ['phase38.fixture'],
     usedFallback: false,
+    externalToolCallCount: 1,
     toolResults: [{ url: fixture.source.url, title: fixture.source.title, snippet: fixture.source.snippet }],
     citations: fixture.packetInput.citations,
     usage: {},
@@ -123,6 +126,7 @@ describe('Phase 38 deterministic custom snapshot fixtures', () => {
       result: await fn(),
       traceId: null,
     }));
+    workflowMocks.firecrawlClient.search.mockResolvedValue({ web: [{ url: 'https://example.com', title: 'Example', description: 'Evidence' }] });
   });
 
   it('builds immutable custom snapshots carrying templateSnapshot.custom and executionSnapshot.customOutputSchema', () => {
@@ -282,6 +286,32 @@ describe('Phase 38 workflow runtime seam', () => {
     expect(execution).toHaveBeenCalledWith(expect.objectContaining({
       customOutputSchema: fixture.customOutputSchema,
     }));
+    execution.mockRestore();
+  });
+
+  it('persists audit.toolCallCount from externalToolCallCount, not the retention-capped toolResults length', async () => {
+    const fixture = createPhase38CustomFixture('company');
+    const run = workflowRun(fixture, 'running');
+    workflowMocks.getAnalysisRun
+      .mockResolvedValueOnce(workflowRun(fixture, 'queued'))
+      .mockImplementation(async () => run);
+    workflowMocks.transitionAnalysisRun.mockImplementation(async () => ({ ok: true, reason: 'transitioned', run, event: {} }));
+    workflowMocks.reconcileCompletedRunForReview.mockResolvedValue({ ok: true });
+    workflowMocks.buildPhase33TelemetryMetadata.mockReturnValue({});
+    workflowMocks.persistAnalysisPacket.mockImplementation(async () => ({ replayed: false }));
+    // 3 external searches happened, but the policy's maxSources: 1 caps
+    // retained toolResults to a single item -- audit.toolCallCount must
+    // reflect the real external call count, never the capped retention length.
+    const execution = vi.spyOn(GroundedExecutionAdapter.prototype, 'execute').mockResolvedValue({
+      ...successfulExecution(fixture),
+      externalToolCallCount: 3,
+    });
+
+    await expect(analysisRun(fixture.runId)).resolves.toEqual({ applicationRunId: fixture.runId, terminalStatus: 'completed' });
+    expect(workflowMocks.persistAnalysisPacket).toHaveBeenCalledWith(expect.objectContaining({
+      packet: expect.objectContaining({ audit: expect.objectContaining({ toolCallCount: 3 }) }),
+    }));
+    expect(workflowMocks.buildPhase33TelemetryMetadata).toHaveBeenCalledWith(expect.objectContaining({ toolCallCount: 3 }));
     execution.mockRestore();
   });
 });
