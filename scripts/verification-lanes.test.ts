@@ -70,7 +70,8 @@ describe('Vitest verification lanes', () => {
 
   it('assigns every prerequisite-gated suite to an explicit config', () => {
     expect(integrationConfig).toContain("include: ['src/**/*.integration.test.ts']");
-    expect(integrationConfig).toContain("exclude: ['src/workflows/**/*.integration.test.ts']");
+    expect(integrationConfig).toContain("'src/workflows/**/*.integration.test.ts'");
+    expect(integrationConfig).toContain("'src/scripts/seedGbs.integration.test.ts'");
     expect(databaseIntegrationFiles.every((file) => file.endsWith('.integration.test.ts'))).toBe(true);
     expect(workflowFiles.every((file) => file.includes('/workflows/'))).toBe(true);
     for (const file of liveProviderFiles) expect(liveProviderConfig).toContain(file);
