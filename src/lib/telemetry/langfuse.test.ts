@@ -120,6 +120,93 @@ describe('Phase 33 Langfuse metadata', () => {
     expect(output).toEqual({ status: 'failed' });
   });
 
+  it('captures only the bounded grounded report envelope', () => {
+    const output = safeTelemetry.buildSafeObservationOutput({
+      groundedReport: {
+        narrative: 'Validated narrative',
+        findings: [{
+          identity: { signalId: 1, signalName: 'omit me' },
+          status: 'strong',
+          confidence: 'high',
+          claim: 'Validated claim',
+          reasoningSummary: 'Bounded reasoning',
+          custom: 'omit me',
+        }],
+        custom: { secret: 'omit me' },
+      },
+    });
+
+    expect(output).toEqual({
+      status: 'completed',
+      groundedReport: {
+        narrative: 'Validated narrative',
+        findings: [{
+          identity: { signalId: 1 },
+          status: 'strong',
+          confidence: 'high',
+          claim: 'Validated claim',
+          reasoningSummary: 'Bounded reasoning',
+        }],
+      },
+    });
+    expect(JSON.stringify(output)).not.toContain('omit me');
+  });
+
+  it('omits malformed grounded reports instead of throwing', () => {
+    expect(() => safeTelemetry.buildSafeObservationOutput({
+      groundedReport: { narrative: 'invalid', findings: [{ identity: { signalId: 'bad' } }] },
+    })).not.toThrow();
+    expect(safeTelemetry.buildSafeObservationOutput({
+      groundedReport: { narrative: 'invalid', findings: [{ identity: { signalId: 'bad' } }] },
+    })).toEqual({ status: 'completed' });
+  });
+
+  it.each([
+    ['a URL', 'See https://private.example/source for details.'],
+    ['an email', 'Contact analyst@example.com for details.'],
+    ['a phone number', 'Call +1 (555) 123-4567 for details.'],
+    ['a credential pattern', 'token=sk_live_abc123'],
+    ['a control character', 'safe\u0000text'],
+  ])('fails closed when grounded report text contains %s', (_label, hostileText) => {
+    const output = safeTelemetry.buildSafeObservationOutput({
+      groundedReport: {
+        narrative: hostileText,
+        findings: [],
+      },
+    });
+
+    expect(output).toEqual({ status: 'completed' });
+  });
+
+  it('fails closed when multibyte grounded report serialization exceeds 64 KiB', () => {
+    const output = safeTelemetry.buildSafeObservationOutput({
+      groundedReport: {
+        narrative: '界'.repeat(12_000),
+        findings: [{
+          identity: { signalId: 1 },
+          status: 'strong',
+          confidence: 'high',
+          claim: '界'.repeat(4_000),
+          reasoningSummary: null,
+        }, {
+          identity: { signalId: 2 },
+          status: 'strong',
+          confidence: 'high',
+          claim: '界'.repeat(4_000),
+          reasoningSummary: null,
+        }, {
+          identity: { signalId: 3 },
+          status: 'strong',
+          confidence: 'high',
+          claim: '界'.repeat(4_000),
+          reasoningSummary: null,
+        }],
+      },
+    });
+
+    expect(output).toEqual({ status: 'completed' });
+  });
+
   it('replaces AI SDK prompt, output, tool, and reasoning attributes with bounded observation I/O', () => {
     const attributes: Record<string, string | number> = {
       'gen_ai.operation.name': 'chat',
