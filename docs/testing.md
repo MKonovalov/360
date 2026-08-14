@@ -38,12 +38,31 @@ fixtures and narrow fakes or mocks at external boundaries.
 ### Database integration lane
 
 Database-backed proof requires a disposable or explicitly approved test
-database supplied through `TEST_DATABASE_URL`. The database integration lane
+database supplied through `TEST_DATABASE_URL`. Its command-scoped URL must
+carry the `#phase39-fixture` marker and identify a different database from
+`DATABASE_URL`; otherwise the preflight fails closed. The database integration lane
 covers Neon/Drizzle schema metadata, analysis-run transitions, packet
 persistence and replay, retention/tombstoning, review races, and confirmed-only
 candidate queries. Without `TEST_DATABASE_URL`, record the lane as unavailable.
 Do not replace it with unit tests or claim atomicity, retention, concurrency, or
 SQL-authoritative filtering from a skipped run.
+
+For example, keep the marker command-scoped rather than storing it in source:
+
+```sh
+TEST_DATABASE_URL='postgres://...#phase39-fixture' npm run test:integration:db
+```
+
+The GBS catalog seed has a separate lane because `seedGbs` owns and recreates
+`practice_area` plus its nine catalog tables, while analysis fixtures retain
+foreign-key references to that same table:
+
+```sh
+GBS_TEST_DATABASE_URL='postgres://...#gbs-fixture' npm run test:integration:gbs
+```
+
+Without `GBS_TEST_DATABASE_URL`, the catalog seed tests are skipped rather than
+run against the shared analysis fixture database.
 
 For migration artifacts, the static checks are:
 
