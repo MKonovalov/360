@@ -96,15 +96,9 @@ describe('POST /api/analysis-runs', () => {
     expect(mocks.resolveAnalysisLaunch).not.toHaveBeenCalled();
   });
 
-  it('keeps the legacy flat-fixed shape working without signalCategory, forwarding it as undefined', async () => {
+  it('rejects the legacy flat-fixed shape without signalCategory', async () => {
     const response = await POST(request({ templateVersionId: 11, subject: { type: 'company', id: 42 }, practiceAreaId: 3 }));
-    expect(response.status).toBe(201);
-    expect(mocks.resolveAnalysisLaunch).toHaveBeenCalledWith(expect.objectContaining({
-      subject: { type: 'company', id: 42 },
-      practiceAreaId: 3,
-      selection: { kind: 'fixed', templateVersionId: 11 },
-    }));
-    const [[callArg]] = mocks.resolveAnalysisLaunch.mock.calls;
-    expect(callArg).not.toHaveProperty('signalCategory');
+    expect(response.status).toBe(400);
+    expect(mocks.resolveAnalysisLaunch).not.toHaveBeenCalled();
   });
 });

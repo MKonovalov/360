@@ -15,6 +15,7 @@ const legacyFixedInputSchema = z.object({
   templateVersionId: z.number().int().positive(),
   subject: z.object({ type: z.enum(['company', 'persona']), id: z.number().int().positive() }).strict(),
   practiceAreaId: z.number().int().positive(),
+  signalCategory: z.string().trim().min(1).max(200),
 }).strict();
 
 const DISPATCH_ACTOR_ID = 'analysis-run-dispatch';
@@ -37,6 +38,7 @@ export async function POST(request: Request): Promise<Response> {
       ? {
           subject: legacy.data.subject,
           practiceAreaId: legacy.data.practiceAreaId,
+          signalCategory: legacy.data.signalCategory,
           selection: { kind: 'fixed' as const, templateVersionId: legacy.data.templateVersionId },
         }
       : undefined;
