@@ -112,6 +112,18 @@ describe('Phase 33/34 migration artifacts', () => {
   });
 });
 
+describe('Phase 40 budget migration artifact', () => {
+  it('changes the default and backfills current template versions', async () => {
+    const migrationUrl = new URL('../../../drizzle/0012_phase40_standard_budget_tool_calls_six.sql', import.meta.url);
+    const migration = await readFile(migrationUrl, 'utf8');
+
+    expect(migration).toContain('maxToolCalls":6');
+    expect(migration).toContain('UPDATE "analysis_template_version"');
+    expect(migration).toContain('future_budget->>\'maxToolCalls\' = \'12\'');
+    expect(migration).toContain('MAX(current_version."version")');
+  });
+});
+
 describe.skipIf(!testDatabaseUrl)('Phase 32 live schema metadata', () => {
   let dbModule: typeof import('@/lib/db');
 
