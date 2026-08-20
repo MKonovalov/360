@@ -414,6 +414,95 @@ describe('GroundedExecutionAdapter', () => {
     expect(result).toMatchObject({ ok: false, failureReason: 'invalid_packet' });
   });
 
+  it('returns bounded raw attempt context when debug validation fails after agent return', async () => {
+    const finding = {
+      findingId: 'finding-1',
+      signalId: 1,
+      status: 'no_evidence',
+      confidence: 'low',
+      claim: 'No supported signal found.',
+      reasoningSummary: null,
+    } as const;
+    mocks.runAgent.mockResolvedValueOnce({
+      ...validRun,
+      modelUsedProvider: 'anthropic',
+      submittedGroundedReport: { narrative: '', findings: [finding] },
+      citations: [{
+        findingId: 'finding-1',
+        sourceId: 'source-1',
+        url: 'https://example.com/article',
+        contentHash: 'a'.repeat(64),
+        locator: 'Evidence',
+        supportRole: 'primary',
+      }],
+      steps: [{ toolResults: [{
+        toolName: 'webSearch',
+        output: [{ url: 'https://example.com/article', title: 'Evidence', snippet: 'Evidence' }],
+      }] }],
+    });
+    const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });
+
+    const result = await adapter.execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist,
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+      debugCaptureEnabled: true,
+    });
+
+    expect(result).toMatchObject({ ok: false, failureReason: 'invalid_packet' });
+    if (result.ok) throw new Error('expected validation failure');
+    if (result.context === undefined) throw new Error('expected validation context');
+    expect(result.context.rawAttempt).toEqual({
+      findings: [finding],
+      citations: [{
+        findingId: 'finding-1',
+        sourceId: 'source-1',
+        url: 'https://example.com/article',
+        contentHash: 'a'.repeat(64),
+        locator: 'Evidence',
+        supportRole: 'primary',
+      }],
+      toolResults: [{
+        url: 'https://example.com/article',
+        title: 'Evidence',
+        excerpt: 'Evidence',
+        sourceId: null,
+        contentHash: null,
+      }],
+    });
+  });
+
+  it('returns metadata-only context when the provider fails before returning an attempt', async () => {
+    mocks.runAgent.mockRejectedValueOnce(new Error('provider unavailable'));
+    const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });
+
+    const result = await adapter.execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist,
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+      debugCaptureEnabled: true,
+    });
+
+    expect(result).toMatchObject({ ok: false, failureReason: 'model_failure' });
+    if (result.ok) throw new Error('expected provider failure');
+    if (result.context === undefined) throw new Error('expected provider context');
+    expect(result.context).toMatchObject({
+      debugCaptureEnabled: true,
+      targetType: 'company',
+      modelId: null,
+      modelProvider: null,
+    });
+    expect(result.context.rawAttempt).toBeUndefined();
+  });
+
   it('requires the exact lowercase opt-in flag for grounded report capture', async () => {
     mocks.env.LANGFUSE_CAPTURE_GROUNDED_REPORT = 'TRUE';
     const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });

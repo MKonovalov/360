@@ -72,6 +72,23 @@ describe('POST /api/analysis-runs', () => {
     expect(mocks.start).toHaveBeenCalledWith(expect.anything(), [41]);
   });
 
+  it('ignores client debug controls and snapshots ordinary launches with capture disabled', async () => {
+    const response = await POST(request({
+      subject: { type: 'company', id: 42 },
+      practiceAreaId: 3,
+      selection: { kind: 'fixed', templateVersionId: 11 },
+      signalCategory: 'GBS-state',
+      debugCaptureEnabled: true,
+      debugAdminUserIds: ['attacker'],
+    }));
+
+    expect(response.status).toBe(201);
+    expect(mocks.createAnalysisRun).toHaveBeenCalledWith(expect.objectContaining({
+      executionSnapshot: expect.objectContaining({ debugCaptureEnabled: false }),
+    }));
+    expect(mocks.start).toHaveBeenCalledWith(expect.anything(), [41]);
+  });
+
   it.each(['custom_agent_target_mismatch', 'custom_agent_practice_area_mismatch', 'custom_agent_not_current'])('rejects %s before createAnalysisRun', async (reason) => {
     mocks.resolveAnalysisLaunch.mockResolvedValue({ ok: false, reason });
     const response = await POST(request({ subject: { type: 'company', id: 42 }, practiceAreaId: 3, selection: { kind: 'custom', customAgentId: 'custom-7', templateVersionId: 71 }, signalCategory: 'GBS-state' }));

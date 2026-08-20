@@ -3,6 +3,8 @@ import { SERVABLE_PROVIDERS } from '@/lib/models/catalog-contracts';
 import type { ModelRef } from '@/lib/models/modelRef';
 import type { BoundedOutputSchema, NormalizedOutputField } from './customAgentContracts';
 
+// allow: SIZE_OK — this is the central versioned wire-contract registry; splitting it would create cross-schema cycles.
+
 export const ANALYSIS_RUN_STATUSES = [
   'queued',
   'running',
@@ -464,6 +466,7 @@ export const executionSnapshotSchema = z
     resolvedModelChain: z.array(z.union([modelRefSchema, safeModelIdSchema])).min(1).max(8),
     futureBudget: budgetSchema,
     policy: z.union([policySnapshotSchema, phase33PolicySnapshotSchema]),
+    debugCaptureEnabled: z.boolean().optional(),
     customOutputSchema: customOutputSchemaSnapshotSchema.nullable().optional(),
   })
   .strict();

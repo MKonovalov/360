@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('server-only', () => ({}));
+
 const workflowMocks = vi.hoisted(() => ({
   getAnalysisRun: vi.fn(),
   transitionAnalysisRun: vi.fn(),
+  captureAndFailAnalysisRawAttempt: vi.fn(),
   persistAnalysisPacket: vi.fn(),
   reconcileCompletedRunForReview: vi.fn(),
   buildPhase33TelemetryMetadata: vi.fn(),
@@ -20,6 +23,9 @@ vi.mock('@/lib/db/queries/analysisRuns', () => ({
   transitionAnalysisRun: workflowMocks.transitionAnalysisRun,
 }));
 vi.mock('@/lib/db/queries/analysisResults', () => ({ persistAnalysisPacket: workflowMocks.persistAnalysisPacket }));
+vi.mock('@/lib/db/queries/analysisRawAttempts', () => ({
+  captureAndFailAnalysisRawAttempt: workflowMocks.captureAndFailAnalysisRawAttempt,
+}));
 vi.mock('@/lib/db/queries/analysisReviews', () => ({ reconcileCompletedRunForReview: workflowMocks.reconcileCompletedRunForReview }));
 vi.mock('@/lib/telemetry/langfuse', () => ({
   buildPhase33TelemetryMetadata: workflowMocks.buildPhase33TelemetryMetadata,
@@ -94,6 +100,14 @@ function workflowRun(
 function successfulExecution(fixture: ReturnType<typeof createPhase38CustomFixture>): GroundedExecutionSuccess {
   return {
     ok: true,
+    context: {
+      debugCaptureEnabled: false,
+      targetType: fixture.targetType,
+      attempt: 1,
+      modelId: 'phase38.fixture',
+      modelProvider: null,
+      usedFallback: false,
+    },
     output: {
       narrative: fixture.packetInput.narrative,
       findings: fixture.packetInput.findings.map((finding) => ({

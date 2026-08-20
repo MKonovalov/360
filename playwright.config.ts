@@ -17,6 +17,11 @@ const baseURL = e2eBaseUrl ?? 'http://localhost:3000';
 const isDeployedTarget = e2eBaseUrl ? new URL(e2eBaseUrl).hostname !== 'localhost' : false;
 const isPhase36FixtureRun = process.env.PHASE36_FIXTURE_ONLY === '1';
 const isPhase39FixtureRun = process.env.PHASE39_FIXTURE_ONLY === '1';
+const staffStorageState = process.env.STAFF_STORAGE_STATE ?? 'e2e/.clerk/user.json';
+const debugAdminStorageState = process.env.DEBUG_ADMIN_STORAGE_STATE ?? 'e2e/.clerk/debug-admin.json';
+const debugAdminAuthRequested = Boolean(
+  process.env.E2E_CLERK_DEBUG_ADMIN_EMAIL && process.env.DEBUG_ADMIN_STORAGE_STATE,
+);
 const phase39FixtureIds = {
   ...(process.env.PHASE39_COMPANY_ID ? { PHASE39_COMPANY_ID: process.env.PHASE39_COMPANY_ID } : {}),
   ...(process.env.PHASE39_PERSONA_ID ? { PHASE39_PERSONA_ID: process.env.PHASE39_PERSONA_ID } : {}),
@@ -90,8 +95,16 @@ export default defineConfig({
     {
       name: 'chromium',
       testIgnore: /auth\.setup\.ts/,
-      use: { storageState: 'e2e/.clerk/user.json' },
+      use: { storageState: staffStorageState },
       dependencies: ['auth-setup'], // ordering: setup runs first, serially
     },
+    ...(debugAdminAuthRequested
+      ? [{
+          name: 'debug-admin',
+          testIgnore: /auth\.setup\.ts/,
+          use: { storageState: debugAdminStorageState },
+          dependencies: ['auth-setup'],
+        }]
+      : []),
   ],
 });

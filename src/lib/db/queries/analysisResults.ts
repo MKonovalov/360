@@ -12,6 +12,7 @@ import {
 import { resolvePersonaPolicy, type ApprovedPersonaPolicy } from '@/lib/analysis/personaPolicy';
 
 import { db } from '../index';
+import { executeAnalysisResultPersistence } from './analysisResultPersistence';
 
 type PreparationInput = {
   readonly packet: unknown;
@@ -57,11 +58,14 @@ export class AnalysisPacketConflictError extends Error {
   }
 }
 
-type PersistedResultRow = {
-  readonly resultId: number;
-  readonly packetHash: string;
-  readonly inserted: boolean;
-};
+export class AnalysisRunOutcomeConflictError extends Error {
+  readonly code = 'analysis_run_outcome_conflict' as const;
+
+  constructor(readonly runId: number) {
+    super(`analysis run outcome conflict for run ${runId}`);
+    this.name = 'AnalysisRunOutcomeConflictError';
+  }
+}
 
 function stripRecitedFindingIdentity(input: unknown): unknown {
   if (typeof input !== 'object' || input === null || !('findings' in input) || !Array.isArray(input.findings)) {
@@ -144,114 +148,21 @@ function retentionForPacket(input: PersistenceInput, packet: GroundedPacket): Re
 export async function persistAnalysisPacket(input: PersistenceInput): Promise<PersistAnalysisPacketResult> {
   const prepared = prepareAnalysisPacket(input);
   const retention = retentionForPacket(input, prepared.packet);
-  const packet = prepared.packet;
-  const audit = packet.audit;
-  const modelChain = audit.modelChain;
-
-  const result = await db.execute<PersistedResultRow>(sql`
-    WITH inserted_result AS (
-      INSERT INTO analysis_run_result (
-        analysis_run_id, schema_version, target_type, narrative, raw_audit,
-        model_id, model_provider, model_chain, trace_id, started_at, completed_at, duration_ms,
-        finding_count, source_count, link_count, packet_hash, policy_version,
-        classification, expires_at
-      )
-      VALUES (
-        ${input.runId}, ${packet.schemaVersion}, ${packet.targetType}, ${packet.narrative},
-        ${JSON.stringify({ ...audit, customOutput: input.customOutput ?? null })}::jsonb, ${audit.modelId}, ${audit.modelProvider}, ${JSON.stringify(modelChain)}::jsonb,
-        ${audit.traceId}, ${new Date(input.now ?? new Date()).toISOString()},
-        ${new Date((input.now ?? new Date()).getTime() + audit.durationMs).toISOString()},
-        ${audit.durationMs}, ${packet.findings.length}, ${packet.sources.length}, ${packet.links.length},
-        ${prepared.packetHash}, ${retention?.policy.policyVersion ?? null},
-        ${retention?.classification ?? null}, ${retention?.expiresAt.toISOString() ?? null}
-      )
-      ON CONFLICT (analysis_run_id) DO NOTHING
-      RETURNING id, packet_hash
-    ),
-    inserted_findings AS (
-      INSERT INTO analysis_finding (
-        result_id, analysis_run_id, finding_id, signal_id, signal_name, signal_category,
-        buyer_role_id, status, confidence, claim, reasoning_summary, policy_version,
-        classification, expires_at
-      )
-      SELECT
-        inserted_result.id, ${input.runId}, item->>'findingId',
-        (item->'identity'->>'signalId')::integer,
-        (
-          SELECT checklist_item->>'name'
-          FROM analysis_run AS source_run
-          CROSS JOIN LATERAL jsonb_array_elements(source_run.checklist_snapshot->'items') AS checklist_item
-          WHERE source_run.id = ${input.runId}
-            AND (checklist_item->>'signalId')::integer = (item->'identity'->>'signalId')::integer
-          LIMIT 1
-        ),
-        (
-          SELECT checklist_item->>'category'
-          FROM analysis_run AS source_run
-          CROSS JOIN LATERAL jsonb_array_elements(source_run.checklist_snapshot->'items') AS checklist_item
-          WHERE source_run.id = ${input.runId}
-            AND (checklist_item->>'signalId')::integer = (item->'identity'->>'signalId')::integer
-          LIMIT 1
-        ),
-        NULLIF(item->'identity'->>'buyerRoleId', '')::integer,
-        (item->>'status')::analysis_evidence_status,
-        (item->>'confidence')::analysis_confidence,
-        item->>'claim', item->>'reasoningSummary',
-        ${retention?.policy.policyVersion ?? null},
-        ${retention?.classification ?? null}::analysis_source_classification,
-        ${retention?.expiresAt.toISOString() ?? null}
-      FROM inserted_result
-      CROSS JOIN LATERAL jsonb_array_elements(${JSON.stringify(packet.findings)}::jsonb) AS item
-      RETURNING id, finding_id AS "findingId"
-    ),
-    inserted_sources AS (
-      INSERT INTO analysis_source (
-        result_id, source_id, canonical_url, title, retrieved_at, excerpt, content_hash,
-        classification, policy_version, expires_at
-      )
-      SELECT
-        inserted_result.id, item->>'sourceId', item->>'canonicalUrl', item->>'title',
-        (item->>'retrievedAt')::timestamptz, item->>'excerpt', item->>'contentHash',
-        (item->>'classification')::analysis_source_classification,
-        ${retention?.policy.policyVersion ?? null},
-        ${retention?.expiresAt.toISOString() ?? null}
-      FROM inserted_result
-      CROSS JOIN LATERAL jsonb_array_elements(${JSON.stringify(packet.sources)}::jsonb) AS item
-      RETURNING id, source_id AS "sourceId"
-    ),
-    inserted_links AS (
-      INSERT INTO analysis_finding_source (result_id, finding_id, source_id, locator, support_role)
-      SELECT inserted_result.id, finding.id, source.id, item->>'locator',
-        (item->>'supportRole')::analysis_support_role
-      FROM inserted_result
-      CROSS JOIN LATERAL jsonb_array_elements(${JSON.stringify(packet.links)}::jsonb) AS item
-      JOIN inserted_findings AS finding ON finding."findingId" = item->>'findingId'
-      JOIN inserted_sources AS source ON source."sourceId" = item->>'sourceId'
-      RETURNING id
-    ),
-    inserted_retention AS (
-      INSERT INTO analysis_result_retention (
-        result_id, policy_version, classification, expires_at, status
-      )
-      SELECT inserted_result.id, ${retention?.policy.policyVersion ?? null},
-        ${retention?.classification ?? null}, ${retention?.expiresAt.toISOString() ?? null}, 'retained'
-      FROM inserted_result
-      WHERE ${packet.targetType} = 'persona'
-      RETURNING id
-    )
-    SELECT inserted_result.id AS "resultId", inserted_result.packet_hash AS "packetHash",
-      TRUE AS inserted
-    FROM inserted_result
-    UNION ALL
-    SELECT result.id AS "resultId", result.packet_hash AS "packetHash",
-      FALSE AS inserted
-    FROM analysis_run_result AS result
-    WHERE result.analysis_run_id = ${input.runId}
-      AND NOT EXISTS (SELECT 1 FROM inserted_result)
-  `);
-
-  const row = result.rows[0];
-  if (!row) throw new Error('analysis packet persistence returned no result');
+  const row = await executeAnalysisResultPersistence({
+    runId: input.runId,
+    packet: prepared.packet,
+    packetHash: prepared.packetHash,
+    retention: retention === undefined
+      ? undefined
+      : {
+          policyVersion: retention.policy.policyVersion,
+          classification: retention.classification,
+          expiresAt: retention.expiresAt,
+        },
+    ...(input.customOutput === undefined ? {} : { customOutput: input.customOutput }),
+    ...(input.now === undefined ? {} : { now: input.now }),
+  });
+  if (!row) throw new AnalysisRunOutcomeConflictError(input.runId);
   if (!row.inserted && row.packetHash !== prepared.packetHash) {
     throw new AnalysisPacketConflictError(input.runId);
   }

@@ -19,6 +19,7 @@ const buildAnalysisSnapshotsInputSchema = z
     subject: subjectSnapshotSchema,
     checklist: checklistSnapshotSchema,
     resolvedModelChain: z.unknown(),
+    debugCaptureEnabled: z.boolean().optional().default(false),
   })
   .strict();
 
@@ -87,6 +88,7 @@ export function buildPhase33AnalysisSnapshots(
       resolvedModelChain: validatedInput.resolvedModelChain,
       futureBudget: STANDARD_EXECUTION_BUDGET,
       policy,
+      debugCaptureEnabled: validatedInput.debugCaptureEnabled,
       ...(validatedInput.template.custom === undefined
         ? {}
         : {
