@@ -62,6 +62,18 @@ describeWithDatabase('analysis result persistence against Neon HTTP', () => {
     };
   }
 
+  async function startRun(runId: number): Promise<void> {
+    const transitioned = await runQueries.transitionAnalysisRun({
+      runId,
+      expectedStatus: 'queued',
+      toStatus: 'running',
+      actorKind: 'workflow',
+      actorId: 'integration-test',
+      attempt: 1,
+    });
+    if (!transitioned.ok) throw new Error('integration fixture run was not started');
+  }
+
   beforeAll(async () => {
     process.env.DATABASE_URL = testDatabaseUrl;
     process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = 'pk_test_placeholder';
@@ -148,6 +160,7 @@ describeWithDatabase('analysis result persistence against Neon HTTP', () => {
     });
     if (!created.ok) throw new Error('integration fixture run was not created');
     runIds.push(created.run.id);
+    await startRun(created.run.id);
     return created.run.id;
   }
 
@@ -233,6 +246,7 @@ describeWithDatabase('analysis result persistence against Neon HTTP', () => {
     });
     if (!created.ok) throw new Error('integration fixture custom run was not created');
     runIds.push(created.run.id);
+    await startRun(created.run.id);
     return created.run.id;
   }
 
@@ -319,19 +333,9 @@ describeWithDatabase('analysis result persistence against Neon HTTP', () => {
     ).rejects.toBeInstanceOf(resultQueries.AnalysisPacketConflictError);
   });
 
-  it('persists the packet before completion and reads it back while the run is still running', async () => {
+  it('atomically persists the packet and completes the guarded running attempt', async () => {
     const runId = await createCustomRun('company', 910006);
     const packet = companyPacketForRun(runId);
-    const claimed = await runQueries.transitionAnalysisRun({
-      runId,
-      expectedStatus: 'queued',
-      toStatus: 'running',
-      actorKind: 'workflow',
-      actorId: 'workflow-executor',
-      attempt: 1,
-    });
-    expect(claimed.ok).toBe(true);
-    if (!claimed.ok) return;
 
     const persisted = await resultQueries.persistAnalysisPacket({
       runId,
@@ -341,23 +345,12 @@ describeWithDatabase('analysis result persistence against Neon HTTP', () => {
     });
     expect(persisted.replayed).toBe(false);
 
-    const beforeCompletion = await resultQueries.getAnalysisPacket(runId);
-    expect(beforeCompletion?.result.analysis_run_id).toBe(runId);
-    expect(beforeCompletion?.result.raw_audit).toMatchObject({ customOutput: PHASE38_CUSTOM_OUTPUT });
-
-    const completed = await runQueries.transitionAnalysisRun({
-      runId,
-      expectedStatus: 'running',
-      toStatus: 'completed',
-      actorKind: 'workflow',
-      actorId: 'workflow-executor',
-      safeReason: 'completed',
-      attempt: 1,
-    });
-    expect(completed.ok).toBe(true);
-    if (!completed.ok) return;
-
-    const afterCompletion = await resultQueries.getAnalysisPacket(runId);
-    expect(afterCompletion?.result.analysis_run_id).toBe(runId);
+    const stored = await resultQueries.getAnalysisPacket(runId);
+    const completed = await runQueries.getAnalysisRun(runId);
+    const events = await runQueries.listAnalysisRunEvents(runId);
+    expect(stored?.result.analysis_run_id).toBe(runId);
+    expect(stored?.result.raw_audit).toMatchObject({ customOutput: PHASE38_CUSTOM_OUTPUT });
+    expect(completed).toMatchObject({ status: 'completed', safeReason: 'completed' });
+    expect(events.filter((event) => event.toStatus === 'completed')).toHaveLength(1);
   });
 });
