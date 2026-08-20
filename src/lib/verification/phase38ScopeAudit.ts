@@ -43,7 +43,7 @@ const requiredCanaries = {
   'src/workflows/analysisRun.ts': [
     'export async function analysisRun(applicationRunId: number)',
     'GroundedExecutionAdapter',
-    'reconcileCompletedRunForReview',
+    'reconcileCompletedRun,',
     'persistAnalysisPacket',
   ],
   'src/lib/analysis/results.ts': [
