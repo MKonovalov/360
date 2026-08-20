@@ -57,6 +57,11 @@ const envSchema = z.object({
   LANGFUSE_SECRET_KEY: z.string().optional(),
   LANGFUSE_TRACE_BASE_URL: z.string().optional(),
   LANGFUSE_CAPTURE_GROUNDED_REPORT: z.enum(['true', 'false']).optional().catch(undefined),
+  ANALYSIS_DEBUG_CAPTURE_ENABLED: z.enum(['true', 'false']).optional().catch(undefined),
+  ANALYSIS_DEBUG_ADMIN_USER_IDS: z.string().optional().catch(undefined),
+  // Vercel Cron cleanup is disabled unless a sufficiently strong server-only
+  // bearer secret is configured. Malformed values fail closed at the route.
+  CRON_SECRET: z.string().min(32).optional().catch(undefined),
 });
 
 export const env = envSchema.parse(process.env);
