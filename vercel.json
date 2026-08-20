@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/analysis-raw-attempts",
+      "schedule": "0 3 * * *"
+    }
+  ]
+}
