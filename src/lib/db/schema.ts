@@ -10,6 +10,7 @@ import {
   type ReadonlyAnalysisSnapshot,
 } from '../analysis/contracts';
 import type { BoundedOutputSchema } from '../analysis/customAgentContracts';
+import type { RawAttemptArtifact } from '../analysis/rawAttempt';
 import type { ModelRef } from '../models/modelRef';
 
 // D-07: fixed-but-extensible enum, seeded with the 4 known signal types.
@@ -681,6 +682,56 @@ export const analysisRun = pgTable(
       table.createdAt
     ),
     index('analysis_run_template_version_idx').on(table.templateVersionId),
+  ]
+);
+
+export const analysisRawAttempt = pgTable(
+  'analysis_raw_attempt',
+  {
+    id: serial('id').primaryKey(),
+    analysisRunId: integer('analysis_run_id')
+      .notNull()
+      .references(() => analysisRun.id, { onDelete: 'cascade' }),
+    attempt: integer('attempt').notNull(),
+    failureStage: text('failure_stage').notNull(),
+    status: text('status').notNull().default('failed'),
+    safeReason: text('safe_reason').notNull(),
+    modelProvider: text('model_provider'),
+    modelId: text('model_id'),
+    artifact: jsonb('artifact').$type<RawAttemptArtifact>().notNull(),
+    payloadHash: text('payload_hash').notNull(),
+    schemaVersion: integer('schema_version').notNull(),
+    redactionVersion: integer('redaction_version').notNull(),
+    capturedAt: timestamp('captured_at').defaultNow().notNull(),
+    expiresAt: timestamp('expires_at').notNull(),
+  },
+  (table) => [
+    unique('analysis_raw_attempt_replay_key_unique').on(
+      table.analysisRunId,
+      table.attempt,
+      table.failureStage
+    ),
+    index('analysis_raw_attempt_run_attempt_stage_idx').on(
+      table.analysisRunId,
+      table.attempt,
+      table.failureStage
+    ),
+    index('analysis_raw_attempt_expires_at_idx').on(table.expiresAt),
+    check('analysis_raw_attempt_attempt_check', sql`${table.attempt} >= 0`),
+    check('analysis_raw_attempt_status_check', sql`${table.status} = 'failed'`),
+    check('analysis_raw_attempt_payload_hash_check', sql`${table.payloadHash} ~ '^[a-f0-9]{64}$'`),
+    check(
+      'analysis_raw_attempt_artifact_size_check',
+      sql`(${table.artifact}->'bytes'->>'serialized')::integer BETWEEN 0 AND 262144`
+    ),
+    check(
+      'analysis_raw_attempt_schema_version_check',
+      sql`${table.schemaVersion} = (${table.artifact}->>'schemaVersion')::integer`
+    ),
+    check(
+      'analysis_raw_attempt_redaction_version_check',
+      sql`${table.redactionVersion} = (${table.artifact}->>'redactionVersion')::integer`
+    ),
   ]
 );
 
