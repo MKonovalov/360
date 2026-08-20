@@ -56,10 +56,12 @@ describe('GET /api/analysis-runs/[id]', () => {
 
   it('returns server-projected snapshots and ignores client actor/policy fields', async () => {
     const response = await GET(new Request('http://localhost?actorId=attacker&writesAllowed=true'), { params: Promise.resolve({ id: '39' }) });
-    await expect(response.json()).resolves.toMatchObject({
+    const payload = await response.json();
+    expect(payload).toMatchObject({
       applicationRunId: 39,
       snapshotSummary: { execution: { resolvedModelChain: ['phase39.fixture'], policy: { writesAllowed: false } } },
     });
+    expect(JSON.stringify(payload)).not.toMatch(/analysis_raw_attempt|rawAudit|artifact|failureReason/i);
     expect(mocks.getAnalysisRun).toHaveBeenCalledWith(39);
   });
 });
