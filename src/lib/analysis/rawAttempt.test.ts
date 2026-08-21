@@ -4,6 +4,7 @@ import { canonicalSourceSchema } from './groundedContracts';
 import { normalizeDebugFailure } from './failureDiagnostics';
 import {
   RAW_ATTEMPT_REDACTION_VERSION,
+  RAW_ATTEMPT_MAX_SERIALIZED_BYTES,
   RAW_ATTEMPT_SCHEMA_VERSION,
   rawAttemptArtifactSchema,
   redactFailedRawAttempt,
@@ -190,6 +191,52 @@ describe('Raw analysis attempt redaction', () => {
     expect(first.toolResults[0]?.excerpt.value).toHaveLength(2_000);
     expect(first.bytes.serialized).toBe(Buffer.byteLength(JSON.stringify(first), 'utf8'));
     expect(first.bytes.serialized).toBeLessThanOrEqual(256 * 1_024);
+  }, 30_000);
+
+  it('reduces multibyte failure payload and stack before existing collections', () => {
+    const base = failedAttempt();
+    const failure = normalizeDebugFailure(new Error('界'.repeat(5_000)), 'provider', {
+      runId: 42,
+      providerPayload: {
+        status: 503,
+        code: 'service_unavailable',
+        publicFacts: { description: '界'.repeat(50_000) },
+      },
+    });
+    const input = {
+      ...base,
+      failure,
+      findings: Array.from({ length: 100 }, (_, index) => ({
+        ...base.findings[0],
+        findingId: `finding-${index}`,
+        claim: '界'.repeat(2_000),
+        reasoningSummary: '界'.repeat(2_000),
+      })),
+      citations: Array.from({ length: 200 }, (_, index) => ({
+        ...base.citations[0],
+        findingId: `finding-${index % 100}`,
+        sourceId: `citation-source-${index}`,
+        locator: '界'.repeat(500),
+      })),
+      toolResults: Array.from({ length: 100 }, (_, index) => ({
+        ...base.toolResults[0],
+        sourceId: `tool-source-${index}`,
+        title: '界'.repeat(500),
+        excerpt: '界'.repeat(2_000),
+      })),
+    };
+
+    const artifact = artifactFor(input);
+
+    expect(artifact.failure?.providerPayload).toBeNull();
+    expect(artifact.failure?.stackExcerpt).toBeNull();
+    expect(artifact.findings[0]?.findingId).toBe('finding-0');
+    expect(artifact.citations[0]?.sourceId).toBe('citation-source-0');
+    expect(artifact.toolResults[0]?.sourceId).toBe('tool-source-0');
+    expect(artifact.truncated).toBe(true);
+    expect(artifact.bytes.received).toBe(Buffer.byteLength(JSON.stringify(input), 'utf8'));
+    expect(artifact.bytes.serialized).toBe(Buffer.byteLength(JSON.stringify(artifact), 'utf8'));
+    expect(artifact.bytes.serialized).toBeLessThanOrEqual(RAW_ATTEMPT_MAX_SERIALIZED_BYTES);
   }, 30_000);
 
   it('keeps persona failures metadata-only', () => {

@@ -6,6 +6,7 @@ import {
   RAW_ATTEMPT_MAX_SERIALIZED_BYTES,
   RAW_ATTEMPT_REDACTION_VERSION,
   RAW_ATTEMPT_SCHEMA_VERSION,
+  debugFailureRecordSchema,
   rawAttemptArtifactSchema,
   type RawAttemptArtifact,
 } from './rawAttemptContracts';
@@ -69,6 +70,7 @@ export const failedRawAttemptInputSchema = z.object({
   failureReason: safeIdentifierSchema,
   modelProvider: z.enum(SERVABLE_PROVIDERS).nullable().optional().default(null),
   modelId: safeModelIdSchema.nullable().optional().default(null),
+  failure: debugFailureRecordSchema.nullable().optional().default(null),
   findings: z.array(rawFindingInputSchema).optional().default([]),
   citations: z.array(rawCitationInputSchema).optional().default([]),
   toolResults: z.array(rawToolResultInputSchema).optional().default([]),
@@ -98,6 +100,7 @@ export function redactFailedRawAttempt(input: unknown): RawAttemptSanitizationRe
 
 function buildRawAttemptArtifact(input: FailedRawAttemptInput, receivedBytes: number): RawAttemptArtifact {
   const isPersona = input.targetType === 'persona';
+  let failure = input.failure;
   let findings = input.findings.slice(0, RAW_ATTEMPT_LIMITS.findings).map((finding) => ({
     findingId: finding.findingId,
     signalId: finding.signalId,
@@ -126,6 +129,8 @@ function buildRawAttemptArtifact(input: FailedRawAttemptInput, receivedBytes: nu
   let truncated = findings.length !== input.findings.length
     || citations.length !== input.citations.length
     || toolResults.length !== input.toolResults.length
+    || failure?.providerPayload?.truncated === true
+    || failure?.stackExcerpt?.truncated === true
     || findings.some((finding) => finding.claim.truncated || finding.reasoningSummary?.truncated === true)
     || citations.some((citation) => citation.locator.truncated)
     || toolResults.some((result) => result.title.truncated || result.excerpt.truncated);
@@ -139,6 +144,7 @@ function buildRawAttemptArtifact(input: FailedRawAttemptInput, receivedBytes: nu
     failureReason: input.failureReason,
     modelProvider: input.modelProvider,
     modelId: input.modelId,
+    failure,
     findings,
     citations,
     toolResults,
@@ -162,7 +168,11 @@ function buildRawAttemptArtifact(input: FailedRawAttemptInput, receivedBytes: nu
     }
     if (serialized <= RAW_ATTEMPT_MAX_SERIALIZED_BYTES) return rawAttemptArtifactSchema.parse(candidate);
     truncated = true;
-    if (toolResults.length > 1) {
+    if (failure !== null && failure.providerPayload !== null) {
+      failure = { ...failure, providerPayload: null };
+    } else if (failure !== null && failure.stackExcerpt !== null) {
+      failure = { ...failure, stackExcerpt: null };
+    } else if (toolResults.length > 1) {
       toolResults = toolResults.slice(0, -1);
     } else if (citations.length > 1) {
       citations = citations.slice(0, -1);

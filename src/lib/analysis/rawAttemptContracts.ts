@@ -185,6 +185,7 @@ export const rawAttemptArtifactSchema = z
     attempt: z.number().int().nonnegative(),
     failureStage: safeIdentifierSchema,
     failureReason: safeIdentifierSchema,
+    failure: debugFailureRecordSchema.nullable().optional().default(null),
     modelProvider: z.enum(SERVABLE_PROVIDERS).nullable(),
     modelId: safeModelIdSchema.nullable(),
     findings: z.array(rawAttemptFindingSchema).max(RAW_ATTEMPT_LIMITS.findings),
