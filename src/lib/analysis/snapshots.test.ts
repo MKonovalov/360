@@ -311,4 +311,43 @@ describe('buildAnalysisSnapshots', () => {
     expect(result.templateSnapshot).not.toHaveProperty('custom');
     expect(result.executionSnapshot).not.toHaveProperty('customOutputSchema');
   });
+
+  describe('debugCaptureEnabled in the execution snapshot', () => {
+    it.each([true, false] as const)(
+      'stores the server-derived debugCaptureEnabled=%s in a frozen execution snapshot',
+      (debugCaptureEnabled) => {
+        // Given / When
+        const result = buildPhase33AnalysisSnapshots(
+          { ...createInput(), debugCaptureEnabled },
+          PHASE33_STANDARD_APPROVED_POLICY,
+        );
+
+        // Then
+        expect(result.executionSnapshot.debugCaptureEnabled).toBe(debugCaptureEnabled);
+        expect(Object.isFrozen(result.executionSnapshot)).toBe(true);
+        expect(Reflect.set(result.executionSnapshot, 'debugCaptureEnabled', !debugCaptureEnabled)).toBe(false);
+      },
+    );
+
+    it('captures debugCaptureEnabled independently of later mutation of the source input object', () => {
+      // Given
+      const input = { ...createInput(), debugCaptureEnabled: true };
+
+      // When
+      const result = buildPhase33AnalysisSnapshots(input, PHASE33_STANDARD_APPROVED_POLICY);
+      input.debugCaptureEnabled = false;
+
+      // Then — the built snapshot never re-reads the mutated source input.
+      expect(result.executionSnapshot.debugCaptureEnabled).toBe(true);
+    });
+
+    it('defaults debugCaptureEnabled to false when the caller omits it', () => {
+      // Given / When
+      const result = buildPhase33AnalysisSnapshots(createInput(), PHASE33_STANDARD_APPROVED_POLICY);
+
+      // Then
+      expect(result.executionSnapshot.debugCaptureEnabled).toBe(false);
+      expect(Object.isFrozen(result.executionSnapshot)).toBe(true);
+    });
+  });
 });
