@@ -18,6 +18,99 @@ export const RAW_ATTEMPT_LIMITS = {
   url: 2_048,
 } as const;
 
+export const FAILURE_STAGES = [
+  'provider',
+  'agent_step',
+  'validation',
+  'normalization',
+  'persistence',
+  'workflow',
+  'unknown',
+] as const;
+export type FailureStage = (typeof FAILURE_STAGES)[number];
+
+export const FAILURE_DIAGNOSTIC_LIMITS = {
+  errorName: 160,
+  errorMessage: 2_000,
+  stackExcerpt: 8_000,
+  providerPayload: 32 * 1_024,
+  identifier: 200,
+} as const;
+
+const failureStageSchema = z.enum(FAILURE_STAGES);
+const failureRedactionSchema = z.enum(['none', 'sensitive', 'unsafe_url', 'metadata_only']);
+const failureIdentifierSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(FAILURE_DIAGNOSTIC_LIMITS.identifier)
+  .regex(/^(?!.*:\/\/)[a-zA-Z0-9][a-zA-Z0-9._:/-]*$/)
+  .refine((value) => !/(?:sk|pk)[_-](?:live|test)|api[_-]?key|secret|token|session|clerk|database/i.test(value));
+
+function failureRedactedTextSchema(maxLength: number) {
+  return z
+    .object({
+      value: z.string().max(maxLength).nullable(),
+      sha256: z.string().regex(/^[a-f0-9]{64}$/),
+      originalLength: z.number().int().nonnegative(),
+      redaction: failureRedactionSchema,
+      truncated: z.boolean(),
+    })
+    .strict();
+}
+
+export const redactedBoundedTextSchema = failureRedactedTextSchema(FAILURE_DIAGNOSTIC_LIMITS.providerPayload);
+
+export const debugFailureRecordSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    failureStage: failureStageSchema,
+    errorName: z.string().trim().max(FAILURE_DIAGNOSTIC_LIMITS.errorName),
+    errorMessage: z.string().max(FAILURE_DIAGNOSTIC_LIMITS.errorMessage),
+    stackExcerpt: failureRedactedTextSchema(FAILURE_DIAGNOSTIC_LIMITS.stackExcerpt).nullable(),
+    providerPayload: failureRedactedTextSchema(FAILURE_DIAGNOSTIC_LIMITS.providerPayload).nullable(),
+    correlation: z
+      .object({
+        runId: z.number().int().positive(),
+        traceId: failureIdentifierSchema.nullable(),
+        observationId: failureIdentifierSchema.nullable(),
+        parentObservationId: failureIdentifierSchema.nullable(),
+      })
+      .strict(),
+  })
+  .strict();
+
+export type RedactedBoundedText = Readonly<{
+  value: string | null;
+  sha256: string;
+  originalLength: number;
+  redaction: 'none' | 'sensitive' | 'unsafe_url' | 'metadata_only';
+  truncated: boolean;
+}>;
+
+export type DebugFailureRecord = Readonly<{
+  schemaVersion: 1;
+  failureStage: FailureStage;
+  errorName: string;
+  errorMessage: string;
+  stackExcerpt: RedactedBoundedText | null;
+  providerPayload: RedactedBoundedText | null;
+  correlation: Readonly<{
+    runId: number;
+    traceId: string | null;
+    observationId: string | null;
+    parentObservationId: string | null;
+  }>;
+}>;
+
+export type FailureDiagnosticContext = Readonly<{
+  runId: number;
+  traceId?: unknown;
+  observationId?: unknown;
+  parentObservationId?: unknown;
+  providerPayload?: unknown;
+}>;
+
 const safeIdentifierSchema = z
   .string()
   .trim()

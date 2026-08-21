@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import { canonicalSourceSchema } from './groundedContracts';
+import { normalizeDebugFailure } from './failureDiagnostics';
 import {
   RAW_ATTEMPT_REDACTION_VERSION,
   RAW_ATTEMPT_SCHEMA_VERSION,
   rawAttemptArtifactSchema,
   redactFailedRawAttempt,
 } from './rawAttempt';
+import { debugFailureRecordSchema } from './rawAttemptContracts';
 
 const hash = 'a'.repeat(64);
 
@@ -212,5 +214,11 @@ describe('Raw analysis attempt redaction', () => {
 
     expect(malformedCitation).toEqual({ ok: false, reason: 'malformed_input' });
     expect(successfulRun).toEqual({ ok: false, reason: 'not_a_failure' });
+  });
+
+  it('keeps normalized failure diagnostics as a separately closed contract', () => {
+    const record = normalizeDebugFailure(new Error('provider unavailable'), 'provider', { runId: 42 });
+
+    expect(debugFailureRecordSchema.safeParse(record).success).toBe(true);
   });
 });
