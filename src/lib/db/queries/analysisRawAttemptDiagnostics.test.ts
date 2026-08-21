@@ -80,4 +80,13 @@ describe('getAnalysisRawAttemptDiagnostic', () => {
       expect.objectContaining({ kind: 'gt', left: 'raw.expires_at', right: now }),
     );
   });
+
+  it('selects the stored artifact for route-level strict validation', async () => {
+    await getAnalysisRawAttemptDiagnostic(39, new Date('2026-08-15T12:00:00.000Z'));
+
+    const selection = mocks.db.select.mock.calls[0]?.[0];
+    expect(selection).toEqual(expect.objectContaining({ artifact: 'raw.artifact' }));
+    expect(Object.keys(selection)).not.toContain('modelId');
+    expect(Object.keys(selection)).not.toContain('providerPayload');
+  });
 });

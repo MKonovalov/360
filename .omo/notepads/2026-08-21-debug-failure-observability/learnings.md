@@ -26,3 +26,9 @@
 - The lifecycle recovers the original execution error and classified stage from the execution-failure WeakMap, while explicit lifecycle failures retain their private error and immutable snapshot context without changing public safe reasons.
 - The authoritative raw-attempt input carries the normalized failure record; the writer folds it into the existing artifact before hashing, so duplicate workflow replays retain one artifact and one event while payload conflicts remain detectable.
 - Debug capture remains gated only by the snapshotted `debugCaptureEnabled` value. Disabled failures use the existing terminal transition path, and diagnostic or Langfuse errors cannot promote a failed database run to success.
+
+# Task 7 findings
+
+- The public failure DTO maps only the closed stage, bounded error text, redacted/truncated stack and provider metadata, and the four approved correlation IDs; `schemaVersion`, model identity, and arbitrary stored fields stay private.
+- The shared redacted-value shape now accepts `metadata_only` for failure diagnostics while retaining `persona` for legacy raw fields. Missing failure fields normalize to `failure: null`; malformed stored artifacts use the existing no-store unavailable response.
+- Database JSON remains `unknown` until the route applies strict `rawAttemptArtifactSchema` validation, keeping authorization first and preventing unapproved columns from crossing the API boundary.

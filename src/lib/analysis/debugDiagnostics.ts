@@ -1,11 +1,33 @@
 import { z } from 'zod';
 
+import { FAILURE_DIAGNOSTIC_LIMITS, FAILURE_STAGES } from './rawAttemptContracts';
+
 const redactedValueSchema = z.object({
   value: z.string().nullable(),
   sha256: z.string().regex(/^[a-f0-9]{64}$/),
   originalLength: z.number().int().nonnegative(),
-  redaction: z.enum(['none', 'sensitive', 'unsafe_url', 'persona']),
+  redaction: z.enum(['none', 'sensitive', 'unsafe_url', 'persona', 'metadata_only']),
   truncated: z.boolean(),
+}).strict();
+
+function boundedRedactedValueSchema(maxLength: number) {
+  return redactedValueSchema.extend({
+    value: z.string().max(maxLength).nullable(),
+  }).strict();
+}
+
+const failureDiagnosticSchema = z.object({
+  stage: z.enum(FAILURE_STAGES),
+  errorName: z.string().trim().max(FAILURE_DIAGNOSTIC_LIMITS.errorName),
+  errorMessage: z.string().max(FAILURE_DIAGNOSTIC_LIMITS.errorMessage),
+  stackExcerpt: boundedRedactedValueSchema(FAILURE_DIAGNOSTIC_LIMITS.stackExcerpt).nullable(),
+  providerPayload: boundedRedactedValueSchema(FAILURE_DIAGNOSTIC_LIMITS.providerPayload).nullable(),
+  correlation: z.object({
+    runId: z.number().int().positive(),
+    traceId: z.string().max(FAILURE_DIAGNOSTIC_LIMITS.identifier).nullable(),
+    observationId: z.string().max(FAILURE_DIAGNOSTIC_LIMITS.identifier).nullable(),
+    parentObservationId: z.string().max(FAILURE_DIAGNOSTIC_LIMITS.identifier).nullable(),
+  }).strict(),
 }).strict();
 
 const countSchema = z.object({
@@ -50,6 +72,7 @@ export const analysisDebugRunDiagnosticSchema = z.object({
   status: z.string().min(1),
   safeReason: z.string().min(1),
   reason: z.string().min(1),
+  failure: failureDiagnosticSchema.nullable(),
   timestamps: z.object({
     capturedAt: z.string(),
     expiresAt: z.string(),
@@ -98,6 +121,10 @@ export const analysisDebugRunDiagnosticSchema = z.object({
   }).strict().nullable(),
 }).strict();
 
+type DebugAnalysisRunDiagnosticOutput = z.infer<typeof analysisDebugRunDiagnosticSchema>;
+
 export type DebugAnalysisRunDiagnostic = Readonly<
-  z.infer<typeof analysisDebugRunDiagnosticSchema>
+  Omit<DebugAnalysisRunDiagnosticOutput, 'failure'> & {
+    readonly failure?: DebugAnalysisRunDiagnosticOutput['failure'];
+  }
 >;
