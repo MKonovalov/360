@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  FAILURE_DIAGNOSTIC_LIMITS,
   FAILURE_STAGES,
   debugFailureRecordSchema,
   formatDebugFailureStatusMessage,
@@ -147,5 +148,13 @@ describe('debug failure diagnostics contract', () => {
     const record = normalizeDebugFailure(new Error('provider unavailable'), 'provider', context);
 
     expect(formatDebugFailureStatusMessage(record)).toBe('Analysis failed during provider: provider unavailable');
+  });
+
+  it('bounds status messages using the shared diagnostic limit', () => {
+    const record = normalizeDebugFailure(new Error('界'.repeat(5_000)), 'normalization', context);
+    const statusMessage = formatDebugFailureStatusMessage(record);
+
+    expect(statusMessage.length).toBeLessThanOrEqual(FAILURE_DIAGNOSTIC_LIMITS.errorMessage);
+    expect(statusMessage).toContain('Analysis failed during normalization:');
   });
 });

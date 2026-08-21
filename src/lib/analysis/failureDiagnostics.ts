@@ -23,6 +23,8 @@ export type {
   RedactedBoundedText,
 } from './rawAttemptContracts';
 
+export type DebugFailureSpan = Readonly<{ readonly update: (input: Readonly<Record<string, unknown>>) => void }>;
+
 const PROVIDER_PAYLOAD_KEYS = [
   'status',
   'statusCode',
