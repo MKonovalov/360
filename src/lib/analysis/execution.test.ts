@@ -1,19 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { APICallError } from 'ai';
 
 const mocks = vi.hoisted(() => ({
   runAgent: vi.fn(),
+  classifyAgentFailureStage: vi.fn(() => 'agent_step'),
   runWithPhase33Trace: vi.fn(),
   getTraceUrl: vi.fn(),
   instantiateChain: vi.fn(),
+  normalizeDebugFailure: vi.fn(),
   firecrawlClient: { search: vi.fn() },
   env: { FIRECRAWL_API_KEY: 'test-key', LANGFUSE_CAPTURE_GROUNDED_REPORT: 'false' },
 }));
 
-vi.mock('@/lib/agents/runAgent', () => ({ runAgent: mocks.runAgent }));
+vi.mock('@/lib/agents/runAgent', () => ({
+  runAgent: mocks.runAgent,
+  classifyAgentFailureStage: mocks.classifyAgentFailureStage,
+}));
 vi.mock('@/lib/telemetry/langfuse', () => ({
   getTraceUrl: mocks.getTraceUrl,
   runWithPhase33Trace: mocks.runWithPhase33Trace,
 }));
+vi.mock('./failureDiagnostics', () => ({ normalizeDebugFailure: mocks.normalizeDebugFailure }));
 vi.mock('@/lib/agents/modelFactory', () => ({ instantiateChain: mocks.instantiateChain }));
 vi.mock('@/lib/env', () => ({ env: mocks.env }));
 vi.mock('firecrawl', () => ({ Firecrawl: vi.fn(function Firecrawl() { return mocks.firecrawlClient; }) }));
@@ -97,6 +104,20 @@ describe('GroundedExecutionAdapter', () => {
       traceId: null,
     }));
     mocks.getTraceUrl.mockResolvedValue(undefined);
+    mocks.normalizeDebugFailure.mockImplementation((_error: unknown, failureStage: string, context: { runId: number }) => ({
+      schemaVersion: 1,
+      failureStage,
+      errorName: 'Error',
+      errorMessage: 'normalized failure',
+      stackExcerpt: null,
+      providerPayload: null,
+      correlation: {
+        runId: context.runId,
+        traceId: null,
+        observationId: null,
+        parentObservationId: null,
+      },
+    }));
   });
 
   it('fails closed before model or tool dispatch when policy approval is deferred', async () => {
@@ -501,6 +522,123 @@ describe('GroundedExecutionAdapter', () => {
       modelProvider: null,
     });
     expect(result.context.rawAttempt).toBeUndefined();
+  });
+
+  it('normalizes a provider boundary failure once with only safe provider context', async () => {
+    const providerError = new APICallError({
+      message: 'provider unavailable',
+      url: 'https://provider.example.test/v1',
+      requestBodyValues: { prompt: 'TEST_PROMPT_NOT_REAL' },
+      statusCode: 503,
+      responseHeaders: { authorization: 'Bearer TEST_TOKEN_NOT_REAL' },
+      data: { error: { privateReasoning: 'TEST_REASONING_NOT_REAL' } },
+    });
+    mocks.runAgent.mockImplementationOnce(async (input: {
+      readonly onFailure?: (failure: {
+        readonly error: unknown;
+        readonly failureStage: 'provider' | 'agent_step';
+        readonly providerPayload?: Readonly<Record<string, unknown>>;
+      }) => void;
+    }) => {
+      input.onFailure?.({ error: providerError, failureStage: 'provider', providerPayload: { statusCode: 503, provider: 'anthropic' } });
+      throw providerError;
+    });
+
+    const result = await new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain }).execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist,
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+      debugCaptureEnabled: true,
+    });
+
+    expect(result).toMatchObject({ ok: false, failureReason: 'model_failure', failure: { failureStage: 'provider' } });
+    expect(mocks.normalizeDebugFailure).toHaveBeenCalledTimes(1);
+    expect(mocks.normalizeDebugFailure).toHaveBeenCalledWith(
+      providerError,
+      'provider',
+      expect.objectContaining({ runId: 42, providerPayload: { statusCode: 503, provider: 'anthropic' } }),
+    );
+    expect(JSON.stringify(mocks.normalizeDebugFailure.mock.calls[0]?.[2])).not.toContain('TEST_TOKEN_NOT_REAL');
+    expect(JSON.stringify(mocks.normalizeDebugFailure.mock.calls[0]?.[2])).not.toContain('TEST_REASONING_NOT_REAL');
+  });
+
+  it('normalizes a tool or step failure as agent_step and keeps the public reason', async () => {
+    const stepError = new Error('tool invocation failed');
+    mocks.runAgent.mockImplementationOnce(async (input: {
+      readonly onFailure?: (failure: {
+        readonly error: unknown;
+        readonly failureStage: 'provider' | 'agent_step';
+      }) => void;
+    }) => {
+      input.onFailure?.({ error: stepError, failureStage: 'agent_step' });
+      throw stepError;
+    });
+
+    const result = await new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain }).execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist,
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+      debugCaptureEnabled: true,
+    });
+
+    expect(result).toMatchObject({ ok: false, failureReason: 'model_failure', failure: { failureStage: 'agent_step' } });
+    expect(mocks.normalizeDebugFailure).toHaveBeenCalledWith(stepError, 'agent_step', expect.objectContaining({ runId: 42 }));
+  });
+
+  it('keeps ordinary non-Debug failures free of diagnostic records', async () => {
+    mocks.runAgent.mockRejectedValueOnce(new Error('ordinary failure'));
+
+    const result = await new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain }).execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist,
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+    });
+
+    expect(result).toMatchObject({ ok: false, failureReason: 'model_failure' });
+    expect(result).not.toHaveProperty('failure');
+    expect(mocks.normalizeDebugFailure).not.toHaveBeenCalled();
+  });
+
+  it('captures one final fallback failure and passes the original final error to normalization', async () => {
+    const primaryError = new APICallError({ message: 'primary unavailable', url: 'u', requestBodyValues: {}, statusCode: 503 });
+    const finalError = new Error('final step transition failed');
+    mocks.runAgent.mockImplementationOnce(async (input: {
+      readonly onFailure?: (failure: {
+        readonly error: unknown;
+        readonly failureStage: 'provider' | 'agent_step';
+      }) => void;
+    }) => {
+      input.onFailure?.({ error: primaryError, failureStage: 'provider' });
+      input.onFailure?.({ error: finalError, failureStage: 'agent_step' });
+      throw finalError;
+    });
+
+    const result = await new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain }).execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist,
+      modelChain: ['model.primary', 'model.fallback'],
+      policy: approvedPolicy,
+      debugCaptureEnabled: true,
+    });
+
+    expect(result).toMatchObject({ ok: false, failureReason: 'model_failure', failure: { failureStage: 'agent_step' } });
+    expect(mocks.normalizeDebugFailure).toHaveBeenCalledTimes(1);
+    expect(mocks.normalizeDebugFailure).toHaveBeenCalledWith(finalError, 'agent_step', expect.objectContaining({ runId: 42 }));
   });
 
   it('requires the exact lowercase opt-in flag for grounded report capture', async () => {

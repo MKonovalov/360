@@ -609,6 +609,71 @@ describe('runAgent failover loop (FAL-03/04)', () => {
     expect(mocks.generateText).toHaveBeenCalledTimes(2);
     expect(result.modelUsed).toBe(models[1]);
   });
+
+  it('reports provider SDK failures without replacing the original error', async () => {
+    const providerError = new APICallError({
+      message: 'provider unavailable',
+      url: 'https://provider.example.test/v1',
+      requestBodyValues: { prompt: 'TEST_PROMPT_NOT_REAL' },
+      statusCode: 503,
+      responseHeaders: { authorization: 'Bearer TEST_TOKEN_NOT_REAL' },
+      data: { error: { code: 'service_unavailable', privateReasoning: 'TEST_REASONING_NOT_REAL' } },
+    });
+    const failures: Array<Record<string, unknown>> = [];
+    mocks.generateText.mockRejectedValueOnce(providerError);
+
+    await expect(runAgent({
+      company,
+      liveSignals: [],
+      models: ['m1'],
+      onFailure: (failure) => failures.push(failure),
+    })).rejects.toBe(providerError);
+
+    expect(failures).toHaveLength(1);
+    expect(failures[0]).toMatchObject({
+      error: providerError,
+      failureStage: 'provider',
+      providerPayload: { statusCode: 503, provider: 'anthropic' },
+    });
+    expect(JSON.stringify(failures[0]?.providerPayload)).not.toContain('TEST_TOKEN_NOT_REAL');
+    expect(JSON.stringify(failures[0]?.providerPayload)).not.toContain('TEST_REASONING_NOT_REAL');
+  });
+
+  it('reports tool and step-transition failures as agent_step', async () => {
+    const stepError = new Error('tool invocation failed');
+    const failures: Array<Record<string, unknown>> = [];
+    mocks.generateText.mockRejectedValueOnce(stepError);
+
+    await expect(runAgent({
+      company,
+      liveSignals: [],
+      models: ['m1'],
+      onFailure: (failure) => failures.push(failure),
+    })).rejects.toBe(stepError);
+
+    expect(failures).toEqual([{
+      error: stepError,
+      failureStage: 'agent_step',
+    }]);
+  });
+
+  it('reports fallback failures per attempt while the final error stays authoritative', async () => {
+    const primaryError = apiErr(503);
+    const finalError = new Error('final step transition failed');
+    const failures: Array<Record<string, unknown>> = [];
+    mocks.generateText.mockRejectedValueOnce(primaryError).mockRejectedValueOnce(finalError);
+
+    await expect(runAgent({
+      company,
+      liveSignals: [],
+      models: ['m1', 'm1'],
+      onFailure: (failure) => failures.push(failure),
+    })).rejects.toBe(finalError);
+
+    expect(failures).toHaveLength(2);
+    expect(failures.map((failure) => failure.failureStage)).toEqual(['provider', 'agent_step']);
+    expect(failures[1]?.error).toBe(finalError);
+  });
 });
 
 describe('buildAnalyzePrompt (Test 3)', () => {

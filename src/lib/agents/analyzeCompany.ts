@@ -4,7 +4,7 @@ import { listSignalsForCompany } from '@/lib/db/queries/signals';
 import { getModelSettingsForUser } from '@/lib/db/queries/userModelSettings';
 import { validateRunArtifacts } from '@/lib/validation/validateReport';
 import type { Verdict } from '@/lib/validation/airsRules';
-import { runAgent, isOpenRouterPlatformRateLimit } from './runAgent';
+import { runAgent, isOpenRouterPlatformRateLimit, type AgentFailureObserver } from './runAgent';
 import { dedupProposals } from './dedup';
 import { instantiateChain } from './modelFactory';
 import { resolveModelChain, classifyModelError } from './modelConfig';
@@ -22,6 +22,10 @@ import type { CompanyInput, DerivedEvidenceAppendix, LiveSignalInput, ProposalSi
 // writes — persisting the run + proposals is the Route Handler's job (Plan
 // 03), keeping the AI-domain failure domain separate from the DB domain (D-08).
 type RunResult = Awaited<ReturnType<typeof runAgent>>;
+
+export type AnalyzeCompanyOptions = Readonly<{
+  readonly onAgentFailure?: AgentFailureObserver;
+}>;
 
 export type AnalyzeResult =
   | {
@@ -68,7 +72,11 @@ export function missingProviderKey(modelChain: readonly (ModelRef | string)[]): 
   return null;
 }
 
-export async function analyzeCompany(companyId: number, userId: string): Promise<AnalyzeResult> {
+export async function analyzeCompany(
+  companyId: number,
+  userId: string,
+  options: AnalyzeCompanyOptions = {},
+): Promise<AnalyzeResult> {
   // D-15 env gate (mirror enrichment.ts's not_configured): unset keys disable
   // the Analyze action, never crash. Checked at call time, not import time.
   // FIRECRAWL is required regardless of provider (the webSearch tool needs it,
@@ -111,6 +119,7 @@ export async function analyzeCompany(companyId: number, userId: string): Promise
       // strings, never a per-attempt settings read.
       models: instantiateChain(modelChain),
       modelSelections: modelChain,
+      ...(options.onAgentFailure === undefined ? {} : { onFailure: options.onAgentFailure }),
     });
   } catch (err) {
     if (isMisconfigurationError(err)) return { ok: false, reason: 'not_configured' };
