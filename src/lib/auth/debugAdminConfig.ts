@@ -38,3 +38,19 @@ export const debugAdminConfig = parseDebugAdminConfig({
   ANALYSIS_DEBUG_CAPTURE_ENABLED: env.ANALYSIS_DEBUG_CAPTURE_ENABLED,
   ANALYSIS_DEBUG_ADMIN_USER_IDS: env.ANALYSIS_DEBUG_ADMIN_USER_IDS,
 });
+
+// Pure form of the capability check, decoupled from the process-env-derived
+// singleton above so it's unit-testable without mocking env/module state.
+export function computeCanUseDebugLaunches(config: DebugAdminConfig, userId: string | null): boolean {
+  return config.captureEnabled && userId !== null && config.adminUserIds.includes(userId);
+}
+
+// Single server-only capability boundary for the DebugLaunchPreferenceProvider
+// mount (src/app/layout.tsx). The root layout also wraps /sign-in, so it must
+// call the non-redirecting `auth()` (never requireStaffAccess) and pass the
+// resulting userId here -- this function is the only place allowed to turn
+// that userId + the admin allowlist into a boolean. Only the boolean crosses
+// into the client provider; the allowlist and userId never do.
+export function deriveCanUseDebugLaunches(userId: string | null): boolean {
+  return computeCanUseDebugLaunches(debugAdminConfig, userId);
+}
