@@ -33,10 +33,13 @@ export async function executeCaptureStatement(
   input: CaptureFailedRawAttemptInput,
   payloadHash: string,
 ): Promise<CaptureObservation> {
+  const artifact = input.failure === undefined
+    ? input.artifact
+    : { ...input.artifact, failure: input.failure };
   const now = new Date();
   const result = await db.execute<CaptureObservation>(sql`
     WITH eligible_run AS MATERIALIZED (
-      ${lockRunningAnalysisRun({ runId: input.runId, attempt: input.artifact.attempt })}
+      ${lockRunningAnalysisRun({ runId: input.runId, attempt: artifact.attempt })}
     ),
     inserted_attempt AS (
       INSERT INTO analysis_raw_attempt (
@@ -56,16 +59,16 @@ export async function executeCaptureStatement(
       )
       SELECT
         eligible_run.id,
-        ${input.artifact.attempt},
-        ${input.artifact.failureStage},
+        ${artifact.attempt},
+        ${artifact.failureStage},
         'failed',
         ${input.safeReason},
-        ${input.artifact.modelProvider},
-        ${input.artifact.modelId},
-        ${JSON.stringify(input.artifact)}::jsonb,
+        ${artifact.modelProvider},
+        ${artifact.modelId},
+        ${JSON.stringify(artifact)}::jsonb,
         ${payloadHash},
-        ${input.artifact.schemaVersion},
-        ${input.artifact.redactionVersion},
+        ${artifact.schemaVersion},
+        ${artifact.redactionVersion},
         ${input.occurredAt},
         ${input.expiresAt}
       FROM eligible_run
@@ -86,7 +89,7 @@ export async function executeCaptureStatement(
       FROM inserted_attempt
       WHERE target.id = inserted_attempt.analysis_run_id
         AND target.status = 'running'
-        AND target.attempt = ${input.artifact.attempt}
+        AND target.attempt = ${artifact.attempt}
         AND NOT EXISTS (
           SELECT 1 FROM analysis_run_result AS normalized
           WHERE normalized.analysis_run_id = target.id
@@ -113,7 +116,7 @@ export async function executeCaptureStatement(
         'workflow',
         ${input.actorId},
         ${input.safeReason},
-        ${input.artifact.attempt},
+        ${artifact.attempt},
         ${input.occurredAt}
       FROM updated_run
       RETURNING id, analysis_run_id
@@ -132,8 +135,8 @@ export async function executeCaptureStatement(
       ON normalized_result.analysis_run_id = ${input.runId}
     LEFT JOIN analysis_raw_attempt AS existing_attempt
       ON existing_attempt.analysis_run_id = ${input.runId}
-      AND existing_attempt.attempt = ${input.artifact.attempt}
-      AND existing_attempt.failure_stage = ${input.artifact.failureStage}
+      AND existing_attempt.attempt = ${artifact.attempt}
+      AND existing_attempt.failure_stage = ${artifact.failureStage}
       AND existing_attempt.expires_at > ${now}
     LEFT JOIN analysis_run_event AS existing_event
       ON existing_event.event_key = ${eventKey(input)}
@@ -147,6 +150,9 @@ export async function executeCaptureStatement(
 export async function readCaptureObservation(
   input: CaptureFailedRawAttemptInput,
 ): Promise<CaptureObservation> {
+  const artifact = input.failure === undefined
+    ? input.artifact
+    : { ...input.artifact, failure: input.failure };
   const now = new Date();
   const result = await db.execute<CaptureObservation>(sql`
     SELECT
@@ -162,8 +168,8 @@ export async function readCaptureObservation(
       ON normalized_result.analysis_run_id = current_run.id
     LEFT JOIN analysis_raw_attempt AS existing_attempt
       ON existing_attempt.analysis_run_id = current_run.id
-      AND existing_attempt.attempt = ${input.artifact.attempt}
-      AND existing_attempt.failure_stage = ${input.artifact.failureStage}
+      AND existing_attempt.attempt = ${artifact.attempt}
+      AND existing_attempt.failure_stage = ${artifact.failureStage}
       AND existing_attempt.expires_at > ${now}
     LEFT JOIN analysis_run_event AS existing_event
       ON existing_event.event_key = ${eventKey(input)}

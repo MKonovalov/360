@@ -20,3 +20,9 @@
 - Local Zod v3/v4 contract and output-shape failures are wrapped at the validation seam, preserving the original error for bounded diagnostics while keeping public failure reasons stable and preventing provider misclassification.
 - Normalization failures retain `AnalysisPacketValidationError` reasons and now carry a private `normalization` stage, including unexpected canonical packet construction errors.
 - Execution failure context is held in a WeakMap, so later workflow observers can recover the original error and stage without adding raw failure fields to serialized success or failure JSON.
+
+# Task 6 findings
+
+- The lifecycle recovers the original execution error and classified stage from the execution-failure WeakMap, while explicit lifecycle failures retain their private error and immutable snapshot context without changing public safe reasons.
+- The authoritative raw-attempt input carries the normalized failure record; the writer folds it into the existing artifact before hashing, so duplicate workflow replays retain one artifact and one event while payload conflicts remain detectable.
+- Debug capture remains gated only by the snapshotted `debugCaptureEnabled` value. Disabled failures use the existing terminal transition path, and diagnostic or Langfuse errors cannot promote a failed database run to success.
