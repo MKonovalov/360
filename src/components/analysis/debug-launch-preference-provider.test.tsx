@@ -12,6 +12,7 @@ import {
   createConfirmedOffController,
   DebugLaunchPreferenceProvider,
   useDebugLaunchPreference,
+  useDebugLaunchPreferenceOrSafe,
 } from './debug-launch-preference-provider';
 
 const STORAGE_KEY = 'arclumen:debug-launch:v1';
@@ -177,5 +178,53 @@ describe('DebugLaunchPreferenceProvider', () => {
     expect(() => renderToStaticMarkup(<PreferenceConsumer label="orphan" />)).toThrow(
       'useDebugLaunchPreference must be used within a debug launch preference provider.',
     );
+  });
+});
+
+// Regression coverage for the Settings->Companies bug: AnalysisLauncher only
+// ever calls useDebugLaunchPreferenceOrSafe, never useDebugLaunchPreference,
+// so it fails silently (never throws) when a route tree has no provider
+// ancestor -- it just gets stuck on the permanently loading SSR-safe
+// singleton forever. These tests pin that failure mode and its fix.
+describe('useDebugLaunchPreferenceOrSafe', () => {
+  it('resolves the same controller as the strict hook when a provider ancestor is mounted', () => {
+    // Given
+    const orSafeControllers: DebugLaunchPreferenceController[] = [];
+    const strictControllers: DebugLaunchPreferenceController[] = [];
+    function Consumer() {
+      orSafeControllers.push(useDebugLaunchPreferenceOrSafe());
+      strictControllers.push(useDebugLaunchPreference());
+      return null;
+    }
+
+    // When
+    renderToStaticMarkup(
+      <DebugLaunchPreferenceProvider canUseDebugLaunches={false}>
+        <Consumer />
+      </DebugLaunchPreferenceProvider>,
+    );
+
+    // Then: identity match proves the fallback hook is reading the ancestor
+    // provider's context, not defaulting past it.
+    expect(orSafeControllers).toHaveLength(1);
+    expect(orSafeControllers[0]).toBe(strictControllers[0]);
+  });
+
+  it('is permanently stuck reporting loading when rendered with no provider ancestor at all', () => {
+    // Given
+    const orSafeControllers: DebugLaunchPreferenceController[] = [];
+    function OrphanConsumer() {
+      orSafeControllers.push(useDebugLaunchPreferenceOrSafe());
+      return null;
+    }
+
+    // When
+    renderToStaticMarkup(<OrphanConsumer />);
+
+    // Then: this is the exact bug symptom -- a route with no
+    // DebugLaunchPreferenceProvider ancestor can never reach status
+    // 'confirmed', so AnalysisLauncher's Start-analysis button stays
+    // disabled forever regardless of navigation history or session storage.
+    expect(orSafeControllers[0]?.getSnapshot()).toMatchObject({ preference: 'off', status: 'loading' });
   });
 });
