@@ -32,3 +32,9 @@
 - The public failure DTO maps only the closed stage, bounded error text, redacted/truncated stack and provider metadata, and the four approved correlation IDs; `schemaVersion`, model identity, and arbitrary stored fields stay private.
 - The shared redacted-value shape now accepts `metadata_only` for failure diagnostics while retaining `persona` for legacy raw fields. Missing failure fields normalize to `failure: null`; malformed stored artifacts use the existing no-store unavailable response.
 - Database JSON remains `unknown` until the route applies strict `rawAttemptArtifactSchema` validation, keeping authorization first and preventing unapproved columns from crossing the API boundary.
+
+# Task 8 findings
+
+- The viewer consumes the closed `failure` projection directly and conditionally renders one semantic section before the raw-attempt panels; it performs no fetching, parsing, or field inference.
+- Stack and provider payload values never render. Their bounded states are explicit: `Redacted` for redaction metadata, `Not recorded` for absent values, and `Truncated` when the projection marks a value truncated.
+- Component coverage locks the complete failure view, null-failure compatibility, correlation IDs, and absence of forbidden payload markers.
