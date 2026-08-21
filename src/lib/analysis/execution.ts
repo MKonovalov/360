@@ -18,6 +18,7 @@ import {
   buildCustomModelOutputSchema,
   buildGroundedPrompt,
   buildGroundedReportTelemetryOutput,
+  GroundedExecutionValidationError,
   groundedModelOutputSchema,
   validateGroundedExecutionAttempt,
   type GroundedExecutionAttempt,
@@ -71,6 +72,19 @@ export type GroundedExecutionFailure = Readonly<{
 
 export type GroundedExecutionResult = GroundedExecutionSuccess | GroundedExecutionFailure;
 
+export type GroundedExecutionFailureContext = Readonly<{
+  readonly error: unknown;
+  readonly failureStage: FailureStage;
+}>;
+
+const groundedExecutionFailureContexts = new WeakMap<GroundedExecutionFailure, GroundedExecutionFailureContext>();
+
+export function getGroundedExecutionFailureContext(
+  failure: GroundedExecutionFailure,
+): GroundedExecutionFailureContext | undefined {
+  return groundedExecutionFailureContexts.get(failure);
+}
+
 export type GroundedExecutionContext = Readonly<{
   readonly runId?: number; readonly debugCaptureEnabled: boolean; readonly targetType: GroundedExecutionInput['targetType'];
   readonly attempt: number; readonly modelId: string | null; readonly modelProvider: ModelRef['provider'] | null;
@@ -84,6 +98,7 @@ export type GroundedExecutionDependencies = Readonly<{
 }>;
 
 function mapFailure(error: unknown): GroundedExecutionFailure['failureReason'] {
+  if (error instanceof GroundedExecutionValidationError) return error.reason;
   const message = error instanceof Error ? error.message : '';
   if (/invalid_tool_policy/i.test(message)) return 'invalid_tool_policy';
   if (/unsafe_research_content/i.test(message)) return 'unsafe_research_content';
@@ -94,6 +109,16 @@ function mapFailure(error: unknown): GroundedExecutionFailure['failureReason'] {
   const errorType = error instanceof Error ? `${error.constructor.name} ${error.name}` : '';
   if (/invalidresponse|invalidtoolinput|noobject|output|schema/i.test(errorType)) return 'invalid_packet';
   return 'model_failure';
+}
+
+function classifyLocalFailure(error: unknown): GroundedExecutionFailureContext | undefined {
+  if (error instanceof GroundedExecutionValidationError) {
+    return { error: error.originalError, failureStage: error.failureStage };
+  }
+  if (error instanceof z.ZodError || error instanceof zodV3.ZodError) {
+    return { error, failureStage: 'validation' };
+  }
+  return undefined;
 }
 
 export class GroundedExecutionAdapter {
@@ -226,18 +251,22 @@ export class GroundedExecutionAdapter {
       };
     } catch (error) {
       const context = executionContext;
+      const localFailure = classifyLocalFailure(error);
       const observedFailure = agentFailure?.error === error ? agentFailure : undefined;
-      const failureStage: FailureStage = observedFailure?.failureStage ?? classifyAgentFailureStage(error);
+      const failureStage: FailureStage = localFailure?.failureStage ?? observedFailure?.failureStage ?? classifyAgentFailureStage(error);
+      const originalError = localFailure?.error ?? error;
       const failure = context?.debugCaptureEnabled === true && context.runId !== undefined
-        ? normalizeFailure({ error, failureStage, context, observation: observedFailure })
+        ? normalizeFailure({ error: originalError, failureStage, context, observation: observedFailure })
         : undefined;
-      return {
+      const result: GroundedExecutionFailure = {
         ok: false,
         failureReason: mapFailure(error),
         durationMs: Date.now() - startedAt,
         ...(failure === undefined ? {} : { failure }),
         ...(context === undefined ? {} : { context }),
       };
+      groundedExecutionFailureContexts.set(result, { error: originalError, failureStage });
+      return result;
     }
   }
 }

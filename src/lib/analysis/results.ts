@@ -130,14 +130,17 @@ export type AnalysisPacketFailureReason =
 
 export class AnalysisPacketValidationError extends Error {
   readonly name = 'AnalysisPacketValidationError';
+  readonly failureStage = 'normalization' as const;
+  declare readonly originalError: unknown;
 
-  constructor(readonly reason: AnalysisPacketFailureReason) {
+  constructor(readonly reason: AnalysisPacketFailureReason, originalError: unknown = undefined) {
     super(reason);
+    Object.defineProperty(this, 'originalError', { value: originalError, enumerable: false });
   }
 }
 
-function fail(reason: AnalysisPacketFailureReason): never {
-  throw new AnalysisPacketValidationError(reason);
+function fail(reason: AnalysisPacketFailureReason, originalError?: unknown): never {
+  throw new AnalysisPacketValidationError(reason, originalError);
 }
 
 function sourceFailure(error: unknown): never {
@@ -201,22 +204,23 @@ function validateCustomOutputChannel(
 ): Readonly<Record<string, unknown>> | undefined {
   if (customOutputSchema === undefined || customOutputSchema === null) return undefined;
   const schema = boundedOutputSchema.safeParse(customOutputSchema);
-  if (!schema.success) fail('invalid_packet');
-  if (customOutput === undefined) fail('invalid_packet');
+  if (!schema.success) fail('invalid_packet', schema.error);
+  if (customOutput === undefined) fail('invalid_packet', new Error('custom_output_missing'));
   try {
     return validateCustomOutput(customOutput, schema.data);
-  } catch {
-    fail('invalid_packet');
+  } catch (error) {
+    fail('invalid_packet', error);
   }
 }
 
 function normalizeAnalysisPacketInternal(input: unknown): NormalizedAnalysisResult {
   const parsedInput = packetInputSchema.safeParse(input);
-  if (!parsedInput.success) fail('invalid_packet');
+  if (!parsedInput.success) fail('invalid_packet', parsedInput.error);
   const packetInput = parsedInput.data;
   const customOutput = validateCustomOutputChannel(packetInput.customOutput, packetInput.customOutputSchema);
   const checklist = checklistSnapshotSchema.safeParse(packetInput.checklistSnapshot);
-  if (!checklist.success || checklist.data.targetType !== packetInput.targetType) fail('invalid_packet');
+  if (!checklist.success) fail('invalid_packet', checklist.error);
+  if (checklist.data.targetType !== packetInput.targetType) fail('invalid_packet', new Error('checklist_target_type_mismatch'));
 
   const quarantineReasons = new Set<GroundedQuarantineReason>();
   const findings = packetInput.findings.filter((finding) => {
@@ -251,8 +255,8 @@ function normalizeAnalysisPacketInternal(input: unknown): NormalizedAnalysisResu
     let canonicalUrl: string;
     try {
       canonicalUrl = canonicalizeEvidenceUrl(citation.url);
-    } catch {
-      fail('unresolved_citation');
+    } catch (error) {
+      fail('unresolved_citation', error);
     }
     const source = sourcesByIdentity.get(`${canonicalUrl}:${citation.contentHash}`);
     if (!source) {
@@ -313,19 +317,24 @@ function normalizeAnalysisPacketInternal(input: unknown): NormalizedAnalysisResu
     links,
     audit,
   });
-  if (!packet.success) fail('invalid_packet');
+  if (!packet.success) fail('invalid_packet', packet.error);
   const quarantine = quarantineReasons.size === 0
     ? undefined
     : {
         count: packetInput.findings.length - findings.length + normalizedSources.quarantinedCount,
         reasons: [...quarantineReasons].sort(),
       };
-  const packetWithQuarantine = groundedPacketSchema.parse({
-    ...packet.data,
-    audit: quarantine === undefined
-      ? packet.data.audit
-      : { ...packet.data.audit, quarantine, failureReason: 'unsafe_research_content' },
-  });
+  let packetWithQuarantine: GroundedPacket;
+  try {
+    packetWithQuarantine = groundedPacketSchema.parse({
+      ...packet.data,
+      audit: quarantine === undefined
+        ? packet.data.audit
+        : { ...packet.data.audit, quarantine, failureReason: 'unsafe_research_content' },
+    });
+  } catch (error) {
+    fail('invalid_packet', error);
+  }
   const finalPacketHash = createHash('sha256').update(JSON.stringify({ packet: packetWithQuarantine, customOutput })).digest('hex');
   return { packet: packetWithQuarantine, customOutput, packetHash: finalPacketHash, ...(quarantine === undefined ? {} : { quarantine }) };
 }

@@ -25,7 +25,7 @@ vi.mock('@/lib/agents/modelFactory', () => ({ instantiateChain: mocks.instantiat
 vi.mock('@/lib/env', () => ({ env: mocks.env }));
 vi.mock('firecrawl', () => ({ Firecrawl: vi.fn(function Firecrawl() { return mocks.firecrawlClient; }) }));
 
-import { GroundedExecutionAdapter } from './execution';
+import { getGroundedExecutionFailureContext, GroundedExecutionAdapter } from './execution';
 import { PHASE33_DEFERRED_POLICY, PHASE33_STANDARD_APPROVED_POLICY } from './contracts';
 import type { BoundedOutputSchema } from './customAgentContracts';
 import { webSearchTool } from '@/lib/agents/tools';
@@ -280,6 +280,30 @@ describe('GroundedExecutionAdapter', () => {
     expect(result).toMatchObject({ ok: false, failureReason: 'invalid_tool_policy' });
   });
 
+  it('classifies unsafe tool-policy rejection as validation without changing its public reason', async () => {
+    mocks.runAgent.mockImplementationOnce(async (input: {
+      readonly webSearchTool: {
+        readonly execute: (value: { readonly signalId: number; readonly query: string }, context: unknown) => Promise<readonly unknown[]>;
+      };
+    }) => {
+      await input.webSearchTool.execute({ signalId: 1, query: 'Acme new CFO' }, { toolCallId: 'test-1', messages: [], context: {} });
+      return { ...validRun, steps: [{ toolResults: [{ toolName: 'writeSignal', output: [] }] }] };
+    });
+
+    const result = await new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain }).execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist,
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+      debugCaptureEnabled: true,
+    });
+
+    expect(result).toMatchObject({ ok: false, failureReason: 'invalid_tool_policy', failure: { failureStage: 'validation' } });
+  });
+
   it('fails closed when grounded search completeness is missing a checklist signal', async () => {
     mocks.runAgent.mockImplementationOnce(async (input: {
       readonly webSearchTool: {
@@ -431,8 +455,33 @@ describe('GroundedExecutionAdapter', () => {
       checklist,
       modelChain: ['model.primary'],
       policy: approvedPolicy,
+      debugCaptureEnabled: true,
     });
-    expect(result).toMatchObject({ ok: false, failureReason: 'invalid_packet' });
+    expect(result).toMatchObject({ ok: false, failureReason: 'invalid_packet', failure: { failureStage: 'validation' } });
+  });
+
+  it('classifies a Zod v4 local usage rejection as validation rather than provider', async () => {
+    mocks.runAgent.mockResolvedValueOnce({ ...validRun, usage: null });
+
+    const result = await new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain }).execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist: [],
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+      debugCaptureEnabled: true,
+    });
+
+    expect(result).toMatchObject({ ok: false, failureReason: 'invalid_packet', failure: { failureStage: 'validation' } });
+    if (result.ok) throw new Error('expected validation failure');
+    const privateFailure = getGroundedExecutionFailureContext(result);
+    expect(privateFailure?.failureStage).toBe('validation');
+    expect(privateFailure?.error).toBeInstanceOf(Error);
+    expect(result).not.toHaveProperty('error');
+    expect(result).not.toHaveProperty('failureContext');
+    expect(mocks.normalizeDebugFailure).toHaveBeenCalledWith(expect.anything(), 'validation', expect.objectContaining({ runId: 42 }));
   });
 
   it('returns bounded raw attempt context when debug validation fails after agent return', async () => {
@@ -474,7 +523,7 @@ describe('GroundedExecutionAdapter', () => {
       debugCaptureEnabled: true,
     });
 
-    expect(result).toMatchObject({ ok: false, failureReason: 'invalid_packet' });
+    expect(result).toMatchObject({ ok: false, failureReason: 'invalid_packet', failure: { failureStage: 'validation' } });
     if (result.ok) throw new Error('expected validation failure');
     if (result.context === undefined) throw new Error('expected validation context');
     expect(result.context.rawAttempt).toEqual({
@@ -955,9 +1004,10 @@ describe('GroundedExecutionAdapter custom output', () => {
       modelChain: ['model.primary'],
       policy: approvedPolicy,
       customOutputSchema: customSchema,
+      debugCaptureEnabled: true,
     });
 
-    expect(result).toMatchObject({ ok: false, failureReason: 'invalid_packet' });
+    expect(result).toMatchObject({ ok: false, failureReason: 'invalid_packet', failure: { failureStage: 'validation' } });
   });
 
   it('fails with invalid_packet when the custom output schema is malformed', async () => {

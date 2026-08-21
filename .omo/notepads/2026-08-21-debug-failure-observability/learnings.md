@@ -14,3 +14,9 @@
 - `runAgent` reports each provider/agent-step attempt through a non-terminal observer; the grounded execution boundary normalizes only the final original error once, so fallback attempts remain replay-safe.
 - Provider diagnostics pass only model provider and status code; request headers, bodies, response payloads, and raw causes stay outside the diagnostic context.
 - Grounded failure diagnostics use the immutable execution snapshot for the Debug gate and correlation fields, while public `failureReason` mapping remains unchanged.
+
+# Task 5 findings
+
+- Local Zod v3/v4 contract and output-shape failures are wrapped at the validation seam, preserving the original error for bounded diagnostics while keeping public failure reasons stable and preventing provider misclassification.
+- Normalization failures retain `AnalysisPacketValidationError` reasons and now carry a private `normalization` stage, including unexpected canonical packet construction errors.
+- Execution failure context is held in a WeakMap, so later workflow observers can recover the original error and stage without adding raw failure fields to serialized success or failure JSON.
