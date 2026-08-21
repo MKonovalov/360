@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { analysisPreviewResponseSchema } from '@/lib/analysis/experienceContracts';
+import type { DebugPreference } from '@/lib/analysis/debugLaunchPreference';
 
 const practiceAreaSchema = z.object({
   id: z.number().int().positive(),
@@ -84,6 +85,24 @@ export interface AnalysisRunPayloadInput {
   readonly practiceAreaId: number;
   readonly signalCategory: string;
   readonly selection: AgentSelection;
+}
+
+// The confirmed session preference is the only signal that may select a
+// launch endpoint -- Off always launches through the ordinary route, On
+// through the debug route. Server-side authorization (requireStaffAccess /
+// requireDebugAdminAccess) is the actual trust boundary; this mapping never
+// infers or grants authorization on its own.
+export function analysisRunEndpoint(
+  preference: DebugPreference,
+): '/api/analysis-runs' | '/api/debug/analysis-runs' {
+  switch (preference) {
+    case 'off':
+      return '/api/analysis-runs';
+    case 'on':
+      return '/api/debug/analysis-runs';
+    default:
+      return assertNever(preference);
+  }
 }
 
 export function createAnalysisRunPayload({

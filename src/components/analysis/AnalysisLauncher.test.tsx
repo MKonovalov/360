@@ -17,11 +17,18 @@ import {
   createAnalysisRunPayload,
   defaultAnalysisAgentKey,
   isAnalysisAgentPickerReady,
+  performAnalysisRunLaunch,
 } from './AnalysisLauncher';
 import { analysisMenuLabel } from './AnalysisMenuAction';
 import { AnalysisPreviewPanel } from './AnalysisPreviewPanel';
 import { fetchAnalysisOptions, parseCreateRunResponse, type AgentOption } from './analysisLauncherClient';
-import type { AnalysisPreview } from './analysisLauncherClient';
+import type { AnalysisPreview, AnalysisRunPayloadInput } from './analysisLauncherClient';
+import {
+  createDebugLaunchPreferenceController,
+  type DebugLaunchPreferenceController,
+  type DebugPreferenceSnapshot,
+  type StorageLike,
+} from '../../lib/analysis/debugLaunchPreference';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return Response.json(body, { status });
@@ -230,6 +237,237 @@ describe('AnalysisLauncher', () => {
   it('keeps the polling handoff scalar at applicationRunId', () => {
     expect(parseCreateRunResponse({ applicationRunId: 73 })).toBe(73);
     expect(parseCreateRunResponse({ applicationRunId: { id: 73 } })).toBeNull();
+  });
+});
+
+const STORAGE_KEY = 'arclumen:debug-launch:v1';
+
+class MemoryStorage implements StorageLike {
+  readonly values = new Map<string, string>();
+
+  getItem(key: string): string | null {
+    return this.values.get(key) ?? null;
+  }
+
+  setItem(key: string, value: string): void {
+    this.values.set(key, value);
+  }
+
+  removeItem(key: string): void {
+    this.values.delete(key);
+  }
+}
+
+async function flushPreferenceRead(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+function fakeController(
+  snapshot: DebugPreferenceSnapshot,
+  reset: () => void = vi.fn(),
+): DebugLaunchPreferenceController {
+  return {
+    getSnapshot: () => snapshot,
+    subscribe: () => () => undefined,
+    setPreference: async () => undefined,
+    reset,
+    dispose: () => undefined,
+  };
+}
+
+function snapshotFixture(overrides: Partial<DebugPreferenceSnapshot> = {}): DebugPreferenceSnapshot {
+  return {
+    preference: 'off',
+    status: 'confirmed',
+    errorMessage: null,
+    ...overrides,
+  };
+}
+
+const BASE_PAYLOAD_INPUT: AnalysisRunPayloadInput = {
+  subjectType: 'company',
+  subjectId: 42,
+  practiceAreaId: 4,
+  signalCategory: 'GBS-state',
+  selection: { kind: 'fixed', templateVersionId: 11 },
+};
+
+describe('performAnalysisRunLaunch', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it.each(['loading', 'updating', 'unavailable'] as const)(
+    'blocks submission and never calls fetch while the preference status is %s',
+    async (status) => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+
+      const result = await performAnalysisRunLaunch({
+        controller: fakeController(snapshotFixture({ status })),
+        payload: BASE_PAYLOAD_INPUT,
+        signal: new AbortController().signal,
+      });
+
+      expect(result).toEqual({ kind: 'blocked' });
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ['off', '/api/analysis-runs'],
+    ['on', '/api/debug/analysis-runs'],
+  ] as const)('POSTs to the %s endpoint with the exact pre-existing payload', async (preference, expectedUrl) => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ applicationRunId: 73 }, 201));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await performAnalysisRunLaunch({
+      controller: fakeController(snapshotFixture({ preference })),
+      payload: BASE_PAYLOAD_INPUT,
+      signal: new AbortController().signal,
+    });
+
+    expect(result).toEqual({ kind: 'started', applicationRunId: 73 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(expectedUrl);
+    expect(JSON.parse(init.body as string)).toEqual(createAnalysisRunPayload(BASE_PAYLOAD_INPUT));
+  });
+
+  it('captures the endpoint from a single getSnapshot() read and ignores a preference change made after the request begins', async () => {
+    const storage = new MemoryStorage();
+    const controller = createDebugLaunchPreferenceController(storage);
+    await flushPreferenceRead();
+    expect(controller.getSnapshot()).toMatchObject({ preference: 'off', status: 'confirmed' });
+
+    let resolveFetch: (value: Response) => void = () => undefined;
+    const fetchMock = vi.fn().mockReturnValue(new Promise<Response>((resolve) => { resolveFetch = resolve; }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const resultPromise = performAnalysisRunLaunch({
+      controller,
+      payload: BASE_PAYLOAD_INPUT,
+      signal: new AbortController().signal,
+    });
+
+    // Change the confirmed preference to On while the POST is still in flight.
+    await controller.setPreference('on');
+    expect(controller.getSnapshot()).toMatchObject({ preference: 'on', status: 'confirmed' });
+
+    resolveFetch(jsonResponse({ applicationRunId: 91 }, 201));
+    const result = await resultPromise;
+
+    expect(result).toEqual({ kind: 'started', applicationRunId: 91 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/analysis-runs');
+  });
+
+  it('resets a real controller to Off after a debug-route 401 and shows the existing generic error with no ordinary-route retry', async () => {
+    const storage = new MemoryStorage();
+    storage.setItem(STORAGE_KEY, 'on');
+    const controller = createDebugLaunchPreferenceController(storage);
+    await flushPreferenceRead();
+    expect(controller.getSnapshot()).toMatchObject({ preference: 'on', status: 'confirmed' });
+
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}, 401));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await performAnalysisRunLaunch({
+      controller,
+      payload: BASE_PAYLOAD_INPUT,
+      signal: new AbortController().signal,
+    });
+
+    expect(result).toEqual({ kind: 'error', message: 'The analysis request could not be completed. Try again.' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/debug/analysis-runs');
+    expect(controller.getSnapshot()).toMatchObject({ preference: 'off', status: 'confirmed' });
+  });
+
+  it('resets a real controller to Off after a debug-route 404 (not-found authorization failure)', async () => {
+    const storage = new MemoryStorage();
+    storage.setItem(STORAGE_KEY, 'on');
+    const controller = createDebugLaunchPreferenceController(storage);
+    await flushPreferenceRead();
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({}, 404)));
+
+    const result = await performAnalysisRunLaunch({
+      controller,
+      payload: BASE_PAYLOAD_INPUT,
+      signal: new AbortController().signal,
+    });
+
+    expect(result.kind).toBe('error');
+    expect(controller.getSnapshot()).toMatchObject({ preference: 'off', status: 'confirmed' });
+  });
+
+  it('does not reset the preference for a non-authorization debug error (e.g. an active-run conflict)', async () => {
+    const resetSpy = vi.fn();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ error: 'active_run_exists' }, 409)));
+
+    const result = await performAnalysisRunLaunch({
+      controller: fakeController(snapshotFixture({ preference: 'on' }), resetSpy),
+      payload: BASE_PAYLOAD_INPUT,
+      signal: new AbortController().signal,
+    });
+
+    expect(result).toEqual({ kind: 'error', message: 'An active analysis run already exists for this record.' });
+    expect(resetSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not reset the preference for a 401 on the ordinary endpoint', async () => {
+    const resetSpy = vi.fn();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({}, 401)));
+
+    const result = await performAnalysisRunLaunch({
+      controller: fakeController(snapshotFixture({ preference: 'off' }), resetSpy),
+      payload: BASE_PAYLOAD_INPUT,
+      signal: new AbortController().signal,
+    });
+
+    expect(result).toEqual({ kind: 'error', message: 'The analysis request could not be completed. Try again.' });
+    expect(resetSpy).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['off', 'invalid_input', 400, 'Choose a valid Practice Area and Buying Signal Category, then try again.'],
+    ['on', 'dispatch_failed', 502, 'The analysis could not be started. Try again.'],
+  ] as const)('surfaces the existing generic copy for a %s-route %s failure with a single fetch call and no fallback', async (preference, error, status, message) => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ error }, status));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await performAnalysisRunLaunch({
+      controller: fakeController(snapshotFixture({ preference })),
+      payload: BASE_PAYLOAD_INPUT,
+      signal: new AbortController().signal,
+    });
+
+    expect(result).toEqual({ kind: 'error', message });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('propagates a network failure instead of retrying or falling back', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('network down')));
+
+    await expect(performAnalysisRunLaunch({
+      controller: fakeController(snapshotFixture({ preference: 'on' })),
+      payload: BASE_PAYLOAD_INPUT,
+      signal: new AbortController().signal,
+    })).rejects.toThrow('network down');
+  });
+
+  it('reports a malformed success response as an error without starting a run', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ applicationRunId: 'not-a-number' }, 201)));
+
+    const result = await performAnalysisRunLaunch({
+      controller: fakeController(snapshotFixture({ preference: 'off' })),
+      payload: BASE_PAYLOAD_INPUT,
+      signal: new AbortController().signal,
+    });
+
+    expect(result).toEqual({ kind: 'error', message: 'The analysis run could not be started. Try again.' });
   });
 });
 
