@@ -47,6 +47,21 @@ function request(): Request {
   });
 }
 
+function requestWithForgedUserId(): Request {
+  return new Request('http://localhost/api/debug/analysis-runs', {
+    method: 'POST',
+    body: JSON.stringify({
+      subject: { type: 'company', id: 42 },
+      practiceAreaId: 3,
+      selection: { kind: 'fixed', templateVersionId: 11 },
+      signalCategory: 'GBS-state',
+      debugCaptureEnabled: false,
+      debugAdminUserIds: ['user_attacker'],
+      userId: 'user_attacker',
+    }),
+  });
+}
+
 describe('POST /api/debug/analysis-runs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -72,10 +87,11 @@ describe('POST /api/debug/analysis-runs', () => {
     expect(order).toEqual(['auth', 'parse', 'resolve', 'create']);
   });
 
-  it('persists immutable capture enablement before dispatch and ignores client controls', async () => {
+  it('persists immutable capture enablement before dispatch and ignores a forged debugCaptureEnabled, debugAdminUserIds, and userId', async () => {
     const response = await POST(request());
 
     expect(response.status).toBe(201);
+    expect(mocks.resolveAnalysisLaunch).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user_debug' }));
     expect(mocks.createAnalysisRun).toHaveBeenCalledWith(expect.objectContaining({
       createdBy: 'user_debug',
       executionSnapshot: expect.objectContaining({ debugCaptureEnabled: true }),
@@ -94,5 +110,14 @@ describe('POST /api/debug/analysis-runs', () => {
     expect(mocks.resolveAnalysisLaunch).not.toHaveBeenCalled();
     expect(mocks.createAnalysisRun).not.toHaveBeenCalled();
     expect(mocks.start).not.toHaveBeenCalled();
+  });
+
+  it('fails closed on a forged userId field in the body — an unknown field the strict schema rejects before the launch is ever resolved', async () => {
+    const response = await POST(requestWithForgedUserId());
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: 'invalid_input' });
+    expect(mocks.resolveAnalysisLaunch).not.toHaveBeenCalled();
+    expect(mocks.createAnalysisRun).not.toHaveBeenCalled();
   });
 });

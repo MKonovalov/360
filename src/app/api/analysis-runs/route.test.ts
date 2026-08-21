@@ -72,21 +72,67 @@ describe('POST /api/analysis-runs', () => {
     expect(mocks.start).toHaveBeenCalledWith(expect.anything(), [41]);
   });
 
-  it('ignores client debug controls and snapshots ordinary launches with capture disabled', async () => {
+  it('ignores client-forged debugCaptureEnabled and debugAdminUserIds and snapshots ordinary launches under the authenticated staff identity with capture disabled', async () => {
     const response = await POST(request({
       subject: { type: 'company', id: 42 },
       practiceAreaId: 3,
       selection: { kind: 'fixed', templateVersionId: 11 },
       signalCategory: 'GBS-state',
       debugCaptureEnabled: true,
-      debugAdminUserIds: ['attacker'],
+      debugAdminUserIds: ['user_admin'],
     }));
 
     expect(response.status).toBe(201);
+    expect(mocks.resolveAnalysisLaunch).toHaveBeenCalledWith(expect.objectContaining({ userId: 'staff' }));
     expect(mocks.createAnalysisRun).toHaveBeenCalledWith(expect.objectContaining({
+      createdBy: 'staff',
       executionSnapshot: expect.objectContaining({ debugCaptureEnabled: false }),
     }));
     expect(mocks.start).toHaveBeenCalledWith(expect.anything(), [41]);
+  });
+
+  it('fails closed on a forged userId field in the body — an unknown field the strict schema rejects before the launch is ever resolved', async () => {
+    const response = await POST(request({
+      subject: { type: 'company', id: 42 },
+      practiceAreaId: 3,
+      selection: { kind: 'fixed', templateVersionId: 11 },
+      signalCategory: 'GBS-state',
+      debugCaptureEnabled: true,
+      debugAdminUserIds: ['user_admin'],
+      userId: 'user_admin',
+    }));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: 'invalid_input' });
+    expect(mocks.resolveAnalysisLaunch).not.toHaveBeenCalled();
+    expect(mocks.createAnalysisRun).not.toHaveBeenCalled();
+  });
+
+  it('authorizes before request parsing or resolving the launch', async () => {
+    const order: string[] = [];
+    const launchRequest = request({ subject: { type: 'company', id: 42 }, practiceAreaId: 3, selection: { kind: 'fixed', templateVersionId: 11 }, signalCategory: 'GBS-state' });
+    const originalJson = launchRequest.json.bind(launchRequest);
+    mocks.requireStaffAccess.mockImplementation(async () => { order.push('auth'); return { userId: 'staff' }; });
+    vi.spyOn(launchRequest, 'json').mockImplementation(async () => { order.push('parse'); return originalJson(); });
+    mocks.resolveAnalysisLaunch.mockImplementation(async () => { order.push('resolve'); return { ok: true, value: fixed }; });
+    mocks.createAnalysisRun.mockImplementation(async () => { order.push('create'); return { ok: true, run: { id: 41, status: 'queued' } }; });
+
+    const response = await POST(launchRequest);
+
+    expect(response.status).toBe(201);
+    expect(order).toEqual(['auth', 'parse', 'resolve', 'create']);
+  });
+
+  it('does not parse the request or resolve the launch when staff authorization denies access', async () => {
+    const launchRequest = request({ subject: { type: 'company', id: 42 }, practiceAreaId: 3, selection: { kind: 'fixed', templateVersionId: 11 }, signalCategory: 'GBS-state' });
+    const parse = vi.spyOn(launchRequest, 'json');
+    mocks.requireStaffAccess.mockRejectedValue(new Error('NEXT_REDIRECT'));
+
+    await expect(POST(launchRequest)).rejects.toThrow('NEXT_REDIRECT');
+    expect(parse).not.toHaveBeenCalled();
+    expect(mocks.resolveAnalysisLaunch).not.toHaveBeenCalled();
+    expect(mocks.createAnalysisRun).not.toHaveBeenCalled();
+    expect(mocks.start).not.toHaveBeenCalled();
   });
 
   it.each(['custom_agent_target_mismatch', 'custom_agent_practice_area_mismatch', 'custom_agent_not_current'])('rejects %s before createAnalysisRun', async (reason) => {

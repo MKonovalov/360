@@ -13,6 +13,8 @@ import { resolveStoredModelRef } from '@/lib/models/modelSettings';
 import { getDataSourceSettingsView } from '@/lib/data-sources/settings';
 import { DataSourceSettingsForm } from '@/components/settings/data-source-settings-form';
 import { SettingsTabs } from '@/components/settings/settings-tabs';
+import { DebugSettingsPanel } from '@/components/settings/debug-settings-panel';
+import { debugAdminConfig } from '@/lib/auth/debugAdminConfig';
 
 // Belt-and-suspenders alongside the (dashboard) layout's auth gate
 // (02-RESEARCH.md Pitfall 4) — every page in the group gates itself too, so
@@ -23,6 +25,10 @@ import { SettingsTabs } from '@/components/settings/settings-tabs';
 // client).
 export default async function SettingsPage() {
   const { userId } = await requireStaffAccess();
+  const canUseDebugLaunches =
+    debugAdminConfig.captureEnabled
+    && userId !== null
+    && debugAdminConfig.adminUserIds.includes(userId);
 
   // Keep the two tabs independently useful when one backing read is down.
   // `undefined` is a valid model-settings result, so the settled status is the
@@ -147,11 +153,13 @@ export default async function SettingsPage() {
   );
 
   return (
-    <div className="flex flex-col gap-8 p-8">
+    <div className="flex flex-col gap-8 p-8 max-sm:p-4">
       <h1 className="text-[24px] font-semibold leading-[1.2] text-slate-900">Settings</h1>
       <SettingsTabs
         modelSettings={modelSettingsContent}
         dataSources={dataSourceSettingsContent}
+        canUseDebugLaunches={canUseDebugLaunches}
+        debugSettings={canUseDebugLaunches ? <DebugSettingsPanel panelId="debug-settings-panel" /> : null}
       />
     </div>
   );

@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState, type SyntheticEvent } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type SyntheticEvent } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { useDebugLaunchPreferenceOrSafe } from './debug-launch-preference-provider';
+import type { DebugLaunchPreferenceController } from '@/lib/analysis/debugLaunchPreference';
 import {
   Dialog,
   DialogContent,
@@ -21,6 +23,7 @@ import {
 } from '@/lib/analysis/pollingClient';
 import {
   ANALYSIS_LAUNCHER_ERROR_COPY,
+  analysisRunEndpoint,
   createAnalysisRunPayload as createClientAnalysisRunPayload,
   fetchAnalysisPreview,
   fetchAnalysisOptions,
@@ -163,6 +166,53 @@ export function createAnalysisPreviewPayload({
   };
 }
 
+export interface AnalysisRunLaunchInput {
+  readonly controller: DebugLaunchPreferenceController;
+  readonly payload: AnalysisRunPayloadInput;
+  readonly signal: AbortSignal;
+}
+
+export type AnalysisRunLaunchResult =
+  | { readonly kind: 'blocked' }
+  | { readonly kind: 'started'; readonly applicationRunId: number }
+  | { readonly kind: 'error'; readonly message: string };
+
+// Reads the confirmed debug launch preference exactly once, immediately
+// before the POST, and never re-reads it -- a preference change after this
+// call starts cannot retarget the in-flight request. A debug-route 401/404
+// (revoked authorization) resets the preference to Off; every other error
+// surfaces the existing generic copy with no automatic fallback to the
+// ordinary route.
+export async function performAnalysisRunLaunch({
+  controller,
+  payload,
+  signal,
+}: AnalysisRunLaunchInput): Promise<AnalysisRunLaunchResult> {
+  const snapshot = controller.getSnapshot();
+  if (snapshot.status !== 'confirmed') return { kind: 'blocked' };
+
+  const endpoint = analysisRunEndpoint(snapshot.preference);
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    signal,
+    body: JSON.stringify(createClientAnalysisRunPayload(payload)),
+  });
+  const responseBody = await readJson(response);
+  if (!response.ok) {
+    if (endpoint === '/api/debug/analysis-runs' && (response.status === 401 || response.status === 404)) {
+      controller.reset();
+    }
+    return { kind: 'error', message: getErrorCopy(responseBody) };
+  }
+
+  const applicationRunId = parseCreateRunResponse(responseBody);
+  if (applicationRunId === null) {
+    return { kind: 'error', message: 'The analysis run could not be started. Try again.' };
+  }
+  return { kind: 'started', applicationRunId };
+}
+
 export function AnalysisLauncher({
   open,
   subjectType,
@@ -170,6 +220,13 @@ export function AnalysisLauncher({
   onOpenChange,
 }: AnalysisLauncherProps) {
   const router = useRouter();
+  const debugLaunchPreferenceController = useDebugLaunchPreferenceOrSafe();
+  const debugLaunchPreferenceSnapshot = useSyncExternalStore(
+    debugLaunchPreferenceController.subscribe,
+    debugLaunchPreferenceController.getSnapshot,
+    debugLaunchPreferenceController.getSnapshot,
+  );
+  const isDebugLaunchPreferenceReady = debugLaunchPreferenceSnapshot.status === 'confirmed';
   const [optionsState, setOptionsState] = useState<OptionsState>({ status: 'loading' });
   const [practiceAreaId, setPracticeAreaId] = useState('');
   const [signalCategory, setSignalCategory] = useState('');
@@ -333,39 +390,36 @@ export function AnalysisLauncher({
 
   async function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!signalCategory || previewState.status !== 'ready' || selectedAgent === null || launchState.status === 'launching' || launchState.status === 'started') return;
+    if (!isDebugLaunchPreferenceReady || !signalCategory || previewState.status !== 'ready' || selectedAgent === null || launchState.status === 'launching' || launchState.status === 'started') return;
     const generation = generationRef.current;
     const controller = new AbortController();
     launchControllerRef.current?.abort();
     launchControllerRef.current = controller;
     setLaunchState({ status: 'launching' });
     try {
-      const response = await fetch('/api/analysis-runs', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify(createAnalysisRunPayload({
+      const result = await performAnalysisRunLaunch({
+        controller: debugLaunchPreferenceController,
+        payload: {
           subjectType,
           subjectId,
           practiceAreaId: previewState.preview.practiceArea.id,
           signalCategory,
           selection: analysisAgentSelection(selectedAgent),
-        })),
+        },
+        signal: controller.signal,
       });
-      const payload = await readJson(response);
       if (!isCurrent(generation, controller)) return;
-      if (!response.ok) {
-        setLaunchState({ status: 'error', message: getErrorCopy(payload) });
+      if (result.kind === 'blocked') {
+        setLaunchState({ status: 'idle' });
         return;
       }
-      const applicationRunId = parseCreateRunResponse(payload);
-      if (applicationRunId === null) {
-        setLaunchState({ status: 'error', message: 'The analysis run could not be started. Try again.' });
+      if (result.kind === 'error') {
+        setLaunchState({ status: 'error', message: result.message });
         return;
       }
-      setLaunchState({ status: 'started', applicationRunId, run: null });
+      setLaunchState({ status: 'started', applicationRunId: result.applicationRunId, run: null });
       router.refresh();
-      startPolling(applicationRunId, generation);
+      startPolling(result.applicationRunId, generation);
     } catch (error: unknown) {
       if (isAbortError(error) || !isCurrent(generation, controller)) return;
       setLaunchState({ status: 'error', message: error instanceof TypeError ? ANALYSIS_LAUNCHER_ERROR_COPY.network : 'The analysis run could not be started. Try again.' });
@@ -455,7 +509,7 @@ export function AnalysisLauncher({
             {preview ? <AnalysisPreviewPanel preview={preview} /> : null}
             {launchState.status === 'error' ? <p role="alert" className="text-red-600">{launchState.message}</p> : null}
             {launchState.status === 'started' ? <p role="status">{`Analysis run #${launchState.applicationRunId} started${launchState.run && isTerminalAnalysisStatus(launchState.run.status) ? ` · ${launchState.run.status}` : ''}.`}</p> : null}
-              <Button type="submit" disabled={!preview || !signalCategory || selectedAgent === null || launchState.status === 'launching' || launchState.status === 'started'}>{launchState.status === 'launching' ? 'Starting…' : launchState.status === 'started' ? 'Started' : 'Start analysis'}</Button>
+              <Button type="submit" disabled={!isDebugLaunchPreferenceReady || !preview || !signalCategory || selectedAgent === null || launchState.status === 'launching' || launchState.status === 'started'}>{launchState.status === 'launching' ? 'Starting…' : launchState.status === 'started' ? 'Started' : 'Start analysis'}</Button>
           </form>
         ) : null}
         <DialogFooter>

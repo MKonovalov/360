@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  analysisRunEndpoint,
   createAnalysisRunPayload,
   fetchAnalysisOptions,
   fetchAnalysisPreview,
@@ -190,7 +191,34 @@ describe('analysisLauncherClient', () => {
     });
   });
 
+  describe('analysisRunEndpoint', () => {
+    it.each([
+      ['off', '/api/analysis-runs'],
+      ['on', '/api/debug/analysis-runs'],
+    ] as const)('maps Debug %s to exactly one launch endpoint', (preference, expected) => {
+      expect(analysisRunEndpoint(preference)).toBe(expected);
+    });
+
+    it('uses the ordinary endpoint for an unavailable preference (unavailable is represented as Off)', () => {
+      expect(analysisRunEndpoint('off')).toBe('/api/analysis-runs');
+    });
+  });
+
   describe('createAnalysisRunPayload', () => {
+    it('never adds a client debug authorization field to the existing payload', () => {
+      const payload = createAnalysisRunPayload({
+        subjectType: 'company',
+        subjectId: 42,
+        practiceAreaId: 3,
+        signalCategory: 'GBS-state',
+        selection: { kind: 'fixed', templateVersionId: 11 },
+      });
+
+      expect(payload).not.toHaveProperty('debugCaptureEnabled');
+      expect(payload).not.toHaveProperty('debugAdminUserIds');
+      expect(payload).not.toHaveProperty('userId');
+    });
+
     it('preserves the fixed request shape with signalCategory while omitting a selection wrapper', () => {
       const payload = createAnalysisRunPayload({
         subjectType: 'company',
