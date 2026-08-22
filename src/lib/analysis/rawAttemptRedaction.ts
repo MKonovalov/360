@@ -17,7 +17,7 @@ const SENSITIVE_TEXT = [
   /(?:chain[- ]of[- ]thought|private reasoning|system message|developer message)/i,
 ] as const;
 
-const SENSITIVE_URL_KEY = /^(?:api[_-]?key|apikey|access[_-]?token|token|secret|password|passwd|credential|authorization|auth|database_url|session|cookie|clerk)$/i;
+const SENSITIVE_URL_KEY = /^(?:api[_-]?key|apikey|access[_-]?token|token|secret|password|passwd|credential|authorization|auth|database_url|session|cookie|clerk|sig(?:nature)?|x[_-]?amz[_-]?signature)$/i;
 const ENCODED_OCTET = /%[0-9a-f]{2}/i;
 const MAX_DECODE_PASSES = 3;
 

@@ -26,6 +26,11 @@ describe('raw-attempt adversarial redaction', () => {
     ['encoded sensitive fragment key', 'https://example.com/report#access%5Ftoken=visible-value'],
     ['AWS access key value', 'https://example.com/report?reference=AKIAIOSFODNN7EXAMPLE'],
     ['OpenAI project key value', 'https://example.com/report#reference=sk-proj-abcdefghijklmnopqrstuvwxyz0123456789'],
+    ['AWS presigned URL signature', 'https://example.com/report?X-Amz-Signature=SIGNED_URL_VALUE_NOT_REAL'],
+    ['generic signed URL query key', 'https://example.com/report?sig=SIGNED_URL_VALUE_NOT_REAL'],
+    ['generic signed URL fragment key', 'https://example.com/report#signature=SIGNED_URL_VALUE_NOT_REAL'],
+    ['encoded signed URL query key', 'https://example.com/report?X%2DAmz%2DSignature=SIGNED_URL_VALUE_NOT_REAL'],
+    ['encoded signed URL fragment key', 'https://example.com/report#%73ignature=SIGNED_URL_VALUE_NOT_REAL'],
   ])('redacts a URL containing %s', (_caseName, value) => {
     // Given / When
     const redacted = redactRawAttemptUrl(value, false);
