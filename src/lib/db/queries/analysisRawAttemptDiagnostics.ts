@@ -3,7 +3,6 @@ import 'server-only';
 import { and, eq, gt } from 'drizzle-orm';
 
 import type { AnalysisRunStatus } from '@/lib/analysis/contracts';
-import type { RawAttemptArtifact } from '@/lib/analysis/rawAttempt';
 import { db } from '../index';
 import { analysisRawAttempt, analysisRun, analysisRunResult } from '../schema';
 
@@ -14,7 +13,7 @@ export type AnalysisRawAttemptDiagnosticRow = Readonly<{
   failureStage: string;
   status: string;
   safeReason: string;
-  artifact: RawAttemptArtifact;
+  artifact: unknown;
   capturedAt: Date;
   expiresAt: Date;
   runStatus: AnalysisRunStatus;

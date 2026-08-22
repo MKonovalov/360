@@ -1,5 +1,7 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { normalizeDebugFailure } from '@/lib/analysis/failureDiagnostics';
+
 const mocks = vi.hoisted(() => ({
   startActiveObservation: vi.fn(),
   registerTelemetry: vi.fn(),
@@ -19,13 +21,19 @@ process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ??= 'pk_test_placeholder';
 process.env.CLERK_SECRET_KEY ??= 'sk_test_placeholder';
 
 let buildPhase33TelemetryMetadata: typeof import('./langfuse').buildPhase33TelemetryMetadata;
+let buildDebugFailureMetadata: typeof import('./langfuse').buildDebugFailureMetadata;
+let annotateDebugFailure: typeof import('./langfuse').annotateDebugFailure;
 let runWithPhase33Trace: typeof import('./langfuse').runWithPhase33Trace;
 let safeTelemetry: typeof import('./langfuseSafe');
 
 beforeAll(async () => {
-  ({ buildPhase33TelemetryMetadata, runWithPhase33Trace } = await import('./langfuse'));
+  ({ buildPhase33TelemetryMetadata, buildDebugFailureMetadata, annotateDebugFailure, runWithPhase33Trace } = await import('./langfuse'));
   safeTelemetry = await import('./langfuseSafe');
 });
+
+function makeDebugFailureRecord() {
+  return normalizeDebugFailure(new Error('provider unavailable'), 'provider', { runId: 42 });
+}
 
 describe('Phase 33 Langfuse metadata', () => {
   it('runs the callback without registering an observation in test mode', async () => {
@@ -118,6 +126,34 @@ describe('Phase 33 Langfuse metadata', () => {
     const output = safeTelemetry.buildSafeObservationOutput({ ok: false, reason: 'private provider error', output: 'secret output' });
 
     expect(output).toEqual({ status: 'failed' });
+  });
+
+  it('builds the exact bounded Debug failure metadata envelope', () => {
+    const record = makeDebugFailureRecord();
+
+    const metadata = buildDebugFailureMetadata(record);
+
+    expect(metadata).toEqual({
+      schemaVersion: 1,
+      debugFailure: { enabled: true, ...record },
+    });
+    expect(Object.isFrozen(metadata.debugFailure)).toBe(true);
+  });
+
+  it('annotates the active parent span with ERROR and a bounded status message', () => {
+    const update = vi.fn();
+    const record = makeDebugFailureRecord();
+
+    annotateDebugFailure({ update }, record);
+
+    expect(update).toHaveBeenCalledWith({
+      metadata: {
+        schemaVersion: 1,
+        debugFailure: { enabled: true, ...record },
+      },
+      level: 'ERROR',
+      statusMessage: 'Analysis failed during provider: provider unavailable',
+    });
   });
 
   it('captures only the bounded grounded report envelope', () => {
@@ -259,6 +295,106 @@ describe('Phase 33 Langfuse metadata', () => {
     });
     expect(update).toHaveBeenCalledWith({ output: { status: 'completed', findingCount: 1 } });
     expect(JSON.stringify(update.mock.calls)).not.toContain('private');
+
+    vi.doUnmock('../env');
+    vi.unstubAllEnvs();
+  });
+
+  it('annotates a factory-produced Debug failure before rethrowing the original error', async () => {
+    const update = vi.fn();
+    const span = { traceId: 'trace-42', update };
+    const originalFailure = new Error('provider unavailable');
+    const record = normalizeDebugFailure(originalFailure, 'provider', { runId: 42, traceId: 'trace-42' });
+    const debugFailureFactory = vi.fn(() => record);
+    mocks.startActiveObservation.mockImplementationOnce(async (_name: string, callback: (observation: typeof span) => Promise<unknown>) => callback(span));
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.doMock('../env', () => ({ env: {
+      DATABASE_URL: 'postgresql://test:test@localhost:5432/test',
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_placeholder',
+      CLERK_SECRET_KEY: 'sk_test_placeholder',
+      LANGFUSE_PUBLIC_KEY: 'pk-lf-test',
+      LANGFUSE_SECRET_KEY: 'sk-lf-test',
+    } }));
+    vi.resetModules();
+
+    const configuredModule = await import('./langfuse');
+    await expect(configuredModule.runWithPhase33Trace('analyze-company', async () => {
+      throw originalFailure;
+    }, { debugFailureFactory })).rejects.toBe(originalFailure);
+
+    expect(debugFailureFactory).toHaveBeenCalledWith(originalFailure, { traceId: 'trace-42' });
+    expect(update).toHaveBeenCalledWith({
+      metadata: {
+        schemaVersion: 1,
+        debugFailure: { enabled: true, ...record },
+      },
+      level: 'ERROR',
+      statusMessage: 'Analysis failed during provider: provider unavailable',
+    });
+
+    vi.doUnmock('../env');
+    vi.unstubAllEnvs();
+  });
+
+  it('leaves the failure span unchanged when the immutable Debug gate is disabled', async () => {
+    const update = vi.fn();
+    const span = { traceId: 'trace-disabled', update };
+    const originalFailure = new Error('analysis failed');
+    mocks.startActiveObservation.mockImplementationOnce(async (_name: string, callback: (observation: typeof span) => Promise<unknown>) => callback(span));
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.doMock('../env', () => ({ env: {
+      DATABASE_URL: 'postgresql://test:test@localhost:5432/test',
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_placeholder',
+      CLERK_SECRET_KEY: 'sk_test_placeholder',
+      LANGFUSE_PUBLIC_KEY: 'pk-lf-test',
+      LANGFUSE_SECRET_KEY: 'sk-lf-test',
+    } }));
+    vi.resetModules();
+
+    const configuredModule = await import('./langfuse');
+    await expect(configuredModule.runWithPhase33Trace('analyze-company', async () => {
+      throw originalFailure;
+    })).rejects.toBe(originalFailure);
+
+    expect(update).toHaveBeenCalledWith({ output: { schemaVersion: 1, status: 'failed' } });
+    expect(update).not.toHaveBeenCalledWith(expect.objectContaining({ level: 'ERROR' }));
+
+    vi.doUnmock('../env');
+    vi.unstubAllEnvs();
+  });
+
+  it('preserves the original failure when annotation and flush delivery are unavailable', async () => {
+    const originalFailure = new Error('analysis failed');
+    const record = makeDebugFailureRecord();
+    const update = vi.fn((input: Readonly<Record<string, unknown>>) => {
+      if (input.level === 'ERROR') throw new Error('annotation unavailable');
+    });
+    const span = { traceId: 'trace-failure', update };
+    mocks.startActiveObservation.mockImplementationOnce(async (_name: string, callback: (observation: typeof span) => Promise<unknown>) => callback(span));
+    mocks.forceFlush.mockRejectedValueOnce(new Error('flush unavailable'));
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.doMock('../env', () => ({ env: {
+      DATABASE_URL: 'postgresql://test:test@localhost:5432/test',
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_placeholder',
+      CLERK_SECRET_KEY: 'sk_test_placeholder',
+      LANGFUSE_PUBLIC_KEY: 'pk-lf-test',
+      LANGFUSE_SECRET_KEY: 'sk-lf-test',
+    } }));
+    vi.resetModules();
+
+    const configuredModule = await import('./langfuse');
+    await expect(configuredModule.runWithPhase33Trace('analyze-company', async () => {
+      throw originalFailure;
+    }, { debugFailure: record })).rejects.toBe(originalFailure);
+    expect(update).toHaveBeenCalledWith({
+      metadata: {
+        schemaVersion: 1,
+        debugFailure: { enabled: true, ...record },
+      },
+      level: 'ERROR',
+      statusMessage: 'Analysis failed during provider: provider unavailable',
+    });
+    expect(mocks.forceFlush).toHaveBeenCalled();
 
     vi.doUnmock('../env');
     vi.unstubAllEnvs();

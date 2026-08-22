@@ -3,6 +3,7 @@ import 'server-only';
 import { createHash } from 'node:crypto';
 
 import type { RawAttemptArtifact } from '@/lib/analysis/rawAttempt';
+import type { DebugFailureRecord } from '@/lib/analysis/failureDiagnostics';
 import type { AnalysisRunStatus, SafeOutcomeReason } from '@/lib/analysis/contracts';
 import {
   executeCaptureStatement,
@@ -19,6 +20,7 @@ export type CaptureFailedRawAttemptInput = {
   readonly actorId: string;
   readonly occurredAt: Date;
   readonly expiresAt: Date;
+  readonly failure?: DebugFailureRecord | null;
   readonly expectedPacketHash?: string;
 };
 
@@ -84,12 +86,15 @@ export class AnalysisRawAttemptCaptureUnavailableError extends Error {
 export async function captureAndFailAnalysisRawAttempt(
   input: CaptureFailedRawAttemptInput,
 ): Promise<CaptureFailedRawAttemptResult> {
-  const payloadHash = createHash('sha256').update(JSON.stringify(input.artifact)).digest('hex');
+  const effectiveInput = input.failure === undefined
+    ? input
+    : { ...input, artifact: { ...input.artifact, failure: input.failure } };
+  const payloadHash = createHash('sha256').update(JSON.stringify(effectiveInput.artifact)).digest('hex');
   let observation: CaptureObservation;
   try {
-    observation = await executeCaptureStatement(input, payloadHash);
+    observation = await executeCaptureStatement(effectiveInput, payloadHash);
   } catch (captureCause: unknown) {
-    return reconcileAfterCaptureError(input, payloadHash, captureCause);
+    return reconcileAfterCaptureError(effectiveInput, payloadHash, captureCause);
   }
 
   if (
@@ -98,8 +103,8 @@ export async function captureAndFailAnalysisRawAttempt(
     && observation.runStatus === 'running'
   ) {
     try {
-      const reconciled = await readCaptureObservation(input);
-      return classifyObservation(input, payloadHash, reconciled, true);
+      const reconciled = await readCaptureObservation(effectiveInput);
+      return classifyObservation(effectiveInput, payloadHash, reconciled, true);
     } catch (reconciliationCause: unknown) {
       return {
         ok: false,
@@ -108,7 +113,7 @@ export async function captureAndFailAnalysisRawAttempt(
       };
     }
   }
-  return classifyObservation(input, payloadHash, observation, false);
+  return classifyObservation(effectiveInput, payloadHash, observation, false);
 }
 
 async function reconcileAfterCaptureError(

@@ -14,6 +14,25 @@ vi.mock('@/lib/db/queries/analysisRawAttemptDiagnostics', () => ({
 
 import { GET } from './route';
 
+const failure = {
+  schemaVersion: 1 as const,
+  failureStage: 'provider' as const,
+  errorName: 'ProviderTimeout',
+  errorMessage: 'Provider unavailable',
+  stackExcerpt: { value: null, sha256: 'd'.repeat(64), originalLength: 8_400, redaction: 'metadata_only' as const, truncated: true },
+  providerPayload: { value: '{"status":429}', sha256: 'e'.repeat(64), originalLength: 14, redaction: 'none' as const, truncated: false },
+  correlation: { runId: 39, traceId: 'trace-39', observationId: 'observation-39', parentObservationId: 'parent-39' },
+};
+
+const finding = {
+  findingId: 'f-1',
+  signalId: 4,
+  status: 'strong' as const,
+  confidence: 'high' as const,
+  claim: { value: 'Cost pressure is visible', sha256: 'a'.repeat(64), originalLength: 24, redaction: 'none' as const, truncated: false },
+  reasoningSummary: null,
+};
+
 const diagnostic = {
   rawAttemptId: 71,
   analysisRunId: 39,
@@ -28,18 +47,10 @@ const diagnostic = {
     attempt: 1,
     failureStage: 'normalization',
     failureReason: 'missing_support',
+    failure,
     modelProvider: 'anthropic' as const,
     modelId: 'claude-test',
-    findings: [
-      {
-        findingId: 'f-1',
-        signalId: 4,
-        status: 'strong' as const,
-        confidence: 'high' as const,
-        claim: { value: 'Cost pressure is visible', sha256: 'a'.repeat(64), originalLength: 24, redaction: 'none' as const, truncated: false },
-        reasoningSummary: null,
-      },
-    ],
+    findings: [finding],
     citations: [],
     toolResults: [],
     truncated: false,
@@ -82,34 +93,8 @@ const missingSupportDiagnostic = {
     ...diagnostic.artifact,
     failureReason: 'missing_support',
     findings: [
-      {
-        findingId: 'run-60-strong',
-        signalId: 12,
-        status: 'strong' as const,
-        confidence: 'high' as const,
-        claim: {
-          value: null,
-          sha256: 'd'.repeat(64),
-          originalLength: 42,
-          redaction: 'sensitive' as const,
-          truncated: false,
-        },
-        reasoningSummary: null,
-      },
-      {
-        findingId: 'run-60-weak',
-        signalId: 13,
-        status: 'weak' as const,
-        confidence: 'low' as const,
-        claim: {
-          value: 'Weak finding without support.',
-          sha256: 'e'.repeat(64),
-          originalLength: 29,
-          redaction: 'none' as const,
-          truncated: false,
-        },
-        reasoningSummary: null,
-      },
+      { ...finding, findingId: 'run-60-strong', signalId: 12, claim: { value: null, sha256: 'd'.repeat(64), originalLength: 42, redaction: 'sensitive' as const, truncated: false } },
+      { ...finding, findingId: 'run-60-weak', signalId: 13, status: 'weak' as const, confidence: 'low' as const, claim: { value: 'Weak finding without support.', sha256: 'e'.repeat(64), originalLength: 29, redaction: 'none' as const, truncated: false } },
     ],
     citations: [],
     counts: {
@@ -121,16 +106,10 @@ const missingSupportDiagnostic = {
   normalized: null,
 };
 
-function routeContext(id: string): { params: Promise<{ id: string }> } {
-  return { params: Promise.resolve({ id }) };
-}
+const routeContext = (id: string): { params: Promise<{ id: string }> } => ({ params: Promise.resolve({ id }) });
 
 describe('GET /api/debug/analysis-runs/[id]', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mocks.requireDebugAdminAccess.mockResolvedValue({ userId: 'user_debug' });
-    mocks.getAnalysisRawAttemptDiagnostic.mockResolvedValue(diagnostic);
-  });
+  beforeEach(() => { vi.clearAllMocks(); mocks.requireDebugAdminAccess.mockResolvedValue({ userId: 'user_debug' }); mocks.getAnalysisRawAttemptDiagnostic.mockResolvedValue(diagnostic); });
 
   it('authorizes before parsing the id or querying raw data', async () => {
     const order: string[] = [];
@@ -150,10 +129,21 @@ describe('GET /api/debug/analysis-runs/[id]', () => {
   });
 
   it('keeps denied requests 404-safe without touching raw data', async () => {
-    mocks.requireDebugAdminAccess.mockRejectedValue(new Error('NEXT_NOT_FOUND'));
+    const order: string[] = [];
+    mocks.requireDebugAdminAccess.mockImplementation(async () => {
+      order.push('auth');
+      throw new Error('NEXT_NOT_FOUND');
+    });
+    const context: { readonly params: Promise<{ readonly id: string }> } = {
+      get params() {
+        order.push('params');
+        return Promise.resolve({ id: 'not-a-number' });
+      },
+    };
 
-    await expect(GET(new Request('http://localhost'), routeContext('39'))).rejects.toThrow('NEXT_NOT_FOUND');
+    await expect(GET(new Request('http://localhost'), context)).rejects.toThrow('NEXT_NOT_FOUND');
 
+    expect(order).toEqual(['auth']);
     expect(mocks.getAnalysisRawAttemptDiagnostic).not.toHaveBeenCalled();
   });
 
@@ -198,12 +188,69 @@ describe('GET /api/debug/analysis-runs/[id]', () => {
           mismatches: [{ kind: 'finding_without_citation', findingId: 'f-1' }],
         },
       },
+      failure: {
+        stage: 'provider',
+        errorName: 'ProviderTimeout',
+        errorMessage: 'Provider unavailable',
+        stackExcerpt: {
+          value: null,
+          redaction: 'metadata_only',
+          truncated: true,
+        },
+        providerPayload: {
+          value: '{"status":429}',
+          redaction: 'none',
+          truncated: false,
+        },
+        correlation: {
+          runId: 39,
+          traceId: 'trace-39',
+          observationId: 'observation-39',
+          parentObservationId: 'parent-39',
+        },
+      },
       normalized: { resultId: 12, findingCount: 0 },
     });
     expect(payload.raw.findings[0]).not.toHaveProperty('reasoningSummary');
     expect(payload.raw).not.toHaveProperty('modelId');
+    expect(payload.failure).not.toEqual(expect.objectContaining({ schemaVersion: expect.anything(), cause: expect.anything(), provider: expect.anything() }));
     expect(JSON.stringify(payload)).not.toMatch(/prompt|credential|private reasoning|raw stack|arbitrary provider/i);
     expect(mocks.getAnalysisRawAttemptDiagnostic).toHaveBeenCalledWith(39);
+  });
+
+  it('returns failure null for artifacts written before failure diagnostics existed', async () => {
+    const legacyArtifact: Record<string, unknown> = { ...diagnostic.artifact };
+    Reflect.deleteProperty(legacyArtifact, 'failure');
+    mocks.getAnalysisRawAttemptDiagnostic.mockResolvedValue({ ...diagnostic, artifact: legacyArtifact });
+
+    const response = await GET(new Request('http://localhost'), routeContext('39'));
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
+    expect(payload.failure).toBeNull();
+  });
+
+  it('returns the existing unavailable response for a malformed stored failure record', async () => {
+    mocks.getAnalysisRawAttemptDiagnostic.mockResolvedValue({
+      ...diagnostic,
+      artifact: {
+        ...diagnostic.artifact,
+        failure: {
+          ...diagnostic.artifact.failure,
+          correlation: {
+            ...diagnostic.artifact.failure.correlation,
+            providerRequestBody: 'must not be projected',
+          },
+        },
+      },
+    });
+
+    const response = await GET(new Request('http://localhost'), routeContext('39'));
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
+    await expect(response.json()).resolves.toEqual({ error: 'analysis_debug_not_found' });
   });
 
   it('diagnoses run 60 missing_support without normalized data or sensitive claim text', async () => {

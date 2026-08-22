@@ -52,6 +52,7 @@ vi.mock('@/lib/validation/validateReport', () => ({
 }));
 
 import { analyzeCompany, retentionTagForUrl } from './analyzeCompany';
+import type { AgentFailureObservation } from './runAgent';
 
 const company = {
   id: 1,
@@ -494,6 +495,32 @@ describe('analyzeCompany (09-01-03)', () => {
 
     expect(result).toEqual({ ok: false, reason: 'billing', message: 'provider credits exhausted' });
     expect(mocks.validateRunArtifacts).not.toHaveBeenCalled();
+  });
+
+  it('forwards the agent failure observer while preserving the public provider reason', async () => {
+    const providerError = new APICallError({
+      message: 'credits exhausted',
+      url: 'u',
+      requestBodyValues: {},
+      statusCode: 402,
+    });
+    const observed: AgentFailureObservation[] = [];
+    mocks.runAgent.mockImplementationOnce(async (input: { onFailure?: (failure: AgentFailureObservation) => void }) => {
+      input.onFailure?.({
+        error: providerError,
+        failureStage: 'provider',
+        providerPayload: { statusCode: 402, provider: 'anthropic' },
+      });
+      throw providerError;
+    });
+
+    const result = await analyzeCompany(1, 'user_test', {
+      onAgentFailure: (failure) => observed.push(failure),
+    });
+
+    expect(result).toEqual({ ok: false, reason: 'billing', message: 'provider credits exhausted' });
+    expect(observed).toHaveLength(1);
+    expect(observed[0]).toMatchObject({ failureStage: 'provider', error: providerError });
   });
 
   it('maps a 429 throw to rate_limited with the platform reason from response headers (D-20-07/10)', async () => {

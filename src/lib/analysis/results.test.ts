@@ -1,7 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createHash } from 'node:crypto';
 
-import { normalizeAnalysisPacket, normalizeAnalysisPacketWithCustomOutput, type AnalysisPacketInput } from './results';
+import {
+  AnalysisPacketValidationError,
+  normalizeAnalysisPacket,
+  normalizeAnalysisPacketWithCustomOutput,
+  type AnalysisPacketInput,
+} from './results';
 import { groundedPacketSchema } from './groundedContracts';
 import type { BoundedOutputSchema } from './customAgentContracts';
 
@@ -181,7 +186,32 @@ describe('bounded custom output transport', () => {
     try {
       normalizeAnalysisPacket(malformed);
     } catch (error) {
-      expect(error).toMatchObject({ reason: 'invalid_packet' });
+      expect(error).toBeInstanceOf(AnalysisPacketValidationError);
+      expect(error).toMatchObject({ reason: 'invalid_packet', failureStage: 'normalization' });
+    }
+  });
+
+  it('classifies canonical packet construction failures as normalization without changing the public reason', () => {
+    const constructionError = new Error('canonical packet construction failed');
+    const parseSpy = vi.spyOn(groundedPacketSchema, 'parse').mockImplementation(() => {
+      throw constructionError;
+    });
+
+    try {
+      const candidate = {
+        ...baseInput,
+        citations: [{ ...baseInput.citations[0], contentHash: sourceContentHash }],
+      };
+      expect(() => normalizeAnalysisPacketWithCustomOutput(candidate)).toThrow();
+      try {
+        normalizeAnalysisPacketWithCustomOutput(candidate);
+      } catch (error) {
+        expect(error).toBeInstanceOf(AnalysisPacketValidationError);
+        expect(error).toMatchObject({ reason: 'invalid_packet', failureStage: 'normalization' });
+        if (error instanceof AnalysisPacketValidationError) expect(error.originalError).toBe(constructionError);
+      }
+    } finally {
+      parseSpy.mockRestore();
     }
   });
 

@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { normalizeDebugFailure } from '@/lib/analysis/failureDiagnostics';
+
 const mocks = vi.hoisted(() => ({
     getAnalysisRun: vi.fn(),
     transitionAnalysisRun: vi.fn(),
@@ -136,6 +138,76 @@ describe('analysisRun failure boundary', () => {
       toStatus: 'failed',
       safeReason: 'execution_failed',
     }));
+  });
+
+  it('preserves the adapter-normalized provider failure through raw capture', async () => {
+    // Given
+    const debugFailure = normalizeDebugFailure(
+      new Error('provider unavailable'),
+      'provider',
+      { runId: 7, traceId: 'trace-7', providerPayload: { status: 503, code: 'unavailable' } },
+    );
+    mocks.execute.mockResolvedValue({
+      ok: false,
+      failureReason: 'model_failure',
+      failureStage: 'provider',
+      failure: debugFailure,
+      durationMs: 1,
+      context: { ...executionContext, traceId: 'trace-7' },
+    });
+    mocks.captureAndFailAnalysisRawAttempt.mockResolvedValue({
+      ok: true,
+      outcome: 'captured',
+      rawAttemptId: 12,
+      eventId: 13,
+      payloadHash: 'a'.repeat(64),
+      reconciled: false,
+    });
+
+    // When
+    const result = await analysisRun(7);
+
+    // Then
+    expect(result).toEqual({ applicationRunId: 7, terminalStatus: 'failed' });
+    const captureInput = mocks.captureAndFailAnalysisRawAttempt.mock.calls[0]?.[0];
+    expect(captureInput.failure).toBe(debugFailure);
+    expect(captureInput.artifact).toMatchObject({
+      failureStage: 'provider',
+      failure: debugFailure,
+    });
+  });
+
+  it('normalizes persistence failures with the successful execution correlation', async () => {
+    // Given
+    mocks.execute.mockResolvedValue({
+      ...successfulExecution,
+      context: { ...executionContext, traceId: 'trace-7' },
+    });
+    mocks.persistAnalysisPacket.mockRejectedValueOnce(new Error('persistence unavailable'));
+    mocks.captureAndFailAnalysisRawAttempt.mockResolvedValue({
+      ok: true,
+      outcome: 'captured',
+      rawAttemptId: 13,
+      eventId: 14,
+      payloadHash: 'a'.repeat(64),
+      reconciled: false,
+    });
+
+    // When
+    const result = await analysisRun(7);
+
+    // Then
+    expect(result).toEqual({ applicationRunId: 7, terminalStatus: 'failed' });
+    const captureInput = mocks.captureAndFailAnalysisRawAttempt.mock.calls[0]?.[0];
+    expect(captureInput.failure).toMatchObject({
+      failureStage: 'persistence',
+      providerPayload: null,
+      correlation: {
+        runId: 7,
+        traceId: 'trace-7',
+      },
+    });
+    expect(captureInput.artifact).toMatchObject({ failureStage: 'persistence' });
   });
 
   it('captures the exact normalization reason while keeping the public failure safe', async () => {

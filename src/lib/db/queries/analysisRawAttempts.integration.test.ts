@@ -7,6 +7,7 @@ import {
   redactFailedRawAttempt,
   type RawAttemptArtifact,
 } from '@/lib/analysis/rawAttempt';
+import type { DebugFailureRecord } from '@/lib/analysis/failureDiagnostics';
 import { parseFixtureDatabaseUrl } from '@/lib/verification/databaseIdentity';
 import { registerAnalysisRawAttemptQueryIntegrationCases } from './analysisRawAttemptQuery.integrationCases';
 
@@ -31,6 +32,20 @@ const sanitizedAttempt = redactFailedRawAttempt({
 if (!sanitizedAttempt.ok) throw new TypeError('raw-attempt integration fixture must sanitize');
 const artifact: RawAttemptArtifact = sanitizedAttempt.artifact;
 const payloadHash = createHash('sha256').update(JSON.stringify(artifact)).digest('hex');
+const debugFailure: DebugFailureRecord = {
+  schemaVersion: 1,
+  failureStage: 'provider',
+  errorName: 'Error',
+  errorMessage: 'provider unavailable',
+  stackExcerpt: null,
+  providerPayload: null,
+  correlation: {
+    runId: 0,
+    traceId: 'trace-integration',
+    observationId: 'observation-integration',
+    parentObservationId: 'parent-integration',
+  },
+};
 
 const missingSupportSanitized = redactFailedRawAttempt({
   outcome: 'failed',
@@ -270,6 +285,27 @@ describeWithDatabase('analysis raw-attempt schema', () => {
     expect(findings).toEqual([]);
     expect(sources).toEqual([]);
     expect(links).toEqual([]);
+  });
+
+  it('persists one normalized failure record and replays its existing artifact identity', async () => {
+    // Given
+    const runId = await createRunningRun();
+    const firstInput = { ...captureInput(runId), failure: { ...debugFailure, correlation: { ...debugFailure.correlation, runId } } };
+
+    // When
+    const first = await rawAttemptQueries.captureAndFailAnalysisRawAttempt(firstInput);
+    const second = await rawAttemptQueries.captureAndFailAnalysisRawAttempt(firstInput);
+    const [run] = await dbModule.db.select().from(schema.analysisRun)
+      .where(eq(schema.analysisRun.id, runId));
+    const attempts = await dbModule.db.select().from(schema.analysisRawAttempt)
+      .where(eq(schema.analysisRawAttempt.analysisRunId, runId));
+
+    // Then
+    expect(first).toMatchObject({ ok: true, outcome: 'captured' });
+    expect(second).toMatchObject({ ok: true, outcome: 'replayed' });
+    expect(run).toMatchObject({ status: 'failed', safeReason: 'execution_failed' });
+    expect(attempts).toHaveLength(1);
+    expect(attempts[0]?.artifact).toMatchObject({ failure: firstInput.failure });
   });
 
   it('transfers valid finding identity and source links into relational rows', async () => {

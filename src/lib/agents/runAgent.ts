@@ -16,7 +16,7 @@ import {
   type GroundedWebSearchTool,
 } from './tools';
 import { outputSchema, type CompanyInput, type LiveSignalInput } from './types';
-import { classifyModelError, isFailoverEligible, shouldAdvance } from './modelConfig';
+import { classifyModelError, isFailoverEligible, shouldAdvance, type ModelErrorClass } from './modelConfig';
 import { defaultChain } from './modelFactory';
 // D-20-07: provider identity for the hop decision is catalog-derived — static,
 // env-free imports (modelConfig.ts Pattern 2); constraint 11 untouched, the
@@ -24,6 +24,17 @@ import { defaultChain } from './modelFactory';
 import { catalogJson, getProviderForModelId } from '@/lib/models/catalog';
 import type { ModelProviderId } from '@/lib/models/catalog';
 import type { ModelRef } from '@/lib/models/modelRef';
+import type { FailureDiagnosticContext, FailureStage } from '@/lib/analysis/failureDiagnostics';
+
+export type AgentFailureStage = Extract<FailureStage, 'provider' | 'agent_step'>;
+
+export type AgentFailureObservation = Readonly<{
+  readonly error: unknown;
+  readonly failureStage: AgentFailureStage;
+  readonly providerPayload?: FailureDiagnosticContext['providerPayload'];
+}>;
+
+export type AgentFailureObserver = (failure: AgentFailureObservation) => void;
 
 export interface RunAgentInput {
   company: CompanyInput;
@@ -46,6 +57,7 @@ export interface RunAgentInput {
   webSearchTool?: typeof webSearchTool | GroundedWebSearchTool;
   isWebSearchComplete?: () => boolean;
   onAttemptStart?: () => void | Promise<void>;
+  onFailure?: AgentFailureObserver;
 }
 
 // FAL-04 loop wall: Vercel Hobby permits 300s with fluid compute, and the
@@ -85,6 +97,56 @@ function deepSeekOpenCodeToolOptions(
   };
 }
 
+function assertNever(value: never): never {
+  throw new Error(`unhandled model error class: ${String(value)}`);
+}
+
+export function classifyAgentFailureStage(error: unknown): AgentFailureStage {
+  const classification: ModelErrorClass = classifyModelError(error);
+  switch (classification) {
+    case 'model_not_found':
+    case 'server_error':
+    case 'connection':
+    case 'rate_limited':
+    case 'auth':
+    case 'config':
+    case 'billing':
+      return 'provider';
+    case 'input':
+    case 'output':
+      return 'agent_step';
+    default:
+      return assertNever(classification);
+  }
+}
+
+function providerPayloadForFailure(
+  error: unknown,
+  provider: ModelProviderId | null,
+): FailureDiagnosticContext['providerPayload'] {
+  if (!APICallError.isInstance(error)) return undefined;
+
+  const payload: Record<string, string | number> = {};
+  if (error.statusCode !== undefined) payload.statusCode = error.statusCode;
+  if (provider !== null) payload.provider = provider;
+
+  return Object.keys(payload).length === 0 ? undefined : payload;
+}
+
+function reportAgentFailure(
+  observer: AgentFailureObserver | undefined,
+  observation: AgentFailureObservation,
+): void {
+  if (observer === undefined) return;
+  try {
+    observer(observation);
+  } catch (observerError) {
+    // Diagnostics are best effort; an observer failure must not replace the SDK error.
+    if (observerError instanceof Error) return;
+    return;
+  }
+}
+
 // runAgent — the mockable seam (09-01-01; D-16: zero live calls in tests).
 // Flat v7 generateText contract: plan L190-195's ToolLoopAgent/agent: syntax
 // is stale for ai@7, where the tool loop runs identically via stopWhen +
@@ -111,11 +173,17 @@ export async function runAgent({
   webSearchTool: requestedWebSearchTool = webSearchTool,
   isWebSearchComplete,
   onAttemptStart,
+  onFailure,
 }: RunAgentInput) {
   const startedAt = Date.now();
   let lastError: unknown;
   for (let i = 0; i < models.length; i++) {
-    await onAttemptStart?.();
+    try {
+      await onAttemptStart?.();
+    } catch (error) {
+      reportAgentFailure(onFailure, { error, failureStage: 'agent_step' });
+      throw error;
+    }
     // FAL-04: every attempt is clamped to the remaining LOOP_BUDGET_MS so the
     // 290s Vercel wall holds for ANY chain length (WR-03 closure), and a real
     // 43-50s tool-loop analysis is never aborted by a static per-attempt cap.
@@ -210,6 +278,16 @@ export async function runAgent({
       });
     } catch (err) {
       lastError = err;
+      const from = providerOfSelection(modelSelections?.[i], models[i]);
+      const failureStage = classifyAgentFailureStage(err);
+      const providerPayload = failureStage === 'provider'
+        ? providerPayloadForFailure(err, from)
+        : undefined;
+      reportAgentFailure(onFailure, {
+        error: err,
+        failureStage,
+        ...(providerPayload === undefined ? {} : { providerPayload }),
+      });
       // FAL-03 (D-20-07): hop-aware advance — provider identity ONLY
       // (getProviderForModelId on from/to model ids), never the response
       // body. isFailoverEligible covers the D-03 set (404/5xx/connection)
@@ -220,7 +298,6 @@ export async function runAgent({
       // 429 advance. D-20-05: mid-stream 429s classify 'input' and never
       // reach this branch (accepted + documented, no detection path).
       const cls = classifyModelError(err);
-      const from = providerOfSelection(modelSelections?.[i], models[i]);
       const to = i + 1 < models.length
         ? providerOfSelection(modelSelections?.[i + 1], models[i + 1])
         : null;

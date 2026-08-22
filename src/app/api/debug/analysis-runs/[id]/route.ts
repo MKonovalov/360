@@ -27,7 +27,7 @@ function redactedValue(value: {
   readonly value: string | null;
   readonly sha256: string;
   readonly originalLength: number;
-  readonly redaction: 'none' | 'sensitive' | 'unsafe_url' | 'persona';
+  readonly redaction: 'none' | 'sensitive' | 'unsafe_url' | 'persona' | 'metadata_only';
   readonly truncated: boolean;
 }) {
   return {
@@ -36,6 +36,24 @@ function redactedValue(value: {
     originalLength: value.originalLength,
     redaction: value.redaction,
     truncated: value.truncated,
+  };
+}
+
+function projectFailure(
+  failure: NonNullable<RawAttemptArtifact['failure']>,
+): NonNullable<DebugAnalysisRunDiagnostic['failure']> {
+  return {
+    stage: failure.failureStage,
+    errorName: failure.errorName,
+    errorMessage: failure.errorMessage,
+    stackExcerpt: failure.stackExcerpt === null ? null : redactedValue(failure.stackExcerpt),
+    providerPayload: failure.providerPayload === null ? null : redactedValue(failure.providerPayload),
+    correlation: {
+      runId: failure.correlation.runId,
+      traceId: failure.correlation.traceId,
+      observationId: failure.correlation.observationId,
+      parentObservationId: failure.correlation.parentObservationId,
+    },
   };
 }
 
@@ -69,14 +87,19 @@ function projectCitationCoverage(artifact: RawAttemptArtifact): DebugAnalysisRun
   };
 }
 
-function projectDiagnostic(row: NonNullable<Awaited<ReturnType<typeof getAnalysisRawAttemptDiagnostic>>>): DebugAnalysisRunDiagnostic {
-  const artifact = rawAttemptArtifactSchema.parse(row.artifact);
+function projectDiagnostic(
+  row: NonNullable<Awaited<ReturnType<typeof getAnalysisRawAttemptDiagnostic>>>,
+): DebugAnalysisRunDiagnostic | null {
+  const parsedArtifact = rawAttemptArtifactSchema.safeParse(row.artifact);
+  if (!parsedArtifact.success) return null;
+  const artifact = parsedArtifact.data;
   const projected = {
     applicationRunId: row.analysisRunId,
     rawAttemptId: row.rawAttemptId,
     status: row.runStatus,
     safeReason: row.safeReason,
     reason: artifact.failureReason,
+    failure: artifact.failure === null ? null : projectFailure(artifact.failure),
     timestamps: {
       capturedAt: row.capturedAt.toISOString(),
       expiresAt: row.expiresAt.toISOString(),
@@ -127,7 +150,8 @@ function projectDiagnostic(row: NonNullable<Awaited<ReturnType<typeof getAnalysi
     },
   } satisfies DebugAnalysisRunDiagnostic;
 
-  return analysisDebugRunDiagnosticSchema.parse(projected);
+  const parsedProjection = analysisDebugRunDiagnosticSchema.safeParse(projected);
+  return parsedProjection.success ? parsedProjection.data : null;
 }
 
 export async function GET(_request: Request, context: RouteContext): Promise<Response> {
@@ -144,5 +168,10 @@ export async function GET(_request: Request, context: RouteContext): Promise<Res
     return noStoreJson({ error: 'analysis_debug_not_found' }, { status: 404 });
   }
 
-  return noStoreJson(projectDiagnostic(diagnostic));
+  const projected = projectDiagnostic(diagnostic);
+  if (projected === null) {
+    return noStoreJson({ error: 'analysis_debug_not_found' }, { status: 404 });
+  }
+
+  return noStoreJson(projected);
 }

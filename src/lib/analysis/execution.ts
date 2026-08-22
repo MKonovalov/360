@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { z as zodV3 } from 'zod/v3';
 
 import { instantiateChain } from '@/lib/agents/modelFactory';
-import { runAgent, type RunAgentInput } from '@/lib/agents/runAgent';
+import { classifyAgentFailureStage, runAgent, type AgentFailureObservation, type RunAgentInput } from '@/lib/agents/runAgent';
 import { createGroundedWebSearchTool } from '@/lib/agents/tools';
 import { getTraceUrl, runWithPhase33Trace } from '@/lib/telemetry/langfuse';
 import { env } from '@/lib/env';
@@ -18,12 +18,14 @@ import {
   buildCustomModelOutputSchema,
   buildGroundedPrompt,
   buildGroundedReportTelemetryOutput,
+  GroundedExecutionValidationError,
   groundedModelOutputSchema,
   validateGroundedExecutionAttempt,
   type GroundedExecutionAttempt,
   type GroundedModelOutput,
   type RunAgentResult,
 } from './executionValidation';
+import { normalizeDebugFailure, type DebugFailureRecord, type FailureDiagnosticContext, type FailureStage } from './failureDiagnostics';
 
 export type { GroundedExecutionRawAttempt } from './executionRawContext';
 export { buildGroundedPrompt, groundedModelOutputSchema } from './executionValidation';
@@ -65,18 +67,35 @@ export type GroundedExecutionFailure = Readonly<{
     | 'invalid_tool_policy';
   durationMs: number;
   context?: GroundedExecutionContext;
+  failure?: DebugFailureRecord;
 }>;
 
 export type GroundedExecutionResult = GroundedExecutionSuccess | GroundedExecutionFailure;
 
+export type GroundedExecutionFailureContext = Readonly<{
+  readonly error: unknown;
+  readonly failureStage: FailureStage;
+}>;
+
+type ClassifiedExecutionFailure = Readonly<{
+  readonly originalError: unknown;
+  readonly failureStage: FailureStage;
+  readonly observation: AgentFailureObservation | undefined;
+}>;
+
+const groundedExecutionFailureContexts = new WeakMap<GroundedExecutionFailure, GroundedExecutionFailureContext>();
+
+export function getGroundedExecutionFailureContext(
+  failure: GroundedExecutionFailure,
+): GroundedExecutionFailureContext | undefined {
+  return groundedExecutionFailureContexts.get(failure);
+}
+
 export type GroundedExecutionContext = Readonly<{
-  readonly debugCaptureEnabled: boolean;
-  readonly targetType: GroundedExecutionInput['targetType'];
-  readonly attempt: number;
-  readonly modelId: string | null;
-  readonly modelProvider: ModelRef['provider'] | null;
-  readonly usedFallback: boolean | null;
-  readonly rawAttempt?: GroundedExecutionRawAttempt;
+  readonly runId?: number; readonly debugCaptureEnabled: boolean; readonly targetType: GroundedExecutionInput['targetType'];
+  readonly attempt: number; readonly modelId: string | null; readonly modelProvider: ModelRef['provider'] | null;
+  readonly usedFallback: boolean | null; readonly rawAttempt?: GroundedExecutionRawAttempt; readonly traceId?: string | null;
+  readonly observationId?: string | null; readonly parentObservationId?: string | null;
 }>;
 
 export type GroundedExecutionDependencies = Readonly<{
@@ -85,6 +104,7 @@ export type GroundedExecutionDependencies = Readonly<{
 }>;
 
 function mapFailure(error: unknown): GroundedExecutionFailure['failureReason'] {
+  if (error instanceof GroundedExecutionValidationError) return error.reason;
   const message = error instanceof Error ? error.message : '';
   if (/invalid_tool_policy/i.test(message)) return 'invalid_tool_policy';
   if (/unsafe_research_content/i.test(message)) return 'unsafe_research_content';
@@ -97,6 +117,29 @@ function mapFailure(error: unknown): GroundedExecutionFailure['failureReason'] {
   return 'model_failure';
 }
 
+function classifyLocalFailure(error: unknown): GroundedExecutionFailureContext | undefined {
+  if (error instanceof GroundedExecutionValidationError) {
+    return { error: error.originalError, failureStage: error.failureStage };
+  }
+  if (error instanceof z.ZodError || error instanceof zodV3.ZodError) {
+    return { error, failureStage: 'validation' };
+  }
+  return undefined;
+}
+
+function classifyExecutionFailure(
+  error: unknown,
+  agentFailure: AgentFailureObservation | undefined,
+): ClassifiedExecutionFailure {
+  const localFailure = classifyLocalFailure(error);
+  const observation = agentFailure?.error === error ? agentFailure : undefined;
+  return {
+    originalError: localFailure?.error ?? error,
+    failureStage: localFailure?.failureStage ?? observation?.failureStage ?? classifyAgentFailureStage(error),
+    observation,
+  };
+}
+
 export class GroundedExecutionAdapter {
   private readonly dependencies: GroundedExecutionDependencies;
 
@@ -107,16 +150,12 @@ export class GroundedExecutionAdapter {
   async execute(input: unknown): Promise<GroundedExecutionResult> {
     const startedAt = Date.now();
     let executionContext: GroundedExecutionContext | undefined;
+    let agentFailure: AgentFailureObservation | undefined;
+    let traceFailureNormalizationAttempted = false;
+    let traceDebugFailure: DebugFailureRecord | undefined;
     try {
       const parsed = executionInputSchema.parse(input);
-      const metadataContext: GroundedExecutionContext = {
-        debugCaptureEnabled: parsed.debugCaptureEnabled,
-        targetType: parsed.targetType,
-        attempt: 1,
-        modelId: null,
-        modelProvider: null,
-        usedFallback: null,
-      };
+      const metadataContext: GroundedExecutionContext = Object.freeze({ runId: parsed.runId, debugCaptureEnabled: parsed.debugCaptureEnabled, targetType: parsed.targetType, attempt: 1, modelId: null, modelProvider: null, usedFallback: null, traceId: null, observationId: null, parentObservationId: null });
       executionContext = metadataContext;
       const policy = phase33PolicySnapshotSchema.parse(parsed.policy);
       const customSchema = parsed.customOutputSchema ?? null;
@@ -162,18 +201,19 @@ export class GroundedExecutionAdapter {
             webSearchTool: groundedSearch.tool,
             isWebSearchComplete: () => groundedSearch.isComplete(),
             onAttemptStart: groundedSearch.startAttempt,
+            onFailure: (failure) => { agentFailure = failure; },
             timeouts: {
               primaryMs: policy.limits.maxExecutionSeconds * 1000,
               fallbackMs: policy.limits.maxExecutionSeconds * 1000,
             },
           });
-          executionContext = {
+          executionContext = Object.freeze({
             ...metadataContext,
             modelId: run.modelUsed ?? null,
             modelProvider: run.modelUsedProvider ?? null,
             usedFallback: run.usedFallback,
             ...(parsed.debugCaptureEnabled ? { rawAttempt: rawAttemptFromRun(run) } : {}),
-          };
+          });
           return validateGroundedExecutionAttempt(run, {
             customSchema,
             limits: policy.limits,
@@ -206,8 +246,27 @@ export class GroundedExecutionAdapter {
               : {}),
           }),
           sessionId: `run-${parsed.runId}`,
+          ...(parsed.debugCaptureEnabled ? {
+            debugFailureFactory: (error: unknown, correlation: { readonly traceId: string | null }) => {
+              const classified = classifyExecutionFailure(error, agentFailure);
+              if (executionContext !== undefined) {
+                executionContext = Object.freeze({ ...executionContext, traceId: correlation.traceId });
+              }
+              traceFailureNormalizationAttempted = true;
+              traceDebugFailure = executionContext?.runId === undefined
+                ? undefined
+                : normalizeFailure({
+                  error: classified.originalError,
+                  failureStage: classified.failureStage,
+                  context: executionContext,
+                  observation: classified.observation,
+                });
+              return traceDebugFailure;
+            },
+          } : {}),
         },
       );
+      if (executionContext !== undefined) executionContext = Object.freeze({ ...executionContext, traceId });
       const { run, output, customOutput, toolResults } = attempt;
       const context = executionContext;
       if (context === undefined) throw new Error('execution_context_missing');
@@ -230,12 +289,46 @@ export class GroundedExecutionAdapter {
         traceUrl: traceUrl ?? null,
       };
     } catch (error) {
-      return {
+      const context = executionContext;
+      const classified = classifyExecutionFailure(error, agentFailure);
+      const failureStage = classified.failureStage;
+      const failure = traceFailureNormalizationAttempted
+        ? traceDebugFailure
+        : context?.debugCaptureEnabled === true && context.runId !== undefined
+          ? normalizeFailure({
+            error: classified.originalError,
+            failureStage,
+            context,
+            observation: classified.observation,
+          })
+          : undefined;
+      const result: GroundedExecutionFailure = {
         ok: false,
         failureReason: mapFailure(error),
         durationMs: Date.now() - startedAt,
-        ...(executionContext === undefined ? {} : { context: executionContext }),
+        ...(failure === undefined ? {} : { failure }),
+        ...(context === undefined ? {} : { context }),
       };
+      groundedExecutionFailureContexts.set(result, { error: classified.originalError, failureStage });
+      return result;
     }
+  }
+}
+
+function normalizeFailure(input: Readonly<{
+  readonly error: unknown;
+  readonly failureStage: FailureStage;
+  readonly context: GroundedExecutionContext;
+  readonly observation: AgentFailureObservation | undefined;
+}>): DebugFailureRecord | undefined {
+  const { error, failureStage, context, observation } = input;
+  if (context.runId === undefined) return undefined;
+  const diagnosticContext: FailureDiagnosticContext = { runId: context.runId, traceId: context.traceId ?? null, observationId: context.observationId ?? null, parentObservationId: context.parentObservationId ?? null, ...(observation?.providerPayload === undefined ? {} : { providerPayload: observation.providerPayload }) };
+  try {
+    return normalizeDebugFailure(error, failureStage, diagnosticContext);
+  } catch (diagnosticError) {
+    // Diagnostic normalization is best effort; the public failure remains authoritative.
+    if (diagnosticError instanceof Error) return undefined;
+    return undefined;
   }
 }

@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../index', () => ({ db: mocks.db }));
 
 import { redactFailedRawAttempt } from '@/lib/analysis/rawAttempt';
+import type { DebugFailureRecord } from '@/lib/analysis/failureDiagnostics';
 import {
   captureAndFailAnalysisRawAttempt,
   type CaptureFailedRawAttemptInput,
@@ -29,6 +30,20 @@ const sanitized = redactFailedRawAttempt({
 if (!sanitized.ok) throw new TypeError('packet-hash fixture must sanitize');
 
 const expectedPacketHash = 'a'.repeat(64);
+const failure: DebugFailureRecord = {
+  schemaVersion: 1,
+  failureStage: 'persistence',
+  errorName: 'Error',
+  errorMessage: 'persistence unavailable',
+  stackExcerpt: null,
+  providerPayload: null,
+  correlation: {
+    runId: 7,
+    traceId: 'trace-packet-hash',
+    observationId: null,
+    parentObservationId: null,
+  },
+};
 const input: CaptureFailedRawAttemptInput = {
   runId: 7,
   artifact: sanitized.artifact,
@@ -36,6 +51,7 @@ const input: CaptureFailedRawAttemptInput = {
   actorId: 'workflow-executor',
   occurredAt: new Date('2026-08-15T12:00:00.000Z'),
   expiresAt: new Date('2026-08-29T12:00:00.000Z'),
+  failure,
   expectedPacketHash,
 };
 
@@ -86,5 +102,22 @@ describe('normalized packet-hash reconciliation', () => {
       expectedPacketHash,
       actualPacketHash,
     });
+  });
+
+  it('keeps normalized-result authority ahead of failure artifact capture', async () => {
+    // Given
+    mocks.db.execute.mockResolvedValueOnce({ rows: [normalizedObservation(expectedPacketHash)] });
+
+    // When
+    const result = await captureAndFailAnalysisRawAttempt(input);
+
+    // Then
+    expect(result).toEqual({
+      ok: false,
+      outcome: 'normalized_result_exists',
+      resultId: 31,
+      packetHash: expectedPacketHash,
+    });
+    expect(mocks.db.execute).toHaveBeenCalledTimes(1);
   });
 });

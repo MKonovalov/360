@@ -1,6 +1,17 @@
 import { FatalError } from 'workflow';
 
-import type { GroundedExecutionContext, GroundedExecutionResult } from '@/lib/analysis/execution';
+import {
+  getGroundedExecutionFailureContext,
+  type GroundedExecutionContext,
+  type GroundedExecutionFailure,
+  type GroundedExecutionResult,
+} from '@/lib/analysis/execution';
+import {
+  normalizeDebugFailure,
+  type DebugFailureRecord,
+  type FailureDiagnosticContext,
+  type FailureStage,
+} from '@/lib/analysis/failureDiagnostics';
 import { redactFailedRawAttempt } from '@/lib/analysis/rawAttempt';
 import type { NormalizedAnalysisResult } from '@/lib/analysis/results';
 import type { AnalysisRunStatus } from '@/lib/analysis/contracts';
@@ -14,42 +25,61 @@ import {
 import { reconcileCompletedRunForReview } from '@/lib/db/queries/analysisReviews';
 import { buildPhase33TelemetryMetadata, recordPhase33Telemetry } from '@/lib/telemetry/langfuse';
 
+// allow: SIZE_OK — this module is the workflow's terminal-state authority, so
+// failure classification and replay reconciliation stay with its state machine.
 const WORKFLOW_ACTOR_ID = 'workflow-executor';
 const RAW_ATTEMPT_RETENTION_MS = 14 * 24 * 60 * 60 * 1_000;
 
 export type SafeFailureReason = 'execution_failed' | 'timed_out' | 'policy_unavailable' | 'persona_policy_unavailable';
-export type FailureStage = 'execution' | 'normalization' | 'persistence';
 export type ExecutionFailure = Readonly<{
   readonly ok: false;
   readonly safeReason: SafeFailureReason;
   readonly failureReason: string;
-  readonly failureStage: FailureStage;
+  // `execution` is retained only for the pre-Task-6 workflow boundary; the
+  // normalized diagnostic record always uses one of the seven closed stages.
+  readonly failureStage: FailureStage | 'execution';
+  readonly error?: unknown;
   readonly context?: GroundedExecutionContext;
+  readonly failure?: DebugFailureRecord;
   readonly expectedPacketHash?: string;
 }>;
+
+type LifecycleFailure = ExecutionFailure | GroundedExecutionFailure;
 
 type AnalysisRunResult = Readonly<{
   readonly applicationRunId: number;
   readonly terminalStatus: 'completed' | 'failed' | 'cancelled';
 }>;
 type RawCaptureResult = Awaited<ReturnType<typeof captureAndFailAnalysisRawAttempt>>;
+type ExecutionMetadataSource = Readonly<{
+  readonly id: number;
+  readonly executionSnapshot: Pick<AnalysisRunRow['executionSnapshot'], 'debugCaptureEnabled'>;
+  readonly subjectType: AnalysisRunRow['subjectType'];
+  readonly attempt: number;
+}>;
 
 export async function failAnalysisRun(
   applicationRunId: number,
-  failure: ExecutionFailure,
+  failure: LifecycleFailure,
 ): Promise<AnalysisRunResult> {
   'use step';
 
-  if (failure.context?.debugCaptureEnabled === true) {
-    if (failure.failureStage === 'persistence') {
+  const debugEnabled = failure.context?.debugCaptureEnabled === true;
+  const failureDetails = buildFailureDetails(applicationRunId, failure, debugEnabled);
+  if (debugEnabled) {
+    const { failureStage, debugFailure } = failureDetails;
+    const expectedPacketHash = 'expectedPacketHash' in failure
+      ? failure.expectedPacketHash
+      : undefined;
+    if (failureStage === 'persistence') {
       const run = await getAnalysisRun(applicationRunId);
       const normalized = await getAnalysisPacket(applicationRunId);
       if (normalized !== undefined) {
         const storedPacketHash = readPacketHash(normalized.result);
-        if (storedPacketHash === undefined || failure.expectedPacketHash === undefined) {
+        if (storedPacketHash === undefined || expectedPacketHash === undefined) {
           throw new FatalError('normalized packet hash unavailable during failure capture');
         }
-        if (storedPacketHash !== failure.expectedPacketHash) {
+        if (storedPacketHash !== expectedPacketHash) {
           throw new AnalysisPacketConflictError(applicationRunId);
         }
         return completeAfterNormalizedPersistence(applicationRunId);
@@ -57,7 +87,11 @@ export async function failAnalysisRun(
       if (!run || run.status !== 'running') return observeAuthoritativeState(applicationRunId);
     }
 
-    const captured = await captureFailureWithRetry({ applicationRunId, failure });
+    const captured = await captureFailureWithRetry({
+      applicationRunId,
+      failure,
+      failureDetails,
+    });
     if (captured.ok) return { applicationRunId, terminalStatus: 'failed' };
     if (captured.outcome === 'normalized_result_exists') {
       return completeAfterNormalizedPersistence(applicationRunId);
@@ -71,7 +105,7 @@ export async function failAnalysisRun(
     throw new FatalError('analysis raw attempt capture did not establish terminal state');
   }
 
-  const failed = await recordFailure(applicationRunId, failure.safeReason);
+  const failed = await recordFailure(applicationRunId, failureDetails.safeReason);
   if (failed.ok) return { applicationRunId, terminalStatus: 'failed' };
   return observeAuthoritativeState(applicationRunId);
 }
@@ -120,15 +154,16 @@ export async function recordCancelledRun(applicationRunId: number) {
   });
 }
 
-export function executionMetadataContext(run: AnalysisRunRow): GroundedExecutionContext {
-  return {
+export function executionMetadataContext(run: ExecutionMetadataSource): GroundedExecutionContext {
+  return Object.freeze({
+    runId: run.id,
     debugCaptureEnabled: run.executionSnapshot.debugCaptureEnabled === true,
     targetType: run.subjectType,
     attempt: run.attempt,
     modelId: null,
     modelProvider: null,
     usedFallback: null,
-  };
+  });
 }
 
 export async function observeAuthoritativeState(applicationRunId: number): Promise<AnalysisRunResult> {
@@ -195,40 +230,99 @@ async function completeAfterNormalizedPersistence(applicationRunId: number): Pro
 
 async function captureFailureWithRetry(input: {
   readonly applicationRunId: number;
-  readonly failure: ExecutionFailure;
+  readonly failure: LifecycleFailure;
+  readonly failureDetails: FailureDetails;
 }): Promise<RawCaptureResult> {
   const context = input.failure.context;
   if (context === undefined) throw new FatalError('debug failure context unavailable');
   const rawAttempt = context.rawAttempt;
+  const failure = input.failureDetails.debugFailure;
   const sanitized = redactFailedRawAttempt({
     outcome: 'failed',
     targetType: context.targetType,
     attempt: context.attempt,
-    failureStage: input.failure.failureStage,
+    failureStage: input.failureDetails.failureStage,
     failureReason: input.failure.failureReason,
     modelProvider: context.modelProvider,
     modelId: context.modelId,
     findings: rawAttempt?.findings ?? [],
     citations: rawAttempt?.citations ?? [],
     toolResults: rawAttempt?.toolResults ?? [],
+    failure,
   });
   if (!sanitized.ok) throw new FatalError(`failed raw attempt redaction: ${sanitized.reason}`);
 
   const occurredAt = new Date();
-  const captureInput = {
+  const captureInput = Object.freeze({
     runId: input.applicationRunId,
     artifact: sanitized.artifact,
-    safeReason: input.failure.safeReason,
+    safeReason: input.failureDetails.safeReason,
     actorId: WORKFLOW_ACTOR_ID,
     occurredAt,
     expiresAt: new Date(occurredAt.getTime() + RAW_ATTEMPT_RETENTION_MS),
-    ...(input.failure.expectedPacketHash === undefined
+    // Both destinations receive this same normalized record; neither boundary
+    // re-normalizes or reconstructs privacy-sensitive failure fields.
+    failure,
+    ...(!('expectedPacketHash' in input.failure) || input.failure.expectedPacketHash === undefined
       ? {}
       : { expectedPacketHash: input.failure.expectedPacketHash }),
-  };
+  });
   const first = await captureAndFailAnalysisRawAttempt(captureInput);
   if (first.ok || first.outcome !== 'database_unavailable') return first;
   return captureAndFailAnalysisRawAttempt(captureInput);
+}
+
+function isGroundedExecutionFailure(failure: LifecycleFailure): failure is GroundedExecutionFailure {
+  return 'durationMs' in failure;
+}
+
+type FailureDetails = Readonly<{
+  readonly failureStage: FailureStage;
+  readonly safeReason: SafeFailureReason;
+  readonly debugFailure: DebugFailureRecord | null;
+}>;
+
+function buildFailureDetails(
+  applicationRunId: number,
+  failure: LifecycleFailure,
+  debugEnabled: boolean,
+): FailureDetails {
+  const isGrounded = isGroundedExecutionFailure(failure);
+  const privateContext = isGrounded
+    ? getGroundedExecutionFailureContext(failure)
+    : undefined;
+  const failureStage = failure.failure?.failureStage
+    ?? (isGrounded ? privateContext?.failureStage ?? 'unknown' : failure.failureStage === 'execution' ? 'unknown' : failure.failureStage);
+  const safeReason = isGrounded
+    ? failure.failureReason === 'timeout'
+      ? 'timed_out'
+      : failure.failureReason === 'policy_unavailable'
+        ? 'policy_unavailable'
+        : failure.failureReason === 'persona_policy_unavailable'
+          ? 'persona_policy_unavailable'
+          : 'execution_failed'
+    : failure.safeReason;
+  if (!debugEnabled || failure.failure !== undefined) {
+    return { failureStage, safeReason, debugFailure: failure.failure ?? null };
+  }
+
+  const error = isGrounded
+    ? privateContext?.error ?? new Error(failure.failureReason)
+    : failure.error ?? new Error(failure.failureReason);
+  const context = failure.context;
+  const diagnosticContext: FailureDiagnosticContext = {
+    runId: applicationRunId,
+    traceId: context?.traceId ?? null,
+    observationId: context?.observationId ?? null,
+    parentObservationId: context?.parentObservationId ?? null,
+  };
+
+  try {
+    return { failureStage, safeReason, debugFailure: normalizeDebugFailure(error, failureStage, diagnosticContext) };
+  } catch (diagnosticError: unknown) {
+    if (diagnosticError instanceof Error) return { failureStage, safeReason, debugFailure: null };
+    return { failureStage, safeReason, debugFailure: null };
+  }
 }
 
 function readPacketHash(result: Readonly<Record<string, unknown>>): string | undefined {

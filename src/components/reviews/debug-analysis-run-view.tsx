@@ -33,6 +33,99 @@ function MetricList({
   );
 }
 
+type FailureDetails = NonNullable<DebugAnalysisRunDiagnostic['failure']>;
+type BoundedFailureValue = FailureDetails['stackExcerpt'];
+
+function boundedFailureStates(value: BoundedFailureValue): readonly string[] {
+  if (value === null) return ['Not recorded'];
+
+  const states: string[] = [];
+  if (value.redaction !== 'none') states.push('Redacted');
+  else if (value.value === null) states.push('Not recorded');
+  if (value.truncated) states.push('Truncated');
+  if (states.length === 0) states.push('Recorded');
+  return states;
+}
+
+function BoundedFailureState({
+  label,
+  value,
+}: {
+  readonly label: string;
+  readonly value: BoundedFailureValue;
+}) {
+  return (
+    <div className="rounded-md border border-border bg-muted p-3">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-1 flex flex-wrap items-center gap-2 text-sm text-foreground">
+        {boundedFailureStates(value).map((state) => (
+          <Badge key={state} variant={state === 'Redacted' ? 'outline' : 'secondary'}>
+            {state}
+          </Badge>
+        ))}
+        {value !== null && value.redaction !== 'none' ? (
+          <span className="text-xs text-muted-foreground">Reason: {humanize(value.redaction)}</span>
+        ) : null}
+      </dd>
+    </div>
+  );
+}
+
+function CorrelationValue({
+  label,
+  value,
+}: {
+  readonly label: string;
+  readonly value: string | number | null;
+}) {
+  return (
+    <div>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-1 break-all font-mono text-sm text-foreground">{value ?? 'Not recorded'}</dd>
+    </div>
+  );
+}
+
+function FailureDetailsPanel({ failure }: { readonly failure: FailureDetails }) {
+  return (
+    <section aria-labelledby="debug-failure-heading" className="space-y-4 rounded-lg border border-border bg-card p-4">
+      <div>
+        <h2 id="debug-failure-heading" className="text-lg font-semibold text-foreground">Failure details</h2>
+        <p className="text-sm text-muted-foreground">
+          Bounded failure metadata only; stack and provider payload values stay out of this view.
+        </p>
+      </div>
+
+      <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="rounded-md border border-border bg-muted p-3">
+          <dt className="text-xs text-muted-foreground">Stage</dt>
+          <dd className="mt-1 text-sm font-semibold text-foreground">{humanize(failure.stage)}</dd>
+        </div>
+        <div className="rounded-md border border-border bg-muted p-3">
+          <dt className="text-xs text-muted-foreground">Error name</dt>
+          <dd className="mt-1 break-words font-mono text-sm text-foreground">{failure.errorName}</dd>
+        </div>
+        <div className="rounded-md border border-border bg-muted p-3 sm:col-span-2">
+          <dt className="text-xs text-muted-foreground">Sanitized message</dt>
+          <dd className="mt-1 break-words text-sm text-foreground">{failure.errorMessage}</dd>
+        </div>
+        <BoundedFailureState label="Stack" value={failure.stackExcerpt} />
+        <BoundedFailureState label="Provider payload" value={failure.providerPayload} />
+      </dl>
+
+      <div className="space-y-3 border-t border-border pt-3">
+        <h3 className="text-sm font-semibold text-foreground">Correlation IDs</h3>
+        <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <CorrelationValue label="Run ID" value={failure.correlation.runId} />
+          <CorrelationValue label="Trace ID" value={failure.correlation.traceId} />
+          <CorrelationValue label="Observation ID" value={failure.correlation.observationId} />
+          <CorrelationValue label="Parent observation ID" value={failure.correlation.parentObservationId} />
+        </dl>
+      </div>
+    </section>
+  );
+}
+
 function RawAttemptPanel({ diagnostic }: { readonly diagnostic: DebugAnalysisRunDiagnostic }) {
   return (
     <section aria-labelledby="debug-raw-heading" className="space-y-4 rounded-lg border border-border bg-card p-4">
@@ -157,6 +250,10 @@ export function DebugDiagnosticsView({
           <dd className="mt-1 text-sm text-foreground"><time dateTime={diagnostic.timestamps.expiresAt}>{formatTimestamp(diagnostic.timestamps.expiresAt)}</time></dd>
         </div>
       </dl>
+
+      {diagnostic.failure !== null && diagnostic.failure !== undefined ? (
+        <FailureDetailsPanel failure={diagnostic.failure} />
+      ) : null}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <RawAttemptPanel diagnostic={diagnostic} />

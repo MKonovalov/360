@@ -7,6 +7,7 @@ import { buildCustomModelOutputSchema as buildBoundedModelOutputSchema } from '.
 import { validateCustomOutput, type GroundedExecutionInput } from './groundedContracts';
 import type { BoundedOutputSchema } from './customAgentContracts';
 import { safeToolResults, type SafeToolItem } from './executionSafety';
+import type { FailureStage } from './failureDiagnostics';
 
 const groundedModelFindingSchema = zodV3
   .object({
@@ -108,6 +109,19 @@ export type RunAgentResult = Awaited<ReturnType<typeof runAgent>> & Readonly<{
 
 export type GroundedModelOutput = zodV3.infer<typeof groundedModelOutputSchema>;
 
+export type GroundedExecutionValidationReason = 'invalid_packet' | 'unsafe_research_content' | 'invalid_tool_policy';
+
+export class GroundedExecutionValidationError extends Error {
+  readonly name = 'GroundedExecutionValidationError';
+  readonly failureStage: Extract<FailureStage, 'validation'> = 'validation';
+  declare readonly originalError: unknown;
+
+  constructor(readonly reason: GroundedExecutionValidationReason, originalError: unknown) {
+    super(reason);
+    Object.defineProperty(this, 'originalError', { value: originalError, enumerable: false });
+  }
+}
+
 export type GroundedExecutionAttempt = Readonly<{
   run: RunAgentResult;
   output: GroundedModelOutput;
@@ -121,26 +135,53 @@ type GroundedExecutionValidationContext = Readonly<{
   groundedSearch: ReturnType<typeof createGroundedWebSearchTool>;
 }>;
 
+function validationReason(error: unknown): GroundedExecutionValidationReason {
+  const message = error instanceof Error ? error.message : '';
+  if (/unsafe_research_content/i.test(message)) return 'unsafe_research_content';
+  if (/invalid_tool_policy/i.test(message)) return 'invalid_tool_policy';
+  return 'invalid_packet';
+}
+
+function classifyValidationError(error: unknown): GroundedExecutionValidationError {
+  if (error instanceof GroundedExecutionValidationError) return error;
+  return new GroundedExecutionValidationError(validationReason(error), error);
+}
+
+function rejectValidation(reason: GroundedExecutionValidationReason): never {
+  throw new GroundedExecutionValidationError(reason, new Error(reason));
+}
+
 export function validateGroundedExecutionAttempt(
   run: RunAgentResult,
   context: GroundedExecutionValidationContext,
 ): GroundedExecutionAttempt {
   const submittedGroundedReport = run.submittedGroundedReport;
-  if (submittedGroundedReport === undefined) throw new Error('invalid_grounded_submission');
+  if (submittedGroundedReport === undefined) {
+    throw new GroundedExecutionValidationError('invalid_packet', new Error('invalid_grounded_submission'));
+  }
 
   let output: GroundedModelOutput;
   let customOutput: Readonly<Record<string, unknown>> | undefined;
-  if (context.customSchema === null) {
-    output = groundedModelOutputSchema.parse(submittedGroundedReport);
-  } else {
-    const parsedOutput = buildCustomModelOutputSchema(context.customSchema).parse(submittedGroundedReport);
-    output = { narrative: parsedOutput.narrative, findings: parsedOutput.findings };
-    customOutput = validateCustomOutput(parsedOutput.custom, context.customSchema);
+  try {
+    if (context.customSchema === null) {
+      output = groundedModelOutputSchema.parse(submittedGroundedReport);
+    } else {
+      const parsedOutput = buildCustomModelOutputSchema(context.customSchema).parse(submittedGroundedReport);
+      output = { narrative: parsedOutput.narrative, findings: parsedOutput.findings };
+      customOutput = validateCustomOutput(parsedOutput.custom, context.customSchema);
+    }
+  } catch (error) {
+    throw classifyValidationError(error);
   }
 
-  const toolResults = safeToolResults(run.steps, context.limits);
+  let toolResults: readonly SafeToolItem[];
+  try {
+    toolResults = safeToolResults(run.steps, context.limits);
+  } catch (error) {
+    throw classifyValidationError(error);
+  }
   if (context.groundedSearch.hasPolicyViolation || !context.groundedSearch.isComplete()) {
-    throw new Error('invalid_tool_policy');
+    rejectValidation('invalid_tool_policy');
   }
 
   return { run, output, ...(customOutput === undefined ? {} : { customOutput }), toolResults };

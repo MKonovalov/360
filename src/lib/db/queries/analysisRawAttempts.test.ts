@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../index', () => ({ db: mocks.db }));
 
 import { redactFailedRawAttempt } from '@/lib/analysis/rawAttempt';
+import type { DebugFailureRecord, FailureStage } from '@/lib/analysis/failureDiagnostics';
 import {
   AnalysisRawAttemptCaptureUnavailableError,
   AnalysisRawAttemptPayloadConflictError,
@@ -54,6 +55,21 @@ const input: CaptureFailedRawAttemptInput = {
   expiresAt: new Date('2026-08-22T12:00:00.000Z'),
 };
 
+const failureRecord = (failureStage: FailureStage): DebugFailureRecord => ({
+  schemaVersion: 1,
+  failureStage,
+  errorName: 'Error',
+  errorMessage: `failure at ${failureStage}`,
+  stackExcerpt: null,
+  providerPayload: null,
+  correlation: {
+    runId: 7,
+    traceId: 'trace-test',
+    observationId: 'observation-test',
+    parentObservationId: 'parent-test',
+  },
+});
+
 const capturedRow = {
   rawAttemptId: 41,
   payloadHash,
@@ -95,6 +111,56 @@ describe('atomic failed raw-attempt capture', () => {
     expect(sqlText).toContain('FOR UPDATE');
     expect(sqlText).toContain('expires_at');
     expect(sqlText).not.toContain('SELECT artifact');
+  });
+
+  it.each(['provider', 'agent_step', 'validation', 'normalization', 'persistence', 'workflow', 'unknown'] as const)('persists the normalized %s failure record through the authoritative writer', async (failureStage) => {
+    // Given
+    const failure = failureRecord(failureStage);
+    const sanitizedWithoutFailure = redactFailedRawAttempt({
+      outcome: 'failed',
+      targetType: 'company',
+      attempt: 1,
+      failureStage,
+      failureReason: 'execution_failed',
+      modelProvider: 'anthropic',
+      modelId: 'claude-test',
+      findings: [],
+      citations: [],
+      toolResults: [],
+    });
+    if (!sanitizedWithoutFailure.ok) throw new TypeError('failure fixture must sanitize');
+    const basePayloadHash = createHash('sha256').update(JSON.stringify(sanitizedWithoutFailure.artifact)).digest('hex');
+    const failurePayloadHash = createHash('sha256').update(JSON.stringify({ ...sanitizedWithoutFailure.artifact, failure })).digest('hex');
+    mocks.db.execute.mockImplementationOnce((query: unknown) => Promise.resolve({
+      rows: [{
+        ...capturedRow,
+        payloadHash: flattenSql(query).includes(`"errorMessage":"failure at ${failureStage}"`)
+          ? failurePayloadHash
+          : basePayloadHash,
+      }],
+    }));
+
+    // When
+    await captureAndFailAnalysisRawAttempt({ ...input, artifact: sanitizedWithoutFailure.artifact, failure });
+
+    // Then
+    const sqlText = flattenSql(mocks.db.execute.mock.calls[0]?.[0]);
+    expect(sqlText).toContain(`"failureStage":"${failureStage}"`);
+    expect(sqlText).toContain(`"errorMessage":"failure at ${failureStage}"`);
+    expect(sqlText).toContain('"traceId":"trace-test"');
+  });
+
+  it('does not persist a diagnostic failure record when the immutable capture gate is disabled', async () => {
+    // Given
+    mocks.db.execute.mockResolvedValueOnce({ rows: [capturedRow] });
+
+    // When
+    await captureAndFailAnalysisRawAttempt({ ...input, failure: null });
+
+    // Then
+    const sqlText = flattenSql(mocks.db.execute.mock.calls[0]?.[0]);
+    expect(sqlText).toContain('"failure":null');
+    expect(sqlText).not.toContain('trace-test');
   });
 
   it('filters expired replay metadata during reconciliation', async () => {

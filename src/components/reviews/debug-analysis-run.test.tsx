@@ -18,6 +18,7 @@ const diagnostic: DebugAnalysisRunDiagnostic = {
   status: 'failed',
   safeReason: 'execution_failed',
   reason: 'missing_support',
+  failure: null,
   timestamps: {
     capturedAt: '2026-08-15T12:00:00.000Z',
     expiresAt: '2026-08-22T12:00:00.000Z',
@@ -125,6 +126,12 @@ describe('DebugAnalysisRun', () => {
     expect(html).not.toContain('reasoningSummary');
     expect(html).not.toContain('modelId');
     expect(html).not.toContain('rawAudit');
+  });
+
+  it('does not fabricate failure details when the projection has no failure record', () => {
+    const html = renderToStaticMarkup(<DebugAnalysisRun applicationRunId={39} initialDiagnostic={diagnostic} />);
+
+    expect(html).not.toContain('Failure details');
   });
 
   it('renders an explicit unavailable state without raw payload placeholders', () => {

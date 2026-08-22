@@ -9,6 +9,11 @@ import { z } from 'zod';
 import type { ReadableSpan } from '@opentelemetry/sdk-trace';
 import { SERVABLE_PROVIDERS } from '@/lib/models/catalog';
 import { modelRefSchema } from '@/lib/analysis/contracts';
+import {
+  formatDebugFailureStatusMessage,
+  type DebugFailureRecord,
+  type DebugFailureSpan,
+} from '@/lib/analysis/failureDiagnostics';
 import { env } from '../env';
 import {
   buildSafeObservationInput,
@@ -55,6 +60,11 @@ const phase33MetadataSchema = z
 
 export type Phase33TelemetryMetadata = z.infer<typeof phase33MetadataSchema>;
 
+export type DebugFailureMetadata = Readonly<{
+  readonly schemaVersion: 1;
+  readonly debugFailure: Readonly<{ readonly enabled: true } & DebugFailureRecord>;
+}>;
+
 class PrivacySafeLangfuseSpanProcessor extends LangfuseSpanProcessor {
   override onEnd(span: ReadableSpan): void {
     const isAiSpan = span.instrumentationScope.name === 'ai'
@@ -67,6 +77,43 @@ class PrivacySafeLangfuseSpanProcessor extends LangfuseSpanProcessor {
 export function buildPhase33TelemetryMetadata(input: unknown): Phase33TelemetryMetadata {
   return phase33MetadataSchema.parse(input);
 }
+
+export function buildDebugFailureMetadata(record: DebugFailureRecord): DebugFailureMetadata {
+  const debugFailure: DebugFailureMetadata['debugFailure'] = Object.freeze({
+    enabled: true,
+    ...record,
+  });
+  return {
+    schemaVersion: 1,
+    debugFailure,
+  };
+}
+
+function ignoreLangfuseError(error: unknown): void {
+  if (error instanceof Error) return;
+  return;
+}
+
+export function annotateDebugFailure(span: DebugFailureSpan, record: DebugFailureRecord): void {
+  try {
+    span.update({
+      metadata: buildDebugFailureMetadata(record),
+      level: 'ERROR',
+      statusMessage: formatDebugFailureStatusMessage(record),
+    });
+  } catch (error: unknown) {
+    ignoreLangfuseError(error);
+  }
+}
+
+export type DebugFailureCorrelation = Readonly<{
+  readonly traceId: string | null;
+}>;
+
+type DebugFailureFactory = (
+  error: unknown,
+  correlation: DebugFailureCorrelation,
+) => DebugFailureRecord | undefined;
 
 // Lazy client accessor shared by initLangfuse, getTraceUrl and the reject
 // mirror. Server Action invocations (rejectProposalAction) reach this module on
@@ -125,6 +172,8 @@ export async function runWithPhase33Trace<T>(
     readonly metadata?: unknown;
     readonly output?: (result: T) => unknown;
     readonly sessionId?: string;
+    readonly debugFailure?: DebugFailureRecord;
+    readonly debugFailureFactory?: DebugFailureFactory;
   },
 ): Promise<{ readonly result: T; readonly traceId: string | null }> {
   // D-16 — test runs execute the callback directly and never register or call
@@ -150,10 +199,22 @@ export async function runWithPhase33Trace<T>(
           span.update({
             output: buildSafeObservationOutput(options?.output?.(result)),
           });
-          callbackResult = { result, traceId: span.traceId };
-          return callbackResult;
+          const completed = { result, traceId: span.traceId };
+          callbackResult = completed;
+          return completed;
         } catch (error: unknown) {
-          span.update({ output: { schemaVersion: 1, status: 'failed' } });
+          try {
+            const debugFailure = options?.debugFailureFactory?.(error, { traceId: span.traceId ?? null })
+              ?? options?.debugFailure;
+            if (debugFailure !== undefined) annotateDebugFailure(span, debugFailure);
+          } catch (telemetryError: unknown) {
+            ignoreLangfuseError(telemetryError);
+          }
+          try {
+            span.update({ output: { schemaVersion: 1, status: 'failed' } });
+          } catch (telemetryError: unknown) {
+            ignoreLangfuseError(telemetryError);
+          }
           throw error;
         }
       },
