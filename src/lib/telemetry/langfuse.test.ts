@@ -300,6 +300,42 @@ describe('Phase 33 Langfuse metadata', () => {
     vi.unstubAllEnvs();
   });
 
+  it('annotates a factory-produced Debug failure before rethrowing the original error', async () => {
+    const update = vi.fn();
+    const span = { traceId: 'trace-42', update };
+    const originalFailure = new Error('provider unavailable');
+    const record = normalizeDebugFailure(originalFailure, 'provider', { runId: 42, traceId: 'trace-42' });
+    const debugFailureFactory = vi.fn(() => record);
+    mocks.startActiveObservation.mockImplementationOnce(async (_name: string, callback: (observation: typeof span) => Promise<unknown>) => callback(span));
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.doMock('../env', () => ({ env: {
+      DATABASE_URL: 'postgresql://test:test@localhost:5432/test',
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_placeholder',
+      CLERK_SECRET_KEY: 'sk_test_placeholder',
+      LANGFUSE_PUBLIC_KEY: 'pk-lf-test',
+      LANGFUSE_SECRET_KEY: 'sk-lf-test',
+    } }));
+    vi.resetModules();
+
+    const configuredModule = await import('./langfuse');
+    await expect(configuredModule.runWithPhase33Trace('analyze-company', async () => {
+      throw originalFailure;
+    }, { debugFailureFactory })).rejects.toBe(originalFailure);
+
+    expect(debugFailureFactory).toHaveBeenCalledWith(originalFailure, { traceId: 'trace-42' });
+    expect(update).toHaveBeenCalledWith({
+      metadata: {
+        schemaVersion: 1,
+        debugFailure: { enabled: true, ...record },
+      },
+      level: 'ERROR',
+      statusMessage: 'Analysis failed during provider: provider unavailable',
+    });
+
+    vi.doUnmock('../env');
+    vi.unstubAllEnvs();
+  });
+
   it('leaves the failure span unchanged when the immutable Debug gate is disabled', async () => {
     const update = vi.fn();
     const span = { traceId: 'trace-disabled', update };

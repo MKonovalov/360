@@ -106,6 +106,15 @@ export function annotateDebugFailure(span: DebugFailureSpan, record: DebugFailur
   }
 }
 
+export type DebugFailureCorrelation = Readonly<{
+  readonly traceId: string | null;
+}>;
+
+type DebugFailureFactory = (
+  error: unknown,
+  correlation: DebugFailureCorrelation,
+) => DebugFailureRecord | undefined;
+
 // Lazy client accessor shared by initLangfuse, getTraceUrl and the reject
 // mirror. Server Action invocations (rejectProposalAction) reach this module on
 // cold starts without it, so the mirror must self-bootstrap the client or silently drop
@@ -164,6 +173,7 @@ export async function runWithPhase33Trace<T>(
     readonly output?: (result: T) => unknown;
     readonly sessionId?: string;
     readonly debugFailure?: DebugFailureRecord;
+    readonly debugFailureFactory?: DebugFailureFactory;
   },
 ): Promise<{ readonly result: T; readonly traceId: string | null }> {
   // D-16 — test runs execute the callback directly and never register or call
@@ -193,7 +203,13 @@ export async function runWithPhase33Trace<T>(
           callbackResult = completed;
           return completed;
         } catch (error: unknown) {
-          if (options?.debugFailure !== undefined) annotateDebugFailure(span, options.debugFailure);
+          try {
+            const debugFailure = options?.debugFailureFactory?.(error, { traceId: span.traceId ?? null })
+              ?? options?.debugFailure;
+            if (debugFailure !== undefined) annotateDebugFailure(span, debugFailure);
+          } catch (telemetryError: unknown) {
+            ignoreLangfuseError(telemetryError);
+          }
           try {
             span.update({ output: { schemaVersion: 1, status: 'failed' } });
           } catch (telemetryError: unknown) {
