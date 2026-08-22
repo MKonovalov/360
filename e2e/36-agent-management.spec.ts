@@ -3,7 +3,7 @@ import { neon } from '@neondatabase/serverless';
 import { expect, test, type Page } from '@playwright/test';
 
 type SubjectType = 'company' | 'persona';
-type FixtureSubject = Readonly<{ type: SubjectType; id: number; path: string; heading: string; template: string }>;
+type FixtureSubject = Readonly<{ type: SubjectType; id: number; href: string; heading: string; template: string }>;
 type LiveSignalCounts = Readonly<{ companySignals: number; personaSignals: number; links: number }>;
 
 const forbiddenRequest = /firecrawl|(?:exa|perplexity|tavily|serpapi|brave-search)|\/api\/companies\/\d+\/analyze|\/api\/agent-runs|\/api\/signal-proposals/i;
@@ -24,9 +24,11 @@ function requirePrerequisites(): void {
 }
 
 function subjects(): Readonly<Record<SubjectType, FixtureSubject>> {
+  const companyId = fixtureId('PHASE36_COMPANY_ID');
+  const personaId = fixtureId('PHASE36_PERSONA_ID');
   return {
-    company: { type: 'company', id: fixtureId('PHASE36_COMPANY_ID'), path: '/companies', heading: 'Company analysis', template: 'Company Buying Signal Analysis' },
-    persona: { type: 'persona', id: fixtureId('PHASE36_PERSONA_ID'), path: '/personas', heading: 'Persona analysis', template: 'Persona Buying Signal Analysis' },
+    company: { type: 'company', id: companyId, href: `/companies/${companyId}`, heading: 'Company analysis', template: 'Company Buying Signal Analysis' },
+    persona: { type: 'persona', id: personaId, href: `/personas?selected=${personaId}`, heading: 'Persona analysis', template: 'Persona Buying Signal Analysis' },
   };
 }
 
@@ -39,9 +41,9 @@ function installRequestGuard(page: Page): () => void {
 }
 
 async function openLauncher(page: Page, subject: FixtureSubject): Promise<void> {
-  await page.goto(`${subject.path}?selected=${subject.id}`);
-  const selectedDetail = page.locator('tr[aria-expanded="true"] + tr');
-  await selectedDetail.getByRole('button', { name: 'Menu', exact: true }).click();
+  await page.goto(subject.href);
+  const selectedDetail = subject.type === 'company' ? page : page.locator('tr[aria-expanded="true"] + tr');
+  await selectedDetail.getByRole('button', { name: 'Agent menu', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Analyze', exact: true }).click();
   await expect(page.getByRole('heading', { name: subject.heading, exact: true })).toBeVisible();
   const launcher = page.getByRole('dialog', { name: subject.heading, exact: true });
@@ -154,7 +156,7 @@ test.describe('Phase 36: authenticated agent management and target flows', () =>
       const runId = Number(runIdMatch?.[1]);
 
       await page.goto('/');
-      await page.goto(`${subject.path}?selected=${subject.id}`);
+      await page.goto(subject.href);
       let terminalStatus = 'unknown';
       await expect.poll(async () => {
         const response = await page.request.get(`/api/analysis-runs/${runId}`);
@@ -173,7 +175,7 @@ test.describe('Phase 36: authenticated agent management and target flows', () =>
       await reviewCard.getByRole('button', { name: /^Confirm run \d+$/ }).click();
       await expect(reviewCard).toContainText(/Confirmed by/);
 
-      await page.goto(`${subject.path}?selected=${subject.id}`);
+      await page.goto(subject.href);
       await expect(page.getByRole('heading', { name: 'Confirmed Candidate Offerings', exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: /^(Confirm|Dismiss)$/ })).toHaveCount(0);
       await databaseEvidence(subject, liveSignalBaseline);

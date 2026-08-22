@@ -41,7 +41,7 @@ export async function RecentSignals() {
         {rows.map(({ signal, companyName }) => (
           <div key={signal.id} className="flex items-center justify-between gap-2 text-sm">
             <Link
-              href={`/companies?selected=${signal.companyId}`}
+              href={`/companies/${signal.companyId}`}
               className="text-indigo-600 hover:underline"
             >
               {companyName}

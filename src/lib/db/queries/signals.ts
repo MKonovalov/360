@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { db } from '../index';
 import { signal, signalTypeEnum, signalStrengthEnum } from '../schema';
 
@@ -28,4 +28,17 @@ export async function insertSignal(row: InsertSignalInput) {
 
 export async function listSignalsForCompany(companyId: number) {
   return db.select().from(signal).where(eq(signal.companyId, companyId));
+}
+
+export async function listSignalSummariesForCompanies(companyIds: readonly number[]) {
+  if (companyIds.length === 0) return [];
+
+  return db
+    .select({
+      companyId: signal.companyId,
+      signalType: signal.signalType,
+    })
+    .from(signal)
+    .where(inArray(signal.companyId, companyIds))
+    .groupBy(signal.companyId, signal.signalType);
 }

@@ -172,7 +172,7 @@ export function EnrichMenu({
     <>
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" aria-label="Menu">
+          <Button variant="ghost" size="icon" aria-label="Agent menu">
             <EllipsisVerticalIcon />
           </Button>
         </DropdownMenuTrigger>
