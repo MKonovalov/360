@@ -180,8 +180,9 @@ async function executeGroundedAnalysis(
         ok: false,
         safeReason: mapSafeReason(execution.failureReason),
         failureReason: execution.failureReason,
-        failureStage: 'execution',
+        failureStage: execution.failure?.failureStage ?? 'execution',
         context: execution.context ?? metadataContext,
+        ...(execution.failure === undefined ? {} : { failure: execution.failure }),
       };
     }
     return { ok: true, execution };
