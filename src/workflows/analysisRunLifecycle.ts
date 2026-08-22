@@ -236,6 +236,7 @@ async function captureFailureWithRetry(input: {
   const context = input.failure.context;
   if (context === undefined) throw new FatalError('debug failure context unavailable');
   const rawAttempt = context.rawAttempt;
+  const failure = input.failureDetails.debugFailure;
   const sanitized = redactFailedRawAttempt({
     outcome: 'failed',
     targetType: context.targetType,
@@ -247,23 +248,25 @@ async function captureFailureWithRetry(input: {
     findings: rawAttempt?.findings ?? [],
     citations: rawAttempt?.citations ?? [],
     toolResults: rawAttempt?.toolResults ?? [],
-    failure: input.failureDetails.debugFailure,
+    failure,
   });
   if (!sanitized.ok) throw new FatalError(`failed raw attempt redaction: ${sanitized.reason}`);
 
   const occurredAt = new Date();
-  const captureInput = {
+  const captureInput = Object.freeze({
     runId: input.applicationRunId,
     artifact: sanitized.artifact,
     safeReason: input.failureDetails.safeReason,
     actorId: WORKFLOW_ACTOR_ID,
     occurredAt,
     expiresAt: new Date(occurredAt.getTime() + RAW_ATTEMPT_RETENTION_MS),
-    failure: input.failureDetails.debugFailure,
+    // Both destinations receive this same normalized record; neither boundary
+    // re-normalizes or reconstructs privacy-sensitive failure fields.
+    failure,
     ...(!('expectedPacketHash' in input.failure) || input.failure.expectedPacketHash === undefined
       ? {}
       : { expectedPacketHash: input.failure.expectedPacketHash }),
-  };
+  });
   const first = await captureAndFailAnalysisRawAttempt(captureInput);
   if (first.ok || first.outcome !== 'database_unavailable') return first;
   return captureAndFailAnalysisRawAttempt(captureInput);

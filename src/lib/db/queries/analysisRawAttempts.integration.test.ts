@@ -295,12 +295,15 @@ describeWithDatabase('analysis raw-attempt schema', () => {
     // When
     const first = await rawAttemptQueries.captureAndFailAnalysisRawAttempt(firstInput);
     const second = await rawAttemptQueries.captureAndFailAnalysisRawAttempt(firstInput);
+    const [run] = await dbModule.db.select().from(schema.analysisRun)
+      .where(eq(schema.analysisRun.id, runId));
     const attempts = await dbModule.db.select().from(schema.analysisRawAttempt)
       .where(eq(schema.analysisRawAttempt.analysisRunId, runId));
 
     // Then
     expect(first).toMatchObject({ ok: true, outcome: 'captured' });
     expect(second).toMatchObject({ ok: true, outcome: 'replayed' });
+    expect(run).toMatchObject({ status: 'failed', safeReason: 'execution_failed' });
     expect(attempts).toHaveLength(1);
     expect(attempts[0]?.artifact).toMatchObject({ failure: firstInput.failure });
   });

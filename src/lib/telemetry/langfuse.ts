@@ -79,9 +79,13 @@ export function buildPhase33TelemetryMetadata(input: unknown): Phase33TelemetryM
 }
 
 export function buildDebugFailureMetadata(record: DebugFailureRecord): DebugFailureMetadata {
+  const debugFailure: DebugFailureMetadata['debugFailure'] = Object.freeze({
+    enabled: true,
+    ...record,
+  });
   return {
     schemaVersion: 1,
-    debugFailure: { enabled: true, ...record },
+    debugFailure,
   };
 }
 

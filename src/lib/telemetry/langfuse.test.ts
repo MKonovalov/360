@@ -131,10 +131,13 @@ describe('Phase 33 Langfuse metadata', () => {
   it('builds the exact bounded Debug failure metadata envelope', () => {
     const record = makeDebugFailureRecord();
 
-    expect(buildDebugFailureMetadata(record)).toEqual({
+    const metadata = buildDebugFailureMetadata(record);
+
+    expect(metadata).toEqual({
       schemaVersion: 1,
       debugFailure: { enabled: true, ...record },
     });
+    expect(Object.isFrozen(metadata.debugFailure)).toBe(true);
   });
 
   it('annotates the active parent span with ERROR and a bounded status message', () => {
