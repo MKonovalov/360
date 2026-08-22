@@ -44,3 +44,8 @@
 - The seven-stage consistency contract feeds one immutable normalized record to raw-artifact sanitization and the Langfuse metadata adapter, comparing only approved failure fields and all correlation IDs.
 - Langfuse failure metadata is frozen at the adapter boundary; annotation and flush failures remain best effort, while the raw-attempt integration seam continues to assert the failed database terminal state and replay identity.
 - Focused Vitest coverage passes with deterministic Langfuse mocks; the database integration suite is disposable-`TEST_DATABASE_URL` gated and skips cleanly when unset.
+
+# Task 10 findings
+
+- Signed and presigned URLs bypassed raw-attempt URL redaction when their query or fragment key was `sig`, `signature`, or `X-Amz-Signature`, including percent-encoded keys.
+- Treating those signature markers as sensitive URL keys preserves the existing metadata-only `unsafe_url` behavior without retaining signed URL values.
