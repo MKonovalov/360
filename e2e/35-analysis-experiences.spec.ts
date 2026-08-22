@@ -9,7 +9,7 @@ type SubjectType = (typeof SUBJECT_TYPES)[number];
 type FixtureSubject = {
   readonly type: SubjectType;
   readonly id: number;
-  readonly recordPath: string;
+  readonly recordHref: string;
   readonly heading: string;
   readonly templateName: string;
 };
@@ -36,14 +36,14 @@ function fixtureSubjects(): Readonly<Record<SubjectType, FixtureSubject>> {
     company: {
       type: 'company',
       id: companyId,
-      recordPath: '/companies',
+      recordHref: `/companies/${companyId}`,
       heading: 'Company analysis',
       templateName: 'Company Buying Signal Analysis',
     },
     persona: {
       type: 'persona',
       id: personaId,
-      recordPath: '/personas',
+      recordHref: `/personas?selected=${personaId}`,
       heading: 'Persona analysis',
       templateName: 'Persona Buying Signal Analysis',
     },
@@ -192,8 +192,9 @@ async function installFixtureOnlyRoutes(page: Page): Promise<FixtureGuard> {
 }
 
 async function openAnalysisLauncher(page: Page, subject: FixtureSubject): Promise<void> {
-  await page.goto(`${subject.recordPath}?selected=${subject.id}`);
-  await page.getByRole('button', { name: 'Menu' }).click();
+  await page.goto(subject.recordHref);
+  const selectedDetail = subject.type === 'persona' ? page.locator('tr[aria-expanded="true"] + tr') : page;
+  await selectedDetail.getByRole('button', { name: 'Agent menu', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Analyze', exact: true }).click();
   await expect(page.getByRole('heading', { name: subject.heading, exact: true })).toBeVisible();
   const categoryPicker = page.getByRole('combobox', { name: 'Buying Signal Category' });
@@ -271,7 +272,7 @@ test.describe('Phase 35: Company and Persona analysis experiences (UX-01/UX-02)'
     const subject = fixtureSubjects().company;
     const guard = await installFixtureOnlyRoutes(page);
 
-    await page.goto(`${subject.recordPath}?selected=${subject.id}`);
+    await page.goto(subject.recordHref);
     await expect(page.getByRole('heading', { name: 'Analysis', exact: true })).toBeVisible();
     await assertAllFixtureStatuses(page);
     await expect(page.getByRole('heading', { name: 'Confirmed Candidate Offerings', exact: true })).toBeVisible();
@@ -285,7 +286,7 @@ test.describe('Phase 35: Company and Persona analysis experiences (UX-01/UX-02)'
     const subject = fixtureSubjects().persona;
     const guard = await installFixtureOnlyRoutes(page);
 
-    await page.goto(`${subject.recordPath}?selected=${subject.id}`);
+    await page.goto(subject.recordHref);
     await page.reload();
     await expect(page.getByRole('heading', { name: 'Analysis', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Confirmed Candidate Offerings', exact: true })).toBeVisible();

@@ -98,7 +98,7 @@ export function ReviewQueue({ proposals }: { proposals: PendingProposal[] }) {
             {/* (a) header row — company link + run date */}
             <div className="flex items-center justify-between gap-2">
               <Link
-                href={`/companies?selected=${proposal.companyId}`}
+                href={`/companies/${proposal.companyId}`}
                 className="text-[14px] font-normal leading-[1.5] text-indigo-600"
               >
                 {proposal.companyName}
