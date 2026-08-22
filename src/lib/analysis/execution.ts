@@ -77,6 +77,12 @@ export type GroundedExecutionFailureContext = Readonly<{
   readonly failureStage: FailureStage;
 }>;
 
+type ClassifiedExecutionFailure = Readonly<{
+  readonly originalError: unknown;
+  readonly failureStage: FailureStage;
+  readonly observation: AgentFailureObservation | undefined;
+}>;
+
 const groundedExecutionFailureContexts = new WeakMap<GroundedExecutionFailure, GroundedExecutionFailureContext>();
 
 export function getGroundedExecutionFailureContext(
@@ -121,6 +127,19 @@ function classifyLocalFailure(error: unknown): GroundedExecutionFailureContext |
   return undefined;
 }
 
+function classifyExecutionFailure(
+  error: unknown,
+  agentFailure: AgentFailureObservation | undefined,
+): ClassifiedExecutionFailure {
+  const localFailure = classifyLocalFailure(error);
+  const observation = agentFailure?.error === error ? agentFailure : undefined;
+  return {
+    originalError: localFailure?.error ?? error,
+    failureStage: localFailure?.failureStage ?? observation?.failureStage ?? classifyAgentFailureStage(error),
+    observation,
+  };
+}
+
 export class GroundedExecutionAdapter {
   private readonly dependencies: GroundedExecutionDependencies;
 
@@ -132,6 +151,8 @@ export class GroundedExecutionAdapter {
     const startedAt = Date.now();
     let executionContext: GroundedExecutionContext | undefined;
     let agentFailure: AgentFailureObservation | undefined;
+    let traceFailureNormalizationAttempted = false;
+    let traceDebugFailure: DebugFailureRecord | undefined;
     try {
       const parsed = executionInputSchema.parse(input);
       const metadataContext: GroundedExecutionContext = Object.freeze({ runId: parsed.runId, debugCaptureEnabled: parsed.debugCaptureEnabled, targetType: parsed.targetType, attempt: 1, modelId: null, modelProvider: null, usedFallback: null, traceId: null, observationId: null, parentObservationId: null });
@@ -225,6 +246,24 @@ export class GroundedExecutionAdapter {
               : {}),
           }),
           sessionId: `run-${parsed.runId}`,
+          ...(parsed.debugCaptureEnabled ? {
+            debugFailureFactory: (error: unknown, correlation: { readonly traceId: string | null }) => {
+              const classified = classifyExecutionFailure(error, agentFailure);
+              if (executionContext !== undefined) {
+                executionContext = Object.freeze({ ...executionContext, traceId: correlation.traceId });
+              }
+              traceFailureNormalizationAttempted = true;
+              traceDebugFailure = executionContext?.runId === undefined
+                ? undefined
+                : normalizeFailure({
+                  error: classified.originalError,
+                  failureStage: classified.failureStage,
+                  context: executionContext,
+                  observation: classified.observation,
+                });
+              return traceDebugFailure;
+            },
+          } : {}),
         },
       );
       if (executionContext !== undefined) executionContext = Object.freeze({ ...executionContext, traceId });
@@ -251,13 +290,18 @@ export class GroundedExecutionAdapter {
       };
     } catch (error) {
       const context = executionContext;
-      const localFailure = classifyLocalFailure(error);
-      const observedFailure = agentFailure?.error === error ? agentFailure : undefined;
-      const failureStage: FailureStage = localFailure?.failureStage ?? observedFailure?.failureStage ?? classifyAgentFailureStage(error);
-      const originalError = localFailure?.error ?? error;
-      const failure = context?.debugCaptureEnabled === true && context.runId !== undefined
-        ? normalizeFailure({ error: originalError, failureStage, context, observation: observedFailure })
-        : undefined;
+      const classified = classifyExecutionFailure(error, agentFailure);
+      const failureStage = classified.failureStage;
+      const failure = traceFailureNormalizationAttempted
+        ? traceDebugFailure
+        : context?.debugCaptureEnabled === true && context.runId !== undefined
+          ? normalizeFailure({
+            error: classified.originalError,
+            failureStage,
+            context,
+            observation: classified.observation,
+          })
+          : undefined;
       const result: GroundedExecutionFailure = {
         ok: false,
         failureReason: mapFailure(error),
@@ -265,7 +309,7 @@ export class GroundedExecutionAdapter {
         ...(failure === undefined ? {} : { failure }),
         ...(context === undefined ? {} : { context }),
       };
-      groundedExecutionFailureContexts.set(result, { error: originalError, failureStage });
+      groundedExecutionFailureContexts.set(result, { error: classified.originalError, failureStage });
       return result;
     }
   }

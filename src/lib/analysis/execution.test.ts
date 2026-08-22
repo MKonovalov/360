@@ -365,6 +365,83 @@ describe('GroundedExecutionAdapter', () => {
     expect(JSON.stringify(options)).not.toContain('narrative');
   });
 
+  it('hands the normalized provider failure to the parent trace and preserves it in the result', async () => {
+    const providerError = new Error('provider unavailable');
+    const debugFailure = {
+      schemaVersion: 1 as const,
+      failureStage: 'provider' as const,
+      errorName: 'Error',
+      errorMessage: 'provider unavailable',
+      stackExcerpt: null,
+      providerPayload: {
+        value: '{"status":503}',
+        sha256: 'a'.repeat(64),
+        originalLength: 14,
+        redaction: 'none' as const,
+        truncated: false,
+      },
+      correlation: {
+        runId: 42,
+        traceId: 'trace-42',
+        observationId: null,
+        parentObservationId: null,
+      },
+    };
+    mocks.normalizeDebugFailure.mockReturnValueOnce(debugFailure);
+    mocks.runAgent.mockImplementationOnce(async (input: {
+      readonly onFailure?: (failure: {
+        readonly error: unknown;
+        readonly failureStage: 'provider' | 'agent_step';
+        readonly providerPayload?: Readonly<Record<string, unknown>>;
+      }) => void;
+    }) => {
+      input.onFailure?.({ error: providerError, failureStage: 'provider', providerPayload: { statusCode: 503 } });
+      throw providerError;
+    });
+    mocks.runWithPhase33Trace.mockImplementationOnce(async (
+      _name: string,
+      fn: () => Promise<unknown>,
+      options: {
+        readonly debugFailureFactory?: (
+          error: unknown,
+          correlation: { readonly traceId: string | null },
+        ) => unknown;
+      },
+    ) => {
+      try {
+        return { result: await fn(), traceId: 'trace-42' };
+      } catch (error: unknown) {
+        expect(options.debugFailureFactory?.(error, { traceId: 'trace-42' })).toBe(debugFailure);
+        throw error;
+      }
+    });
+    const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });
+
+    const result = await adapter.execute({
+      runId: 42,
+      targetType: 'company',
+      subjectId: 7,
+      subjectDisplayName: 'Acme Corp',
+      checklist,
+      modelChain: ['model.primary'],
+      policy: approvedPolicy,
+      debugCaptureEnabled: true,
+    });
+
+    expect(result).toEqual(expect.objectContaining({
+      ok: false,
+      failureReason: 'model_failure',
+      failure: debugFailure,
+      context: expect.objectContaining({ traceId: 'trace-42' }),
+    }));
+    expect(mocks.normalizeDebugFailure).toHaveBeenCalledTimes(1);
+    expect(mocks.normalizeDebugFailure).toHaveBeenCalledWith(
+      providerError,
+      'provider',
+      expect.objectContaining({ runId: 42, traceId: 'trace-42', providerPayload: { statusCode: 503 } }),
+    );
+  });
+
   it('omits grounded report content from the trace output by default', async () => {
     const adapter = new GroundedExecutionAdapter({ runAgent: mocks.runAgent, instantiateChain: mocks.instantiateChain });
 
@@ -441,6 +518,38 @@ describe('GroundedExecutionAdapter', () => {
 
   it('fails before trace output capture when the grounded report is malformed', async () => {
     mocks.env.LANGFUSE_CAPTURE_GROUNDED_REPORT = 'true';
+    const debugFailure = {
+      schemaVersion: 1 as const,
+      failureStage: 'validation' as const,
+      errorName: 'GroundedExecutionValidationError',
+      errorMessage: 'invalid packet',
+      stackExcerpt: null,
+      providerPayload: null,
+      correlation: {
+        runId: 42,
+        traceId: 'trace-validation',
+        observationId: null,
+        parentObservationId: null,
+      },
+    };
+    mocks.normalizeDebugFailure.mockReturnValueOnce(debugFailure);
+    mocks.runWithPhase33Trace.mockImplementationOnce(async (
+      _name: string,
+      fn: () => Promise<unknown>,
+      options: {
+        readonly debugFailureFactory?: (
+          error: unknown,
+          correlation: { readonly traceId: string | null },
+        ) => unknown;
+      },
+    ) => {
+      try {
+        return { result: await fn(), traceId: 'trace-validation' };
+      } catch (error: unknown) {
+        expect(options.debugFailureFactory?.(error, { traceId: 'trace-validation' })).toBe(debugFailure);
+        throw error;
+      }
+    });
     mocks.runAgent.mockResolvedValueOnce({
       ...validRun,
       submittedGroundedReport: { narrative: 'invalid', findings: [{ signalId: 'bad' }] },
@@ -457,7 +566,12 @@ describe('GroundedExecutionAdapter', () => {
       policy: approvedPolicy,
       debugCaptureEnabled: true,
     });
-    expect(result).toMatchObject({ ok: false, failureReason: 'invalid_packet', failure: { failureStage: 'validation' } });
+    expect(result).toMatchObject({
+      ok: false,
+      failureReason: 'invalid_packet',
+      failure: debugFailure,
+      context: { traceId: 'trace-validation' },
+    });
   });
 
   it('classifies a Zod v4 local usage rejection as validation rather than provider', async () => {
