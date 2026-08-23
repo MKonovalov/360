@@ -48,6 +48,27 @@ describe('evidence normalization', () => {
     }
   });
 
+  it.each([
+    ['IPv6 multicast', 'https://[ff02::1]/x'],
+    ['IPv6 unique local', 'https://[fc00::1]/x'],
+    ['NAT64 translation', 'https://[64:ff9b:1::1]/x'],
+    ['IPv4 private', 'https://10.0.0.1/x'],
+    ['IPv4 benchmarking', 'https://198.18.0.1/x'],
+    ['6to4 special-use', 'https://[2002:c000:0201::1]/x'],
+    ['Teredo special-use', 'https://[2001:0000:4136:e378:8000:63bf:3fff:fdd2]/x'],
+    ['IPv4-mapped private', 'https://[::ffff:192.168.1.1]/x'],
+  ] as const)('rejects non-public literal evidence host: %s', (_label, url) => {
+    expect(() => canonicalizeEvidenceUrl(url)).toThrow();
+  });
+
+  it.each([
+    'https://example.com/x',
+    'https://8.8.8.8/x',
+    'https://[2001:4860:4860::8888]/x',
+  ])('preserves public evidence host control %s', (url) => {
+    expect(() => canonicalizeEvidenceUrl(url)).not.toThrow();
+  });
+
   it('deduplicates by canonical URL and content hash while keeping the first source', () => {
     const first = normalizeEvidenceSource(validResult);
     const duplicate = normalizeEvidenceSource({

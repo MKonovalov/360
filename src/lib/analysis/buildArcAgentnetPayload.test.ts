@@ -178,7 +178,7 @@ describe('buildBoundedArcAgentnetInput', () => {
     '127.0.0.1', '0.0.0.0', '224.0.0.1', '198.18.0.0', '198.18.0.1', '198.19.255.254',
     '198.19.255.255', '::1', '::', 'ff02::1', '2001:db8::1', 'fc00::1', 'fe80::1',
     '::ffff:10.0.0.1', '[::1]', '[::]', '[ff02::1]', '[2001:db8::1]', '[fc00::1]',
-    '[fe80::1]', '[::ffff:10.0.0.1]',
+    '[fe80::1]', '[64:ff9b:1::1]', '2002:c000:0201::1', '2001:0000:4136:e378:8000:63bf:3fff:fdd2', '::ffff:192.168.1.1', '[::ffff:10.0.0.1]',
   ])('rejects private or non-routable domain literal %s', (domain) => {
     const result = buildBoundedArcAgentnetInput({ ...baseInput, company: { ...baseInput.company, domain } });
 

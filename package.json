@@ -66,6 +66,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@workflow/vitest": "4.0.16",
     "dotenv": "^17.4.2",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
@@ -73,7 +74,6 @@
     "tailwindcss": "^4",
     "tsx": "^4.23.1",
     "typescript": "^5",
-    "vitest": "^4.1.10",
-    "@workflow/vitest": "4.0.16"
+    "vitest": "^4.1.10"
   }
 }
