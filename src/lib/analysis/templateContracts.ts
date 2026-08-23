@@ -1,11 +1,19 @@
 import { z } from 'zod';
 
 import {
-  analysisTargetTypes,
   STANDARD_EXECUTION_BUDGET,
   supportedEfforts,
 } from './contracts';
+import { analysisExecutors } from './executionTarget';
 import type { AnalysisEffort, AnalysisTargetType } from './contracts';
+import type { AnalysisExecutor } from './executionTarget';
+
+export type {
+  AnalysisExecutor,
+  ExecutorAvailability,
+  ExecutorResolution,
+  ExecutorValidationReason,
+} from './executionTarget';
 
 export const FIXED_ANALYSIS_TEMPLATES = [
   {
@@ -32,8 +40,6 @@ const templateKeySchema = z.enum([
   'persona-buying-signal-analysis',
 ]);
 const templateEffortSchema = z.enum(supportedEfforts);
-const templateTargetTypeSchema = z.enum(analysisTargetTypes);
-
 const contentInputSchema = z
   .object({
     operation: z.literal('content'),
@@ -41,6 +47,7 @@ const contentInputSchema = z
     expectedVersion: z.number().int().positive(),
     instruction: z.string().trim().min(1).max(20_000),
     defaultEffort: templateEffortSchema,
+    executor: z.enum(analysisExecutors),
   })
   .strict();
 
@@ -65,6 +72,7 @@ export type TemplateVersionRead = {
   readonly instruction: string;
   readonly supportedEfforts: readonly AnalysisEffort[];
   readonly defaultEffort: AnalysisEffort;
+  readonly executor: AnalysisExecutor;
   readonly futureBudget: typeof STANDARD_EXECUTION_BUDGET;
   readonly createdBy: string;
   readonly createdAt: string;

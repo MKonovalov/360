@@ -1,11 +1,51 @@
 import { z } from 'zod';
 
+import type { AnalysisTargetType } from './contracts';
+
 // Where the browser's Company Analysis launcher sends work: the existing
 // internal execution path, or the Company-only Arc-agentnet partner path.
 // Persona Analysis never gains a second value in this union.
-export const EXECUTION_TARGETS = ['internal', 'arc-agentnet'] as const;
-export type ExecutionTarget = (typeof EXECUTION_TARGETS)[number];
-export const executionTargetSchema = z.enum(EXECUTION_TARGETS);
+export const analysisExecutors = ['internal', 'arc-agentnet'] as const;
+export type AnalysisExecutor = (typeof analysisExecutors)[number];
+export type ExecutionTarget = AnalysisExecutor;
+export const EXECUTION_TARGETS = analysisExecutors;
+export const executionTargetSchema = z.enum(analysisExecutors);
+
+export type ExecutorAvailability = Readonly<{
+  readonly companyArcAgentnetEnabled: boolean;
+}>;
+
+export type ExecutorResolution = Readonly<{
+  readonly executor: AnalysisExecutor;
+  readonly targetType: AnalysisTargetType;
+  readonly companyArcAgentnetEnabled: boolean;
+}>;
+
+export type ExecutorValidationReason =
+  | 'executor_target_mismatch'
+  | 'executor_unavailable'
+  | 'invalid_executor_configuration'
+  | 'executor_conflict';
+
+type ExecutorResolutionResult =
+  | { readonly ok: true; readonly value: ExecutorResolution }
+  | { readonly ok: false; readonly reason: ExecutorValidationReason };
+
+export function resolveExecutor(
+  input: ExecutorResolution & ExecutorAvailability,
+): ExecutorResolutionResult {
+  switch (input.executor) {
+    case 'internal':
+      return { ok: true, value: input };
+    case 'arc-agentnet':
+      if (input.targetType === 'persona') return { ok: false, reason: 'executor_target_mismatch' };
+      return input.companyArcAgentnetEnabled
+        ? { ok: true, value: input }
+        : { ok: false, reason: 'executor_unavailable' };
+    default:
+      return assertNever(input.executor);
+  }
+}
 
 // The exact six statuses the Arc-agentnet partner reports for a job (see
 // the bridge contract in src/lib/arc-agentnet/client.ts). Redeclared here
