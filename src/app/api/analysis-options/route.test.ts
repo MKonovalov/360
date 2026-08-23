@@ -26,7 +26,7 @@ describe('GET /api/analysis-options', () => {
     mocks.isCompanyArcAgentnetEnabled.mockReturnValue(false);
     mocks.requireStaffAccess.mockResolvedValue({ userId: 'staff' });
     mocks.listActivePracticeAreas.mockResolvedValue([{ id: 3, name: 'GBS', shortCode: 'GBS', status: 'active' }]);
-    mocks.listActiveAnalysisTemplates.mockResolvedValue([{ templateId: 1, templateVersionId: 11, key: 'company-buying-signal-analysis', name: 'Fixed', targetType: 'company', version: 1, supportedEfforts: ['standard'], defaultEffort: 'standard' }]);
+    mocks.listActiveAnalysisTemplates.mockResolvedValue([{ templateId: 1, templateVersionId: 11, key: 'company-buying-signal-analysis', name: 'Fixed', targetType: 'company', version: 1, executor: 'internal', supportedEfforts: ['standard'], defaultEffort: 'standard' }]);
     mocks.listActiveCustomAgentOptions.mockResolvedValue([]);
     mocks.listActiveCompanySignalCategoriesForPracticeArea.mockResolvedValue(['GBS-state', 'financial']);
     mocks.listActivePersonaSignalCategoriesForPracticeArea.mockResolvedValue(['tenure']);
@@ -41,8 +41,8 @@ describe('GET /api/analysis-options', () => {
 
   it('returns fixed first and every matching custom option after Practice Area selection', async () => {
     mocks.listActiveCustomAgentOptions.mockResolvedValue([
-      { templateId: 7, customAgentId: 'custom-a', targetType: 'company', practiceAreaId: 3, status: 'active', latest: { templateVersionId: 71, version: 1, name: 'A', description: 'A desc', supportedEfforts: ['standard'], defaultEffort: 'standard' } },
-      { templateId: 8, customAgentId: 'custom-b', targetType: 'company', practiceAreaId: 3, status: 'active', latest: { templateVersionId: 81, version: 2, name: 'B', description: 'B desc', supportedEfforts: ['standard'], defaultEffort: 'standard' } },
+      { templateId: 7, customAgentId: 'custom-a', targetType: 'company', practiceAreaId: 3, status: 'active', latest: { templateVersionId: 71, version: 1, name: 'A', description: 'A desc', executor: 'internal', supportedEfforts: ['standard'], defaultEffort: 'standard' } },
+      { templateId: 8, customAgentId: 'custom-b', targetType: 'company', practiceAreaId: 3, status: 'active', latest: { templateVersionId: 81, version: 2, name: 'B', description: 'B desc', executor: 'arc-agentnet', supportedEfforts: ['standard'], defaultEffort: 'standard' } },
     ]);
     const response = await GET(new Request('http://localhost/api/analysis-options?subjectType=company&practiceAreaId=3'));
     expect(response.status).toBe(200);
@@ -77,6 +77,19 @@ describe('GET /api/analysis-options', () => {
 
     expect(response.status).toBe(200);
     expect(payload.executionTargets).toEqual(['internal', 'arc-agentnet']);
+  });
+
+  it('preserves a persisted Arc-agentnet executor when availability is disabled', async () => {
+    mocks.listActiveAnalysisTemplates.mockResolvedValue([
+      { templateId: 1, templateVersionId: 11, key: 'company-buying-signal-analysis', name: 'Fixed', targetType: 'company', version: 1, executor: 'arc-agentnet', supportedEfforts: ['standard'], defaultEffort: 'standard' },
+    ]);
+
+    const response = await GET(new Request('http://localhost/api/analysis-options?subjectType=company&practiceAreaId=3'));
+
+    await expect(response.json()).resolves.toMatchObject({
+      agents: [{ kind: 'fixed', executor: 'arc-agentnet' }],
+      executionTargets: [],
+    });
   });
 
   it('returns the target-specific active signal categories for a persona follow-up query', async () => {

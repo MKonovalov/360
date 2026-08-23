@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { analysisTargetTypeSchema } from '@/lib/analysis/contracts';
-import { EXECUTION_TARGETS } from '@/lib/analysis/executionTarget';
+import { EXECUTION_TARGETS, executionTargetSchema } from '@/lib/analysis/executionTarget';
 import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { listActiveAnalysisTemplates } from '@/lib/db/queries/analysisTemplates';
 import { listActivePracticeAreas } from '@/lib/db/queries/practiceAreas';
@@ -51,6 +51,7 @@ export async function GET(request: Request) {
     name: template.name,
     targetType: template.targetType,
     version: template.version,
+    executor: template.executor,
     supportedEfforts: template.supportedEfforts,
     defaultEffort: template.defaultEffort,
   }));
@@ -62,6 +63,7 @@ export async function GET(request: Request) {
     description: agent.latest.description,
     targetType: agent.targetType,
     version: agent.latest.version,
+    executor: 'executor' in agent.latest ? executionTargetSchema.parse(agent.latest.executor) : 'internal',
     supportedEfforts: agent.latest.supportedEfforts,
     defaultEffort: agent.latest.defaultEffort,
   }));

@@ -2,11 +2,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   analysisRunEndpoint,
+  createArcAgentnetRunPayload,
   createAnalysisRunPayload,
   fetchAnalysisOptions,
   fetchAnalysisPreview,
   getErrorCopy,
   parseCreateRunResponse,
+  pollArcAgentnetRun,
   readJson,
   type AgentSelection,
 } from './analysisLauncherClient';
@@ -43,7 +45,7 @@ describe('analysisLauncherClient', () => {
     it('sends subjectType and practiceAreaId on the follow-up step and parses { agents, practiceAreas, signalCategories }', async () => {
       const fetchMock = vi.fn().mockResolvedValue(
         jsonResponse({
-          agents: [{ kind: 'fixed', templateVersionId: 11, key: 'company-buying-signal-analysis', name: 'Fixed', targetType: 'company', version: 1 }],
+          agents: [{ kind: 'fixed', templateVersionId: 11, key: 'company-buying-signal-analysis', name: 'Fixed', targetType: 'company', version: 1, executor: 'internal' }],
           practiceAreas: [{ id: 3, name: 'GBS', shortCode: 'GBS' }],
           signalCategories: ['GBS-state', 'financial'],
         }),
@@ -57,7 +59,7 @@ describe('analysisLauncherClient', () => {
       expect(result).toEqual({
         ok: true,
         practiceAreas: [{ id: 3, name: 'GBS', shortCode: 'GBS' }],
-        agents: [{ kind: 'fixed', templateVersionId: 11, key: 'company-buying-signal-analysis', name: 'Fixed', targetType: 'company', version: 1 }],
+        agents: [{ kind: 'fixed', templateVersionId: 11, key: 'company-buying-signal-analysis', name: 'Fixed', targetType: 'company', version: 1, executor: 'internal' }],
         signalCategories: ['GBS-state', 'financial'],
       });
     });
@@ -89,6 +91,7 @@ describe('analysisLauncherClient', () => {
         practiceAreas: [{ id: 3, name: 'GBS', shortCode: 'GBS' }],
         agents: [],
         signalCategories: [],
+        executionTargets: [],
       });
     });
 
@@ -112,6 +115,21 @@ describe('analysisLauncherClient', () => {
       expect(result.ok).toBe(true);
     });
 
+    it('returns Company execution availability without making it launch authority', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+        jsonResponse({
+          agents: [{ kind: 'fixed', templateVersionId: 11, key: 'company-buying-signal-analysis', name: 'Fixed', targetType: 'company', version: 1, executor: 'arc-agentnet' }],
+          practiceAreas: [],
+          executionTargets: [],
+        }),
+      ));
+
+      const result = await fetchAnalysisOptions('company', 3, new AbortController().signal);
+
+      expect(result).toMatchObject({ ok: true, executionTargets: [] });
+      expect(analysisRunEndpoint('off')).toBe('/api/analysis-runs');
+    });
+
     it('rejects a follow-up response with an invalid executionTargets value', async () => {
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
         jsonResponse({ agents: [], practiceAreas: [], executionTargets: ['bogus'] }),
@@ -126,9 +144,9 @@ describe('analysisLauncherClient', () => {
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
         jsonResponse({
           agents: [
-            { kind: 'fixed', templateVersionId: 11, key: 'company-buying-signal-analysis', name: 'Fixed', targetType: 'company', version: 1 },
-            { kind: 'custom', customAgentId: 'custom-a', templateVersionId: 71, name: 'A', description: 'A desc', targetType: 'company', version: 1 },
-            { kind: 'custom', customAgentId: 'custom-b', templateVersionId: 81, name: 'B', description: 'B desc', targetType: 'company', version: 2 },
+            { kind: 'fixed', templateVersionId: 11, key: 'company-buying-signal-analysis', name: 'Fixed', targetType: 'company', version: 1, executor: 'internal' },
+            { kind: 'custom', customAgentId: 'custom-a', templateVersionId: 71, name: 'A', description: 'A desc', targetType: 'company', version: 1, executor: 'internal' },
+            { kind: 'custom', customAgentId: 'custom-b', templateVersionId: 81, name: 'B', description: 'B desc', targetType: 'company', version: 2, executor: 'arc-agentnet' },
           ],
           practiceAreas: [{ id: 3, name: 'GBS', shortCode: 'GBS' }],
         }),
@@ -153,6 +171,7 @@ describe('analysisLauncherClient', () => {
             description: 'Finds transformation signals.',
             targetType: 'company',
             version: 2,
+            executor: 'internal',
             supportedEfforts: ['standard'],
             defaultEffort: 'standard',
           }],
@@ -173,6 +192,7 @@ describe('analysisLauncherClient', () => {
           description: 'Finds transformation signals.',
           targetType: 'company',
           version: 2,
+          executor: 'internal',
         }],
         signalCategories: [],
       });
@@ -203,6 +223,8 @@ describe('analysisLauncherClient', () => {
       ['a fixed option missing templateVersionId', { agents: [{ kind: 'fixed', key: 'x', name: 'X', targetType: 'company', version: 1 }], practiceAreas: [] }],
       ['a custom option missing customAgentId', { agents: [{ kind: 'custom', templateVersionId: 71, name: 'X', description: 'd', targetType: 'company', version: 1 }], practiceAreas: [] }],
       ['an unknown agent kind', { agents: [{ kind: 'legacy', templateVersionId: 11 }], practiceAreas: [] }],
+      ['a malformed executor', { agents: [{ kind: 'fixed', templateVersionId: 11, key: 'x', name: 'X', targetType: 'company', version: 1, executor: 'claude' }], practiceAreas: [] }],
+      ['an unknown response key', { agents: [], practiceAreas: [], executor: 'arc-agentnet' }],
     ])('rejects a malformed follow-up options response: %s', async (_label, body) => {
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(body)));
 
@@ -250,6 +272,21 @@ describe('analysisLauncherClient', () => {
   });
 
   describe('createAnalysisRunPayload', () => {
+    it('carries the persisted executor only as an optional consistency hint', () => {
+      const payload = createAnalysisRunPayload({
+        subjectType: 'company',
+        subjectId: 42,
+        practiceAreaId: 3,
+        signalCategory: 'GBS-state',
+        selection: { kind: 'fixed', templateVersionId: 11 },
+        executor: 'internal',
+      });
+
+      expect(payload).toMatchObject({ executor: 'internal' });
+      expect(Object.keys(payload)).not.toContain('partnerJobId');
+      expect(Object.keys(payload)).not.toContain('credentials');
+    });
+
     it('never adds a client debug authorization field to the existing payload', () => {
       const payload = createAnalysisRunPayload({
         subjectType: 'company',
@@ -317,6 +354,7 @@ describe('analysisLauncherClient', () => {
       ['tool', 'web_search'],
       ['credential', 'sk-secret'],
       ['dataSource', 'internal-crm'],
+      ['executor', 'arc-agentnet'],
     ])('strips a forbidden %s field carried on the selection before building the fixed payload', (field, value) => {
       const taintedSelection = { kind: 'fixed', templateVersionId: 11, [field]: value } as unknown as AgentSelection;
 
@@ -375,6 +413,53 @@ describe('analysisLauncherClient', () => {
         selection: { kind: 'custom', customAgentId: 'custom-7', templateVersionId: 71 },
       });
       expect(payload.selection).not.toHaveProperty(field);
+    });
+  });
+
+  describe('Company Arc-agentnet launch payload and polling', () => {
+    it('submits only opaque identities and a generated idempotency key', () => {
+      expect(createArcAgentnetRunPayload({
+        subjectType: 'company',
+        subjectId: 42,
+        practiceAreaId: 3,
+        signalCategory: 'GBS-state',
+        selection: { kind: 'fixed', templateVersionId: 11 },
+        idempotencyKey: 'run-key',
+      })).toEqual({
+        subject: { type: 'company', id: 42 },
+        practiceAreaId: 3,
+        signalCategory: 'GBS-state',
+        selection: { kind: 'fixed', templateVersionId: 11 },
+        idempotencyKey: 'run-key',
+      });
+    });
+
+    it('polls the local application run ID and stops on a terminal Arc-agentnet state', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+        applicationRunId: 73,
+        status: 'completed',
+        safeReason: 'completed',
+      }));
+
+      await expect(pollArcAgentnetRun({
+        applicationRunId: 73,
+        signal: new AbortController().signal,
+        intervalMs: 0,
+        fetchImpl: fetchMock,
+      })).resolves.toEqual({ kind: 'terminal', status: 'completed' });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/analysis-runs/arc-agentnet/73');
+    });
+
+    it('aborts local-ID polling without another request', async () => {
+      const controller = new AbortController();
+      controller.abort();
+
+      await expect(pollArcAgentnetRun({
+        applicationRunId: 73,
+        signal: controller.signal,
+        fetchImpl: vi.fn(),
+      })).resolves.toEqual({ kind: 'aborted' });
     });
   });
 

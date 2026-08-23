@@ -2,7 +2,9 @@ import { z } from 'zod';
 
 import { analysisPreviewResponseSchema } from '@/lib/analysis/experienceContracts';
 import type { DebugPreference } from '@/lib/analysis/debugLaunchPreference';
-import { executionTargetSchema } from '@/lib/analysis/executionTarget';
+import { executionTargetSchema, type AnalysisExecutor } from '@/lib/analysis/executionTarget';
+
+export type { AnalysisExecutor } from '@/lib/analysis/executionTarget';
 
 const practiceAreaSchema = z.object({
   id: z.number().int().positive(),
@@ -21,6 +23,7 @@ const fixedAgentOptionSchema = z.object({
   name: z.string().min(1),
   targetType: z.enum(['company', 'persona']),
   version: z.number().int().positive(),
+  executor: executionTargetSchema,
 });
 const customAgentOptionSchema = z.object({
   kind: z.literal('custom'),
@@ -30,6 +33,7 @@ const customAgentOptionSchema = z.object({
   description: z.string().min(1),
   targetType: z.enum(['company', 'persona']),
   version: z.number().int().positive(),
+  executor: executionTargetSchema,
 });
 const agentOptionSchema = z.discriminatedUnion('kind', [fixedAgentOptionSchema, customAgentOptionSchema]);
 
@@ -48,12 +52,15 @@ const initialOptionsSchema = z.object({
 // both shapes without making the field required for Persona; array values
 // are still validated against the same enum the server enforces, so an
 // unknown target value fails closed rather than being silently accepted.
-const followUpOptionsSchema = z.object({
+const followUpOptionsBaseSchema = z.object({
   agents: z.array(agentOptionSchema),
   practiceAreas: z.array(practiceAreaSchema),
   signalCategories: z.array(z.string().min(1)).default([]),
+}).strict();
+const companyFollowUpOptionsSchema = followUpOptionsBaseSchema.extend({
   executionTargets: z.array(executionTargetSchema).optional(),
 }).strict();
+const personaFollowUpOptionsSchema = followUpOptionsBaseSchema.strict();
 
 const createRunResponseSchema = z.object({ applicationRunId: z.number().int().positive() }).strict();
 
@@ -93,6 +100,7 @@ export interface AnalysisRunPayloadInput {
   readonly practiceAreaId: number;
   readonly signalCategory: string;
   readonly selection: AgentSelection;
+  readonly executor?: AnalysisExecutor;
 }
 
 // The confirmed session preference is the only signal that may select a
@@ -119,6 +127,7 @@ export function createAnalysisRunPayload({
   practiceAreaId,
   signalCategory,
   selection,
+  executor,
 }: AnalysisRunPayloadInput) {
   const subject = { type: subjectType, id: subjectId };
   // Fixed selection preserves the existing flat request shape (no
@@ -126,23 +135,113 @@ export function createAnalysisRunPayload({
   // Custom selection carries only its opaque identity/version inside a
   // discriminated `selection` object. Fields are picked explicitly (never
   // spread) so no extra property on a loosely-typed selection can leak in.
-  switch (selection.kind) {
-    case 'fixed':
-      return { templateVersionId: selection.templateVersionId, subject, practiceAreaId, signalCategory };
-    case 'custom':
-      return {
-        subject,
-        practiceAreaId,
-        signalCategory,
-        selection: {
-          kind: 'custom' as const,
-          customAgentId: selection.customAgentId,
-          templateVersionId: selection.templateVersionId,
-        },
-      };
-    default:
-      return assertNever(selection);
+  const payload = (() => {
+    switch (selection.kind) {
+      case 'fixed':
+        return { templateVersionId: selection.templateVersionId, subject, practiceAreaId, signalCategory };
+      case 'custom':
+        return {
+          subject,
+          practiceAreaId,
+          signalCategory,
+          selection: {
+            kind: 'custom' as const,
+            customAgentId: selection.customAgentId,
+            templateVersionId: selection.templateVersionId,
+          },
+        };
+      default:
+        return assertNever(selection);
+    }
+  })();
+  return executor === undefined ? payload : { ...payload, executor };
+}
+
+export interface ArcAgentnetRunPayloadInput {
+  readonly subjectType: 'company';
+  readonly subjectId: number;
+  readonly practiceAreaId: number;
+  readonly signalCategory: string;
+  readonly selection: AgentSelection;
+  readonly idempotencyKey: string;
+}
+
+export function createArcAgentnetRunPayload({
+  subjectType,
+  subjectId,
+  practiceAreaId,
+  signalCategory,
+  selection,
+  idempotencyKey,
+}: ArcAgentnetRunPayloadInput) {
+  return {
+    subject: { type: subjectType, id: subjectId },
+    practiceAreaId,
+    signalCategory,
+    selection: selection.kind === 'fixed'
+      ? { kind: 'fixed' as const, templateVersionId: selection.templateVersionId }
+      : {
+        kind: 'custom' as const,
+        customAgentId: selection.customAgentId,
+        templateVersionId: selection.templateVersionId,
+      },
+    idempotencyKey,
+  };
+}
+
+export type ArcAgentnetPollingResult =
+  | { readonly kind: 'terminal'; readonly status: 'completed' | 'failed' | 'cancelled' }
+  | { readonly kind: 'aborted' }
+  | { readonly kind: 'error'; readonly message: string };
+
+interface ArcAgentnetPollingOptions {
+  readonly applicationRunId: number;
+  readonly signal: AbortSignal;
+  readonly intervalMs?: number;
+  readonly fetchImpl?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+
+const arcAgentnetStatusResponseSchema = z.object({
+  applicationRunId: z.number().int().positive(),
+  status: z.enum(['queued', 'running', 'completed', 'failed', 'cancelled']),
+}).loose();
+
+export async function pollArcAgentnetRun({
+  applicationRunId,
+  signal,
+  intervalMs = 2_000,
+  fetchImpl = fetch,
+}: ArcAgentnetPollingOptions): Promise<ArcAgentnetPollingResult> {
+  while (!signal.aborted) {
+    try {
+      const response = await fetchImpl(`/api/analysis-runs/arc-agentnet/${applicationRunId}`, { signal });
+      const payload = await readJson(response);
+      if (signal.aborted) return { kind: 'aborted' };
+      if (!response.ok) return { kind: 'error', message: 'The analysis status could not be loaded. Try again.' };
+      const parsed = arcAgentnetStatusResponseSchema.safeParse(payload);
+      if (!parsed.success) return { kind: 'error', message: 'The analysis status could not be loaded. Try again.' };
+      if (parsed.data.status === 'completed' || parsed.data.status === 'failed' || parsed.data.status === 'cancelled') {
+        return { kind: 'terminal', status: parsed.data.status };
+      }
+      await new Promise<void>((resolve) => {
+        let settled = false;
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          signal.removeEventListener('abort', finish);
+          resolve();
+        };
+        const timer = setTimeout(finish, intervalMs);
+        signal.addEventListener('abort', finish, { once: true });
+      });
+    } catch (error: unknown) {
+      if (isAbortError(error) || signal.aborted) return { kind: 'aborted' };
+      if (error instanceof TypeError) return { kind: 'error', message: 'The analysis status could not be reached. Try again.' };
+      return { kind: 'error', message: 'The analysis status could not be loaded. Try again.' };
+    }
   }
+  return { kind: 'aborted' };
 }
 
 export type AnalysisOptionsResult =
@@ -151,6 +250,7 @@ export type AnalysisOptionsResult =
       readonly practiceAreas: readonly PracticeArea[];
       readonly agents: readonly AgentOption[];
       readonly signalCategories: readonly string[];
+      readonly executionTargets?: readonly AnalysisExecutor[];
     }
   | { readonly ok: false; readonly message: string };
 
@@ -177,15 +277,25 @@ export async function fetchAnalysisOptions(
       : { ok: false, message: 'Analysis options could not be loaded. Refresh and try again.' };
   }
 
-  const parsed = followUpOptionsSchema.safeParse(payload);
-  return parsed.success
-    ? {
-        ok: true,
-        practiceAreas: parsed.data.practiceAreas,
-        agents: parsed.data.agents,
-        signalCategories: parsed.data.signalCategories,
-      }
-    : { ok: false, message: 'Analysis options could not be loaded. Refresh and try again.' };
+  if (subjectType === 'company') {
+    const parsed = companyFollowUpOptionsSchema.safeParse(payload);
+    if (!parsed.success) return { ok: false, message: 'Analysis options could not be loaded. Refresh and try again.' };
+    return {
+      ok: true,
+      practiceAreas: parsed.data.practiceAreas,
+      agents: parsed.data.agents,
+      signalCategories: parsed.data.signalCategories,
+      ...(parsed.data.executionTargets === undefined ? {} : { executionTargets: parsed.data.executionTargets }),
+    };
+  }
+  const parsed = personaFollowUpOptionsSchema.safeParse(payload);
+  if (!parsed.success) return { ok: false, message: 'Analysis options could not be loaded. Refresh and try again.' };
+  return {
+    ok: true,
+    practiceAreas: parsed.data.practiceAreas,
+    agents: parsed.data.agents,
+    signalCategories: parsed.data.signalCategories,
+  };
 }
 
 export type AnalysisPreviewResult =
@@ -262,4 +372,8 @@ export async function readJson(response: Response): Promise<unknown> {
 
 function assertNever(value: never): never {
   throw new Error(`Unexpected analysis agent selection: ${String(value)}`);
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError';
 }
