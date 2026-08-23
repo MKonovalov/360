@@ -31,6 +31,7 @@ type VersionDefaultsRow = {
   readonly id: number;
   readonly supportedEfforts: readonly string[];
   readonly defaultEffort: string;
+  readonly executor: string;
   readonly futureBudget: Record<string, unknown>;
 };
 type RunDefaultsRow = {
@@ -46,7 +47,7 @@ const expectedRelationColumns = {
   workflow_proof_run: ['id', 'proof_kind', 'controls', 'snapshot', 'status', 'lease_expires_at', 'lease_token', 'recovery_attempts', 'reconciliation_attempts', 'workflow_run_id', 'diagnostic_workflow_state', 'diagnostic_error_code', 'diagnostic_error_message', 'failure_reason', 'created_at', 'updated_at', 'completed_at'],
   workflow_proof_run_event: ['id', 'workflow_proof_run_id', 'event_key', 'action', 'attempt', 'recovery_attempt', 'reason', 'workflow_run_id', 'metadata', 'created_at'],
   analysis_template: ['id', 'key', 'name', 'target_type', 'status', 'created_by', 'updated_by', 'created_at', 'updated_at', 'kind', 'practice_area_id'],
-  analysis_template_version: ['id', 'template_id', 'version', 'instruction', 'supported_efforts', 'default_effort', 'future_budget', 'created_by', 'created_at', 'kind', 'custom_name', 'description', 'research_query', 'behavior_instruction', 'structured_output_schema', 'capability_preset_ids'],
+  analysis_template_version: ['id', 'template_id', 'version', 'instruction', 'supported_efforts', 'default_effort', 'executor', 'future_budget', 'created_by', 'created_at', 'kind', 'custom_name', 'description', 'research_query', 'behavior_instruction', 'structured_output_schema', 'capability_preset_ids'],
   analysis_run: ['id', 'template_id', 'template_version_id', 'subject_type', 'subject_id', 'practice_area_id', 'status', 'attempt', 'max_attempts', 'created_by', 'template_snapshot', 'subject_snapshot', 'checklist_snapshot', 'execution_snapshot', 'policy_snapshot', 'execution_target', 'initiating_user_id', 'arc_agentnet_template_snapshot', 'arc_agentnet_checklist_snapshot', 'arc_agentnet_input_snapshot', 'partner_job_mapping_id', 'partner_job_id', 'partner_request_id', 'arc_agentnet_idempotency_key', 'arc_agentnet_payload_hash', 'arc_agentnet_local_status', 'arc_agentnet_safe_reason', 'arc_agentnet_started_at', 'arc_agentnet_completed_at', 'arc_agentnet_terminal_at', 'arc_agentnet_result_hash', 'arc_agentnet_result_size_bytes', 'arc_agentnet_result_projection', 'safe_reason', 'started_at', 'completed_at', 'terminal_at', 'created_at', 'updated_at'],
   analysis_run_event: ['id', 'analysis_run_id', 'event_key', 'from_status', 'to_status', 'actor_kind', 'actor_id', 'safe_reason', 'attempt', 'created_at'],
   arc_agentnet_idempotency: ['id', 'initiating_user_id', 'company_id', 'template_id', 'template_version_id', 'execution_target', 'idempotency_key', 'payload_hash', 'analysis_run_id', 'partner_job_mapping_id', 'created_at'],
@@ -122,6 +123,21 @@ describe('Phase 40 budget migration artifact', () => {
     expect(migration).toContain('UPDATE "analysis_template_version"');
     expect(migration).toContain('future_budget->>\'maxToolCalls\' = \'12\'');
     expect(migration).toContain('MAX(current_version."version")');
+  });
+});
+
+describe('Task 2 agent template executor migration artifact', () => {
+  it('adds, backfills, constrains, and defaults the executor without touching runs', async () => {
+    const migration = await readFile(
+      new URL('../../../drizzle/0016_agent_template_executor.sql', import.meta.url),
+      'utf8',
+    );
+
+    expect(migration).toContain('ADD COLUMN "executor" "analysis_execution_target" DEFAULT \'internal\'');
+    expect(migration).toContain('UPDATE "analysis_template_version" SET "executor" = \'internal\'');
+    expect(migration).toContain('ALTER COLUMN "executor" SET NOT NULL');
+    expect(migration).not.toMatch(/UPDATE\s+"?analysis_run"?/i);
+    expect(migration).not.toMatch(/ALTER TABLE\s+"?analysis_run"?\s+(DROP|ALTER|DELETE)/i);
   });
 });
 
@@ -226,10 +242,11 @@ describe.skipIf(!testDatabaseUrl)('Phase 32 live schema metadata', () => {
     const templateResult = await dbModule.db.execute(sql<IdRow>`INSERT INTO analysis_template (key, name, target_type, created_by, updated_by) VALUES (${fixtureKey}, 'Phase 32 integration template', 'company', 'integration-test', 'integration-test') RETURNING id`);
     const templateId = templateResult.rows[0]?.id;
     expect(templateId).toBeTypeOf('number');
-    const versionResult = await dbModule.db.execute(sql<VersionDefaultsRow>`INSERT INTO analysis_template_version (template_id, version, instruction, created_by) VALUES (${templateId}, 1, 'Analyze the snapshotted subject.', 'integration-test') RETURNING id, supported_efforts AS "supportedEfforts", default_effort AS "defaultEffort", future_budget AS "futureBudget"`);
+    const versionResult = await dbModule.db.execute(sql<VersionDefaultsRow>`INSERT INTO analysis_template_version (template_id, version, instruction, created_by) VALUES (${templateId}, 1, 'Analyze the snapshotted subject.', 'integration-test') RETURNING id, supported_efforts AS "supportedEfforts", default_effort AS "defaultEffort", executor, future_budget AS "futureBudget"`);
     const version = versionResult.rows[0];
     expect(version?.supportedEfforts).toEqual(['standard']);
     expect(version?.defaultEffort).toBe('standard');
+    expect(version?.executor).toBe('internal');
     expect(version?.futureBudget).toEqual({ maxAttempts: 2, maxToolCalls: 6, maxExecutionSeconds: 300, maxSpendUsd: 2.5 });
 
     const templateSnapshot = JSON.stringify({ schemaVersion: 1, templateId, templateVersionId: version?.id, templateKey: fixtureKey, templateName: 'Phase 32 integration template', targetType: 'company', version: 1, resolvedInstruction: 'Analyze the snapshotted subject.', effort: 'standard' });

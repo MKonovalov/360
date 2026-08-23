@@ -16,6 +16,7 @@ type TemplateSeed = {
   readonly name: string;
   readonly targetType: 'company' | 'persona';
   readonly instruction: string;
+  readonly executor: 'internal';
 };
 
 type ConflictField =
@@ -25,6 +26,7 @@ type ConflictField =
   | 'instruction'
   | 'supportedEfforts'
   | 'defaultEffort'
+  | 'executor'
   | 'futureBudget';
 
 const TEMPLATE_SEEDS = [
@@ -32,6 +34,7 @@ const TEMPLATE_SEEDS = [
     key: 'company-buying-signal-analysis',
     name: 'Company Buying Signal Analysis',
     targetType: 'company',
+    executor: 'internal',
     instruction:
       'Assess the selected company against the snapshotted active GBS Company Signal checklist. Produce source-grounded findings for each applicable checklist item, clearly distinguish observed evidence from inference, and never invent evidence or perform writes.',
   },
@@ -39,6 +42,7 @@ const TEMPLATE_SEEDS = [
     key: 'persona-buying-signal-analysis',
     name: 'Persona Buying Signal Analysis',
     targetType: 'persona',
+    executor: 'internal',
     instruction:
       'Assess the selected persona against the snapshotted active GBS Persona Signal checklist. Produce source-grounded findings for each applicable checklist item, clearly distinguish observed evidence from inference, and never invent evidence or perform writes.',
   },
@@ -114,6 +118,10 @@ export async function seedAnalysisTemplates(): Promise<void> {
     if (existingVersion.defaultEffort !== 'standard') {
       throw new AnalysisTemplateSeedConflictError(seed.key, 'defaultEffort');
     }
+    if (existingVersion.executor !== seed.executor) {
+      existingVersionKeys.add(seed.key);
+      continue;
+    }
     if (
       existingVersion.futureBudget.maxAttempts !== STANDARD_EXECUTION_BUDGET.maxAttempts ||
       existingVersion.futureBudget.maxToolCalls !== STANDARD_EXECUTION_BUDGET.maxToolCalls ||
@@ -157,6 +165,7 @@ export async function seedAnalysisTemplates(): Promise<void> {
       instruction: seed.instruction,
       supportedEfforts,
       defaultEffort: 'standard',
+      executor: seed.executor,
       futureBudget: STANDARD_EXECUTION_BUDGET,
       createdBy: SEEDED_BY,
     });
