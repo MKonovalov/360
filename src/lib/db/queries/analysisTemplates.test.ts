@@ -4,9 +4,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   db: { select: vi.fn(), execute: vi.fn() },
+  arcAgentnetEnabled: false,
 }));
 
 vi.mock('../index', () => ({ db: mocks.db }));
+vi.mock('@/lib/env', () => ({
+  isCompanyArcAgentnetEnabled: () => mocks.arcAgentnetEnabled,
+}));
 
 import {
   getAnalysisTemplateVersion,
@@ -36,6 +40,8 @@ function flattenSql(value: unknown): string {
 describe('analysisTemplates query module', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.db.execute = vi.fn();
+    mocks.arcAgentnetEnabled = false;
   });
 
   it('returns only versions belonging to active reusable templates', async () => {
@@ -49,6 +55,7 @@ describe('analysisTemplates query module', () => {
         version: 1,
         supportedEfforts: ['standard'],
         defaultEffort: 'standard',
+        executor: 'internal',
       },
     ];
     const orderBy = vi.fn().mockResolvedValue(rows);
@@ -104,6 +111,7 @@ describe('analysisTemplates query module', () => {
       instruction: 'Analyze the company.',
       supportedEfforts: ['standard'],
       defaultEffort: 'standard',
+      executor: 'internal',
       futureBudget: {
         maxAttempts: 2,
         maxToolCalls: 6,
@@ -161,6 +169,7 @@ describe('analysisTemplates query module', () => {
           instruction: 'new company instruction',
           supportedEfforts: ['standard'],
           defaultEffort: 'standard',
+          executor: 'internal',
           futureBudget: { maxAttempts: 2, maxToolCalls: 6, maxExecutionSeconds: 300, maxSpendUsd: 2.5 },
           createdBy: 'staff-2',
           createdAt: '2026-08-08T00:00:02.000Z',
@@ -176,6 +185,7 @@ describe('analysisTemplates query module', () => {
           instruction: 'old company instruction',
           supportedEfforts: ['standard'],
           defaultEffort: 'standard',
+          executor: 'internal',
           futureBudget: { maxAttempts: 2, maxToolCalls: 6, maxExecutionSeconds: 300, maxSpendUsd: 2.5 },
           createdBy: 'seed-script',
           createdAt: '2026-08-08T00:00:01.000Z',
@@ -191,6 +201,7 @@ describe('analysisTemplates query module', () => {
           instruction: 'persona instruction',
           supportedEfforts: ['standard'],
           defaultEffort: 'standard',
+          executor: 'internal',
           futureBudget: { maxAttempts: 2, maxToolCalls: 6, maxExecutionSeconds: 300, maxSpendUsd: 2.5 },
           createdBy: 'seed-script',
           createdAt: '2026-08-08T00:00:01.000Z',
@@ -224,6 +235,7 @@ describe('analysisTemplates query module', () => {
         expectedVersion: 1,
         instruction: 'updated instruction',
         defaultEffort: 'standard',
+        executor: 'internal',
       },
       'staff-2',
     );
@@ -266,6 +278,7 @@ describe('analysisTemplates query module', () => {
         expectedVersion: 1,
         instruction: 'concurrent instruction',
         defaultEffort: 'standard',
+        executor: 'internal',
       },
       'staff-2',
     );
@@ -282,6 +295,71 @@ describe('analysisTemplates query module', () => {
     expect(source).not.toMatch(
       /\b(?:analysis_run|analysis_run_event|analysis_result|analysis_finding|analysis_source|analysis_run_review|signal|offering|signal_offering_link)\b/,
     );
+  });
+
+  it('appends an immutable version when only the executor changes', async () => {
+    mocks.arcAgentnetEnabled = true;
+    mocks.db.execute
+      .mockResolvedValueOnce({ rows: [{ templateVersionId: 12 }] })
+      .mockResolvedValueOnce({
+        rows: [
+          managedTemplateRow(12, 2, 'Analyze the company.', 'active', 'arc-agentnet'),
+          managedTemplateRow(11, 1, 'Analyze the company.', 'active', 'internal'),
+        ],
+      });
+
+    const result = await saveAnalysisTemplateVersion(
+      {
+        operation: 'content',
+        templateKey: 'company-buying-signal-analysis',
+        expectedVersion: 1,
+        instruction: 'Analyze the company.',
+        defaultEffort: 'standard',
+        executor: 'arc-agentnet',
+      },
+      'staff-2',
+    );
+
+    expect(result).toMatchObject({ ok: true, kind: 'version_appended', template: { latest: { executor: 'arc-agentnet' } } });
+    if (result.ok) expect(result.template.history[1]?.executor).toBe('internal');
+    expect(flattenSql(mocks.db.execute.mock.calls[0]?.[0])).toContain('executor');
+    expect(flattenSql(mocks.db.execute.mock.calls[0]?.[0])).not.toMatch(/UPDATE|DELETE/);
+  });
+
+  it('rejects Persona Arc-agentnet saves before inserting a version', async () => {
+    mocks.arcAgentnetEnabled = true;
+
+    const result = await saveAnalysisTemplateVersion(
+      {
+        operation: 'content',
+        templateKey: 'persona-buying-signal-analysis',
+        expectedVersion: 1,
+        instruction: 'Persona analysis.',
+        defaultEffort: 'standard',
+        executor: 'arc-agentnet',
+      },
+      'staff-2',
+    );
+
+    expect(result).toEqual({ ok: false, reason: 'executor_target_mismatch' });
+    expect(mocks.db.execute).not.toHaveBeenCalled();
+  });
+
+  it('rejects disabled Company Arc-agentnet saves before inserting a version', async () => {
+    const result = await saveAnalysisTemplateVersion(
+      {
+        operation: 'content',
+        templateKey: 'company-buying-signal-analysis',
+        expectedVersion: 1,
+        instruction: 'Company analysis.',
+        defaultEffort: 'standard',
+        executor: 'arc-agentnet',
+      },
+      'staff-2',
+    );
+
+    expect(result).toEqual({ ok: false, reason: 'executor_unavailable' });
+    expect(mocks.db.execute).not.toHaveBeenCalled();
   });
 
   it('creates an opaque custom identity and retired version one in one write', async () => {
@@ -367,18 +445,21 @@ function managedTemplateRow(
   version: number,
   instruction: string,
   status: 'active' | 'retired' = 'active',
+  executor: 'internal' | 'arc-agentnet' = 'internal',
+  targetType: 'company' | 'persona' = 'company',
 ) {
   return {
     templateId: 1,
     templateVersionId,
     key: 'company-buying-signal-analysis',
     name: 'Company Buying Signal Analysis',
-    targetType: 'company',
+    targetType,
     status,
     version,
     instruction,
     supportedEfforts: ['standard'],
     defaultEffort: 'standard',
+    executor,
     futureBudget: { maxAttempts: 2, maxToolCalls: 6, maxExecutionSeconds: 300, maxSpendUsd: 2.5 },
     createdBy: 'staff-2',
     createdAt: '2026-08-08T00:00:02.000Z',
