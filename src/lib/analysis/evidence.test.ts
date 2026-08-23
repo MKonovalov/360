@@ -57,6 +57,8 @@ describe('evidence normalization', () => {
     ['6to4 special-use', 'https://[2002:c000:0201::1]/x'],
     ['Teredo special-use', 'https://[2001:0000:4136:e378:8000:63bf:3fff:fdd2]/x'],
     ['IPv4-mapped private', 'https://[::ffff:192.168.1.1]/x'],
+    ['IPv4-compatible private', 'https://[::10.0.0.1]/x'],
+    ['IPv4-compatible RFC1918', 'https://[::192.168.1.1]/x'],
   ] as const)('rejects non-public literal evidence host: %s', (_label, url) => {
     expect(() => canonicalizeEvidenceUrl(url)).toThrow();
   });

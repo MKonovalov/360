@@ -82,6 +82,9 @@ export function isNonPublicHost(hostname: string): boolean {
     if (address instanceof ipaddr.IPv6 && address.isIPv4MappedAddress()) {
       return isNonPublicHost(address.toIPv4Address().toString());
     }
+    if (address instanceof ipaddr.IPv6 && address.toByteArray().slice(0, 12).every((byte) => byte === 0)) {
+      return true;
+    }
     const specialUse = address instanceof ipaddr.IPv4
       ? ipaddr.subnetMatch(address, IPV4_SPECIAL_USE_RANGES, 'public') !== 'public'
       : ipaddr.subnetMatch(address, IPV6_SPECIAL_USE_RANGES, 'public') !== 'public';
