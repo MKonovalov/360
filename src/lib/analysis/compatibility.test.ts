@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   deriveActiveChecklistForCategory: vi.fn(),
   getModelSettingsForUser: vi.fn(),
   resolveModelChain: vi.fn(),
+  isCompanyArcAgentnetEnabled: vi.fn(),
 }));
 
 vi.mock('@/lib/db/queries/customAgents', () => ({ getActiveCustomAgentLaunchVersion: mocks.getActiveCustomAgentLaunchVersion }));
@@ -23,6 +24,7 @@ vi.mock('@/lib/analysis/checklist', () => ({
 }));
 vi.mock('@/lib/db/queries/userModelSettings', () => ({ getModelSettingsForUser: mocks.getModelSettingsForUser }));
 vi.mock('@/lib/agents/modelConfig', () => ({ resolveModelChain: mocks.resolveModelChain }));
+vi.mock('@/lib/env', () => ({ isCompanyArcAgentnetEnabled: mocks.isCompanyArcAgentnetEnabled }));
 
 import { resolveAnalysisLaunch } from './compatibility';
 
@@ -77,6 +79,7 @@ describe('server compatibility resolver', () => {
     mocks.deriveActiveChecklist.mockResolvedValue({ schemaVersion: 1, targetType: 'company', practiceAreaId: 3, practiceAreaName: 'GBS', items: [] });
     mocks.getModelSettingsForUser.mockResolvedValue(undefined);
     mocks.resolveModelChain.mockReturnValue([{ modelId: 'fast', provider: 'anthropic' }]);
+    mocks.isCompanyArcAgentnetEnabled.mockReturnValue(true);
     mocks.getActiveCustomAgentLaunchVersion.mockResolvedValue(custom);
   });
 
@@ -86,6 +89,17 @@ describe('server compatibility resolver', () => {
     expect(result.ok).toBe(true);
     expect(mocks.getActiveCustomAgentLaunchVersion).toHaveBeenCalledWith('custom-7', 71);
     if (result.ok) expect(result.value.template.custom?.latest.behaviorInstruction).toBe('Assess signals.');
+  });
+
+  it('returns the persisted executor for a current custom version', async () => {
+    mocks.getActiveCustomAgentLaunchVersion.mockResolvedValue({
+      ...custom,
+      latest: { ...custom.latest, executor: 'arc-agentnet' },
+    });
+
+    const result = await resolveAnalysisLaunch({ userId: 'staff', subject: { type: 'company', id: 42 }, practiceAreaId: 3, selection: { kind: 'custom', customAgentId: 'custom-7', templateVersionId: 71 }, policy });
+
+    expect(result).toMatchObject({ ok: true, executor: 'arc-agentnet' });
   });
 
   it.each([
@@ -114,6 +128,7 @@ describe('server compatibility resolver', () => {
       status: 'active' as const,
       isCurrent: true,
       instruction: 'Assess buying signals.',
+      executor: 'internal' as const,
     };
     const request = (signalCategory: unknown) => ({
       userId: 'staff',
@@ -168,6 +183,27 @@ describe('server compatibility resolver', () => {
       expect(result.ok).toBe(true);
       expect(mocks.deriveActiveChecklist).toHaveBeenCalledWith('company', { id: 3, name: 'GBS', shortCode: 'GBS' });
       expect(mocks.deriveActiveChecklistForCategory).not.toHaveBeenCalled();
+    });
+
+    it('rejects an executor hint that conflicts with the persisted current version', async () => {
+      mocks.deriveActiveChecklistForCategory.mockResolvedValue({ schemaVersion: 2, targetType: 'company', practiceAreaId: 3, practiceAreaName: 'GBS', selectedCategory: 'GBS-state', items: [{ signalId: 8, status: 'active', name: 'Signal', category: 'GBS-state', description: 'Signal.' }] });
+      const result = await resolveAnalysisLaunch({ ...request('GBS-state'), executor: 'arc-agentnet' });
+
+      expect(result).toEqual({ ok: false, reason: 'executor_conflict' });
+    });
+
+    it('rejects persisted Arc-agentnet for Persona before launch composition', async () => {
+      mocks.getAnalysisTemplateVersion.mockResolvedValue({ ...fixedTemplate, targetType: 'persona', executor: 'arc-agentnet' });
+      mocks.getPersonaById.mockResolvedValue({ id: 42, name: 'Alex' });
+      mocks.deriveActiveChecklist.mockResolvedValue({ schemaVersion: 1, targetType: 'persona', practiceAreaId: 3, practiceAreaName: 'GBS', items: [] });
+      mocks.deriveActiveChecklistForCategory.mockResolvedValue({ schemaVersion: 2, targetType: 'persona', practiceAreaId: 3, practiceAreaName: 'GBS', selectedCategory: 'GBS-state', items: [{ signalId: 8, status: 'active', name: 'Signal', category: 'GBS-state', description: 'Signal.' }] });
+
+      const result = await resolveAnalysisLaunch({
+        ...request('GBS-state'),
+        subject: { type: 'persona', id: 42 },
+      });
+
+      expect(result).toEqual({ ok: false, reason: 'executor_target_mismatch' });
     });
   });
 });

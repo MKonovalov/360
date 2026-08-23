@@ -18,7 +18,7 @@ const legacyFixedInputSchema = z.object({
 }).strict();
 
 const requestObjectSchema = z.record(z.string(), z.unknown());
-const CLIENT_DEBUG_CONTROL_KEYS = new Set(['debugCaptureEnabled', 'debugAdminUserIds']);
+const CLIENT_DEBUG_CONTROL_KEYS = new Set(['debugCaptureEnabled', 'debugAdminUserIds', 'executor']);
 const DISPATCH_ACTOR_ID = 'analysis-run-dispatch';
 
 type LaunchAnalysisRunOptions = Readonly<{
@@ -37,6 +37,7 @@ export async function launchAnalysisRun(options: LaunchAnalysisRunOptions): Prom
   }
 
   const requestObject = requestObjectSchema.safeParse(body);
+  const executorHint = requestObject.success ? requestObject.data.executor : undefined;
   const launchBody = requestObject.success
     ? Object.fromEntries(
         Object.entries(requestObject.data).filter(([key]) => !CLIENT_DEBUG_CONTROL_KEYS.has(key)),
@@ -61,8 +62,9 @@ export async function launchAnalysisRun(options: LaunchAnalysisRunOptions): Prom
     : isPhase36FixtureMode()
       ? PHASE36_APPROVED_POLICY
       : PHASE33_STANDARD_APPROVED_POLICY;
-  const resolved = await resolveAnalysisLaunch({ ...input, userId: options.userId, policy });
+  const resolved = await resolveAnalysisLaunch({ ...input, userId: options.userId, policy, executor: executorHint });
   if (!resolved.ok) return resolutionErrorResponse(resolved.reason);
+  if (resolved.executor !== 'internal') return Response.json({ error: 'executor_unavailable' }, { status: 409 });
 
   const { template } = resolved.value;
   const snapshots = buildPhase33AnalysisSnapshots({
@@ -118,7 +120,8 @@ export async function launchAnalysisRun(options: LaunchAnalysisRunOptions): Prom
 }
 
 function resolutionErrorResponse(reason: string): Response {
-  const status = reason.endsWith('_not_found') || reason === 'custom_agent_not_found' ? 404
+  const status = reason === 'invalid_executor_configuration' ? 500
+    : reason.endsWith('_not_found') || reason === 'custom_agent_not_found' ? 404
     : reason === 'invalid_input' || reason === 'practice_area_required' ? 400
       : 409;
   return Response.json({ error: reason }, { status });
