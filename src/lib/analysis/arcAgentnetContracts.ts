@@ -67,6 +67,74 @@ export type ArcAgentnetSubmitRequest = {
   readonly idempotencyKey: string;
 };
 
+export interface BoundedCompanyProfile {
+  readonly industry: string | null;
+  readonly headcount: number | null;
+  readonly headquarters: string | null;
+  readonly description: string | null;
+}
+
+export type ResolvedCompanyProfile = Partial<BoundedCompanyProfile>;
+
+export interface BoundedTemplateMetadata {
+  readonly kind: 'fixed' | 'custom';
+  readonly templateId: number;
+  readonly templateVersionId: number;
+  readonly templateKey: string;
+  readonly templateName: string;
+  readonly templateVersion: number;
+  readonly targetType: 'company';
+  readonly customAgentId: string | null;
+  readonly customAgentName: string | null;
+  readonly customAgentVersion: number | null;
+}
+
+export type ResolvedTemplateMetadata = Omit<BoundedTemplateMetadata, 'customAgentId' | 'customAgentName' | 'customAgentVersion'> & {
+  readonly customAgentId?: string | null;
+  readonly customAgentName?: string | null;
+  readonly customAgentVersion?: number | null;
+};
+
+export interface BoundedChecklistItem {
+  readonly id: number;
+  readonly label: string;
+  readonly required: boolean;
+}
+
+export type BoundedArcAgentnetInput = {
+  readonly schemaVersion: 1;
+  readonly analysis: {
+    readonly subjectType: 'company';
+    readonly company: {
+      readonly id: number;
+      readonly name: string;
+      readonly domain: string | null;
+      readonly profile: BoundedCompanyProfile;
+    };
+    readonly practiceArea: { readonly id: number; readonly name: string; readonly shortCode: string };
+    readonly buyingSignalCategory: string;
+    readonly template: BoundedTemplateMetadata;
+    readonly resolvedInstructions: string;
+    readonly checklist: readonly BoundedChecklistItem[];
+    readonly publicEvidenceUrls: readonly string[];
+  };
+};
+
+export type ResolvedCompanyAnalysisForArcAgentnet = {
+  readonly company: {
+    readonly id: number;
+    readonly name: string;
+    readonly domain: string | null;
+    readonly profile: ResolvedCompanyProfile;
+  };
+  readonly practiceArea: { readonly id: number; readonly name: string; readonly shortCode: string };
+  readonly buyingSignalCategory: string;
+  readonly template: ResolvedTemplateMetadata;
+  readonly resolvedInstruction: string;
+  readonly checklist: readonly BoundedChecklistItem[];
+  readonly publicEvidenceUrls: readonly string[];
+};
+
 // Re-exported so downstream Arc-agentnet contract modules (bounded
 // payload, result projection) consume the partner client's own JSON
 // value types instead of redeclaring them.
