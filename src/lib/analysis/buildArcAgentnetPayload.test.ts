@@ -7,6 +7,7 @@ import {
   buildBoundedArcAgentnetInput,
 } from './buildArcAgentnetPayload';
 import type {
+  BoundedArcAgentnetInput,
   BoundedTemplateMetadata,
   ResolvedCompanyAnalysisForArcAgentnet,
 } from './arcAgentnetContracts';
@@ -19,9 +20,7 @@ const fixedTemplate: BoundedTemplateMetadata = {
   templateName: 'Company Buying Signal Analysis',
   templateVersion: 3,
   targetType: 'company',
-  customAgentId: null,
-  customAgentName: null,
-  customAgentVersion: null,
+  customAgentId: null, customAgentName: null, customAgentVersion: null,
 };
 
 const baseInput: ResolvedCompanyAnalysisForArcAgentnet = {
@@ -59,36 +58,54 @@ const baseInput: ResolvedCompanyAnalysisForArcAgentnet = {
   ],
 };
 
+const expectedPayload = {
+  schemaVersion: 1,
+  analysis: {
+    subjectType: 'company',
+    company: {
+      id: 123,
+      name: 'Example Holdings',
+      domain: 'example.com',
+      profile: {
+        industry: 'Business services',
+        headcount: 1200,
+        headquarters: 'Chicago, IL',
+        description: 'Public company providing business services',
+      },
+    },
+    practiceArea: { id: 7, name: 'Finance Transformation', shortCode: 'FIN' },
+    buyingSignalCategory: 'Cost pressure',
+    template: fixedTemplate,
+    resolvedInstructions: 'Server-resolved instructions.',
+    checklist: [
+      { id: 1001, label: 'Assess evidence of financial cost pressure', required: true },
+      { id: 1002, label: 'Check for an active transformation programme', required: false },
+    ],
+    publicEvidenceUrls: ['https://example.com/investor-update', 'https://example.com/other'],
+  },
+} satisfies BoundedArcAgentnetInput;
+
+const expectedNullProfilePayload = {
+  ...expectedPayload,
+  analysis: {
+    ...expectedPayload.analysis,
+    company: {
+      ...expectedPayload.analysis.company,
+      domain: null,
+      profile: { industry: null, headcount: null, headquarters: null, description: null },
+    },
+  },
+} satisfies BoundedArcAgentnetInput;
+
+function payloadOf(result: ReturnType<typeof buildBoundedArcAgentnetInput>): BoundedArcAgentnetInput {
+  expect('ok' in result).toBe(false);
+  if ('ok' in result) throw new Error('expected a bounded payload');
+  return result;
+}
+
 describe('buildBoundedArcAgentnetInput', () => {
   it('builds the exact fixed-template allowlisted payload', () => {
-    const result = buildBoundedArcAgentnetInput(baseInput);
-
-    expect(result).toEqual({
-      schemaVersion: 1,
-      analysis: {
-        subjectType: 'company',
-        company: {
-          id: 123,
-          name: 'Example Holdings',
-          domain: 'example.com',
-          profile: {
-            industry: 'Business services',
-            headcount: 1200,
-            headquarters: 'Chicago, IL',
-            description: 'Public company providing business services',
-          },
-        },
-        practiceArea: { id: 7, name: 'Finance Transformation', shortCode: 'FIN' },
-        buyingSignalCategory: 'Cost pressure',
-        template: fixedTemplate,
-        resolvedInstructions: 'Server-resolved instructions.',
-        checklist: [
-          { id: 1001, label: 'Assess evidence of financial cost pressure', required: true },
-          { id: 1002, label: 'Check for an active transformation programme', required: false },
-        ],
-        publicEvidenceUrls: ['https://example.com/investor-update', 'https://example.com/other'],
-      },
-    });
+    expect(payloadOf(buildBoundedArcAgentnetInput(baseInput))).toEqual(expectedPayload);
   });
 
   it('supports server-resolved custom template metadata without inventing a partner template', () => {
@@ -107,8 +124,7 @@ describe('buildBoundedArcAgentnetInput', () => {
 
     const result = buildBoundedArcAgentnetInput({ ...baseInput, template: customTemplate });
 
-    expect('ok' in result).toBe(false);
-    if (!('ok' in result)) expect(result.analysis.template).toEqual(customTemplate);
+    expect(payloadOf(result).analysis.template).toEqual(customTemplate);
   });
 
   it('normalizes missing profile fields to null and excludes private or arbitrary fields', () => {
@@ -129,48 +145,20 @@ describe('buildBoundedArcAgentnetInput', () => {
 
     const result = buildBoundedArcAgentnetInput(pollutedInput);
 
-    expect(result).toEqual({
-      schemaVersion: 1,
-      analysis: {
-        subjectType: 'company',
-        company: {
-          id: 123,
-          name: 'Example Holdings',
-          domain: null,
-          profile: { industry: null, headcount: null, headquarters: null, description: null },
-        },
-        practiceArea: { id: 7, name: 'Finance Transformation', shortCode: 'FIN' },
-        buyingSignalCategory: 'Cost pressure',
-        template: fixedTemplate,
-        resolvedInstructions: 'Server-resolved instructions.',
-        checklist: [
-          { id: 1001, label: 'Assess evidence of financial cost pressure', required: true },
-          { id: 1002, label: 'Check for an active transformation programme', required: false },
-        ],
-        publicEvidenceUrls: ['https://example.com/investor-update', 'https://example.com/other'],
-      },
-    });
+    expect(result).toEqual(expectedNullProfilePayload);
   });
 
   it.each([
-    'https://example.com/with#fragment',
-    'http://example.com/not-https',
-    'https://user:password@example.com/credentials',
-    'https://localhost/private',
-    'https://127.0.0.1/private',
-    'https://[::1]/private',
-    'https://service.example.local/private',
-    'https://service.example.internal/private',
-    'https://service.example.test/private',
-    'not a URL',
+    'https://example.com/with#fragment', 'http://example.com/not-https', 'https://user:password@example.com/credentials',
+    'https://localhost/private', 'https://127.0.0.1/private', 'https://[::1]/private', 'https://service.example.local/private',
+    'https://service.example.internal/private', 'https://service.example.test/private', 'not a URL',
   ])('omits unsafe evidence URL %s', (unsafeUrl) => {
     const result = buildBoundedArcAgentnetInput({
       ...baseInput,
       publicEvidenceUrls: [unsafeUrl, 'https://example.com/public'],
     });
 
-    expect('ok' in result).toBe(false);
-    if (!('ok' in result)) expect(result.analysis.publicEvidenceUrls).toEqual(['https://example.com/public']);
+    expect(payloadOf(result).analysis.publicEvidenceUrls).toEqual(['https://example.com/public']);
   });
 
   it.each([
@@ -182,8 +170,29 @@ describe('buildBoundedArcAgentnetInput', () => {
   ])('omits unsafe company domain %s', (domain) => {
     const result = buildBoundedArcAgentnetInput({ ...baseInput, company: { ...baseInput.company, domain } });
 
-    expect('ok' in result).toBe(false);
-    if (!('ok' in result)) expect(result.analysis.company.domain).toBeNull();
+    expect(payloadOf(result).analysis.company.domain).toBeNull();
+  });
+
+  it.each([
+    '10.0.0.1', '172.16.0.1', '192.168.1.1', '169.254.169.254', '100.64.0.1',
+    '127.0.0.1', '0.0.0.0', '224.0.0.1', '::1', '::', '2001:db8::1',
+    'fc00::1', 'fe80::1', '::ffff:10.0.0.1', '[::1]', '[::]', '[2001:db8::1]',
+    '[fc00::1]', '[fe80::1]', '[::ffff:10.0.0.1]',
+  ])('rejects private or non-routable domain literal %s', (domain) => {
+    const result = buildBoundedArcAgentnetInput({ ...baseInput, company: { ...baseInput.company, domain } });
+
+    expect(payloadOf(result).analysis.company.domain).toBeNull();
+  });
+
+  it.each([
+    ['example.com', 'example.com'],
+    ['8.8.8.8', '8.8.8.8'],
+    ['2001:4860:4860::8888', '2001:4860:4860::8888'],
+    ['[2001:4860:4860::8888]', '2001:4860:4860::8888'],
+  ])('preserves public domain or IP literal %s', (domain, expectedDomain) => {
+    const result = buildBoundedArcAgentnetInput({ ...baseInput, company: { ...baseInput.company, domain } });
+
+    expect(payloadOf(result).analysis.company.domain).toBe(expectedDomain);
   });
 
   it('rejects instructions over the configured template bound', () => {
@@ -240,12 +249,10 @@ describe('buildBoundedArcAgentnetInput', () => {
       )],
     });
 
-    expect('ok' in result).toBe(false);
-    if (!('ok' in result)) {
-      expect(result.analysis.checklist).toHaveLength(ARC_AGENTNET_PAYLOAD_LIMITS.maxChecklistItems);
-      expect(result.analysis.publicEvidenceUrls).toHaveLength(ARC_AGENTNET_PAYLOAD_LIMITS.maxEvidenceUrls);
-      expect(result.analysis.publicEvidenceUrls).not.toContain(evidenceUrl);
-    }
+    const payload = payloadOf(result);
+    expect(payload.analysis.checklist).toHaveLength(ARC_AGENTNET_PAYLOAD_LIMITS.maxChecklistItems);
+    expect(payload.analysis.publicEvidenceUrls).toHaveLength(ARC_AGENTNET_PAYLOAD_LIMITS.maxEvidenceUrls);
+    expect(payload.analysis.publicEvidenceUrls).not.toContain(evidenceUrl);
   });
 
   it('rejects a serialized payload over 1 MB before partner submission', () => {

@@ -1,5 +1,7 @@
 import 'server-only';
 
+import ipaddr from 'ipaddr.js';
+
 import { EvidenceNormalizationError, canonicalizeEvidenceUrl } from './evidence';
 import type {
   BoundedArcAgentnetInput,
@@ -35,6 +37,8 @@ const invalidInput = (): { readonly ok: false; readonly reason: 'invalid_input' 
   reason: 'invalid_input',
 });
 
+const NON_PUBLIC_IP_RANGES: ReadonlySet<string> = new Set(['private', 'linkLocal', 'carrierGradeNat', 'loopback', 'unspecified', 'multicast', 'reserved', 'uniqueLocal', 'broadcast'] as const);
+
 const payloadTooLarge = (): { readonly ok: false; readonly reason: 'payload_too_large' } => ({
   ok: false,
   reason: 'payload_too_large',
@@ -68,9 +72,15 @@ function normalizeOptionalText(value: string | null | undefined): string | null 
 
 function isPrivateDomainHost(hostname: string): boolean {
   const normalized = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (ipaddr.isValid(normalized)) {
+    const address = ipaddr.parse(normalized);
+    if (address instanceof ipaddr.IPv6 && address.isIPv4MappedAddress()) {
+      return NON_PUBLIC_IP_RANGES.has(address.toIPv4Address().range());
+    }
+    return NON_PUBLIC_IP_RANGES.has(address.range());
+  }
   if (normalized === 'localhost' || normalized.endsWith('.localhost')) return true;
   if (normalized.endsWith('.local') || normalized.endsWith('.internal') || normalized.endsWith('.test')) return true;
-  if (normalized === '127.0.0.1' || normalized === '::1' || normalized === '::') return true;
   return false;
 }
 
@@ -79,8 +89,13 @@ function normalizeCompanyDomain(rawDomain: string | null): string | null {
   const raw = rawDomain.trim();
   if (raw.length === 0) return null;
 
-  const candidate = /^[a-z][a-z\d+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`;
   try {
+    const isUnbracketedIpv6 = ipaddr.isValid(raw) && ipaddr.parse(raw) instanceof ipaddr.IPv6;
+    const candidate = /^[a-z][a-z\d+.-]*:\/\//i.test(raw)
+      ? raw
+      : isUnbracketedIpv6
+        ? `https://[${raw}]`
+        : `https://${raw}`;
     const url = new URL(candidate);
     if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
     if (
@@ -94,7 +109,7 @@ function normalizeCompanyDomain(rawDomain: string | null): string | null {
       isPrivateDomainHost(url.hostname)
     ) return null;
 
-    return url.hostname.toLowerCase().replace(/^www\./, '');
+    return url.hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/^www\./, '');
   } catch {
     return null;
   }
