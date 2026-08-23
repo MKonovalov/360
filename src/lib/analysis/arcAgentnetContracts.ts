@@ -12,7 +12,11 @@ type ArcAgentnetSubjectType = Extract<AnalysisSubjectType, 'company'>;
 const ARC_AGENTNET_SUBJECT_TYPE: ArcAgentnetSubjectType = 'company';
 
 const positiveIdSchema = z.number().int().positive();
-const boundedOpaqueString = (max: number) => z.string().trim().min(1).max(max);
+// Opaque identities/categories the server re-resolves or scopes itself
+// (customAgentId, signalCategory, idempotencyKey). Non-empty is the only
+// structural requirement -- no `.trim()` (which would silently mutate a
+// caller-controlled opaque value) and no invented length ceiling.
+const nonEmptyOpaqueStringSchema = z.string().min(1);
 
 // Mirrors AgentSelection's own fixed/custom discriminated shape exactly.
 // Declared as its own schema (rather than z.custom<AgentSelection>()) so
@@ -28,7 +32,7 @@ const arcAgentnetSelectionSchema = z.discriminatedUnion('kind', [
   z
     .object({
       kind: z.literal('custom'),
-      customAgentId: boundedOpaqueString(120),
+      customAgentId: nonEmptyOpaqueStringSchema,
       templateVersionId: positiveIdSchema,
     })
     .strict(),
@@ -49,9 +53,9 @@ export const arcAgentnetSubmitRequestSchema = z
       })
       .strict(),
     practiceAreaId: positiveIdSchema,
-    signalCategory: boundedOpaqueString(200),
+    signalCategory: nonEmptyOpaqueStringSchema,
     selection: arcAgentnetSelectionSchema,
-    idempotencyKey: boundedOpaqueString(200),
+    idempotencyKey: nonEmptyOpaqueStringSchema,
   })
   .strict();
 

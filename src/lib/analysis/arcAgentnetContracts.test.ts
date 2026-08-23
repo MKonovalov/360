@@ -152,4 +152,68 @@ describe('arcAgentnetSubmitRequestSchema', () => {
       expect(result.success).toBe(false);
     },
   );
+
+  it('preserves whitespace in idempotencyKey rather than trimming it', () => {
+    const paddedIdempotencyKey = '  idempotency-key-1  ';
+    const result = arcAgentnetSubmitRequestSchema.safeParse({
+      ...validFixedRequest,
+      idempotencyKey: paddedIdempotencyKey,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.idempotencyKey).toBe(paddedIdempotencyKey);
+  });
+
+  it('preserves whitespace in signalCategory rather than trimming it', () => {
+    const paddedSignalCategory = '  cost pressure  ';
+    const result = arcAgentnetSubmitRequestSchema.safeParse({
+      ...validFixedRequest,
+      signalCategory: paddedSignalCategory,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.signalCategory).toBe(paddedSignalCategory);
+  });
+
+  it('preserves whitespace in customAgentId rather than trimming it', () => {
+    const paddedCustomAgentId = '  custom-agent-1  ';
+    const result = arcAgentnetSubmitRequestSchema.safeParse({
+      ...validCustomRequest,
+      selection: { kind: 'custom', customAgentId: paddedCustomAgentId, templateVersionId: 3 },
+    });
+    expect(result.success).toBe(true);
+    if (result.success && result.data.selection.kind === 'custom') {
+      expect(result.data.selection.customAgentId).toBe(paddedCustomAgentId);
+    }
+  });
+
+  it('accepts an idempotencyKey longer than the old undocumented 200-character ceiling', () => {
+    const longIdempotencyKey = 'k'.repeat(500);
+    const result = arcAgentnetSubmitRequestSchema.safeParse({
+      ...validFixedRequest,
+      idempotencyKey: longIdempotencyKey,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.idempotencyKey).toBe(longIdempotencyKey);
+  });
+
+  it('accepts a signalCategory longer than the old undocumented 200-character ceiling', () => {
+    const longSignalCategory = 'c'.repeat(500);
+    const result = arcAgentnetSubmitRequestSchema.safeParse({
+      ...validFixedRequest,
+      signalCategory: longSignalCategory,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.signalCategory).toBe(longSignalCategory);
+  });
+
+  it('accepts a customAgentId longer than the old undocumented 120-character ceiling', () => {
+    const longCustomAgentId = 'a'.repeat(300);
+    const result = arcAgentnetSubmitRequestSchema.safeParse({
+      ...validCustomRequest,
+      selection: { kind: 'custom', customAgentId: longCustomAgentId, templateVersionId: 3 },
+    });
+    expect(result.success).toBe(true);
+    if (result.success && result.data.selection.kind === 'custom') {
+      expect(result.data.selection.customAgentId).toBe(longCustomAgentId);
+    }
+  });
 });
