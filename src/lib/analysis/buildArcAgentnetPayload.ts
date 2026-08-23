@@ -32,17 +32,13 @@ export const ARC_AGENTNET_PAYLOAD_LIMITS = {
 
 type BuildResult = BoundedArcAgentnetInput | { readonly ok: false; readonly reason: 'invalid_input' | 'payload_too_large' };
 
-const invalidInput = (): { readonly ok: false; readonly reason: 'invalid_input' } => ({
-  ok: false,
-  reason: 'invalid_input',
-});
+const invalidInput = (): { readonly ok: false; readonly reason: 'invalid_input' } => ({ ok: false, reason: 'invalid_input' });
 
 const NON_PUBLIC_IP_RANGES: ReadonlySet<string> = new Set(['private', 'linkLocal', 'carrierGradeNat', 'loopback', 'unspecified', 'multicast', 'reserved', 'uniqueLocal', 'broadcast'] as const);
+const IPV4_SPECIAL_USE_RANGES = { nonPublic: [[ipaddr.IPv4.parse('0.0.0.0'), 8], [ipaddr.IPv4.parse('10.0.0.0'), 8], [ipaddr.IPv4.parse('100.64.0.0'), 10], [ipaddr.IPv4.parse('127.0.0.0'), 8], [ipaddr.IPv4.parse('169.254.0.0'), 16], [ipaddr.IPv4.parse('172.16.0.0'), 12], [ipaddr.IPv4.parse('192.0.0.0'), 24], [ipaddr.IPv4.parse('192.0.2.0'), 24], [ipaddr.IPv4.parse('192.88.99.0'), 24], [ipaddr.IPv4.parse('192.168.0.0'), 16], [ipaddr.IPv4.parse('198.18.0.0'), 15], [ipaddr.IPv4.parse('198.51.100.0'), 24], [ipaddr.IPv4.parse('203.0.113.0'), 24], [ipaddr.IPv4.parse('224.0.0.0'), 4], [ipaddr.IPv4.parse('240.0.0.0'), 4]] } satisfies Record<string, [ipaddr.IPv4, number][]>;
+const IPV6_SPECIAL_USE_RANGES = { nonPublic: [[ipaddr.IPv6.parse('::'), 128], [ipaddr.IPv6.parse('::1'), 128], [ipaddr.IPv6.parse('100::'), 64], [ipaddr.IPv6.parse('2001:2::'), 48], [ipaddr.IPv6.parse('2001:10::'), 28], [ipaddr.IPv6.parse('2001:db8::'), 32], [ipaddr.IPv6.parse('3fff::'), 20], [ipaddr.IPv6.parse('fc00::'), 7], [ipaddr.IPv6.parse('fe80::'), 10], [ipaddr.IPv6.parse('ff00::'), 8]] } satisfies Record<string, [ipaddr.IPv6, number][]>;
 
-const payloadTooLarge = (): { readonly ok: false; readonly reason: 'payload_too_large' } => ({
-  ok: false,
-  reason: 'payload_too_large',
-});
+const payloadTooLarge = (): { readonly ok: false; readonly reason: 'payload_too_large' } => ({ ok: false, reason: 'payload_too_large' });
 
 function isPositiveInteger(value: number): boolean {
   return Number.isSafeInteger(value) && value > 0;
@@ -74,6 +70,12 @@ function isPrivateDomainHost(hostname: string): boolean {
   const normalized = hostname.toLowerCase().replace(/^\[|\]$/g, '');
   if (ipaddr.isValid(normalized)) {
     const address = ipaddr.parse(normalized);
+    const specialUse = address instanceof ipaddr.IPv6 && address.isIPv4MappedAddress()
+      ? isPrivateDomainHost(address.toIPv4Address().toString())
+      : address instanceof ipaddr.IPv4
+        ? ipaddr.subnetMatch(address, IPV4_SPECIAL_USE_RANGES, 'public') !== 'public'
+        : ipaddr.subnetMatch(address, IPV6_SPECIAL_USE_RANGES, 'public') !== 'public';
+    if (specialUse) return true;
     if (address instanceof ipaddr.IPv6 && address.isIPv4MappedAddress()) {
       return NON_PUBLIC_IP_RANGES.has(address.toIPv4Address().range());
     }
