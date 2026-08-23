@@ -77,6 +77,51 @@ describe('analysisLauncherClient', () => {
       });
     });
 
+    it('accepts a Company follow-up response with executionTargets: [] (Arc-agentnet disabled)', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+        jsonResponse({ agents: [], practiceAreas: [{ id: 3, name: 'GBS', shortCode: 'GBS' }], executionTargets: [] }),
+      ));
+
+      const result = await fetchAnalysisOptions('company', 3, new AbortController().signal);
+
+      expect(result).toEqual({
+        ok: true,
+        practiceAreas: [{ id: 3, name: 'GBS', shortCode: 'GBS' }],
+        agents: [],
+        signalCategories: [],
+      });
+    });
+
+    it('accepts a Company follow-up response with both execution targets when Arc-agentnet is enabled', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+        jsonResponse({ agents: [], practiceAreas: [], executionTargets: ['internal', 'arc-agentnet'] }),
+      ));
+
+      const result = await fetchAnalysisOptions('company', 3, new AbortController().signal);
+
+      expect(result.ok).toBe(true);
+    });
+
+    it('accepts a Persona follow-up response that omits executionTargets entirely', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+        jsonResponse({ agents: [], practiceAreas: [] }),
+      ));
+
+      const result = await fetchAnalysisOptions('persona', 3, new AbortController().signal);
+
+      expect(result.ok).toBe(true);
+    });
+
+    it('rejects a follow-up response with an invalid executionTargets value', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+        jsonResponse({ agents: [], practiceAreas: [], executionTargets: ['bogus'] }),
+      ));
+
+      const result = await fetchAnalysisOptions('company', 3, new AbortController().signal);
+
+      expect(result).toEqual({ ok: false, message: 'Analysis options could not be loaded. Refresh and try again.' });
+    });
+
     it('preserves fixed-first ordering and returns every matching active custom option as a separate explicit choice', async () => {
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
         jsonResponse({
