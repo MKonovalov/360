@@ -62,6 +62,13 @@ const envSchema = z.object({
   // Vercel Cron cleanup is disabled unless a sufficiently strong server-only
   // bearer secret is configured. Malformed values fail closed at the route.
   CRON_SECRET: z.string().min(32).optional().catch(undefined),
+  // arc-agentnet Partner Bridge credentials are server-only. Missing values
+  // disable the bridge without exposing a secret or crashing app-wide imports.
+  ARC_AGENTNET_BASE_URL: z.url().optional().catch(undefined),
+  // Deployment variable name is intentionally preserved verbatim. The client
+  // sends this server-only value through the X-Partner-Key HTTP header.
+  X_Partner_Key: z.string().min(1).optional(),
+  PARTNER_WEBHOOK_SECRET: z.string().min(32).optional().catch(undefined),
 });
 
 export const env = envSchema.parse(process.env);
