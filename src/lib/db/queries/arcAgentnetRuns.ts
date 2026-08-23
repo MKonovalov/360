@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { createHash } from 'node:crypto';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '../index';
 import { analysisRun, arcAgentnetIdempotency, partnerJobMapping } from '../schema';
@@ -85,6 +85,22 @@ export async function findArcAgentnetIdempotency(
   return rows[0];
 }
 
+export async function findArcAgentnetActiveRun(input: Readonly<{
+  readonly initiatingUserId: string;
+  readonly companyId: number;
+  readonly templateId: number;
+}>): Promise<ArcAgentnetRunRecord | undefined> {
+  const rows = await db.select().from(analysisRun).where(and(
+    eq(analysisRun.executionTarget, 'arc-agentnet'),
+    eq(analysisRun.initiatingUserId, input.initiatingUserId),
+    eq(analysisRun.subjectType, 'company'),
+    eq(analysisRun.subjectId, input.companyId),
+    eq(analysisRun.templateId, input.templateId),
+    inArray(analysisRun.status, ['queued', 'running', 'pending_review']),
+  ));
+  return rows[0];
+}
+
 export async function createArcAgentnetRunWithMapping(
   input: CreateArcAgentnetRunInput,
 ): Promise<CreateArcAgentnetRunResult> {
@@ -101,16 +117,28 @@ export async function createArcAgentnetRunWithMapping(
           AND company_id = ${input.companyId}
           AND template_id = ${input.templateId}
           AND template_version_id = ${input.templateVersionId}
-          AND execution_target = 'arc-agentnet'
-          AND idempotency_key = ${input.idempotencyKey}
-      ),
-      inserted_mapping AS (
-        INSERT INTO partner_job_mapping (partner_job_id, request_id, idempotency_key, status)
-        SELECT ${input.partnerJobId}, ${input.requestId}, ${partnerIdempotencyKey}, 'queued'
-        WHERE NOT EXISTS (SELECT 1 FROM existing_idempotency)
-        RETURNING id
-      ),
-      inserted_run AS (
+           AND execution_target = 'arc-agentnet'
+           AND idempotency_key = ${input.idempotencyKey}
+       ),
+       existing_mapping AS MATERIALIZED (
+         SELECT id
+         FROM partner_job_mapping
+         WHERE partner_job_id = ${input.partnerJobId}
+           AND request_id = ${input.requestId}
+       ),
+       inserted_mapping AS (
+         INSERT INTO partner_job_mapping (partner_job_id, request_id, idempotency_key, status)
+         SELECT ${input.partnerJobId}, ${input.requestId}, ${partnerIdempotencyKey}, 'queued'
+         WHERE NOT EXISTS (SELECT 1 FROM existing_idempotency)
+           AND NOT EXISTS (SELECT 1 FROM existing_mapping)
+         RETURNING id
+       ),
+       mapping_for_run AS MATERIALIZED (
+         SELECT id FROM inserted_mapping
+         UNION ALL
+         SELECT id FROM existing_mapping
+       ),
+       inserted_run AS (
         INSERT INTO analysis_run (
           template_id, template_version_id, subject_type, subject_id, practice_area_id,
           status, created_by, template_snapshot, subject_snapshot, checklist_snapshot,
@@ -124,14 +152,14 @@ export async function createArcAgentnetRunWithMapping(
           'queued', ${input.createdBy}, ${JSON.stringify(input.templateSnapshot)}::jsonb,
           ${JSON.stringify(input.subjectSnapshot)}::jsonb, ${JSON.stringify(input.checklistSnapshot)}::jsonb,
           ${JSON.stringify(input.executionSnapshot)}::jsonb, ${JSON.stringify(input.policySnapshot)}::jsonb,
-          'arc-agentnet', ${input.initiatingUserId},
-          ${JSON.stringify(input.inputSnapshot.analysis.template)}::jsonb,
-          ${JSON.stringify(input.inputSnapshot.analysis.checklist)}::jsonb,
-          ${JSON.stringify(input.inputSnapshot)}::jsonb, inserted_mapping.id, ${input.partnerJobId},
-          ${input.requestId}, ${input.idempotencyKey}, ${input.payloadHash}, 'queued'
-        FROM inserted_mapping
-        WHERE NOT EXISTS (SELECT 1 FROM existing_idempotency)
-        RETURNING id
+           'arc-agentnet', ${input.initiatingUserId},
+           ${JSON.stringify(input.inputSnapshot.analysis.template)}::jsonb,
+           ${JSON.stringify(input.inputSnapshot.analysis.checklist)}::jsonb,
+           ${JSON.stringify(input.inputSnapshot)}::jsonb, mapping_for_run.id, ${input.partnerJobId},
+           ${input.requestId}, ${input.idempotencyKey}, ${input.payloadHash}, 'queued'
+         FROM mapping_for_run
+         WHERE NOT EXISTS (SELECT 1 FROM existing_idempotency)
+         RETURNING id
       ),
       inserted_event AS (
         INSERT INTO analysis_run_event (analysis_run_id, event_key, from_status, to_status, actor_kind, actor_id, attempt)
@@ -145,8 +173,8 @@ export async function createArcAgentnetRunWithMapping(
           idempotency_key, payload_hash, analysis_run_id, partner_job_mapping_id
         )
         SELECT ${input.initiatingUserId}, ${input.companyId}, ${input.templateId}, ${input.templateVersionId},
-          'arc-agentnet', ${input.idempotencyKey}, ${input.payloadHash}, inserted_run.id, inserted_mapping.id
-        FROM inserted_run CROSS JOIN inserted_mapping
+           'arc-agentnet', ${input.idempotencyKey}, ${input.payloadHash}, inserted_run.id, mapping_for_run.id
+         FROM inserted_run CROSS JOIN mapping_for_run
         RETURNING analysis_run_id, partner_job_mapping_id
       )
       SELECT CASE

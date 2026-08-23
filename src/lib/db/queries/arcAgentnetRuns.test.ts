@@ -10,6 +10,7 @@ vi.mock('server-only', () => ({}));
 import {
   applyArcAgentnetResultProjection,
   createArcAgentnetRunWithMapping,
+  findArcAgentnetActiveRun,
   findArcAgentnetIdempotency,
   getArcAgentnetRunByPartnerIdentity,
   getArcAgentnetRunById,
@@ -74,6 +75,7 @@ const createInput = {
     items: [],
   },
   executionSnapshot: {
+    executor: 'arc-agentnet',
     schemaVersion: 1,
     effort: 'standard',
     resolvedModelChain: ['partner'],
@@ -110,6 +112,25 @@ describe('Arc-agentnet local persistence guards', () => {
     expect(execute).toHaveBeenCalledTimes(1);
     expect(flattenSql(execute.mock.calls[0]?.[0])).toContain('arc_agentnet_idempotency');
     expect(flattenSql(execute.mock.calls[0]?.[0])).toContain('payload_hash');
+  });
+
+  it('persists the Arc-agentnet executor in the immutable local execution snapshot', async () => {
+    const execute = executeRows({ outcome: 'created', runId: run.id, mappingId: mapping.id });
+    selectRows(run, mapping);
+
+    await createArcAgentnetRunWithMapping(createInput);
+
+    expect(flattenSql(execute.mock.calls[0]?.[0])).toContain('executor');
+    expect(flattenSql(execute.mock.calls[0]?.[0])).toContain('arc-agentnet');
+  });
+
+  it('reuses the mapping registered by the partner client before local persistence', async () => {
+    const execute = executeRows({ outcome: 'created', runId: run.id, mappingId: mapping.id });
+    selectRows(run, mapping);
+
+    await createArcAgentnetRunWithMapping(createInput);
+
+    expect(flattenSql(execute.mock.calls[0]?.[0])).toContain('existing_mapping');
   });
 
   it('returns idempotency_conflict when the scoped key has a different payload fingerprint', async () => {
@@ -217,6 +238,7 @@ describe('Arc-agentnet local persistence guards', () => {
     }
     expect(sqlText).not.toContain('d'.repeat(64));
     expect(sqlText).toContain('result_projection');
+    expect(sqlText).toContain("arc_agentnet_local_status IN ('queued', 'running')");
   });
 
   it('rejects unsafe projections before issuing a database write', async () => {
@@ -269,6 +291,14 @@ describe('Arc-agentnet local persistence guards', () => {
 
     expect(result).toEqual({ id: 303, analysisRunId: run.id, payloadHash: createInput.payloadHash });
     expect(where).toHaveBeenCalledTimes(1);
+  });
+
+  it('finds only queued, running, or pending-review Arc-agentnet runs in the local scope', async () => {
+    const where = selectRows(run);
+
+    await expect(findArcAgentnetActiveRun({ initiatingUserId: createInput.initiatingUserId, companyId: createInput.companyId, templateId: createInput.templateId })).resolves.toEqual(run);
+
+    expect(where).toHaveBeenCalledOnce();
   });
 
   it('does not expose an internal run through the Arc-agentnet lookup', async () => {
