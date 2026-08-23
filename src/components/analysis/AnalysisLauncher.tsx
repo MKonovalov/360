@@ -24,15 +24,18 @@ import {
 import {
   ANALYSIS_LAUNCHER_ERROR_COPY,
   analysisRunEndpoint,
+  createArcAgentnetRunPayload,
   createAnalysisRunPayload as createClientAnalysisRunPayload,
   fetchAnalysisPreview,
   fetchAnalysisOptions,
   getErrorCopy,
   parseCreateRunResponse,
+  pollArcAgentnetRun,
   readJson,
   type AnalysisPreview,
   type AnalysisRunPayloadInput,
   type AnalysisSubjectType,
+  type AnalysisExecutor,
   type AgentOption,
   type AgentSelection,
   type PracticeArea,
@@ -129,6 +132,15 @@ export function defaultAnalysisAgentKey(agents: readonly AgentOption[]): string 
   return first?.kind === 'fixed' ? analysisAgentOptionKey(first) : '';
 }
 
+export function availableAnalysisAgentsForSubject(
+  subjectType: AnalysisSubjectType,
+  agents: readonly AgentOption[],
+): readonly AgentOption[] {
+  return subjectType === 'company'
+    ? agents
+    : agents.filter((agent) => agent.executor === 'internal');
+}
+
 export function isAnalysisAgentPickerReady(
   status: OptionsState['status'],
   agents: readonly AgentOption[] | null,
@@ -188,6 +200,29 @@ export async function performAnalysisRunLaunch({
   payload,
   signal,
 }: AnalysisRunLaunchInput): Promise<AnalysisRunLaunchResult> {
+  const executor = payload.executor ?? 'internal';
+  if (executor === 'arc-agentnet') {
+    if (payload.subjectType !== 'company') return { kind: 'error', message: 'The analysis run could not be started. Try again.' };
+    const response = await fetch('/api/analysis-runs/arc-agentnet', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      signal,
+      body: JSON.stringify(createArcAgentnetRunPayload({
+        subjectType: payload.subjectType,
+        subjectId: payload.subjectId,
+        practiceAreaId: payload.practiceAreaId,
+        signalCategory: payload.signalCategory,
+        selection: payload.selection,
+        idempotencyKey: crypto.randomUUID(),
+      })),
+    });
+    const responseBody = await readJson(response);
+    if (!response.ok) return { kind: 'error', message: getErrorCopy(responseBody) };
+    const applicationRunId = parseCreateRunResponse(responseBody);
+    return applicationRunId === null
+      ? { kind: 'error', message: 'The analysis run could not be started. Try again.' }
+      : { kind: 'started', applicationRunId };
+  }
   const snapshot = controller.getSnapshot();
   if (snapshot.status !== 'confirmed') return { kind: 'blocked' };
 
@@ -275,6 +310,8 @@ export function AnalysisLauncher({
     };
   }, [open, subjectId, subjectType]);
 
+  useEffect(() => () => abortRequests(), []);
+
   useEffect(() => {
     if (!open || !practiceAreaId || optionsState.status !== 'ready') return;
     const selectedId = Number(practiceAreaId);
@@ -298,7 +335,7 @@ export function AnalysisLauncher({
     return () => controller.abort();
   }, [loadedPracticeAreaId, open, optionPracticeAreas, optionsState.status, practiceAreaId, subjectId, subjectType]);
 
-  const agentOptions = optionAgents;
+  const agentOptions = optionAgents === null ? null : availableAnalysisAgentsForSubject(subjectType, optionAgents);
   const selectedAgent = agentOptions?.find((agent) => analysisAgentOptionKey(agent) === selectedAgentKey) ?? null;
   const agentPickerReady = isAnalysisAgentPickerReady(optionsState.status, agentOptions);
 
@@ -349,7 +386,7 @@ export function AnalysisLauncher({
         signalCategories: result.signalCategories,
         loadedPracticeAreaId: selectedPracticeAreaId,
       });
-      setSelectedAgentKey(defaultAnalysisAgentKey(result.agents));
+      setSelectedAgentKey(defaultAnalysisAgentKey(availableAnalysisAgentsForSubject(subjectType, result.agents)));
     } catch (error: unknown) {
       if (isAbortError(error) || !isCurrent(generation, controller)) return;
       setOptionsState({ status: 'error', message: error instanceof TypeError ? ANALYSIS_LAUNCHER_ERROR_COPY.network : 'Analysis options could not be loaded. Refresh and try again.' });
@@ -390,7 +427,8 @@ export function AnalysisLauncher({
 
   async function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!isDebugLaunchPreferenceReady || !signalCategory || previewState.status !== 'ready' || selectedAgent === null || launchState.status === 'launching' || launchState.status === 'started') return;
+    const isLaunchReady = selectedAgent?.executor === 'arc-agentnet' || isDebugLaunchPreferenceReady;
+    if (!isLaunchReady || !signalCategory || previewState.status !== 'ready' || selectedAgent === null || launchState.status === 'launching' || launchState.status === 'started') return;
     const generation = generationRef.current;
     const controller = new AbortController();
     launchControllerRef.current?.abort();
@@ -405,6 +443,7 @@ export function AnalysisLauncher({
           practiceAreaId: previewState.preview.practiceArea.id,
           signalCategory,
           selection: analysisAgentSelection(selectedAgent),
+          executor: selectedAgent.executor,
         },
         signal: controller.signal,
       });
@@ -418,17 +457,25 @@ export function AnalysisLauncher({
         return;
       }
       setLaunchState({ status: 'started', applicationRunId: result.applicationRunId, run: null });
-      router.refresh();
-      startPolling(result.applicationRunId, generation);
+      if (selectedAgent.executor === 'internal') router.refresh();
+      startPolling(result.applicationRunId, generation, selectedAgent.executor);
     } catch (error: unknown) {
       if (isAbortError(error) || !isCurrent(generation, controller)) return;
       setLaunchState({ status: 'error', message: error instanceof TypeError ? ANALYSIS_LAUNCHER_ERROR_COPY.network : 'The analysis run could not be started. Try again.' });
     }
   }
 
-  function startPolling(applicationRunId: number, generation: number) {
+  function startPolling(applicationRunId: number, generation: number, executor: AnalysisExecutor) {
     const controller = new AbortController();
     pollControllerRef.current = controller;
+    if (executor === 'arc-agentnet') {
+      void pollArcAgentnetRun({ applicationRunId, signal: controller.signal }).then((result) => {
+        if (generation !== generationRef.current || result.kind === 'aborted') return;
+        if (result.kind === 'error') setLaunchState({ status: 'error', message: result.message });
+        if (result.kind === 'terminal') router.refresh();
+      });
+      return;
+    }
     void pollAnalysisRun({
       applicationRunId,
       signal: controller.signal,
@@ -464,6 +511,7 @@ export function AnalysisLauncher({
   const signalCategories = optionSignalCategories ?? [];
   const availableAgents = agentOptions ?? [];
   const preview = previewState.status === 'ready' ? previewState.preview : null;
+  const isLaunchReady = selectedAgent?.executor === 'arc-agentnet' || isDebugLaunchPreferenceReady;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -509,7 +557,7 @@ export function AnalysisLauncher({
             {preview ? <AnalysisPreviewPanel preview={preview} /> : null}
             {launchState.status === 'error' ? <p role="alert" className="text-red-600">{launchState.message}</p> : null}
             {launchState.status === 'started' ? <p role="status">{`Analysis run #${launchState.applicationRunId} started${launchState.run && isTerminalAnalysisStatus(launchState.run.status) ? ` · ${launchState.run.status}` : ''}.`}</p> : null}
-              <Button type="submit" disabled={!isDebugLaunchPreferenceReady || !preview || !signalCategory || selectedAgent === null || launchState.status === 'launching' || launchState.status === 'started'}>{launchState.status === 'launching' ? 'Starting…' : launchState.status === 'started' ? 'Started' : 'Start analysis'}</Button>
+              <Button type="submit" disabled={!isLaunchReady || !preview || !signalCategory || selectedAgent === null || launchState.status === 'launching' || launchState.status === 'started'}>{launchState.status === 'launching' ? 'Starting…' : launchState.status === 'started' ? 'Started' : 'Start analysis'}</Button>
           </form>
         ) : null}
         <DialogFooter>
@@ -524,12 +572,13 @@ function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError';
 }
 
-function analysisAgentLabel(agent: AgentOption): string {
+export function analysisAgentLabel(agent: AgentOption): string {
+  const executorLabel = agent.executor === 'arc-agentnet' ? 'Arc-agentnet' : 'Internal';
   switch (agent.kind) {
     case 'fixed':
-      return `Fixed v1.7 · ${agent.name} · v${agent.version}`;
+      return `Fixed v1.7 · ${agent.name} · v${agent.version} · ${executorLabel}`;
     case 'custom':
-      return `Custom · ${agent.name} · v${agent.version}`;
+      return `Custom · ${agent.name} · v${agent.version} · ${executorLabel}`;
     default:
       return assertNever(agent);
   }

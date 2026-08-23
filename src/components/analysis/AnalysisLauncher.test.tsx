@@ -11,8 +11,10 @@ vi.mock('next/navigation', () => ({
 
 import {
   AnalysisLauncher,
+  analysisAgentLabel,
   analysisAgentOptionKey,
   analysisAgentSelection,
+  availableAnalysisAgentsForSubject,
   createAnalysisPreviewPayload,
   createAnalysisRunPayload,
   defaultAnalysisAgentKey,
@@ -45,6 +47,7 @@ const FIXED_AGENT = {
   name: 'Company Buying Signal Analysis',
   targetType: 'company',
   version: 1,
+  executor: 'internal',
 } satisfies AgentOption;
 
 const CUSTOM_AGENT_A = {
@@ -55,6 +58,7 @@ const CUSTOM_AGENT_A = {
   description: 'Finds transformation signals.',
   targetType: 'company',
   version: 1,
+  executor: 'internal',
 } satisfies AgentOption;
 
 const CUSTOM_AGENT_B = {
@@ -65,6 +69,7 @@ const CUSTOM_AGENT_B = {
   description: 'Finds cost pressure signals.',
   targetType: 'company',
   version: 2,
+  executor: 'arc-agentnet',
 } satisfies AgentOption;
 
 const CATEGORY_PREVIEW = {
@@ -238,6 +243,23 @@ describe('AnalysisLauncher', () => {
     expect(parseCreateRunResponse({ applicationRunId: 73 })).toBe(73);
     expect(parseCreateRunResponse({ applicationRunId: { id: 73 } })).toBeNull();
   });
+
+  it('keeps executor display separate from template selection and hides Arc-agentnet for Persona', () => {
+    expect(availableAnalysisAgentsForSubject('company', [FIXED_AGENT, CUSTOM_AGENT_B])).toEqual([
+      FIXED_AGENT,
+      CUSTOM_AGENT_B,
+    ]);
+    expect(availableAnalysisAgentsForSubject('persona', [FIXED_AGENT, CUSTOM_AGENT_B])).toEqual([
+      FIXED_AGENT,
+    ]);
+    expect(analysisAgentSelection(CUSTOM_AGENT_B)).toEqual({
+      kind: 'custom',
+      customAgentId: 'custom-b',
+      templateVersionId: 81,
+    });
+    expect(analysisAgentLabel(FIXED_AGENT)).toContain('Internal');
+    expect(analysisAgentLabel(CUSTOM_AGENT_B)).toContain('Arc-agentnet');
+  });
 });
 
 const STORAGE_KEY = 'arclumen:debug-launch:v1';
@@ -333,6 +355,43 @@ describe('performAnalysisRunLaunch', () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe(expectedUrl);
     expect(JSON.parse(init.body as string)).toEqual(createAnalysisRunPayload(BASE_PAYLOAD_INPUT));
+  });
+
+  it('routes a persisted Company Arc-agentnet selection through the local submit route without debug preference reads', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ applicationRunId: 73 }, 201));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await performAnalysisRunLaunch({
+      controller: fakeController(snapshotFixture({ status: 'loading', preference: 'on' })),
+      payload: { ...BASE_PAYLOAD_INPUT, executor: 'arc-agentnet' },
+      signal: new AbortController().signal,
+    });
+
+    expect(result).toEqual({ kind: 'started', applicationRunId: 73 });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/analysis-runs/arc-agentnet');
+    const body = JSON.parse((fetchMock.mock.calls[0]?.[1] as RequestInit).body as string);
+    expect(body).toMatchObject({
+      subject: { type: 'company', id: 42 },
+      practiceAreaId: 4,
+      signalCategory: 'GBS-state',
+      selection: { kind: 'fixed', templateVersionId: 11 },
+    });
+    expect(body).not.toHaveProperty('partnerJobId');
+  });
+
+  it('surfaces an Arc-agentnet submit failure without retrying the internal route', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ error: 'partner_unavailable' }, 502));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await performAnalysisRunLaunch({
+      controller: fakeController(snapshotFixture({ preference: 'on' })),
+      payload: { ...BASE_PAYLOAD_INPUT, executor: 'arc-agentnet' },
+      signal: new AbortController().signal,
+    });
+
+    expect(result.kind).toBe('error');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/analysis-runs/arc-agentnet');
   });
 
   it('captures the endpoint from a single getSnapshot() read and ignores a preference change made after the request begins', async () => {
