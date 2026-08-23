@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { isIP } from 'node:net';
+
+import ipaddr from 'ipaddr.js';
 
 import { z } from 'zod';
 
@@ -55,42 +56,39 @@ function fail(reason: EvidenceFailureReason): never {
   throw new EvidenceNormalizationError(reason);
 }
 
-function isPrivateIpv4(hostname: string): boolean {
-  const octets = hostname.split('.').map(Number);
-  const first = octets[0];
-  const second = octets[1];
-  if (first === undefined || second === undefined) return true;
-  return (
-    first === 0 ||
-    first === 10 ||
-    (first === 100 && second >= 64 && second <= 127) ||
-    (first === 127) ||
-    (first === 169 && second === 254) ||
-    (first === 172 && second >= 16 && second <= 31) ||
-    (first === 192 && (second === 0 || second === 168)) ||
-    (first === 192 && second === 0) ||
-    (first === 198 && (second === 18 || second === 19)) ||
-    (first === 198 && second === 51) ||
-    (first === 203 && second === 0) ||
-    first >= 224
-  );
-}
+const NON_PUBLIC_IP_RANGES: ReadonlySet<string> = new Set([
+  'private', 'linkLocal', 'carrierGradeNat', 'loopback', 'unspecified', 'multicast', 'reserved',
+  'uniqueLocal', 'broadcast', 'rfc6145', 'rfc6052', '6to4', 'teredo',
+] as const);
+const IPV4_SPECIAL_USE_RANGES = { nonPublic: [
+  [ipaddr.IPv4.parse('0.0.0.0'), 8], [ipaddr.IPv4.parse('10.0.0.0'), 8], [ipaddr.IPv4.parse('100.64.0.0'), 10],
+  [ipaddr.IPv4.parse('127.0.0.0'), 8], [ipaddr.IPv4.parse('169.254.0.0'), 16], [ipaddr.IPv4.parse('172.16.0.0'), 12],
+  [ipaddr.IPv4.parse('192.0.0.0'), 24], [ipaddr.IPv4.parse('192.0.2.0'), 24], [ipaddr.IPv4.parse('192.88.99.0'), 24],
+  [ipaddr.IPv4.parse('192.168.0.0'), 16], [ipaddr.IPv4.parse('198.18.0.0'), 15], [ipaddr.IPv4.parse('198.51.100.0'), 24],
+  [ipaddr.IPv4.parse('203.0.113.0'), 24], [ipaddr.IPv4.parse('224.0.0.0'), 4], [ipaddr.IPv4.parse('240.0.0.0'), 4],
+] } satisfies Record<string, [ipaddr.IPv4, number][]>;
+const IPV6_SPECIAL_USE_RANGES = { nonPublic: [
+  [ipaddr.IPv6.parse('::'), 128], [ipaddr.IPv6.parse('::1'), 128], [ipaddr.IPv6.parse('100::'), 64],
+  [ipaddr.IPv6.parse('64:ff9b::'), 96], [ipaddr.IPv6.parse('64:ff9b:1::'), 48], [ipaddr.IPv6.parse('2001:2::'), 48],
+  [ipaddr.IPv6.parse('2001:10::'), 28], [ipaddr.IPv6.parse('2001:20::'), 28], [ipaddr.IPv6.parse('2001:db8::'), 32],
+  [ipaddr.IPv6.parse('2002::'), 16], [ipaddr.IPv6.parse('3fff::'), 20], [ipaddr.IPv6.parse('fc00::'), 7],
+  [ipaddr.IPv6.parse('fe80::'), 10], [ipaddr.IPv6.parse('ff00::'), 8],
+] } satisfies Record<string, [ipaddr.IPv6, number][]>;
 
-function isPrivateHost(hostname: string): boolean {
+export function isNonPublicHost(hostname: string): boolean {
   const normalized = hostname.toLowerCase().replace(/^\[|\]$/g, '');
-  const addressType = isIP(normalized);
-  if (addressType === 4) return isPrivateIpv4(normalized);
-  if (addressType === 6) {
-    return (
-      normalized === '::1' ||
-      normalized === '::' ||
-      normalized.startsWith('fe8') ||
-      normalized.startsWith('fe9') ||
-      normalized.startsWith('fea') ||
-      normalized.startsWith('feb') ||
-      normalized.startsWith('fc') ||
-      normalized.startsWith('fd')
-    );
+  if (ipaddr.isValid(normalized)) {
+    const address = ipaddr.parse(normalized);
+    if (address instanceof ipaddr.IPv6 && address.isIPv4MappedAddress()) {
+      return isNonPublicHost(address.toIPv4Address().toString());
+    }
+    if (address instanceof ipaddr.IPv6 && address.toByteArray().slice(0, 12).every((byte) => byte === 0)) {
+      return true;
+    }
+    const specialUse = address instanceof ipaddr.IPv4
+      ? ipaddr.subnetMatch(address, IPV4_SPECIAL_USE_RANGES, 'public') !== 'public'
+      : ipaddr.subnetMatch(address, IPV6_SPECIAL_USE_RANGES, 'public') !== 'public';
+    return specialUse || NON_PUBLIC_IP_RANGES.has(address.range());
   }
   return (
     normalized === 'localhost' ||
@@ -124,7 +122,7 @@ export function canonicalizeEvidenceUrl(value: string): string {
     if (/(?:database_url|api[_-]?key|token|secret|clerk|session)/i.test(url.toString())) {
       fail('unsupported_source');
     }
-    if (isPrivateHost(url.hostname)) fail('unsupported_source');
+    if (isNonPublicHost(url.hostname)) fail('unsupported_source');
     url.hostname = url.hostname.toLowerCase();
     if (url.port === '443') url.port = '';
     if (url.pathname.length > 1) url.pathname = url.pathname.replace(/\/+$/, '');

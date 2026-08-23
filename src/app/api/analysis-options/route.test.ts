@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  isCompanyArcAgentnetEnabled: vi.fn(),
   requireStaffAccess: vi.fn(),
   listActivePracticeAreas: vi.fn(),
   listActiveAnalysisTemplates: vi.fn(),
@@ -9,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   listActivePersonaSignalCategoriesForPracticeArea: vi.fn(),
 }));
 
+vi.mock('@/lib/env', () => ({ isCompanyArcAgentnetEnabled: mocks.isCompanyArcAgentnetEnabled }));
 vi.mock('@/lib/auth/requireStaffAccess', () => ({ requireStaffAccess: mocks.requireStaffAccess }));
 vi.mock('@/lib/db/queries/practiceAreas', () => ({ listActivePracticeAreas: mocks.listActivePracticeAreas }));
 vi.mock('@/lib/db/queries/analysisTemplates', () => ({ listActiveAnalysisTemplates: mocks.listActiveAnalysisTemplates }));
@@ -21,6 +23,7 @@ import { GET } from './route';
 describe('GET /api/analysis-options', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.isCompanyArcAgentnetEnabled.mockReturnValue(false);
     mocks.requireStaffAccess.mockResolvedValue({ userId: 'staff' });
     mocks.listActivePracticeAreas.mockResolvedValue([{ id: 3, name: 'GBS', shortCode: 'GBS', status: 'active' }]);
     mocks.listActiveAnalysisTemplates.mockResolvedValue([{ templateId: 1, templateVersionId: 11, key: 'company-buying-signal-analysis', name: 'Fixed', targetType: 'company', version: 1, supportedEfforts: ['standard'], defaultEffort: 'standard' }]);
@@ -56,10 +59,32 @@ describe('GET /api/analysis-options', () => {
     expect(mocks.listActivePersonaSignalCategoriesForPracticeArea).not.toHaveBeenCalled();
   });
 
+  it('does not expose execution targets or partner configuration when Company Arc-agentnet is disabled', async () => {
+    const response = await GET(new Request('http://localhost/api/analysis-options?subjectType=company&practiceAreaId=3'));
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.executionTargets).toEqual([]);
+    expect(payload).not.toHaveProperty('arcAgentnet');
+    expect(payload).not.toHaveProperty('partner');
+  });
+
+  it('exposes both execution targets only for enabled Company options', async () => {
+    mocks.isCompanyArcAgentnetEnabled.mockReturnValue(true);
+
+    const response = await GET(new Request('http://localhost/api/analysis-options?subjectType=company&practiceAreaId=3'));
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.executionTargets).toEqual(['internal', 'arc-agentnet']);
+  });
+
   it('returns the target-specific active signal categories for a persona follow-up query', async () => {
     const response = await GET(new Request('http://localhost/api/analysis-options?subjectType=persona&practiceAreaId=3'));
+    const payload = await response.json();
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({ signalCategories: ['tenure'] });
+    expect(payload).toMatchObject({ signalCategories: ['tenure'] });
+    expect(payload).not.toHaveProperty('executionTargets');
     expect(mocks.listActivePersonaSignalCategoriesForPracticeArea).toHaveBeenCalledWith(3);
     expect(mocks.listActiveCompanySignalCategoriesForPracticeArea).not.toHaveBeenCalled();
   });

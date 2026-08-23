@@ -273,6 +273,7 @@ describe('analysis run ledger guards', () => {
     expect(rows[1]).toMatchObject({ runId: 7, status: 'queued', review: null, packetProjection: null });
     expect(flattenSql(where.mock.calls[0]?.[0])).toContain('subject_type');
     expect(flattenSql(where.mock.calls[0]?.[0])).toContain('subject_id');
+    expect(flattenSql(where.mock.calls[0]?.[0])).toContain('execution_target');
     expect(orderBy).toHaveBeenCalled();
     expect(mocks.db.execute).not.toHaveBeenCalled();
     expect(mocks.db.insert).not.toHaveBeenCalled();
@@ -455,5 +456,6 @@ describe('analysis run ledger guards', () => {
     mocks.db.select.mockReturnValue({ from });
     await getAnalysisRun(7);
     expect(from).toHaveBeenCalledWith(analysisRun);
+    expect(flattenSql(where.mock.calls[0]?.[0])).toContain('execution_target');
   });
 });
