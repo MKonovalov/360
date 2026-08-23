@@ -32,7 +32,7 @@ function rejectForbiddenKeys(value: Record<string, ArcAgentnetSafeProjectionValu
 
 const safeProjectionValueSchema: z.ZodType<ArcAgentnetSafeProjectionValue> = z.lazy(() => z.union([
   z.string().max(MAX_STRING_LENGTH),
-  z.number().finite(),
+  z.number(),
   z.boolean(),
   z.null(),
   z.array(safeProjectionValueSchema).max(MAX_ARRAY_ITEMS),
@@ -45,24 +45,56 @@ const safeProjectionSchema: z.ZodType<ArcAgentnetSafeProjection> = z
 
 export type ArcAgentnetProjectionSerialization =
   | { readonly ok: true; readonly projection: ArcAgentnetSafeProjection; readonly serialized: string; readonly hash: string; readonly sizeBytes: number }
-  | { readonly ok: false };
+  | { readonly ok: false; readonly reason: 'invalid_input' };
 
-function exceedsDepth(value: ArcAgentnetSafeProjectionValue, depth: number): boolean {
-  if (depth > MAX_RESULT_DEPTH) return true;
-  if (Array.isArray(value)) return value.some((item) => exceedsDepth(item, depth + 1));
-  if (value !== null && typeof value === 'object') {
-    return Object.values(value).some((item) => exceedsDepth(item, depth + 1));
+type ProjectionWalkFrame = {
+  readonly value: unknown;
+  readonly depth: number;
+};
+
+function exceedsStructuralLimits(input: unknown): boolean {
+  const frames: ProjectionWalkFrame[] = [{ value: input, depth: 0 }];
+  const seen = new WeakSet<object>();
+
+  while (frames.length > 0) {
+    const frame = frames.pop();
+    if (frame === undefined || frame.depth > MAX_RESULT_DEPTH) return true;
+
+    if (typeof frame.value === 'string') {
+      if (frame.value.length > MAX_STRING_LENGTH) return true;
+      continue;
+    }
+
+    if (frame.value === null || typeof frame.value !== 'object') continue;
+    if (seen.has(frame.value)) return true;
+    seen.add(frame.value);
+
+    if (Array.isArray(frame.value)) {
+      if (frame.value.length > MAX_ARRAY_ITEMS) return true;
+      for (let index = frame.value.length - 1; index >= 0; index -= 1) {
+        frames.push({ value: frame.value[index], depth: frame.depth + 1 });
+      }
+      continue;
+    }
+
+    const entries = Object.entries(frame.value);
+    for (let index = entries.length - 1; index >= 0; index -= 1) {
+      const entry = entries[index];
+      if (entry !== undefined) frames.push({ value: entry[1], depth: frame.depth + 1 });
+    }
   }
+
   return false;
 }
 
 export function serializeArcAgentnetProjection(input: unknown): ArcAgentnetProjectionSerialization {
+  if (exceedsStructuralLimits(input)) return { ok: false, reason: 'invalid_input' };
   const parsed = safeProjectionSchema.safeParse(input);
-  if (!parsed.success || exceedsDepth(parsed.data, 0)) return { ok: false };
+  if (!parsed.success) return { ok: false, reason: 'invalid_input' };
 
   const serialized = JSON.stringify(parsed.data);
   const sizeBytes = Buffer.byteLength(serialized, 'utf8');
-  if (sizeBytes > MAX_RESULT_BYTES) return { ok: false };
+  if (sizeBytes > MAX_RESULT_BYTES) return { ok: false, reason: 'invalid_input' };
 
   return {
     ok: true,
