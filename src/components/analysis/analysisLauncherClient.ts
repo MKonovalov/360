@@ -56,6 +56,7 @@ const followUpOptionsBaseSchema = z.object({
   agents: z.array(agentOptionSchema),
   practiceAreas: z.array(practiceAreaSchema),
   signalCategories: z.array(z.string().min(1)).default([]),
+  executionTargets: z.array(executionTargetSchema).optional(),
 }).strict();
 const companyFollowUpOptionsSchema = followUpOptionsBaseSchema.extend({
   executionTargets: z.array(executionTargetSchema).optional(),

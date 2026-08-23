@@ -51,8 +51,8 @@ async function setDebugPreference(page: Page, enabled: boolean): Promise<void> {
 }
 
 async function openFixtureAnalysisLauncher(page: Page, companyId: string): Promise<void> {
-  await page.goto(`/companies?selected=${encodeURIComponent(companyId)}`);
-  await page.getByRole('button', { name: 'Menu', exact: true }).click();
+  await page.goto(`/companies/${encodeURIComponent(companyId)}`);
+  await page.getByRole('button', { name: 'Agent menu', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Analyze', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Company analysis', exact: true })).toBeVisible();
   const categoryPicker = page.getByRole('combobox', { name: 'Buying Signal Category' });

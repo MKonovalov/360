@@ -3,7 +3,7 @@ import { neon } from '@neondatabase/serverless';
 import { expect, test, type Page } from '@playwright/test';
 
 type SubjectType = 'company' | 'persona';
-type Subject = Readonly<{ type: SubjectType; id: number; path: string; heading: string }>;
+type Subject = Readonly<{ type: SubjectType; id: number; href: string; heading: string }>;
 type Counts = Readonly<{ companySignals: number; personaSignals: number; links: number }>;
 
 const forbiddenRequest = /firecrawl|(?:exa|perplexity|tavily|serpapi|brave-search)|\/api\/(?:companies|personas)\/\d+\/analyze|\/api\/(?:agent-runs|signal-proposals)/i;
@@ -34,9 +34,11 @@ function requirePrerequisites(): void {
 }
 
 function subjects(): Readonly<Record<SubjectType, Subject>> {
+  const companyId = fixtureId('PHASE39_COMPANY_ID');
+  const personaId = fixtureId('PHASE39_PERSONA_ID');
   return {
-    company: { type: 'company', id: fixtureId('PHASE39_COMPANY_ID'), path: '/companies', heading: 'Company analysis' },
-    persona: { type: 'persona', id: fixtureId('PHASE39_PERSONA_ID'), path: '/personas', heading: 'Persona analysis' },
+    company: { type: 'company', id: companyId, href: `/companies/${companyId}`, heading: 'Company analysis' },
+    persona: { type: 'persona', id: personaId, href: `/personas?selected=${personaId}`, heading: 'Persona analysis' },
   };
 }
 
@@ -57,9 +59,9 @@ async function readCounts(): Promise<Counts> {
 }
 
 async function openLauncher(page: Page, subject: Subject): Promise<void> {
-  await page.goto(`${subject.path}?selected=${subject.id}`);
-  const detail = page.locator('tr[aria-expanded="true"] + tr');
-  await detail.getByRole('button', { name: 'Menu', exact: true }).click();
+  await page.goto(subject.href);
+  const detail = subject.type === 'company' ? page : page.locator('tr[aria-expanded="true"] + tr');
+  await detail.getByRole('button', { name: 'Agent menu', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Analyze', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: subject.heading, exact: true });
   await expect(dialog).toBeVisible();
@@ -185,7 +187,7 @@ test.describe('Phase 39 authenticated security-review journeys', () => {
         const payload = await response.json() as { readonly status?: string };
         return payload.status ?? 'unknown';
       }, { timeout: 90_000 }).toMatch(/pending_review|confirmed|dismissed/);
-      await page.goto(`${subject.path}?selected=${subject.id}`);
+      await page.goto(subject.href);
       await expect(page.getByRole('heading', { name: 'Analysis', exact: true })).toBeVisible();
       await expect(page.getByText(/sources|source #/i).first()).toBeVisible();
       await expect(page.locator('a[href^="https://"]').first()).toBeVisible();
@@ -195,7 +197,7 @@ test.describe('Phase 39 authenticated security-review journeys', () => {
       await expect(review.getByRole('button', { name: new RegExp(`Confirm run ${runId}`) })).toBeVisible();
       await review.getByRole('button', { name: new RegExp(`Confirm run ${runId}`) }).click();
       await expect(review).toContainText(/Confirmed by/);
-      await page.goto(`${subject.path}?selected=${subject.id}`);
+      await page.goto(subject.href);
       const candidates = page.getByRole('region', { name: 'Confirmed Candidate Offerings', exact: true });
       await expect(candidates).toBeVisible();
       await expect(candidates.getByRole('button', { name: /^(Confirm|Dismiss)$/ })).toHaveCount(0);
