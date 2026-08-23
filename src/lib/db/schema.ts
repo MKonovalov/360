@@ -933,3 +933,77 @@ export const analysisRunReviewEvent = pgTable(
     index('analysis_run_review_event_result_id_idx').on(table.resultId, table.id),
   ],
 );
+
+// Partner Bridge persistence is deliberately separate from internal analysis
+// tables. The job row is created as part of a successful partner submission so
+// callbacks can only update jobs that this 360 instance owns.
+export const partnerJobStatusEnum = pgEnum('partner_job_status', [
+  'queued',
+  'running',
+  'cancelling',
+  'succeeded',
+  'failed',
+  'cancelled',
+]);
+
+export const partnerCallbackStatusEnum = pgEnum('partner_callback_status', [
+  'succeeded',
+  'failed',
+  'cancelled',
+]);
+
+export const partnerJobMapping = pgTable(
+  'partner_job_mapping',
+  {
+    id: serial('id').primaryKey(),
+    partnerJobId: text('partner_job_id').notNull(),
+    requestId: text('request_id').notNull(),
+    idempotencyKey: text('idempotency_key').notNull(),
+    status: partnerJobStatusEnum('status').notNull().default('queued'),
+    result: jsonb('result'),
+    resultSizeBytes: integer('result_size_bytes'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+    terminalAt: timestamp('terminal_at'),
+    expiresAt: timestamp('expires_at'),
+  },
+  (table) => [
+    unique('partner_job_mapping_partner_job_id_unique').on(table.partnerJobId),
+    unique('partner_job_mapping_request_id_unique').on(table.requestId),
+    unique('partner_job_mapping_idempotency_key_unique').on(table.idempotencyKey),
+    index('partner_job_mapping_status_expires_at_idx').on(table.status, table.expiresAt),
+    check(
+      'partner_job_mapping_result_size_check',
+      sql`${table.resultSizeBytes} IS NULL OR ${table.resultSizeBytes} BETWEEN 0 AND 5242880`,
+    ),
+  ],
+);
+
+export const partnerCallbackEvent = pgTable(
+  'partner_callback_event',
+  {
+    id: serial('id').primaryKey(),
+    jobMappingId: integer('job_mapping_id').notNull().references(() => partnerJobMapping.id),
+    eventId: text('event_id').notNull(),
+    requestId: text('request_id').notNull(),
+    status: partnerCallbackStatusEnum('status').notNull(),
+    payloadHash: text('payload_hash').notNull(),
+    result: jsonb('result'),
+    resultSizeBytes: integer('result_size_bytes').notNull(),
+    receivedAt: timestamp('received_at').defaultNow().notNull(),
+    expiresAt: timestamp('expires_at').notNull(),
+  },
+  (table) => [
+    unique('partner_callback_event_event_id_unique').on(table.eventId),
+    index('partner_callback_event_job_mapping_id_idx').on(table.jobMappingId, table.id),
+    index('partner_callback_event_expires_at_idx').on(table.expiresAt),
+    check(
+      'partner_callback_event_payload_hash_check',
+      sql`${table.payloadHash} ~ '^[a-f0-9]{64}$'`,
+    ),
+    check(
+      'partner_callback_event_result_size_check',
+      sql`${table.resultSizeBytes} BETWEEN 0 AND 5242880`,
+    ),
+  ],
+);
