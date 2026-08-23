@@ -69,6 +69,12 @@ const envSchema = z.object({
   // sends this server-only value through the X-Partner-Key HTTP header.
   X_Partner_Key: z.string().min(1).optional(),
   PARTNER_WEBHOOK_SECRET: z.string().min(32).optional().catch(undefined),
+  COMPANY_ANALYSIS_ARC_AGENTNET_ENABLED: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);
+
+export function isCompanyArcAgentnetEnabled(): boolean {
+  const value = env.COMPANY_ANALYSIS_ARC_AGENTNET_ENABLED?.trim().toLowerCase();
+  return value === 'true' || value === '1' || value === 'on';
+}

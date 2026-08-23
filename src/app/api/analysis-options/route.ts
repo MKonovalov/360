@@ -1,12 +1,14 @@
 import { z } from 'zod';
 
 import { analysisTargetTypeSchema } from '@/lib/analysis/contracts';
+import { EXECUTION_TARGETS } from '@/lib/analysis/executionTarget';
 import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { listActiveAnalysisTemplates } from '@/lib/db/queries/analysisTemplates';
 import { listActivePracticeAreas } from '@/lib/db/queries/practiceAreas';
 import { listActiveCustomAgentOptions } from '@/lib/db/queries/customAgents';
 import { listActiveCompanySignalCategoriesForPracticeArea } from '@/lib/db/queries/companySignals';
 import { listActivePersonaSignalCategoriesForPracticeArea } from '@/lib/db/queries/personaSignals';
+import { isCompanyArcAgentnetEnabled } from '@/lib/env';
 
 const optionsQuerySchema = z
   .object({
@@ -72,5 +74,8 @@ export async function GET(request: Request) {
       shortCode: practiceArea.shortCode,
     })),
     signalCategories,
+    ...(parsed.data.subjectType === 'company'
+      ? { executionTargets: isCompanyArcAgentnetEnabled() ? EXECUTION_TARGETS : [] }
+      : {}),
   });
 }
