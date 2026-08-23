@@ -138,7 +138,7 @@ export async function getAnalysisRun(runId: number): Promise<AnalysisRunRow | un
   const rows = await db
     .select()
     .from(analysisRun)
-    .where(eq(analysisRun.id, runId));
+    .where(and(eq(analysisRun.id, runId), eq(analysisRun.executionTarget, 'internal')));
   return rows[0];
 }
 
@@ -146,7 +146,14 @@ export async function listAnalysisRunEvents(runId: number): Promise<AnalysisRunE
   return db
     .select()
     .from(analysisRunEvent)
-    .where(eq(analysisRunEvent.analysisRunId, runId))
+    .where(and(
+      eq(analysisRunEvent.analysisRunId, runId),
+      sql`EXISTS (
+        SELECT 1 FROM analysis_run
+        WHERE analysis_run.id = ${analysisRunEvent.analysisRunId}
+          AND analysis_run.execution_target = 'internal'
+      )`,
+    ))
     .orderBy(analysisRunEvent.createdAt, analysisRunEvent.id);
 }
 
@@ -165,6 +172,7 @@ export async function listAnalysisRunsForSubject(
       and(
         eq(analysisRun.subjectType, scope.targetType),
         eq(analysisRun.subjectId, scope.subjectId),
+        eq(analysisRun.executionTarget, 'internal'),
       ),
     )
     .orderBy(desc(analysisRun.createdAt), desc(analysisRun.id));
@@ -224,7 +232,8 @@ export async function createAnalysisRun(
           subject_snapshot,
           checklist_snapshot,
           execution_snapshot,
-          policy_snapshot
+          policy_snapshot,
+          execution_target
         )
         VALUES (
           ${input.templateId},
@@ -238,7 +247,8 @@ export async function createAnalysisRun(
           ${JSON.stringify(input.subjectSnapshot)}::jsonb,
           ${JSON.stringify(input.checklistSnapshot)}::jsonb,
           ${JSON.stringify(input.executionSnapshot)}::jsonb,
-          ${JSON.stringify(input.policySnapshot)}::jsonb
+          ${JSON.stringify(input.policySnapshot)}::jsonb,
+          'internal'
         )
         RETURNING id
       ),
@@ -315,7 +325,9 @@ export async function transitionAnalysisRun(
           completed_at = COALESCE(completed_at, ${completedAt}),
           terminal_at = COALESCE(terminal_at, ${terminalAt}),
           updated_at = ${occurredAt}
-      WHERE id = ${input.runId} AND status = ${input.expectedStatus}
+      WHERE id = ${input.runId}
+        AND execution_target = 'internal'
+        AND status = ${input.expectedStatus}
       RETURNING id
     ),
     inserted AS (

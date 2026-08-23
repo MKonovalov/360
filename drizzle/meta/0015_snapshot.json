@@ -1134,6 +1134,10 @@
         "analysis_run_arc_agentnet_result_size_check": {
           "name": "analysis_run_arc_agentnet_result_size_check",
           "value": "\"analysis_run\".\"arc_agentnet_result_size_bytes\" IS NULL OR \"analysis_run\".\"arc_agentnet_result_size_bytes\" BETWEEN 0 AND 5242880"
+        },
+        "analysis_run_arc_agentnet_required_fields_check": {
+          "name": "analysis_run_arc_agentnet_required_fields_check",
+          "value": "\"analysis_run\".\"execution_target\" = 'internal' OR (\"analysis_run\".\"subject_type\" = 'company' AND \"analysis_run\".\"status\" IN ('queued', 'running', 'completed', 'failed', 'cancelled') AND \"analysis_run\".\"initiating_user_id\" IS NOT NULL AND \"analysis_run\".\"arc_agentnet_template_snapshot\" IS NOT NULL AND \"analysis_run\".\"arc_agentnet_checklist_snapshot\" IS NOT NULL AND \"analysis_run\".\"arc_agentnet_input_snapshot\" IS NOT NULL AND \"analysis_run\".\"partner_job_mapping_id\" IS NOT NULL AND \"analysis_run\".\"partner_job_id\" IS NOT NULL AND \"analysis_run\".\"partner_request_id\" IS NOT NULL AND \"analysis_run\".\"arc_agentnet_idempotency_key\" IS NOT NULL AND \"analysis_run\".\"arc_agentnet_payload_hash\" IS NOT NULL AND \"analysis_run\".\"arc_agentnet_local_status\" IS NOT NULL)"
         }
       },
       "isRLSEnabled": false
@@ -2311,6 +2315,10 @@
         "arc_agentnet_idempotency_target_check": {
           "name": "arc_agentnet_idempotency_target_check",
           "value": "\"arc_agentnet_idempotency\".\"execution_target\" = 'arc-agentnet'"
+        },
+        "arc_agentnet_idempotency_scope_values_check": {
+          "name": "arc_agentnet_idempotency_scope_values_check",
+          "value": "\"arc_agentnet_idempotency\".\"initiating_user_id\" <> '' AND \"arc_agentnet_idempotency\".\"company_id\" > 0 AND \"arc_agentnet_idempotency\".\"template_id\" > 0 AND \"arc_agentnet_idempotency\".\"template_version_id\" > 0 AND \"arc_agentnet_idempotency\".\"idempotency_key\" <> ''"
         },
         "arc_agentnet_idempotency_payload_hash_check": {
           "name": "arc_agentnet_idempotency_payload_hash_check",

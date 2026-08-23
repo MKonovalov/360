@@ -11,9 +11,11 @@ import {
   applyArcAgentnetResultProjection,
   createArcAgentnetRunWithMapping,
   findArcAgentnetIdempotency,
+  getArcAgentnetRunByPartnerIdentity,
   getArcAgentnetRunById,
   recordArcAgentnetStatus,
 } from './arcAgentnetRuns';
+import { serializeArcAgentnetProjection } from './arcAgentnetResultValidation';
 
 function flattenSql(value: unknown): string {
   if (value === null || value === undefined) return '';
@@ -90,7 +92,7 @@ const run = { id: 101, executionTarget: 'arc-agentnet', initiatingUserId: 'user_
 const mapping = { id: 202, partnerJobId: 'job_42', requestId: 'request_42', status: 'queued' };
 
 describe('Arc-agentnet local persistence guards', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => vi.resetAllMocks());
 
   it('replays one scoped idempotency key to the original run and mapping', async () => {
     const execute = executeRows({ outcome: 'replayed', runId: run.id, mappingId: mapping.id });
@@ -113,20 +115,62 @@ describe('Arc-agentnet local persistence guards', () => {
   });
 
   it('maps the active-run unique violation to active_run_exists', async () => {
-    mocks.db.execute.mockRejectedValue(Object.assign(new Error('duplicate'), { code: '23505' }));
+    mocks.db.execute.mockRejectedValue(Object.assign(new Error('duplicate'), {
+      code: '23505',
+      constraint: 'analysis_run_active_subject_template_idx',
+    }));
+    selectRows();
 
     await expect(createArcAgentnetRunWithMapping(createInput)).resolves.toEqual({ kind: 'active_run_exists' });
+  });
+
+  it('re-reads a concurrent scoped idempotency insert and replays the matching fingerprint', async () => {
+    mocks.db.execute.mockRejectedValue(Object.assign(new Error('duplicate'), {
+      code: '23505',
+      constraint: 'arc_agentnet_idempotency_scope_key_unique',
+    }));
+    selectRows(
+      { id: 303, analysisRunId: run.id, partnerJobMappingId: mapping.id, payloadHash: createInput.payloadHash },
+      run,
+      mapping,
+    );
+
+    await expect(createArcAgentnetRunWithMapping(createInput)).resolves.toEqual({ kind: 'replayed', run, mapping });
+  });
+
+  it('returns idempotency_conflict after a concurrent scoped insert with a different fingerprint', async () => {
+    mocks.db.execute.mockRejectedValue(Object.assign(new Error('duplicate'), {
+      code: '23505',
+      constraint: 'arc_agentnet_idempotency_scope_key_unique',
+    }));
+    selectRows({ id: 303, analysisRunId: run.id, partnerJobMappingId: mapping.id, payloadHash: 'b'.repeat(64) });
+
+    await expect(createArcAgentnetRunWithMapping(createInput)).resolves.toEqual({ kind: 'idempotency_conflict' });
+  });
+
+  it('does not classify partner mapping conflicts as active runs', async () => {
+    const duplicate = Object.assign(new Error('duplicate partner job'), {
+      code: '23505',
+      constraint: 'partner_job_mapping_partner_job_id_unique',
+    });
+    mocks.db.execute.mockRejectedValue(duplicate);
+    selectRows();
+
+    await expect(createArcAgentnetRunWithMapping(createInput)).rejects.toBe(duplicate);
   });
 
   it('does not regress an Arc-agentnet run after a terminal status wins', async () => {
     const execute = executeRows();
     selectRows({ ...run, status: 'completed', arcAgentnetStatus: 'completed' });
 
-    const result = await recordArcAgentnetStatus({ runId: run.id, partnerStatus: 'running', occurredAt: new Date('2026-08-23T12:00:00.000Z') });
+    const result = await recordArcAgentnetStatus({ runId: run.id, initiatingUserId: createInput.initiatingUserId, partnerJobId: createInput.partnerJobId, requestId: createInput.requestId, partnerStatus: 'running', occurredAt: new Date('2026-08-23T12:00:00.000Z') });
 
     expect(result).toEqual({ kind: 'replayed', run: { ...run, status: 'completed', arcAgentnetStatus: 'completed' } });
     expect(execute).toHaveBeenCalledTimes(1);
-    expect(flattenSql(execute.mock.calls[0]?.[0])).toContain("IN ('queued', 'running')");
+    const sqlText = flattenSql(execute.mock.calls[0]?.[0]);
+    expect(sqlText).toContain("IN ('queued', 'running')");
+    expect(sqlText).toContain('FOR UPDATE');
+    expect(sqlText).toContain('previous_status');
   });
 
   it.each([
@@ -137,7 +181,7 @@ describe('Arc-agentnet local persistence guards', () => {
     const execute = executeRows({ outcome: 'transitioned', runId: run.id });
     selectRows({ ...run, status: localStatus, arcAgentnetStatus: localStatus });
 
-    const result = await recordArcAgentnetStatus({ runId: run.id, partnerStatus });
+    const result = await recordArcAgentnetStatus({ runId: run.id, initiatingUserId: createInput.initiatingUserId, partnerJobId: createInput.partnerJobId, requestId: createInput.requestId, partnerStatus });
 
     expect(result).toMatchObject({ kind: 'transitioned', run: { status: localStatus, arcAgentnetStatus: localStatus } });
     expect(flattenSql(execute.mock.calls[0]?.[0])).toContain(localStatus);
@@ -149,13 +193,33 @@ describe('Arc-agentnet local persistence guards', () => {
 
     const result = await applyArcAgentnetResultProjection({
       runId: run.id,
-      resultHash: 'c'.repeat(64),
-      resultSizeBytes: 128,
+      initiatingUserId: createInput.initiatingUserId,
+      partnerJobId: createInput.partnerJobId,
+      requestId: createInput.requestId,
+      resultHash: 'd'.repeat(64),
+      resultSizeBytes: 1,
       projection: { summary: 'safe' },
     });
 
     expect(result).toMatchObject({ kind: 'applied', run: { arcAgentnetResultSizeBytes: 128 } });
+    const serialized = serializeArcAgentnetProjection({ summary: 'safe' });
+    expect(serialized.ok).toBe(true);
+    if (serialized.ok) expect(flattenSql(execute.mock.calls[0]?.[0])).toContain(serialized.hash);
+    expect(flattenSql(execute.mock.calls[0]?.[0])).not.toContain('d'.repeat(64));
     expect(flattenSql(execute.mock.calls[0]?.[0])).toContain('result_projection');
+  });
+
+  it('rejects unsafe projections before issuing a database write', async () => {
+    const result = await applyArcAgentnetResultProjection({
+      runId: run.id,
+      initiatingUserId: createInput.initiatingUserId,
+      partnerJobId: createInput.partnerJobId,
+      requestId: createInput.requestId,
+      projection: { apiKey: 'secret' },
+    });
+
+    expect(result).toEqual({ kind: 'invalid_input' });
+    expect(mocks.db.execute).not.toHaveBeenCalled();
   });
 
   it('finds idempotency only inside the authenticated user and Company/template scope', async () => {
@@ -177,5 +241,20 @@ describe('Arc-agentnet local persistence guards', () => {
     selectRows();
 
     await expect(getArcAgentnetRunById(404, 'user_360')).resolves.toBeUndefined();
+  });
+
+  it('requires an owner in the local-id lookup predicate', async () => {
+    const where = selectRows(run);
+    await getArcAgentnetRunById(run.id, createInput.initiatingUserId);
+    expect(flattenSql(where.mock.calls[0]?.[0])).toContain('initiating_user_id');
+  });
+
+  it('requires the validated partner job and request identity for callback lookup', async () => {
+    const where = selectRows(run);
+    await getArcAgentnetRunByPartnerIdentity(createInput.partnerJobId, createInput.requestId);
+    const sqlText = flattenSql(where.mock.calls[0]?.[0]);
+    expect(sqlText).toContain('partner_job_id');
+    expect(sqlText).toContain('partner_request_id');
+    expect(sqlText).toContain('EXISTS');
   });
 });

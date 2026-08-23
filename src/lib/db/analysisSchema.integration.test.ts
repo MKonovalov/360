@@ -125,6 +125,19 @@ describe('Phase 40 budget migration artifact', () => {
   });
 });
 
+describe('Task 4 Arc-agentnet migration artifact', () => {
+  it('preserves legacy internal rows while requiring complete Arc-agentnet relations', async () => {
+    const migrationUrl = new URL('../../../drizzle/0015_company_arc_agentnet_execution.sql', import.meta.url);
+    const migration = await readFile(migrationUrl, 'utf8');
+
+    expect(migration).toContain('"execution_target" "analysis_execution_target" DEFAULT \'internal\' NOT NULL');
+    expect(migration).toContain('UPDATE "analysis_run" SET "execution_target" = \'internal\'');
+    expect(migration).toContain('analysis_run_arc_agentnet_required_fields_check');
+    expect(migration).toContain('arc_agentnet_idempotency_scope_key_unique');
+    expect(migration).not.toMatch(/\b(?:DROP|TRUNCATE|DELETE)\b/i);
+  });
+});
+
 describe.skipIf(!testDatabaseUrl)('Phase 32 live schema metadata', () => {
   let dbModule: typeof import('@/lib/db');
 

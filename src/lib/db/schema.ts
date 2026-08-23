@@ -725,6 +725,23 @@ export const analysisRun = pgTable(
       'analysis_run_arc_agentnet_result_size_check',
       sql`${table.arcAgentnetResultSizeBytes} IS NULL OR ${table.arcAgentnetResultSizeBytes} BETWEEN 0 AND 5242880`,
     ),
+    check(
+      'analysis_run_arc_agentnet_required_fields_check',
+      sql`${table.executionTarget} = 'internal' OR (
+        ${table.subjectType} = 'company' AND
+        ${table.status} IN ('queued', 'running', 'completed', 'failed', 'cancelled') AND
+        ${table.initiatingUserId} IS NOT NULL AND
+        ${table.arcAgentnetTemplateSnapshot} IS NOT NULL AND
+        ${table.arcAgentnetChecklistSnapshot} IS NOT NULL AND
+        ${table.arcAgentnetInputSnapshot} IS NOT NULL AND
+        ${table.partnerJobMappingId} IS NOT NULL AND
+        ${table.partnerJobId} IS NOT NULL AND
+        ${table.partnerRequestId} IS NOT NULL AND
+        ${table.arcAgentnetIdempotencyKey} IS NOT NULL AND
+        ${table.arcAgentnetPayloadHash} IS NOT NULL AND
+        ${table.arcAgentnetLocalStatus} IS NOT NULL
+      )`,
+    ),
   ]
 );
 
@@ -1081,6 +1098,7 @@ export const arcAgentnetIdempotency = pgTable(
     ),
     index('arc_agentnet_idempotency_run_idx').on(table.analysisRunId),
     check('arc_agentnet_idempotency_target_check', sql`${table.executionTarget} = 'arc-agentnet'`),
+    check('arc_agentnet_idempotency_scope_values_check', sql`${table.initiatingUserId} <> '' AND ${table.companyId} > 0 AND ${table.templateId} > 0 AND ${table.templateVersionId} > 0 AND ${table.idempotencyKey} <> ''`),
     check('arc_agentnet_idempotency_payload_hash_check', sql`${table.payloadHash} ~ '^[a-f0-9]{64}$'`),
   ],
 );

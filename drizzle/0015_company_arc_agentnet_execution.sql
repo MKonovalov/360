@@ -13,9 +13,10 @@ CREATE TABLE "arc_agentnet_idempotency" (
 	"analysis_run_id" integer NOT NULL,
 	"partner_job_mapping_id" integer NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
-	CONSTRAINT "arc_agentnet_idempotency_scope_key_unique" UNIQUE("initiating_user_id","company_id","template_id","template_version_id","execution_target","idempotency_key"),
-	CONSTRAINT "arc_agentnet_idempotency_target_check" CHECK ("arc_agentnet_idempotency"."execution_target" = 'arc-agentnet'),
-	CONSTRAINT "arc_agentnet_idempotency_payload_hash_check" CHECK ("arc_agentnet_idempotency"."payload_hash" ~ '^[a-f0-9]{64}$')
+ CONSTRAINT "arc_agentnet_idempotency_scope_key_unique" UNIQUE("initiating_user_id","company_id","template_id","template_version_id","execution_target","idempotency_key"),
+ CONSTRAINT "arc_agentnet_idempotency_target_check" CHECK ("arc_agentnet_idempotency"."execution_target" = 'arc-agentnet'),
+ CONSTRAINT "arc_agentnet_idempotency_scope_values_check" CHECK ("arc_agentnet_idempotency"."initiating_user_id" <> '' AND "arc_agentnet_idempotency"."company_id" > 0 AND "arc_agentnet_idempotency"."template_id" > 0 AND "arc_agentnet_idempotency"."template_version_id" > 0 AND "arc_agentnet_idempotency"."idempotency_key" <> ''),
+ CONSTRAINT "arc_agentnet_idempotency_payload_hash_check" CHECK ("arc_agentnet_idempotency"."payload_hash" ~ '^[a-f0-9]{64}$')
 );
 --> statement-breakpoint
 ALTER TABLE "analysis_run" ADD COLUMN "execution_target" "analysis_execution_target" DEFAULT 'internal' NOT NULL;--> statement-breakpoint
@@ -44,3 +45,20 @@ ALTER TABLE "analysis_run" ADD CONSTRAINT "analysis_run_partner_job_mapping_id_p
 ALTER TABLE "analysis_run" ADD CONSTRAINT "analysis_run_arc_agentnet_payload_hash_check" CHECK ("analysis_run"."arc_agentnet_payload_hash" IS NULL OR "analysis_run"."arc_agentnet_payload_hash" ~ '^[a-f0-9]{64}$');--> statement-breakpoint
 ALTER TABLE "analysis_run" ADD CONSTRAINT "analysis_run_arc_agentnet_result_hash_check" CHECK ("analysis_run"."arc_agentnet_result_hash" IS NULL OR "analysis_run"."arc_agentnet_result_hash" ~ '^[a-f0-9]{64}$');--> statement-breakpoint
 ALTER TABLE "analysis_run" ADD CONSTRAINT "analysis_run_arc_agentnet_result_size_check" CHECK ("analysis_run"."arc_agentnet_result_size_bytes" IS NULL OR "analysis_run"."arc_agentnet_result_size_bytes" BETWEEN 0 AND 5242880);
+--> statement-breakpoint
+ALTER TABLE "analysis_run" ADD CONSTRAINT "analysis_run_arc_agentnet_required_fields_check" CHECK (
+  "analysis_run"."execution_target" = 'internal' OR (
+    "analysis_run"."subject_type" = 'company' AND
+    "analysis_run"."status" IN ('queued', 'running', 'completed', 'failed', 'cancelled') AND
+    "analysis_run"."initiating_user_id" IS NOT NULL AND
+    "analysis_run"."arc_agentnet_template_snapshot" IS NOT NULL AND
+    "analysis_run"."arc_agentnet_checklist_snapshot" IS NOT NULL AND
+    "analysis_run"."arc_agentnet_input_snapshot" IS NOT NULL AND
+    "analysis_run"."partner_job_mapping_id" IS NOT NULL AND
+    "analysis_run"."partner_job_id" IS NOT NULL AND
+    "analysis_run"."partner_request_id" IS NOT NULL AND
+    "analysis_run"."arc_agentnet_idempotency_key" IS NOT NULL AND
+    "analysis_run"."arc_agentnet_payload_hash" IS NOT NULL AND
+    "analysis_run"."arc_agentnet_local_status" IS NOT NULL
+  )
+);

@@ -2,11 +2,12 @@ import type { BoundedArcAgentnetInput } from '@/lib/analysis/arcAgentnetContract
 import type { ReadonlyAnalysisSnapshot } from '@/lib/analysis/contracts';
 import type { arcAgentnetIdempotency, analysisRun, partnerJobMapping } from '../schema';
 import type { ArcAgentnetLocalStatus, ArcAgentnetPartnerStatus, ArcAgentnetSafeReason } from '@/lib/analysis/executionTarget';
+import type { ArcAgentnetSafeProjection } from './arcAgentnetResultValidation';
 
 export type ArcAgentnetRunRecord = typeof analysisRun.$inferSelect;
 export type ArcAgentnetMappingRecord = typeof partnerJobMapping.$inferSelect;
 export type ArcAgentnetIdempotencyRecord = typeof arcAgentnetIdempotency.$inferSelect;
-export type ArcAgentnetSafeProjection = Readonly<Record<string, string | number | boolean | null | readonly string[]>>;
+export type { ArcAgentnetSafeProjection } from './arcAgentnetResultValidation';
 
 export interface CreateArcAgentnetRunInput {
   readonly initiatingUserId: string;
@@ -44,6 +45,9 @@ export interface FindArcAgentnetIdempotencyInput {
 
 export interface RecordArcAgentnetStatusInput {
   readonly runId: number;
+  readonly initiatingUserId: string;
+  readonly partnerJobId: string;
+  readonly requestId: string;
   readonly partnerStatus: ArcAgentnetPartnerStatus;
   readonly safeReason?: ArcAgentnetSafeReason;
   readonly occurredAt?: Date;
@@ -56,9 +60,12 @@ export type RecordArcAgentnetStatusResult =
 
 export interface ApplyArcAgentnetResultProjectionInput {
   readonly runId: number;
-  readonly resultHash: string;
-  readonly resultSizeBytes: number;
-  readonly projection: ArcAgentnetSafeProjection;
+  readonly initiatingUserId: string;
+  readonly partnerJobId: string;
+  readonly requestId: string;
+  readonly projection: unknown;
+  readonly resultHash?: string;
+  readonly resultSizeBytes?: number;
   readonly occurredAt?: Date;
 }
 
