@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { analysisPreviewResponseSchema } from '@/lib/analysis/experienceContracts';
 import type { DebugPreference } from '@/lib/analysis/debugLaunchPreference';
+import { executionTargetSchema } from '@/lib/analysis/executionTarget';
 
 const practiceAreaSchema = z.object({
   id: z.number().int().positive(),
@@ -41,10 +42,17 @@ const initialOptionsSchema = z.object({
 // target-specific signal categories for that Practice Area. `.default([])`
 // keeps this tolerant of a server response that omits the field, matching
 // the initial-step schema's own forward-compatible parsing posture.
+// `executionTargets` is Company-only: the route includes it (possibly `[]`
+// when Company Arc-agentnet is disabled) only for `subjectType=company` and
+// omits the key entirely for `subjectType=persona`. `.optional()` accepts
+// both shapes without making the field required for Persona; array values
+// are still validated against the same enum the server enforces, so an
+// unknown target value fails closed rather than being silently accepted.
 const followUpOptionsSchema = z.object({
   agents: z.array(agentOptionSchema),
   practiceAreas: z.array(practiceAreaSchema),
   signalCategories: z.array(z.string().min(1)).default([]),
+  executionTargets: z.array(executionTargetSchema).optional(),
 }).strict();
 
 const createRunResponseSchema = z.object({ applicationRunId: z.number().int().positive() }).strict();
