@@ -9,6 +9,16 @@ import {
   type AnalysisEffort,
   type ReadonlyAnalysisSnapshot,
 } from '../analysis/contracts';
+import {
+  ARC_AGENTNET_LOCAL_STATUSES,
+  ARC_AGENTNET_SAFE_REASONS,
+  EXECUTION_TARGETS,
+} from '../analysis/executionTarget';
+import type {
+  BoundedArcAgentnetInput,
+  BoundedChecklistItem,
+  BoundedTemplateMetadata,
+} from '../analysis/arcAgentnetContracts';
 import type { BoundedOutputSchema } from '../analysis/customAgentContracts';
 import type { RawAttemptArtifact } from '../analysis/rawAttempt';
 import type { ModelRef } from '../models/modelRef';
@@ -581,6 +591,9 @@ export const analysisRetentionStatusEnum = pgEnum('analysis_retention_status', [
   'tombstoned',
 ]);
 export const analysisTemplateKindEnum = pgEnum('analysis_template_kind', ['fixed', 'custom']);
+export const analysisExecutionTargetEnum = pgEnum('analysis_execution_target', EXECUTION_TARGETS);
+export const arcAgentnetLocalStatusEnum = pgEnum('arc_agentnet_local_status', ARC_AGENTNET_LOCAL_STATUSES);
+export const arcAgentnetSafeReasonEnum = pgEnum('arc_agentnet_safe_reason', ARC_AGENTNET_SAFE_REASONS);
 
 export const analysisTemplate = pgTable(
   'analysis_template',
@@ -665,6 +678,24 @@ export const analysisRun = pgTable(
       .$type<ReadonlyAnalysisSnapshot['policy']>()
       .notNull()
       .default(PHASE32_NOOP_POLICY),
+    executionTarget: analysisExecutionTargetEnum('execution_target').notNull().default('internal'),
+    initiatingUserId: text('initiating_user_id'),
+    arcAgentnetTemplateSnapshot: jsonb('arc_agentnet_template_snapshot').$type<BoundedTemplateMetadata>(),
+    arcAgentnetChecklistSnapshot: jsonb('arc_agentnet_checklist_snapshot').$type<readonly BoundedChecklistItem[]>(),
+    arcAgentnetInputSnapshot: jsonb('arc_agentnet_input_snapshot').$type<BoundedArcAgentnetInput>(),
+    partnerJobMappingId: integer('partner_job_mapping_id').references(() => partnerJobMapping.id),
+    partnerJobId: text('partner_job_id'),
+    partnerRequestId: text('partner_request_id'),
+    arcAgentnetIdempotencyKey: text('arc_agentnet_idempotency_key'),
+    arcAgentnetPayloadHash: text('arc_agentnet_payload_hash'),
+    arcAgentnetLocalStatus: arcAgentnetLocalStatusEnum('arc_agentnet_local_status'),
+    arcAgentnetSafeReason: arcAgentnetSafeReasonEnum('arc_agentnet_safe_reason'),
+    arcAgentnetStartedAt: timestamp('arc_agentnet_started_at'),
+    arcAgentnetCompletedAt: timestamp('arc_agentnet_completed_at'),
+    arcAgentnetTerminalAt: timestamp('arc_agentnet_terminal_at'),
+    arcAgentnetResultHash: text('arc_agentnet_result_hash'),
+    arcAgentnetResultSizeBytes: integer('arc_agentnet_result_size_bytes'),
+    arcAgentnetResultProjection: jsonb('arc_agentnet_result_projection'),
     safeReason: text('safe_reason'),
     startedAt: timestamp('started_at'),
     completedAt: timestamp('completed_at'),
@@ -682,6 +713,18 @@ export const analysisRun = pgTable(
       table.createdAt
     ),
     index('analysis_run_template_version_idx').on(table.templateVersionId),
+    check(
+      'analysis_run_arc_agentnet_payload_hash_check',
+      sql`${table.arcAgentnetPayloadHash} IS NULL OR ${table.arcAgentnetPayloadHash} ~ '^[a-f0-9]{64}$'`,
+    ),
+    check(
+      'analysis_run_arc_agentnet_result_hash_check',
+      sql`${table.arcAgentnetResultHash} IS NULL OR ${table.arcAgentnetResultHash} ~ '^[a-f0-9]{64}$'`,
+    ),
+    check(
+      'analysis_run_arc_agentnet_result_size_check',
+      sql`${table.arcAgentnetResultSizeBytes} IS NULL OR ${table.arcAgentnetResultSizeBytes} BETWEEN 0 AND 5242880`,
+    ),
   ]
 );
 
@@ -1005,5 +1048,39 @@ export const partnerCallbackEvent = pgTable(
       'partner_callback_event_result_size_check',
       sql`${table.resultSizeBytes} BETWEEN 0 AND 5242880`,
     ),
+  ],
+);
+
+// The idempotency record carries the caller scope separately from the partner
+// mapping. The partner's global key is not an authorization boundary; replay
+// and conflict decisions must include the authenticated 360 user and the
+// selected Company/template identity.
+export const arcAgentnetIdempotency = pgTable(
+  'arc_agentnet_idempotency',
+  {
+    id: serial('id').primaryKey(),
+    initiatingUserId: text('initiating_user_id').notNull(),
+    companyId: integer('company_id').notNull(),
+    templateId: integer('template_id').notNull(),
+    templateVersionId: integer('template_version_id').notNull(),
+    executionTarget: analysisExecutionTargetEnum('execution_target').notNull().default('arc-agentnet'),
+    idempotencyKey: text('idempotency_key').notNull(),
+    payloadHash: text('payload_hash').notNull(),
+    analysisRunId: integer('analysis_run_id').notNull().references(() => analysisRun.id),
+    partnerJobMappingId: integer('partner_job_mapping_id').notNull().references(() => partnerJobMapping.id),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    unique('arc_agentnet_idempotency_scope_key_unique').on(
+      table.initiatingUserId,
+      table.companyId,
+      table.templateId,
+      table.templateVersionId,
+      table.executionTarget,
+      table.idempotencyKey,
+    ),
+    index('arc_agentnet_idempotency_run_idx').on(table.analysisRunId),
+    check('arc_agentnet_idempotency_target_check', sql`${table.executionTarget} = 'arc-agentnet'`),
+    check('arc_agentnet_idempotency_payload_hash_check', sql`${table.payloadHash} ~ '^[a-f0-9]{64}$'`),
   ],
 );

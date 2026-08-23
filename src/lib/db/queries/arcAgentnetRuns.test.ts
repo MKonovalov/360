@@ -1,0 +1,181 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  db: { execute: vi.fn(), select: vi.fn() },
+}));
+
+vi.mock('../index', () => ({ db: mocks.db }));
+vi.mock('server-only', () => ({}));
+
+import {
+  applyArcAgentnetResultProjection,
+  createArcAgentnetRunWithMapping,
+  findArcAgentnetIdempotency,
+  getArcAgentnetRunById,
+  recordArcAgentnetStatus,
+} from './arcAgentnetRuns';
+
+function flattenSql(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value !== 'object') return String(value);
+  const record = value as Record<string, unknown>;
+  if ('queryChunks' in record && Array.isArray(record.queryChunks)) {
+    return record.queryChunks.map(flattenSql).join('');
+  }
+  if ('name' in record) return String(record.name);
+  if ('value' in record) return String(record.value);
+  return '';
+}
+
+function executeRows(...rows: readonly unknown[]) {
+  mocks.db.execute.mockResolvedValue({ rows });
+  return mocks.db.execute;
+}
+
+function selectRows(...rows: readonly unknown[]) {
+  let fromCalls = 0;
+  const where = vi.fn();
+  const from = vi.fn().mockImplementation(() => {
+    const row = rows[fromCalls] ?? rows[0];
+    fromCalls += 1;
+    where.mockResolvedValue(row === undefined ? [] : [row]);
+    return { where };
+  });
+  mocks.db.select.mockReturnValue({ from });
+  return where;
+}
+
+const createInput = {
+  initiatingUserId: 'user_360',
+  createdBy: 'user_360',
+  companyId: 42,
+  templateId: 7,
+  templateVersionId: 8,
+  practiceAreaId: 9,
+  subjectSnapshot: { type: 'company', id: 42, displayName: 'Acme' },
+  templateSnapshot: {
+    schemaVersion: 1,
+    templateId: 7,
+    templateVersionId: 8,
+    templateKey: 'company-analysis',
+    templateName: 'Company Analysis',
+    targetType: 'company',
+    version: 1,
+    resolvedInstruction: 'Assess the company.',
+    effort: 'standard',
+  },
+  checklistSnapshot: {
+    schemaVersion: 1,
+    targetType: 'company',
+    practiceAreaId: 9,
+    practiceAreaName: 'GBS',
+    items: [],
+  },
+  executionSnapshot: {
+    schemaVersion: 1,
+    effort: 'standard',
+    resolvedModelChain: ['partner'],
+    futureBudget: { maxAttempts: 2, maxToolCalls: 6, maxExecutionSeconds: 300, maxSpendUsd: 2.5 },
+    policy: { schemaVersion: 1, mode: 'phase32_noop', networkAccess: false, writesAllowed: false, effectiveMaxAttempts: 1, effectiveMaxToolCalls: 0, effectiveMaxExecutionSeconds: 5, effectiveMaxSpendUsd: 0 },
+  },
+  policySnapshot: { schemaVersion: 1, mode: 'phase32_noop', networkAccess: false, writesAllowed: false, effectiveMaxAttempts: 1, effectiveMaxToolCalls: 0, effectiveMaxExecutionSeconds: 5, effectiveMaxSpendUsd: 0 },
+  inputSnapshot: { schemaVersion: 1, analysis: { subjectType: 'company', company: { id: 42, name: 'Acme', domain: 'acme.example', profile: { industry: null, headcount: null, headquarters: null, description: null } }, practiceArea: { id: 9, name: 'GBS', shortCode: 'GBS' }, buyingSignalCategory: 'Financial', template: { kind: 'fixed', templateId: 7, templateVersionId: 8, templateKey: 'company-analysis', templateName: 'Company Analysis', templateVersion: 1, targetType: 'company', customAgentId: null, customAgentName: null, customAgentVersion: null }, resolvedInstructions: 'Assess the company.', checklist: [], publicEvidenceUrls: [] } },
+  partnerJobId: 'job_42',
+  requestId: 'request_42',
+  idempotencyKey: 'retry-key',
+  payloadHash: 'a'.repeat(64),
+} as const;
+
+const run = { id: 101, executionTarget: 'arc-agentnet', initiatingUserId: 'user_360', subjectId: 42, status: 'queued', arcAgentnetStatus: 'queued', arcAgentnetPayloadHash: createInput.payloadHash };
+const mapping = { id: 202, partnerJobId: 'job_42', requestId: 'request_42', status: 'queued' };
+
+describe('Arc-agentnet local persistence guards', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('replays one scoped idempotency key to the original run and mapping', async () => {
+    const execute = executeRows({ outcome: 'replayed', runId: run.id, mappingId: mapping.id });
+    selectRows(run, mapping);
+
+    const result = await createArcAgentnetRunWithMapping(createInput);
+
+    expect(result).toEqual({ kind: 'replayed', run, mapping });
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(flattenSql(execute.mock.calls[0]?.[0])).toContain('arc_agentnet_idempotency');
+    expect(flattenSql(execute.mock.calls[0]?.[0])).toContain('payload_hash');
+  });
+
+  it('returns idempotency_conflict when the scoped key has a different payload fingerprint', async () => {
+    executeRows({ outcome: 'idempotency_conflict' });
+
+    await expect(createArcAgentnetRunWithMapping({ ...createInput, payloadHash: 'b'.repeat(64) })).resolves.toEqual({
+      kind: 'idempotency_conflict',
+    });
+  });
+
+  it('maps the active-run unique violation to active_run_exists', async () => {
+    mocks.db.execute.mockRejectedValue(Object.assign(new Error('duplicate'), { code: '23505' }));
+
+    await expect(createArcAgentnetRunWithMapping(createInput)).resolves.toEqual({ kind: 'active_run_exists' });
+  });
+
+  it('does not regress an Arc-agentnet run after a terminal status wins', async () => {
+    const execute = executeRows();
+    selectRows({ ...run, status: 'completed', arcAgentnetStatus: 'completed' });
+
+    const result = await recordArcAgentnetStatus({ runId: run.id, partnerStatus: 'running', occurredAt: new Date('2026-08-23T12:00:00.000Z') });
+
+    expect(result).toEqual({ kind: 'replayed', run: { ...run, status: 'completed', arcAgentnetStatus: 'completed' } });
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(flattenSql(execute.mock.calls[0]?.[0])).toContain("IN ('queued', 'running')");
+  });
+
+  it.each([
+    ['succeeded', 'completed'],
+    ['failed', 'failed'],
+    ['cancelled', 'cancelled'],
+  ] as const)('maps partner %s to local %s', async (partnerStatus, localStatus) => {
+    const execute = executeRows({ outcome: 'transitioned', runId: run.id });
+    selectRows({ ...run, status: localStatus, arcAgentnetStatus: localStatus });
+
+    const result = await recordArcAgentnetStatus({ runId: run.id, partnerStatus });
+
+    expect(result).toMatchObject({ kind: 'transitioned', run: { status: localStatus, arcAgentnetStatus: localStatus } });
+    expect(flattenSql(execute.mock.calls[0]?.[0])).toContain(localStatus);
+  });
+
+  it('persists a result hash, byte count, and safe projection once', async () => {
+    const execute = executeRows({ outcome: 'applied', runId: run.id });
+    selectRows({ ...run, arcAgentnetResultHash: 'c'.repeat(64), arcAgentnetResultSizeBytes: 128, arcAgentnetResultProjection: { summary: 'safe' } });
+
+    const result = await applyArcAgentnetResultProjection({
+      runId: run.id,
+      resultHash: 'c'.repeat(64),
+      resultSizeBytes: 128,
+      projection: { summary: 'safe' },
+    });
+
+    expect(result).toMatchObject({ kind: 'applied', run: { arcAgentnetResultSizeBytes: 128 } });
+    expect(flattenSql(execute.mock.calls[0]?.[0])).toContain('result_projection');
+  });
+
+  it('finds idempotency only inside the authenticated user and Company/template scope', async () => {
+    const where = selectRows({ id: 303, analysisRunId: run.id, payloadHash: createInput.payloadHash });
+
+    const result = await findArcAgentnetIdempotency({
+      initiatingUserId: createInput.initiatingUserId,
+      companyId: createInput.companyId,
+      templateId: createInput.templateId,
+      templateVersionId: createInput.templateVersionId,
+      idempotencyKey: createInput.idempotencyKey,
+    });
+
+    expect(result).toEqual({ id: 303, analysisRunId: run.id, payloadHash: createInput.payloadHash });
+    expect(where).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not expose an internal run through the Arc-agentnet lookup', async () => {
+    selectRows();
+
+    await expect(getArcAgentnetRunById(404, 'user_360')).resolves.toBeUndefined();
+  });
+});

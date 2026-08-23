@@ -40,7 +40,27 @@ export const ACTIVE_RUN_STATUSES = NONTERMINAL_ANALYSIS_RUN_STATUSES;
 export const ANALYSIS_ACTOR_KINDS = ['staff', 'workflow', 'system'] as const;
 export type AnalysisActorKind = (typeof ANALYSIS_ACTOR_KINDS)[number];
 
-export type AnalysisRunRow = typeof analysisRun.$inferSelect;
+type ArcAgentnetRunColumns =
+  | 'executionTarget'
+  | 'initiatingUserId'
+  | 'arcAgentnetTemplateSnapshot'
+  | 'arcAgentnetChecklistSnapshot'
+  | 'arcAgentnetInputSnapshot'
+  | 'partnerJobMappingId'
+  | 'partnerJobId'
+  | 'partnerRequestId'
+  | 'arcAgentnetIdempotencyKey'
+  | 'arcAgentnetPayloadHash'
+  | 'arcAgentnetLocalStatus'
+  | 'arcAgentnetSafeReason'
+  | 'arcAgentnetStartedAt'
+  | 'arcAgentnetCompletedAt'
+  | 'arcAgentnetTerminalAt'
+  | 'arcAgentnetResultHash'
+  | 'arcAgentnetResultSizeBytes'
+  | 'arcAgentnetResultProjection';
+
+export type AnalysisRunRow = Omit<typeof analysisRun.$inferSelect, ArcAgentnetRunColumns>;
 export type AnalysisRunEventRow = typeof analysisRunEvent.$inferSelect;
 
 export type ReviewDecisionTransition = ReviewDecisionTransitionInput;

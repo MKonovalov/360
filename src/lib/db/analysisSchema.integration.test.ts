@@ -47,8 +47,9 @@ const expectedRelationColumns = {
   workflow_proof_run_event: ['id', 'workflow_proof_run_id', 'event_key', 'action', 'attempt', 'recovery_attempt', 'reason', 'workflow_run_id', 'metadata', 'created_at'],
   analysis_template: ['id', 'key', 'name', 'target_type', 'status', 'created_by', 'updated_by', 'created_at', 'updated_at', 'kind', 'practice_area_id'],
   analysis_template_version: ['id', 'template_id', 'version', 'instruction', 'supported_efforts', 'default_effort', 'future_budget', 'created_by', 'created_at', 'kind', 'custom_name', 'description', 'research_query', 'behavior_instruction', 'structured_output_schema', 'capability_preset_ids'],
-  analysis_run: ['id', 'template_id', 'template_version_id', 'subject_type', 'subject_id', 'practice_area_id', 'status', 'attempt', 'max_attempts', 'created_by', 'template_snapshot', 'subject_snapshot', 'checklist_snapshot', 'execution_snapshot', 'policy_snapshot', 'safe_reason', 'started_at', 'completed_at', 'terminal_at', 'created_at', 'updated_at'],
+  analysis_run: ['id', 'template_id', 'template_version_id', 'subject_type', 'subject_id', 'practice_area_id', 'status', 'attempt', 'max_attempts', 'created_by', 'template_snapshot', 'subject_snapshot', 'checklist_snapshot', 'execution_snapshot', 'policy_snapshot', 'execution_target', 'initiating_user_id', 'arc_agentnet_template_snapshot', 'arc_agentnet_checklist_snapshot', 'arc_agentnet_input_snapshot', 'partner_job_mapping_id', 'partner_job_id', 'partner_request_id', 'arc_agentnet_idempotency_key', 'arc_agentnet_payload_hash', 'arc_agentnet_local_status', 'arc_agentnet_safe_reason', 'arc_agentnet_started_at', 'arc_agentnet_completed_at', 'arc_agentnet_terminal_at', 'arc_agentnet_result_hash', 'arc_agentnet_result_size_bytes', 'arc_agentnet_result_projection', 'safe_reason', 'started_at', 'completed_at', 'terminal_at', 'created_at', 'updated_at'],
   analysis_run_event: ['id', 'analysis_run_id', 'event_key', 'from_status', 'to_status', 'actor_kind', 'actor_id', 'safe_reason', 'attempt', 'created_at'],
+  arc_agentnet_idempotency: ['id', 'initiating_user_id', 'company_id', 'template_id', 'template_version_id', 'execution_target', 'idempotency_key', 'payload_hash', 'analysis_run_id', 'partner_job_mapping_id', 'created_at'],
 } as const;
 
 describe('Phase 32 migration artifact', () => {
@@ -163,7 +164,7 @@ describe.skipIf(!testDatabaseUrl)('Phase 32 live schema metadata', () => {
     const analysisRunJsonb = result.rows
       .filter((row) => row.relationName === 'analysis_run' && row.dataType === 'jsonb')
       .map((row) => row.columnName);
-    expect(analysisRunJsonb).toEqual(['template_snapshot', 'subject_snapshot', 'checklist_snapshot', 'execution_snapshot', 'policy_snapshot']);
+    expect(analysisRunJsonb).toEqual(['template_snapshot', 'subject_snapshot', 'checklist_snapshot', 'execution_snapshot', 'policy_snapshot', 'arc_agentnet_template_snapshot', 'arc_agentnet_checklist_snapshot', 'arc_agentnet_input_snapshot', 'arc_agentnet_result_projection']);
   });
 
   it('installs exact Phase 32 and unchanged workflow proof enums', async () => {
@@ -172,7 +173,7 @@ describe.skipIf(!testDatabaseUrl)('Phase 32 live schema metadata', () => {
       SELECT typname AS "enumName", enumlabel AS "enumValue"
       FROM pg_type
       JOIN pg_enum ON pg_enum.enumtypid = pg_type.oid
-      WHERE typname IN ('analysis_target_type', 'analysis_effort', 'analysis_run_status', 'analysis_actor_kind', 'workflow_proof_status')
+       WHERE typname IN ('analysis_target_type', 'analysis_effort', 'analysis_run_status', 'analysis_actor_kind', 'workflow_proof_status', 'analysis_execution_target', 'arc_agentnet_local_status', 'arc_agentnet_safe_reason')
       ORDER BY typname, enumsortorder
     `);
 
@@ -181,8 +182,11 @@ describe.skipIf(!testDatabaseUrl)('Phase 32 live schema metadata', () => {
       analysis_actor_kind: ['staff', 'workflow', 'system'],
       analysis_effort: ['standard'],
        analysis_run_status: ['queued', 'running', 'completed', 'failed', 'cancelled', 'pending_review', 'confirmed', 'dismissed'],
-      analysis_target_type: ['company', 'persona'],
-      workflow_proof_status: ['queued', 'running', 'completed', 'failed'],
+       analysis_target_type: ['company', 'persona'],
+       analysis_execution_target: ['internal', 'arc-agentnet'],
+       arc_agentnet_local_status: ['queued', 'running', 'completed', 'failed', 'cancelled'],
+       arc_agentnet_safe_reason: ['completed', 'execution_failed', 'cancelled', 'job_expired', 'status_unavailable', 'rate_limited', 'capacity_unavailable', 'persistence_unavailable'],
+       workflow_proof_status: ['queued', 'running', 'completed', 'failed'],
     } as const;
     for (const [enumName, expectedValues] of Object.entries(expectedEnums)) {
       expect(result.rows.filter((row) => row.enumName === enumName).map((row) => row.enumValue), enumName).toEqual(expectedValues);
