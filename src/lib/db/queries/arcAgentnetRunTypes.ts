@@ -19,7 +19,7 @@ export interface CreateArcAgentnetRunInput {
   readonly subjectSnapshot: ReadonlyAnalysisSnapshot['subject'];
   readonly templateSnapshot: ReadonlyAnalysisSnapshot['template'];
   readonly checklistSnapshot: ReadonlyAnalysisSnapshot['checklist'];
-  readonly executionSnapshot: ReadonlyAnalysisSnapshot['execution'];
+  readonly executionSnapshot: ReadonlyAnalysisSnapshot['execution'] & { readonly executor: 'arc-agentnet' };
   readonly policySnapshot: ReadonlyAnalysisSnapshot['policy'];
   readonly inputSnapshot: BoundedArcAgentnetInput;
   readonly partnerJobId: string;

@@ -10,7 +10,7 @@ vi.mock('@/app/actions/analysisTemplates', () => ({
 }));
 
 import { AgentManagement } from './agent-management';
-import { AgentTemplateCard, actionMessage } from './agent-template-card';
+import { AgentTemplateCard, AgentTemplateExecutorAvailabilityProvider, actionMessage } from './agent-template-card';
 import type { ManagedAnalysisTemplateRead } from '@/lib/analysis/templateContracts';
 
 const makeTemplate = (
@@ -29,6 +29,7 @@ const makeTemplate = (
     instruction: 'Safe instruction',
     supportedEfforts: ['standard'],
     defaultEffort: 'standard',
+    executor: 'internal',
     futureBudget: {
       maxAttempts: 2,
       maxToolCalls: 6,
@@ -81,7 +82,11 @@ describe('AgentManagement', () => {
   });
 
   it('exposes only current editable content and labels prior history read-only', () => {
-    const html = renderToStaticMarkup(<AgentManagement templates={TEMPLATES} />);
+    const html = renderToStaticMarkup(
+      <AgentTemplateExecutorAvailabilityProvider availability={{ companyArcAgentnetEnabled: true }}>
+        <AgentManagement templates={TEMPLATES} />
+      </AgentTemplateExecutorAvailabilityProvider>,
+    );
 
     expect(html).toContain('Current version');
     expect(html).toContain('Version 1');
@@ -89,8 +94,63 @@ describe('AgentManagement', () => {
     expect(html).toContain('Current company instruction');
     expect(html).toContain('Prior company instruction');
     expect(html).toContain('Default effort');
+    expect(html).toContain('Executor');
+    expect(html).toContain('Arc-agentnet');
+    expect(html).toContain('data-executor-options="internal,arc-agentnet"');
+    expect(html).toContain('Executor: Internal');
     expect(html).toContain('Retire template');
     expect(html).not.toContain('Delete version');
+  });
+
+  it('keeps the executor control immediately after Default effort and limits Persona choices', () => {
+    const html = renderToStaticMarkup(
+      <AgentTemplateExecutorAvailabilityProvider availability={{ companyArcAgentnetEnabled: true }}>
+        <AgentManagement templates={TEMPLATES} />
+      </AgentTemplateExecutorAvailabilityProvider>,
+    );
+
+    expect(html.indexOf('Default effort')).toBeLessThan(html.indexOf('Executor'));
+    expect(html.indexOf('Executor')).toBeLessThan(html.indexOf('Save new version'));
+    expect(html).toContain('Company templates can use Arc-agentnet when enabled.');
+    expect(html).toContain('Company-only executor');
+    expect(html).toContain('data-executor-options="internal"');
+  });
+
+  it('initializes the control from the latest persisted executor and renders every history executor', () => {
+    const company = {
+      ...TEMPLATES[0],
+      latest: { ...TEMPLATES[0].latest, executor: 'arc-agentnet' as const },
+      history: TEMPLATES[0].history.map((version, index) => ({
+        ...version,
+        executor: index === 0 ? ('arc-agentnet' as const) : ('internal' as const),
+      })),
+    };
+
+    const html = renderToStaticMarkup(
+      <AgentTemplateExecutorAvailabilityProvider availability={{ companyArcAgentnetEnabled: true }}>
+        <AgentTemplateCard template={company} />
+      </AgentTemplateExecutorAvailabilityProvider>,
+    );
+
+    expect(html).toContain('data-executor-value="arc-agentnet"');
+    expect(html).toContain('Executor: Internal');
+  });
+
+  it('renders stale Persona Arc-agentnet as invalid and disables saving', () => {
+    const persona = {
+      ...TEMPLATES[1],
+      latest: { ...TEMPLATES[1].latest, executor: 'arc-agentnet' as const },
+    };
+
+    const html = renderToStaticMarkup(
+      <AgentTemplateExecutorAvailabilityProvider availability={{ companyArcAgentnetEnabled: true }}>
+        <AgentTemplateCard template={persona} />
+      </AgentTemplateExecutorAvailabilityProvider>,
+    );
+
+    expect(html).toContain('Invalid executor configuration');
+    expect(html).toContain('Company-only executor');
+    expect(html).toContain('disabled=""');
   });
 
   it('shows reactivation for a retired template without changing its current version label', () => {
@@ -107,5 +167,6 @@ describe('AgentManagement', () => {
     expect(actionMessage('conflict')).toContain('Refresh');
     expect(actionMessage('action_failed')).not.toContain('database');
     expect(actionMessage('unexpected-internal-error')).not.toContain('unexpected-internal-error');
+    expect(actionMessage('executor_unavailable')).toContain('Arc-agentnet');
   });
 });

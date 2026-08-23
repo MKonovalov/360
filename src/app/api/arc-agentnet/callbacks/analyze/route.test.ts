@@ -32,6 +32,7 @@ describe('POST /api/arc-agentnet/callbacks/analyze', () => {
     }));
 
     expect(response.status).toBe(202);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
     await expect(response.json()).resolves.toEqual({ accepted: true });
     expect(receive).toHaveBeenCalledWith(expect.any(Request), {
       secret: 'callback-secret-that-is-long-enough-for-tests',
@@ -61,6 +62,20 @@ describe('POST /api/arc-agentnet/callbacks/analyze', () => {
 
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toEqual({ error: 'callback_persistence_unavailable' });
+  });
+
+  it('does not expose callback secrets or partner payloads in an error response', async () => {
+    receive.mockResolvedValue({ ok: false, kind: 'event_conflict' });
+
+    const response = await POST(new Request('https://360.arclumenpartners.com/api/arc-agentnet/callbacks/analyze', {
+      method: 'POST',
+      body: JSON.stringify({ secret: 'callback-secret-that-is-long-enough-for-tests', raw: 'partner payload' }),
+    }));
+    const body = await response.text();
+
+    expect(response.status).toBe(409);
+    expect(body).not.toContain('callback-secret-that-is-long-enough-for-tests');
+    expect(body).not.toContain('partner payload');
   });
 
   it('acknowledges an identical durable replay without exposing callback data', async () => {

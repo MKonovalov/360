@@ -238,6 +238,29 @@ test.describe('Phase 35: Company and Persona analysis experiences (UX-01/UX-02)'
     guard.assertNoForbiddenRequests();
   });
 
+  test('UX-01: Company launch sends only opaque local inputs and no partner configuration', async ({ page }) => {
+    requireFixturePrerequisites();
+    const subject = fixtureSubjects().company;
+    const guard = await installFixtureOnlyRoutes(page);
+    let launchBody = '';
+    page.on('request', (request) => {
+      if (request.url().endsWith('/api/analysis-runs') && request.method() === 'POST') {
+        launchBody = request.postData() ?? '';
+      }
+    });
+
+    await openAnalysisLauncher(page, subject);
+    await page.getByRole('button', { name: 'Start analysis', exact: true }).click();
+    await expect.poll(() => launchBody).not.toBe('');
+
+    expect(launchBody).not.toContain('partnerJobId');
+    expect(launchBody).not.toContain('callbackUrl');
+    expect(launchBody).not.toContain('credential');
+    expect(launchBody).not.toContain('provider');
+    expect(launchBody).not.toContain('raw');
+    guard.assertNoForbiddenRequests();
+  });
+
   test('UX-01: changing Practice Area clears category, agent, and preview state', async ({ page }) => {
     requireFixturePrerequisites();
     const subject = fixtureSubjects().company;

@@ -3,7 +3,9 @@ import { listManagedAnalysisTemplates } from '@/lib/db/queries/analysisTemplates
 import { listManagedCustomAgents } from '@/lib/db/queries/analysisTemplates';
 import { listActivePracticeAreas } from '@/lib/db/queries/practiceAreas';
 import { listCapabilityPresetCards } from '@/lib/analysis/capabilityPresets';
+import { isCompanyArcAgentnetEnabled } from '@/lib/env';
 import { AgentManagement } from '@/components/agents/agent-management';
+import { AgentTemplateExecutorAvailabilityProvider } from '@/components/agents/agent-template-card';
 
 function LoadError() {
   return (
@@ -38,5 +40,9 @@ export default async function AgentsPage() {
   }
 
   if (data === null) return <LoadError />;
-  return <AgentManagement templates={data.templates} customAgents={data.customAgents} practiceAreas={data.practiceAreas.map(({ id, name, shortCode }) => ({ id, name, shortCode }))} capabilities={listCapabilityPresetCards()} />;
+  return (
+    <AgentTemplateExecutorAvailabilityProvider availability={{ companyArcAgentnetEnabled: isCompanyArcAgentnetEnabled() }}>
+      <AgentManagement templates={data.templates} customAgents={data.customAgents} practiceAreas={data.practiceAreas.map(({ id, name, shortCode }) => ({ id, name, shortCode }))} capabilities={listCapabilityPresetCards()} />
+    </AgentTemplateExecutorAvailabilityProvider>
+  );
 }

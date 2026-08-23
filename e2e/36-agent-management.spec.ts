@@ -112,6 +112,21 @@ test.describe('Phase 36: authenticated agent management and target flows', () =>
     await expect(page.getByText('Persona Buying Signal Analysis', { exact: true })).toBeVisible();
 
     const companyCard = page.locator('[data-template-key="company-buying-signal-analysis"]');
+    const personaCard = page.locator('[data-template-key="persona-buying-signal-analysis"]');
+    await expect(companyCard.getByRole('combobox', { name: 'Executor' })).toBeVisible();
+    await expect(personaCard.getByRole('combobox', { name: 'Executor' })).toBeVisible();
+    await expect(companyCard.getByText('Executor', { exact: true })).toBeVisible();
+    await expect(companyCard.locator('label')).toHaveText([
+      'Current instruction',
+      'Default effort',
+      'Executor',
+    ]);
+    await personaCard.getByRole('combobox', { name: 'Executor' }).click();
+    await expect(page.getByRole('option', { name: 'Internal', exact: true })).toBeVisible();
+    await expect(page.getByRole('option', { name: 'Arc-agentnet', exact: true })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(personaCard).toContainText('Company-only executor');
+    await expect(companyCard.getByRole('combobox', { name: 'Executor' })).toHaveAttribute('data-executor-value', /internal|arc-agentnet/);
     const instruction = companyCard.locator('textarea');
     const currentVersionText = await companyCard.getByText(/Current version \d+/, { exact: false }).textContent();
     const currentVersionMatch = currentVersionText?.match(/Current version (\d+)/);

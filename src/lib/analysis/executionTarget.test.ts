@@ -5,6 +5,7 @@ import {
   ARC_AGENTNET_PARTNER_STATUSES,
   ARC_AGENTNET_SAFE_REASONS,
   EXECUTION_TARGETS,
+  resolveExecutor,
   arcAgentnetLocalStatusSchema,
   arcAgentnetPartnerStatusSchema,
   arcAgentnetSafeReasonSchema,
@@ -48,6 +49,33 @@ describe('executionTargetSchema', () => {
   const invalidTargets: readonly unknown[] = ['external', 'internal ', '', 'INTERNAL', 0, null, undefined];
   it.each(invalidTargets)('rejects the invalid execution target value %p', (value) => {
     expect(executionTargetSchema.safeParse(value).success).toBe(false);
+  });
+});
+
+describe('resolveExecutor', () => {
+  it.each([
+    ['company', 'internal', true],
+    ['company', 'arc-agentnet', true],
+    ['company', 'internal', false],
+  ] as const)('accepts %s with %s when availability is %s', (targetType, executor, enabled) => {
+    expect(resolveExecutor({ targetType, executor, companyArcAgentnetEnabled: enabled })).toEqual({
+      ok: true,
+      value: { executor, targetType, companyArcAgentnetEnabled: enabled },
+    });
+  });
+
+  it('rejects Persona plus Arc-agentnet as a target mismatch', () => {
+    expect(resolveExecutor({ targetType: 'persona', executor: 'arc-agentnet', companyArcAgentnetEnabled: true })).toEqual({
+      ok: false,
+      reason: 'executor_target_mismatch',
+    });
+  });
+
+  it('rejects Company plus Arc-agentnet when the feature is unavailable', () => {
+    expect(resolveExecutor({ targetType: 'company', executor: 'arc-agentnet', companyArcAgentnetEnabled: false })).toEqual({
+      ok: false,
+      reason: 'executor_unavailable',
+    });
   });
 });
 

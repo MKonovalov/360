@@ -108,6 +108,7 @@ describeWithDatabase('analysis template management database boundary', () => {
         expectedVersion: company.latest.version,
         instruction: company.latest.instruction,
         defaultEffort: company.latest.defaultEffort,
+        executor: company.latest.executor,
       },
       'integration-test',
     );
@@ -144,6 +145,7 @@ describeWithDatabase('analysis template management database boundary', () => {
           expectedVersion: company.latest.version,
           instruction: `${company.latest.instruction} first`,
           defaultEffort: company.latest.defaultEffort,
+          executor: company.latest.executor,
         },
         'integration-test-a',
       ),
@@ -154,6 +156,7 @@ describeWithDatabase('analysis template management database boundary', () => {
           expectedVersion: company.latest.version,
           instruction: `${company.latest.instruction} second`,
           defaultEffort: company.latest.defaultEffort,
+          executor: company.latest.executor,
         },
         'integration-test-b',
       ),

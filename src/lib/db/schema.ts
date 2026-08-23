@@ -632,6 +632,7 @@ export const analysisTemplateVersion = pgTable(
       .notNull()
       .default(supportedEfforts),
     defaultEffort: analysisEffortEnum('default_effort').notNull().default('standard'),
+    executor: analysisExecutionTargetEnum('executor').notNull().default('internal'),
     futureBudget: jsonb('future_budget')
       .$type<typeof STANDARD_EXECUTION_BUDGET>()
       .notNull()

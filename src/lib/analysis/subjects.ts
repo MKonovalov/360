@@ -4,6 +4,7 @@ import { getAnalysisTemplateVersion } from '@/lib/db/queries/analysisTemplates';
 import { getCompanyById } from '@/lib/db/queries/companies';
 import { getPersonaById } from '@/lib/db/queries/personas';
 import { listActivePracticeAreas } from '@/lib/db/queries/practiceAreas';
+import { executionTargetSchema, type ExecutorValidationReason } from './executionTarget';
 import {
   analysisSubjectSchema,
   type AnalysisSubject,
@@ -25,7 +26,7 @@ export type AnalysisResolutionReason = (typeof analysisResolutionReasons)[number
 
 type Resolution<T> =
   | { readonly ok: true; readonly value: Readonly<T> }
-  | { readonly ok: false; readonly reason: AnalysisResolutionReason };
+  | { readonly ok: false; readonly reason: AnalysisResolutionReason | ExecutorValidationReason };
 
 export type ResolvedAnalysisSubject =
   | { readonly type: 'company'; readonly id: number; readonly displayName: string }
@@ -82,6 +83,9 @@ export async function resolveAnalysisTemplateVersion(input: unknown) {
   }
   if (!version.isCurrent) {
     return { ok: false, reason: 'template_version_not_current' } as const;
+  }
+  if (!executionTargetSchema.safeParse(version.executor).success) {
+    return { ok: false, reason: 'invalid_executor_configuration' } as const;
   }
   return { ok: true, value: version } as const;
 }

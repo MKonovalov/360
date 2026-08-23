@@ -31,6 +31,7 @@ const fixed = {
   checklist: { schemaVersion: 1 as const, targetType: 'company' as const, practiceAreaId: 3, practiceAreaName: 'GBS', items: [] },
   resolvedModelChain: [{ modelId: 'claude-sonnet', provider: 'anthropic' as const }], policy,
 };
+const resolvedFixed = { executor: 'internal' as const, value: fixed };
 
 const custom = {
   ...fixed,
@@ -56,14 +57,14 @@ describe('POST /api/analysis-runs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.requireStaffAccess.mockResolvedValue({ userId: 'staff' });
-    mocks.resolveAnalysisLaunch.mockResolvedValue({ ok: true, value: fixed });
+    mocks.resolveAnalysisLaunch.mockResolvedValue({ ok: true, ...resolvedFixed });
     mocks.createAnalysisRun.mockResolvedValue({ ok: true, run: { id: 41, status: 'queued' } });
     mocks.start.mockResolvedValue({ runId: 'workflow' });
     mocks.transitionAnalysisRun.mockResolvedValue({ ok: true });
   });
 
   it('converges a valid custom selection on one snapshot/create and scalar Workflow dispatch', async () => {
-    mocks.resolveAnalysisLaunch.mockResolvedValue({ ok: true, value: custom });
+    mocks.resolveAnalysisLaunch.mockResolvedValue({ ok: true, executor: 'internal', value: custom });
     const response = await POST(request({ subject: { type: 'company', id: 42 }, practiceAreaId: 3, selection: { kind: 'custom', customAgentId: 'custom-7', templateVersionId: 71 }, signalCategory: 'GBS-state' }));
     expect(response.status).toBe(201);
     await expect(response.json()).resolves.toEqual({ applicationRunId: 41 });
@@ -114,7 +115,7 @@ describe('POST /api/analysis-runs', () => {
     const originalJson = launchRequest.json.bind(launchRequest);
     mocks.requireStaffAccess.mockImplementation(async () => { order.push('auth'); return { userId: 'staff' }; });
     vi.spyOn(launchRequest, 'json').mockImplementation(async () => { order.push('parse'); return originalJson(); });
-    mocks.resolveAnalysisLaunch.mockImplementation(async () => { order.push('resolve'); return { ok: true, value: fixed }; });
+    mocks.resolveAnalysisLaunch.mockImplementation(async () => { order.push('resolve'); return { ok: true, executor: 'internal', value: fixed }; });
     mocks.createAnalysisRun.mockImplementation(async () => { order.push('create'); return { ok: true, run: { id: 41, status: 'queued' } }; });
 
     const response = await POST(launchRequest);
@@ -163,5 +164,64 @@ describe('POST /api/analysis-runs', () => {
     const response = await POST(request({ templateVersionId: 11, subject: { type: 'company', id: 42 }, practiceAreaId: 3 }));
     expect(response.status).toBe(400);
     expect(mocks.resolveAnalysisLaunch).not.toHaveBeenCalled();
+  });
+
+  it('rejects a conflicting executor hint without creating or dispatching a run', async () => {
+    mocks.resolveAnalysisLaunch.mockResolvedValue({ ok: false, reason: 'executor_conflict' });
+
+    const response = await POST(request({
+      subject: { type: 'company', id: 42 },
+      practiceAreaId: 3,
+      selection: { kind: 'fixed', templateVersionId: 11 },
+      signalCategory: 'GBS-state',
+      executor: 'arc-agentnet',
+    }));
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({ error: 'executor_conflict' });
+    expect(mocks.createAnalysisRun).not.toHaveBeenCalled();
+    expect(mocks.start).not.toHaveBeenCalled();
+  });
+
+  it('returns a server error for invalid persisted executor configuration', async () => {
+    mocks.resolveAnalysisLaunch.mockResolvedValue({ ok: false, reason: 'invalid_executor_configuration' });
+
+    const response = await POST(request({
+      subject: { type: 'company', id: 42 },
+      practiceAreaId: 3,
+      selection: { kind: 'fixed', templateVersionId: 11 },
+      signalCategory: 'GBS-state',
+    }));
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({ error: 'invalid_executor_configuration' });
+    expect(mocks.createAnalysisRun).not.toHaveBeenCalled();
+  });
+
+  it.each(['company', 'persona'] as const)('keeps the internal %s launch on the existing route', async (subjectType) => {
+    const value = subjectType === 'company'
+      ? fixed
+      : {
+          ...fixed,
+          template: { ...fixed.template, targetType: 'persona' as const },
+          subject: { type: 'persona' as const, id: 42, displayName: 'A Person' },
+          checklist: { ...fixed.checklist, targetType: 'persona' as const },
+        };
+    mocks.resolveAnalysisLaunch.mockResolvedValue({
+      ok: true,
+      executor: 'internal',
+      value,
+    });
+
+    const response = await POST(request({
+      subject: { type: subjectType, id: 42 },
+      practiceAreaId: 3,
+      selection: { kind: 'fixed', templateVersionId: 11 },
+      signalCategory: 'GBS-state',
+      executor: 'internal',
+    }));
+
+    expect(response.status).toBe(201);
+    expect(mocks.start).toHaveBeenCalledOnce();
   });
 });

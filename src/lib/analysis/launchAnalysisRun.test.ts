@@ -30,6 +30,7 @@ const resolvedLaunch = {
   resolvedModelChain: [{ modelId: 'claude-sonnet', provider: 'anthropic' as const }],
   policy,
 };
+const resolvedInternalLaunch = { executor: 'internal' as const, value: resolvedLaunch };
 
 const validLaunchFields = {
   subject: { type: 'company', id: 42 },
@@ -45,7 +46,7 @@ function request(body: unknown): Request {
 describe('launchAnalysisRun', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.resolveAnalysisLaunch.mockResolvedValue({ ok: true, value: resolvedLaunch });
+    mocks.resolveAnalysisLaunch.mockResolvedValue({ ok: true, ...resolvedInternalLaunch });
     mocks.createAnalysisRun.mockResolvedValue({ ok: true, run: { id: 61, status: 'queued' } });
     mocks.start.mockResolvedValue({ runId: 'workflow' });
     mocks.transitionAnalysisRun.mockResolvedValue({ ok: true });
@@ -62,6 +63,21 @@ describe('launchAnalysisRun', () => {
     expect(mocks.createAnalysisRun).toHaveBeenCalledWith(expect.objectContaining({
       executionSnapshot: expect.objectContaining({ debugCaptureEnabled: false }),
     }));
+  });
+
+  it('does not dispatch an Arc-agentnet resolution through the internal workflow', async () => {
+    mocks.resolveAnalysisLaunch.mockResolvedValue({ ok: true, executor: 'arc-agentnet', value: resolvedLaunch });
+
+    const response = await launchAnalysisRun({
+      request: request(validLaunchFields),
+      userId: 'trusted_user',
+      debugCaptureEnabled: false,
+    });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({ error: 'executor_unavailable' });
+    expect(mocks.createAnalysisRun).not.toHaveBeenCalled();
+    expect(mocks.start).not.toHaveBeenCalled();
   });
 
   it('persists the trusted debugCaptureEnabled=true option even when the body forges debugCaptureEnabled=false and debugAdminUserIds', async () => {

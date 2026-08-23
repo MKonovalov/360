@@ -91,12 +91,14 @@ describe('analysis template seed', () => {
         version: version.version,
         supportedEfforts: version.supportedEfforts,
         defaultEffort: version.defaultEffort,
+        executor: version.executor,
         futureBudget: version.futureBudget,
-        createdBy: version.createdBy,
+        createdBy: 'seed-script',
       }).toEqual({
         version: 1,
         supportedEfforts: ['standard'],
         defaultEffort: 'standard',
+        executor: 'internal',
         futureBudget: {
           maxAttempts: 2,
           maxToolCalls: 6,
@@ -168,6 +170,46 @@ describe('analysis template seed', () => {
       await dbModule.db
         .update(schema.analysisTemplateVersion)
         .set({ instruction: companyVersion.instruction })
+        .where(eq(schema.analysisTemplateVersion.id, companyVersion.id));
+    }
+  });
+
+  it('preserves a deliberate Arc-agentnet executor on seed rerun', async () => {
+    // Given: the Company seed version has an intentional non-default executor.
+    const [companyTemplate] = await dbModule.db
+      .select({ id: schema.analysisTemplate.id })
+      .from(schema.analysisTemplate)
+      .where(eq(schema.analysisTemplate.key, 'company-buying-signal-analysis'));
+    assert.ok(companyTemplate);
+    const [companyVersion] = await dbModule.db
+      .select()
+      .from(schema.analysisTemplateVersion)
+      .where(
+        and(
+          eq(schema.analysisTemplateVersion.templateId, companyTemplate.id),
+          eq(schema.analysisTemplateVersion.version, 1),
+        ),
+      );
+    assert.ok(companyVersion);
+    await dbModule.db
+      .update(schema.analysisTemplateVersion)
+      .set({ executor: 'arc-agentnet' })
+      .where(eq(schema.analysisTemplateVersion.id, companyVersion.id));
+
+    try {
+      // When: the fixed seed is rerun.
+      await seedAnalysisTemplates();
+
+      // Then: the deliberate executor remains unchanged.
+      const [rowAfterRerun] = await dbModule.db
+        .select({ executor: schema.analysisTemplateVersion.executor })
+        .from(schema.analysisTemplateVersion)
+        .where(eq(schema.analysisTemplateVersion.id, companyVersion.id));
+      expect(rowAfterRerun?.executor).toBe('arc-agentnet');
+    } finally {
+      await dbModule.db
+        .update(schema.analysisTemplateVersion)
+        .set({ executor: companyVersion.executor })
         .where(eq(schema.analysisTemplateVersion.id, companyVersion.id));
     }
   });

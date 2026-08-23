@@ -24,6 +24,7 @@ const policy = {
 };
 
 const resolvedLaunch = {
+  executor: 'internal' as const,
   kind: 'fixed' as const,
   template: { templateId: 1, templateVersionId: 11, key: 'company-buying-signal-analysis', name: 'Fixed', targetType: 'company' as const, version: 1, instruction: 'Assess.', effort: 'standard' as const },
   subject: { type: 'company' as const, id: 42, displayName: 'Acme' },
@@ -66,7 +67,7 @@ describe('POST /api/debug/analysis-runs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.requireDebugAdminAccess.mockResolvedValue({ userId: 'user_debug' });
-    mocks.resolveAnalysisLaunch.mockResolvedValue({ ok: true, value: resolvedLaunch });
+    mocks.resolveAnalysisLaunch.mockResolvedValue({ ok: true, executor: 'internal', value: resolvedLaunch });
     mocks.createAnalysisRun.mockResolvedValue({ ok: true, run: { id: 51, status: 'queued' } });
     mocks.start.mockResolvedValue({ runId: 'workflow' });
     mocks.transitionAnalysisRun.mockResolvedValue({ ok: true });
@@ -78,7 +79,7 @@ describe('POST /api/debug/analysis-runs', () => {
     const originalJson = launchRequest.json.bind(launchRequest);
     mocks.requireDebugAdminAccess.mockImplementation(async () => { order.push('auth'); return { userId: 'user_debug' }; });
     vi.spyOn(launchRequest, 'json').mockImplementation(async () => { order.push('parse'); return originalJson(); });
-    mocks.resolveAnalysisLaunch.mockImplementation(async () => { order.push('resolve'); return { ok: true, value: resolvedLaunch }; });
+    mocks.resolveAnalysisLaunch.mockImplementation(async () => { order.push('resolve'); return { ok: true, executor: 'internal', value: resolvedLaunch }; });
     mocks.createAnalysisRun.mockImplementation(async () => { order.push('create'); return { ok: true, run: { id: 51, status: 'queued' } }; });
 
     const response = await POST(launchRequest);

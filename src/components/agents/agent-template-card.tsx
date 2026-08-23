@@ -1,8 +1,8 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
-import type { FormEvent } from 'react';
+import { createContext, useContext, useState, useTransition } from 'react';
+import type { ReactNode, SyntheticEvent } from 'react';
 
 import {
   saveAnalysisTemplateAction,
@@ -12,8 +12,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import type { ManagedAnalysisTemplateRead } from '@/lib/analysis/templateContracts';
+import type { ExecutorAvailability, ManagedAnalysisTemplateRead } from '@/lib/analysis/templateContracts';
 import type { AnalysisEffort } from '@/lib/analysis/contracts';
+import type { AnalysisExecutor } from '@/lib/analysis/executionTarget';
 
 type Feedback =
   | { readonly kind: 'idle' }
@@ -26,14 +27,28 @@ export function actionMessage(reason: string): string {
     case 'conflict':
       return 'This template changed in another session. Refresh and try again.';
     case 'invalid_input':
-      return 'Only the current instruction and default effort can be changed.';
+      return 'Only the current instruction, default effort, and executor can be changed.';
     case 'not_found':
       return 'This template is no longer available. Refresh the page.';
     case 'action_failed':
       return 'Could not save this change. Please try again.';
+    case 'executor_unavailable':
+      return 'Arc-agentnet is currently unavailable. Keep Internal or try again later.';
     default:
       return 'Could not save this change. Please try again.';
   }
+}
+
+const ExecutorAvailabilityContext = createContext<ExecutorAvailability>({ companyArcAgentnetEnabled: false });
+
+export function AgentTemplateExecutorAvailabilityProvider({
+  availability,
+  children,
+}: {
+  readonly availability: ExecutorAvailability;
+  readonly children: ReactNode;
+}) {
+  return <ExecutorAvailabilityContext.Provider value={availability}>{children}</ExecutorAvailabilityContext.Provider>;
 }
 
 function formatDate(value: string): string {
@@ -46,18 +61,21 @@ export function AgentTemplateCard({
   readonly template: ManagedAnalysisTemplateRead;
 }) {
   const router = useRouter();
+  const availability = useContext(ExecutorAvailabilityContext);
   const [current, setCurrent] = useState(template);
   const [instruction, setInstruction] = useState(template.latest.instruction);
   const [defaultEffort, setDefaultEffort] = useState<AnalysisEffort>(template.latest.defaultEffort);
+  const [executor, setExecutor] = useState<AnalysisExecutor>(template.latest.executor);
   const [feedback, setFeedback] = useState<Feedback>({ kind: 'idle' });
   const [isPending, startTransition] = useTransition();
   const priorVersions = current.history.slice(1);
+  const executorOptions: readonly { readonly value: AnalysisExecutor; readonly label: string }[] = current.targetType === 'company' && availability.companyArcAgentnetEnabled ? [{ value: 'internal', label: 'Internal' }, { value: 'arc-agentnet', label: 'Arc-agentnet' }] : [{ value: 'internal', label: 'Internal' }];
+  const isExecutorValid = executor === 'internal' || (current.targetType === 'company' && availability.companyArcAgentnetEnabled);
+  const executorIssue = current.targetType === 'persona' ? 'Company-only executor: Persona templates use Internal.' : 'Arc-agentnet is currently unavailable for this template.';
 
-  function markDirty(): void {
-    setFeedback((previous) => (previous.kind === 'saving' ? previous : { kind: 'idle' }));
-  }
+  function markDirty(): void { setFeedback((previous) => (previous.kind === 'saving' ? previous : { kind: 'idle' })); }
 
-  function saveContent(event: FormEvent<HTMLFormElement>): void {
+  function saveContent(event: SyntheticEvent<HTMLFormElement>): void {
     event.preventDefault();
     setFeedback({ kind: 'saving' });
     startTransition(async () => {
@@ -68,11 +86,13 @@ export function AgentTemplateCard({
           expectedVersion: current.latest.version,
           instruction,
           defaultEffort,
+          executor,
         });
         if (result.ok) {
           setCurrent(result.template);
           setInstruction(result.template.latest.instruction);
           setDefaultEffort(result.template.latest.defaultEffort);
+          setExecutor(result.template.latest.executor);
           setFeedback({
             kind: 'saved',
             message:
@@ -85,10 +105,7 @@ export function AgentTemplateCard({
         }
         setFeedback({ kind: 'error', message: actionMessage(result.reason) });
       } catch (error: unknown) {
-        if (error instanceof Error) {
-          setFeedback({ kind: 'error', message: 'Could not save this change. Please try again.' });
-          return;
-        }
+        if (error instanceof Error) { setFeedback({ kind: 'error', message: 'Could not save this change. Please try again.' }); return; }
         setFeedback({ kind: 'error', message: 'Could not save this change. Please try again.' });
       }
     });
@@ -115,10 +132,7 @@ export function AgentTemplateCard({
         }
         setFeedback({ kind: 'error', message: actionMessage(result.reason) });
       } catch (error: unknown) {
-        if (error instanceof Error) {
-          setFeedback({ kind: 'error', message: 'Could not change this template. Please try again.' });
-          return;
-        }
+        if (error instanceof Error) { setFeedback({ kind: 'error', message: 'Could not change this template. Please try again.' }); return; }
         setFeedback({ kind: 'error', message: 'Could not change this template. Please try again.' });
       }
     });
@@ -127,10 +141,7 @@ export function AgentTemplateCard({
   return (
     <article data-template-key={current.key} className="flex flex-col gap-6 rounded-lg border border-slate-200 bg-white p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex flex-col gap-1">
-          <h3 className="text-[18px] font-semibold leading-[1.2] text-slate-900">{current.name}</h3>
-          <p className="text-sm text-slate-500">Target: {current.targetType}</p>
-        </div>
+        <div className="flex flex-col gap-1"><h3 className="text-[18px] font-semibold leading-[1.2] text-slate-900">{current.name}</h3><p className="text-sm text-slate-500">Target: {current.targetType}</p></div>
         <div className="flex items-center gap-2">
           <Badge variant={current.status === 'active' ? 'secondary' : 'outline'}>
             {current.status === 'active' ? 'Active' : 'Retired'}
@@ -141,9 +152,7 @@ export function AgentTemplateCard({
 
       <form onSubmit={saveContent} className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
-          <label htmlFor={`${current.key}-instruction`} className="text-[12px] font-medium text-slate-700">
-            Current instruction
-          </label>
+          <label htmlFor={`${current.key}-instruction`} className="text-[12px] font-medium text-slate-700">Current instruction</label>
           <Textarea
             id={`${current.key}-instruction`}
             value={instruction}
@@ -157,9 +166,7 @@ export function AgentTemplateCard({
         </div>
 
         <div className="flex flex-col gap-2">
-          <label htmlFor={`${current.key}-effort`} className="text-[12px] font-medium text-slate-700">
-            Default effort
-          </label>
+          <label htmlFor={`${current.key}-effort`} className="text-[12px] font-medium text-slate-700">Default effort</label>
           <Select
             value={defaultEffort}
             onValueChange={(value) => {
@@ -182,8 +189,36 @@ export function AgentTemplateCard({
           </Select>
         </div>
 
+        <div className="flex flex-col gap-2">
+          <label htmlFor={`${current.key}-executor`} className="text-[12px] font-medium text-slate-700">Executor</label>
+          <Select
+            value={executor}
+            onValueChange={(value) => {
+              markDirty();
+              const nextExecutor = executorOptions.find((option) => option.value === value)?.value;
+              if (nextExecutor) setExecutor(nextExecutor);
+            }}
+            disabled={isPending}
+          >
+            <SelectTrigger id={`${current.key}-executor`} aria-label="Executor" data-executor-value={executor} data-executor-options={executorOptions.map(({ value }) => value).join(',')}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {executorOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-slate-500">{current.targetType === 'persona' ? 'Company-only executor: Persona templates use Internal.' : 'Company templates can use Arc-agentnet when enabled.'}</p>
+          {!isExecutorValid ? (
+            <p role="alert" className="text-xs text-red-600">Invalid executor configuration: {executorIssue}</p>
+          ) : null}
+        </div>
+
         <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
-          <Button type="submit" disabled={isPending}>
+          <Button type="submit" disabled={isPending || !isExecutorValid}>
             {isPending ? 'Saving…' : 'Save new version'}
           </Button>
           <Button type="button" variant="outline" onClick={changeLifecycle} disabled={isPending}>
@@ -216,13 +251,10 @@ export function AgentTemplateCard({
           <div className="flex flex-col gap-3">
             {priorVersions.map((version) => (
               <div key={version.templateVersionId} data-history-version={version.version} className="rounded-md border border-slate-200 bg-slate-50 p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-medium text-slate-800">Version {version.version}</p>
-                  <Badge variant="outline">Read-only</Badge>
-                  <span className="text-xs text-slate-500">{formatDate(version.createdAt)}</span>
-                </div>
+                <div className="flex flex-wrap items-center gap-2"><p className="text-sm font-medium text-slate-800">Version {version.version}</p><Badge variant="outline">Read-only</Badge><span className="text-xs text-slate-500">{formatDate(version.createdAt)}</span></div>
                 <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">{version.instruction}</p>
                 <p className="mt-2 text-xs text-slate-500">Default effort: {version.defaultEffort}</p>
+                <p className="mt-2 text-xs text-slate-500">Executor: {version.executor === 'internal' ? 'Internal' : 'Arc-agentnet'}</p>
               </div>
             ))}
           </div>

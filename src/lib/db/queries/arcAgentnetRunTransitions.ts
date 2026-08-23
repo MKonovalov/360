@@ -6,7 +6,6 @@ import {
   type ArcAgentnetSafeReason,
 } from '@/lib/analysis/executionTarget';
 import { db } from '../index';
-import { analysisRun, analysisRunEvent } from '../schema';
 import { serializeArcAgentnetProjection } from './arcAgentnetResultValidation';
 import type {
   ApplyArcAgentnetResultProjectionInput,
@@ -33,9 +32,9 @@ export async function recordArcAgentnetStatus(
         AND execution_target = 'arc-agentnet'
         AND initiating_user_id = ${input.initiatingUserId}
         AND partner_job_id = ${input.partnerJobId}
-        AND partner_request_id = ${input.requestId}
-        AND EXISTS (
-          SELECT 1 FROM partner_job_mapping mapping
+       AND partner_request_id = ${input.requestId}
+       AND EXISTS (
+         SELECT 1 FROM partner_job_mapping mapping
           WHERE mapping.id = analysis_run.partner_job_mapping_id
             AND mapping.partner_job_id = ${input.partnerJobId}
             AND mapping.request_id = ${input.requestId}
@@ -114,8 +113,9 @@ export async function applyArcAgentnetResultProjection(
           SELECT 1 FROM partner_job_mapping mapping
           WHERE mapping.id = analysis_run.partner_job_mapping_id
             AND mapping.partner_job_id = ${input.partnerJobId}
-            AND mapping.request_id = ${input.requestId}
-        )
+         AND mapping.request_id = ${input.requestId}
+       )
+        AND arc_agentnet_local_status IN ('queued', 'running')
         AND (arc_agentnet_result_hash IS NULL OR (
           arc_agentnet_result_hash = ${serialized.hash}
           AND arc_agentnet_result_size_bytes = ${serialized.sizeBytes}

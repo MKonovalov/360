@@ -10,6 +10,7 @@ import {
 import type { AnalyzeJob } from '@/lib/arc-agentnet/client';
 import { db } from '../index';
 import { partnerJobMapping } from '../schema';
+import { applyArcAgentnetCallbackProjection } from './arcAgentnetCallbackProjection';
 
 export type RegisterPartnerJobInput = {
   readonly partnerJobId: string;
@@ -162,6 +163,17 @@ export async function applyPartnerCallback(
     END AS outcome
     `);
     const outcome = result.rows[0]?.outcome;
+    if (outcome === 'applied' || outcome === 'replayed') {
+      try {
+        await applyArcAgentnetCallbackProjection({
+          callback: input.callback,
+          receivedAt: input.receivedAt,
+        });
+      } catch (error: unknown) {
+        if (error instanceof Error) return { kind: 'database_failure' };
+        throw error;
+      }
+    }
     return outcome === undefined ? { kind: 'database_failure' } : { kind: outcome };
   } catch (error: unknown) {
     if (error instanceof Error) return { kind: 'database_failure' };

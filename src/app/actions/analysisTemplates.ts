@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import {
   createCustomAgent,
+  listManagedAnalysisTemplates,
   listManagedCustomAgents,
   saveCustomAgentVersion,
   saveAnalysisTemplateVersion,
@@ -19,6 +20,8 @@ import {
   type CustomAgentValidationIssue,
 } from '@/lib/analysis/customAgentContracts';
 import { validateCapabilitySelection } from '@/lib/analysis/capabilityPresets';
+import { resolveExecutor } from '@/lib/analysis/executionTarget';
+import { isCompanyArcAgentnetEnabled } from '@/lib/env';
 import type { CustomAgentManagementResult } from '@/lib/db/queries/customAgents';
 import {
   templateManagementInputSchema,
@@ -27,7 +30,13 @@ import {
 
 export type AnalysisTemplateActionResult =
   | TemplateManagementResult
-  | { readonly ok: false; readonly reason: 'invalid_input' | 'action_failed' };
+  | { readonly ok: false; readonly reason: 'invalid_input' | 'action_failed' }
+  | {
+      readonly ok: false;
+      readonly reason: 'invalid_input';
+      readonly issues: readonly CustomAgentValidationIssue[];
+    }
+  | { readonly ok: false; readonly reason: 'executor_unavailable' };
 
 export type CustomAgentActionResult =
   | CustomAgentManagementResult
@@ -120,6 +129,43 @@ export async function saveAnalysisTemplateAction(
   }
 
   try {
+    const templates = await listManagedAnalysisTemplates();
+    const template = templates.find(({ key }) => key === parsed.data.templateKey);
+    if (!template) return { ok: false, reason: 'not_found' };
+
+    const executorResolution = resolveExecutor({
+      executor: parsed.data.executor,
+      targetType: template.targetType,
+      companyArcAgentnetEnabled: isCompanyArcAgentnetEnabled(),
+    });
+    if (!executorResolution.ok) {
+      switch (executorResolution.reason) {
+        case 'executor_target_mismatch':
+          return {
+            ok: false,
+            reason: 'invalid_input',
+            issues: [{
+              path: 'executor',
+              code: 'invalid_value',
+              message: 'Arc-agentnet is only available for Company templates',
+            }],
+          };
+        case 'executor_unavailable':
+          return { ok: false, reason: 'executor_unavailable' };
+        case 'invalid_executor_configuration':
+        case 'executor_conflict':
+          return {
+            ok: false,
+            reason: 'invalid_input',
+            issues: [{
+              path: 'executor',
+              code: 'invalid_value',
+              message: 'Select a valid executor configuration',
+            }],
+          };
+      }
+    }
+
     const result = await saveAnalysisTemplateVersion(parsed.data, userId);
     revalidateChangedTemplate(result);
     return result;

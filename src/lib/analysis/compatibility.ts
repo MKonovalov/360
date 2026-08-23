@@ -15,6 +15,13 @@ import {
 } from '@/lib/db/queries/customAgents';
 import { getModelSettingsForUser } from '@/lib/db/queries/userModelSettings';
 import { resolveModelChain } from '@/lib/agents/modelConfig';
+import { isCompanyArcAgentnetEnabled } from '@/lib/env';
+import {
+  executionTargetSchema,
+  resolveExecutor,
+  type AnalysisExecutor,
+  type ExecutorValidationReason,
+} from './executionTarget';
 import {
   resolveActivePracticeArea,
   resolveAnalysisSubject,
@@ -65,9 +72,16 @@ export type ResolvedAnalysisLaunch = {
   readonly policy: ReturnType<typeof phase33PolicySnapshotSchema.parse>;
 };
 
+export type ResolvedCompanyArcAgentnetLaunch = ResolvedAnalysisLaunch;
+
+export type ResolvedExecutorLaunch =
+  | { readonly ok: true; readonly executor: 'internal'; readonly value: ResolvedAnalysisLaunch }
+  | { readonly ok: true; readonly executor: 'arc-agentnet'; readonly value: ResolvedCompanyArcAgentnetLaunch }
+  | { readonly ok: false; readonly reason: AnalysisCompatibilityReason | ExecutorValidationReason };
+
 type Resolution =
-  | { readonly ok: true; readonly value: ResolvedAnalysisLaunch }
-  | { readonly ok: false; readonly reason: AnalysisCompatibilityReason };
+  | { readonly ok: true; readonly executor: AnalysisExecutor; readonly value: ResolvedAnalysisLaunch }
+  | { readonly ok: false; readonly reason: AnalysisCompatibilityReason | ExecutorValidationReason };
 
 export type AnalysisLaunchResolutionInput = {
   readonly userId: string;
@@ -81,6 +95,7 @@ export type AnalysisLaunchResolutionInput = {
   // new category-aware caller (analysis-preview, the structured
   // analysis-runs shape) sends this via its schema-required signalCategory.
   readonly signalCategory?: unknown;
+  readonly executor?: unknown;
 };
 
 type ChecklistResolution =
@@ -115,6 +130,8 @@ async function resolveChecklistForLaunch(
 export async function resolveAnalysisLaunch(
   input: AnalysisLaunchResolutionInput,
 ): Promise<Resolution> {
+  const executorHint = input.executor === undefined ? undefined : executionTargetSchema.safeParse(input.executor);
+  if (executorHint !== undefined && !executorHint.success) return { ok: false, reason: 'invalid_input' };
   const selection = analysisAgentSelectionSchema.safeParse(input.selection);
   if (!selection.success) return { ok: false, reason: 'invalid_input' };
 
@@ -138,8 +155,18 @@ export async function resolveAnalysisLaunch(
     if (!template.ok) return { ok: false, reason: template.reason };
     if (template.value.targetType !== subjectType) return { ok: false, reason: 'subject_type_mismatch' };
     if (template.value.instruction === null) return { ok: false, reason: 'custom_output_invalid' };
+    const executor = resolveExecutor({
+      targetType: subjectType,
+      executor: template.value.executor,
+      companyArcAgentnetEnabled: isCompanyArcAgentnetEnabled(),
+    });
+    if (!executor.ok) return executor;
+    if (executorHint?.success && executorHint.data !== executor.value.executor) {
+      return { ok: false, reason: 'executor_conflict' };
+    }
     return {
       ok: true,
+      executor: executor.value.executor,
       value: {
         kind: 'fixed',
         template: {
@@ -186,8 +213,14 @@ export async function resolveAnalysisLaunch(
   if (parsedOutput !== null && typeof parsedOutput !== 'object') {
     return { ok: false, reason: 'custom_output_invalid' };
   }
+  const customExecutor = resolvePersistedCustomExecutor(custom, subjectType);
+  if (!customExecutor.ok) return customExecutor;
+  if (executorHint?.success && executorHint.data !== customExecutor.value.executor) {
+    return { ok: false, reason: 'executor_conflict' };
+  }
   return {
     ok: true,
+    executor: customExecutor.value.executor,
     value: {
       kind: 'custom',
       template: {
@@ -208,6 +241,23 @@ export async function resolveAnalysisLaunch(
       policy: policy.data,
     },
   };
+}
+
+function resolvePersistedCustomExecutor(
+  custom: unknown,
+  targetType: AnalysisTargetType,
+): { readonly ok: true; readonly value: { readonly executor: AnalysisExecutor } } | { readonly ok: false; readonly reason: ExecutorValidationReason } {
+  if (typeof custom !== 'object' || custom === null || !('latest' in custom) || typeof custom.latest !== 'object' || custom.latest === null) {
+    return { ok: false, reason: 'invalid_executor_configuration' };
+  }
+  const rawExecutor = 'executor' in custom.latest ? custom.latest.executor : 'internal';
+  const parsed = executionTargetSchema.safeParse(rawExecutor);
+  if (!parsed.success) return { ok: false, reason: 'invalid_executor_configuration' };
+  return resolveExecutor({
+    targetType,
+    executor: parsed.data,
+    companyArcAgentnetEnabled: isCompanyArcAgentnetEnabled(),
+  });
 }
 
 function getSubjectType(input: unknown): AnalysisTargetType | undefined {

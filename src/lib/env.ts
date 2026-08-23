@@ -13,7 +13,7 @@ const envSchema = z.object({
   // .catch(undefined) also covers a MALFORMED value (not just unset) — a
   // typo'd URL must not crash the whole app at import time (env.ts is
   // imported app-wide via db/index.ts), only silently disable Arcpedia.
-  ARCPEDIA_BASE_URL: z.string().url().optional().catch(undefined),
+  ARCPEDIA_BASE_URL: z.url().optional().catch(undefined),
   ARCPEDIA_ACCESS_CLIENT_ID: z.string().optional(),
   ARCPEDIA_ACCESS_CLIENT_SECRET: z.string().optional(),
   // Phase 8 (D-14): Apollo enrichment key. Optional/degrade-gracefully like the
@@ -75,6 +75,6 @@ const envSchema = z.object({
 export const env = envSchema.parse(process.env);
 
 export function isCompanyArcAgentnetEnabled(): boolean {
-  const value = env.COMPANY_ANALYSIS_ARC_AGENTNET_ENABLED?.trim().toLowerCase();
+  const value = env.COMPANY_ANALYSIS_ARC_AGENTNET_ENABLED;
   return value === 'true' || value === '1' || value === 'on';
 }

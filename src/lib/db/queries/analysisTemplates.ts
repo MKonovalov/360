@@ -5,6 +5,7 @@ import {
   supportedEfforts,
   type AnalysisTargetType,
 } from '@/lib/analysis/contracts';
+import { resolveExecutor } from '@/lib/analysis/executionTarget';
 import { FIXED_ANALYSIS_TEMPLATES } from '@/lib/analysis/templateContracts';
 import type {
   ManagedAnalysisTemplateRead,
@@ -12,6 +13,7 @@ import type {
   TemplateManagementResult,
   TemplateVersionRead,
 } from '@/lib/analysis/templateContracts';
+import { isCompanyArcAgentnetEnabled } from '@/lib/env';
 import { db } from '../index';
 import { analysisTemplate, analysisTemplateVersion } from '../schema';
 export {
@@ -38,6 +40,7 @@ export async function listActiveAnalysisTemplates(targetType?: AnalysisTargetTyp
       version: analysisTemplateVersion.version,
       supportedEfforts: analysisTemplateVersion.supportedEfforts,
       defaultEffort: analysisTemplateVersion.defaultEffort,
+      executor: analysisTemplateVersion.executor,
     })
     .from(analysisTemplate)
     .innerJoin(
@@ -76,6 +79,7 @@ export async function getAnalysisTemplateVersion(templateVersionId: number) {
       instruction: analysisTemplateVersion.instruction,
       supportedEfforts: analysisTemplateVersion.supportedEfforts,
       defaultEffort: analysisTemplateVersion.defaultEffort,
+      executor: analysisTemplateVersion.executor,
       futureBudget: analysisTemplateVersion.futureBudget,
       isCurrent: sql<boolean>`analysis_template_version.version = (
         SELECT MAX(current_version.version)
@@ -107,6 +111,7 @@ type ManagedTemplateQueryRow = {
   readonly instruction: string;
   readonly supportedEfforts: TemplateVersionRead['supportedEfforts'];
   readonly defaultEffort: TemplateVersionRead['defaultEffort'];
+  readonly executor: TemplateVersionRead['executor'];
   readonly futureBudget: TemplateVersionRead['futureBudget'];
   readonly createdBy: string;
   readonly createdAt: string | Date;
@@ -119,6 +124,7 @@ function toVersionRead(row: ManagedTemplateQueryRow): TemplateVersionRead {
     instruction: row.instruction,
     supportedEfforts: row.supportedEfforts,
     defaultEffort: row.defaultEffort,
+    executor: row.executor,
     futureBudget: row.futureBudget,
     createdBy: row.createdBy,
     createdAt: new Date(row.createdAt).toISOString(),
@@ -138,6 +144,7 @@ export async function listManagedAnalysisTemplates(): Promise<ManagedAnalysisTem
       v.instruction,
       v.supported_efforts AS "supportedEfforts",
       v.default_effort AS "defaultEffort",
+      v.executor,
       v.future_budget AS "futureBudget",
       v.created_by AS "createdBy",
       v.created_at AS "createdAt"
@@ -191,6 +198,13 @@ export async function listManagedAnalysisTemplates(): Promise<ManagedAnalysisTem
 type ContentTemplateManagementInput = Extract<TemplateManagementInput, { operation: 'content' }>;
 type LifecycleTemplateManagementInput = Extract<TemplateManagementInput, { operation: 'lifecycle' }>;
 
+type AnalysisTemplateSaveResult =
+  | TemplateManagementResult
+  | {
+      readonly ok: false;
+      readonly reason: 'executor_target_mismatch' | 'executor_unavailable' | 'invalid_input';
+    };
+
 function findManagedTemplate(
   templates: readonly ManagedAnalysisTemplateRead[],
   templateKey: ContentTemplateManagementInput['templateKey'] | LifecycleTemplateManagementInput['templateKey'],
@@ -198,16 +212,38 @@ function findManagedTemplate(
   return templates.find((template) => template.key === templateKey);
 }
 
+export function saveAnalysisTemplateVersion(
+  input: ContentTemplateManagementInput,
+  actorId: string,
+): Promise<TemplateManagementResult>;
 export async function saveAnalysisTemplateVersion(
   input: ContentTemplateManagementInput,
   actorId: string,
-): Promise<TemplateManagementResult> {
+): Promise<AnalysisTemplateSaveResult> {
+  const fixedTemplate = FIXED_ANALYSIS_TEMPLATES.find(({ key }) => key === input.templateKey);
+  if (!fixedTemplate) return { ok: false, reason: 'not_found' };
+  const executorResolution = resolveExecutor({
+    executor: input.executor,
+    targetType: fixedTemplate.targetType,
+    companyArcAgentnetEnabled: isCompanyArcAgentnetEnabled(),
+  });
+  if (!executorResolution.ok) {
+    if (executorResolution.reason === 'executor_target_mismatch') {
+      return { ok: false, reason: 'executor_target_mismatch' };
+    }
+    if (executorResolution.reason === 'executor_unavailable') {
+      return { ok: false, reason: 'executor_unavailable' };
+    }
+    return { ok: false, reason: 'invalid_input' };
+  }
+
   const result = await db.execute<{ readonly templateVersionId: number }>(sql`
     WITH current_version AS (
       SELECT
         t.id AS template_id,
         v.instruction,
         v.default_effort AS default_effort,
+        v.executor,
         COALESCE(MAX(v.version) OVER (PARTITION BY t.id), 0) + 1 AS next_version
       FROM analysis_template AS t
       INNER JOIN analysis_template_version AS v ON v.template_id = t.id
@@ -223,6 +259,7 @@ export async function saveAnalysisTemplateVersion(
       instruction,
       supported_efforts,
       default_effort,
+      executor,
       future_budget,
       created_by
     )
@@ -232,11 +269,16 @@ export async function saveAnalysisTemplateVersion(
       ${input.instruction},
       ${JSON.stringify(supportedEfforts)}::jsonb,
       ${input.defaultEffort},
+      ${input.executor},
       ${JSON.stringify(STANDARD_EXECUTION_BUDGET)}::jsonb,
       ${actorId}
     FROM current_version
     WHERE next_version = ${input.expectedVersion} + 1
-      AND (instruction <> ${input.instruction} OR default_effort <> ${input.defaultEffort})
+      AND (
+        instruction <> ${input.instruction}
+        OR default_effort <> ${input.defaultEffort}
+        OR executor <> ${input.executor}
+      )
     ON CONFLICT (template_id, version) DO NOTHING
     RETURNING id AS "templateVersionId"
   `);
@@ -248,7 +290,8 @@ export async function saveAnalysisTemplateVersion(
   if (template.latest.version !== input.expectedVersion) return { ok: false, reason: 'conflict' };
   if (
     template.latest.instruction === input.instruction &&
-    template.latest.defaultEffort === input.defaultEffort
+    template.latest.defaultEffort === input.defaultEffort &&
+    template.latest.executor === input.executor
   ) {
     return { ok: true, kind: 'no_op', template };
   }

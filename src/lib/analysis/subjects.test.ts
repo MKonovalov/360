@@ -154,10 +154,27 @@ describe('analysis subject and catalog resolution', () => {
         maxSpendUsd: 2.5,
       },
       isCurrent: true,
+      executor: 'internal',
     };
     mocks.getAnalysisTemplateVersion.mockResolvedValue(version);
 
     await expect(resolveAnalysisTemplateVersion(11)).resolves.toEqual({ ok: true, value: version });
+  });
+
+  it('rejects an invalid persisted executor configuration after current-version checks', async () => {
+    mocks.getAnalysisTemplateVersion.mockResolvedValue({
+      templateId: 1,
+      templateVersionId: 11,
+      status: 'active',
+      targetType: 'company',
+      isCurrent: true,
+      executor: 'forged',
+    });
+
+    await expect(resolveAnalysisTemplateVersion(11)).resolves.toEqual({
+      ok: false,
+      reason: 'invalid_executor_configuration',
+    });
   });
 
   it('D-37-20/D-37-23: fixed resolver consumers receive only the legacy fixed read shape', async () => {
@@ -172,6 +189,7 @@ describe('analysis subject and catalog resolution', () => {
       instruction: 'Fixed instruction',
       supportedEfforts: ['standard'],
       defaultEffort: 'standard',
+      executor: 'internal',
       futureBudget: { maxAttempts: 2, maxToolCalls: 6, maxExecutionSeconds: 300, maxSpendUsd: 2.5 },
       isCurrent: true,
     });
