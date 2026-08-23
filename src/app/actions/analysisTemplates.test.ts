@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
   setCustomAgentStatus: vi.fn(),
   saveAnalysisTemplateVersion: vi.fn(),
   setAnalysisTemplateStatus: vi.fn(),
+  listManagedAnalysisTemplates: vi.fn(),
+  isCompanyArcAgentnetEnabled: vi.fn(),
 }));
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
@@ -24,6 +26,10 @@ vi.mock('@/lib/db/queries/analysisTemplates', () => ({
   setCustomAgentStatus: mocks.setCustomAgentStatus,
   saveAnalysisTemplateVersion: mocks.saveAnalysisTemplateVersion,
   setAnalysisTemplateStatus: mocks.setAnalysisTemplateStatus,
+  listManagedAnalysisTemplates: mocks.listManagedAnalysisTemplates,
+}));
+vi.mock('@/lib/env', () => ({
+  isCompanyArcAgentnetEnabled: mocks.isCompanyArcAgentnetEnabled,
 }));
 vi.mock('@/lib/db/queries/practiceAreas', () => ({
   listActivePracticeAreas: mocks.listActivePracticeAreas,
@@ -50,6 +56,7 @@ const managedTemplate = {
     instruction: 'Updated instruction',
     supportedEfforts: ['standard'] as const,
     defaultEffort: 'standard' as const,
+    executor: 'internal' as const,
     futureBudget: {
       maxAttempts: 2,
       maxToolCalls: 6,
@@ -60,6 +67,14 @@ const managedTemplate = {
     createdAt: '2026-08-08T00:00:00.000Z',
   },
   history: [],
+};
+
+const managedPersonaTemplate = {
+  ...managedTemplate,
+  templateId: 2,
+  key: 'persona-buying-signal-analysis' as const,
+  name: 'Persona Buying Signal Analysis' as const,
+  targetType: 'persona' as const,
 };
 
 const managedCustomAgent = {
@@ -105,6 +120,8 @@ describe('analysis template actions', () => {
       kind: 'version_appended',
       template: managedTemplate,
     });
+    mocks.listManagedAnalysisTemplates.mockResolvedValue([managedTemplate, managedPersonaTemplate]);
+    mocks.isCompanyArcAgentnetEnabled.mockReturnValue(false);
     mocks.setAnalysisTemplateStatus.mockResolvedValue({
       ok: true,
       kind: 'lifecycle_updated',
@@ -125,6 +142,7 @@ describe('analysis template actions', () => {
       saveAnalysisTemplateAction({ operation: 'content', templateKey: 'forged' }),
     ).rejects.toThrow();
     expect(mocks.saveAnalysisTemplateVersion).not.toHaveBeenCalled();
+    expect(mocks.listManagedAnalysisTemplates).not.toHaveBeenCalled();
     expect(mocks.setAnalysisTemplateStatus).not.toHaveBeenCalled();
   });
 
@@ -289,6 +307,7 @@ describe('analysis template actions', () => {
       expectedVersion: 2,
       instruction: 'Updated instruction',
       defaultEffort: 'standard',
+      executor: 'internal',
     });
 
     // Then
@@ -304,6 +323,7 @@ describe('analysis template actions', () => {
         expectedVersion: 2,
         instruction: 'Updated instruction',
         defaultEffort: 'standard',
+        executor: 'internal',
       },
       'staff_123',
     );
@@ -322,6 +342,7 @@ describe('analysis template actions', () => {
       expectedVersion: 2,
       instruction: 'Updated instruction',
       defaultEffort: 'standard',
+      executor: 'internal',
       name: 'Forged name',
       targetType: 'persona',
       version: 99,
@@ -350,6 +371,7 @@ describe('analysis template actions', () => {
       expectedVersion: 2,
       instruction: 'Updated instruction',
       defaultEffort: 'standard',
+      executor: 'internal',
     });
 
     // Then
@@ -393,6 +415,7 @@ describe('analysis template actions', () => {
       expectedVersion: 2,
       instruction: 'Concurrent instruction',
       defaultEffort: 'standard',
+      executor: 'internal',
     });
 
     // Then
@@ -415,6 +438,86 @@ describe('analysis template actions', () => {
     expect(result).toEqual({ ok: false, reason: 'action_failed' });
     expect(JSON.stringify(result)).not.toContain('database secret leaked');
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('rejects Persona Arc-agentnet saves with a stable executor issue before writing', async () => {
+    const result = await saveAnalysisTemplateAction({
+      operation: 'content',
+      templateKey: 'persona-buying-signal-analysis',
+      expectedVersion: 2,
+      instruction: 'Updated instruction',
+      defaultEffort: 'standard',
+      executor: 'arc-agentnet',
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      reason: 'invalid_input',
+      issues: [{ path: 'executor', code: 'invalid_value', message: 'Arc-agentnet is only available for Company templates' }],
+    });
+    expect(mocks.saveAnalysisTemplateVersion).not.toHaveBeenCalled();
+  });
+
+  it('rejects disabled Company Arc-agentnet saves without writing', async () => {
+    const result = await saveAnalysisTemplateAction({
+      operation: 'content',
+      templateKey: 'company-buying-signal-analysis',
+      expectedVersion: 2,
+      instruction: 'Updated instruction',
+      defaultEffort: 'standard',
+      executor: 'arc-agentnet',
+    });
+
+    expect(result).toEqual({ ok: false, reason: 'executor_unavailable' });
+    expect(mocks.saveAnalysisTemplateVersion).not.toHaveBeenCalled();
+  });
+
+  it('delegates enabled Company Arc-agentnet saves with the canonical input', async () => {
+    mocks.isCompanyArcAgentnetEnabled.mockReturnValue(true);
+    const savedTemplate = {
+      ...managedTemplate,
+      latest: { ...managedTemplate.latest, executor: 'arc-agentnet' as const },
+    };
+    mocks.saveAnalysisTemplateVersion.mockResolvedValueOnce({
+      ok: true,
+      kind: 'version_appended',
+      template: savedTemplate,
+    });
+
+    const input = {
+      operation: 'content' as const,
+      templateKey: 'company-buying-signal-analysis' as const,
+      expectedVersion: 2,
+      instruction: managedTemplate.latest.instruction,
+      defaultEffort: 'standard' as const,
+      executor: 'arc-agentnet' as const,
+    };
+
+    const result = await saveAnalysisTemplateAction(input);
+
+    expect(result).toEqual({ ok: true, kind: 'version_appended', template: savedTemplate });
+    expect(mocks.saveAnalysisTemplateVersion).toHaveBeenCalledWith(input, 'staff_123');
+  });
+
+  it.each(['company', 'persona'] as const)('allows internal saves for %s templates', async (targetType) => {
+    const templateKey = targetType === 'company'
+      ? 'company-buying-signal-analysis'
+      : 'persona-buying-signal-analysis';
+
+    const result = await saveAnalysisTemplateAction({
+      operation: 'content',
+      templateKey,
+      expectedVersion: 2,
+      instruction: 'Updated instruction',
+      defaultEffort: 'standard',
+      executor: 'internal',
+    });
+
+    expect(result).toEqual({ ok: true, kind: 'version_appended', template: managedTemplate });
+    expect(mocks.saveAnalysisTemplateVersion).toHaveBeenCalledWith(
+      expect.objectContaining({ templateKey, executor: 'internal' }),
+      'staff_123',
+    );
   });
 
   it('has no imports or calls for run, packet, finding, source, review, or live catalog writes', () => {
