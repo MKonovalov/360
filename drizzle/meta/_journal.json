@@ -71,6 +71,13 @@
       "when": 1787515244781,
       "tag": "0016_agent_template_executor",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1787610621912,
+      "tag": "0017_search_job",
+      "breakpoints": true
     }
   ]
 }

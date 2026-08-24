@@ -1,6 +1,6 @@
-import { eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { db } from '../index';
-import { companyPersonaRole, persona, company } from '../schema';
+import { company, companyPersonaRole, companyPersonaRoleBuyerRole, persona } from '../schema';
 
 export interface InsertCompanyPersonaRoleInput {
   companyId: number;
@@ -14,6 +14,65 @@ export interface InsertCompanyPersonaRoleInput {
 export async function insertCompanyPersonaRole(row: InsertCompanyPersonaRoleInput) {
   const [inserted] = await db.insert(companyPersonaRole).values(row).returning();
   return inserted;
+}
+
+export async function insertCompanyPersonaRoleIfMissing(
+  input: InsertCompanyPersonaRoleInput,
+): Promise<{ id: number; created: boolean }> {
+  const [inserted] = await db
+    .insert(companyPersonaRole)
+    .values(input)
+    .onConflictDoNothing({
+      target: [companyPersonaRole.companyId, companyPersonaRole.personaId],
+    })
+    .returning({ id: companyPersonaRole.id });
+  if (inserted) return { id: inserted.id, created: true };
+
+  const [existing] = await db
+    .select({ id: companyPersonaRole.id })
+    .from(companyPersonaRole)
+    .where(
+      and(
+        eq(companyPersonaRole.companyId, input.companyId),
+        eq(companyPersonaRole.personaId, input.personaId),
+      ),
+    )
+    .orderBy(asc(companyPersonaRole.id))
+    .limit(1);
+  if (!existing) throw new Error('Company Persona Role conflict did not resolve to a row');
+  return { id: existing.id, created: false };
+}
+
+export interface InsertCompanyPersonaRoleBuyerRoleInput {
+  companyPersonaRoleId: number;
+  buyerRoleId: number;
+}
+
+export async function insertCompanyPersonaRoleBuyerRoleIfMissing(
+  input: InsertCompanyPersonaRoleBuyerRoleInput,
+): Promise<{ created: boolean }> {
+  const [inserted] = await db
+    .insert(companyPersonaRoleBuyerRole)
+    .values(input)
+    .onConflictDoNothing({
+      target: [companyPersonaRoleBuyerRole.companyPersonaRoleId, companyPersonaRoleBuyerRole.buyerRoleId],
+    })
+    .returning({ id: companyPersonaRoleBuyerRole.id });
+  if (inserted) return { created: true };
+
+  const [existing] = await db
+    .select({ id: companyPersonaRoleBuyerRole.id })
+    .from(companyPersonaRoleBuyerRole)
+    .where(
+      and(
+        eq(companyPersonaRoleBuyerRole.companyPersonaRoleId, input.companyPersonaRoleId),
+        eq(companyPersonaRoleBuyerRole.buyerRoleId, input.buyerRoleId),
+      ),
+    )
+    .orderBy(asc(companyPersonaRoleBuyerRole.id))
+    .limit(1);
+  if (!existing) throw new Error('Company Persona Role Buyer Role conflict did not resolve to a row');
+  return { created: false };
 }
 
 // COMP-04: linked personas for a company's detail pane — inner join keeps
