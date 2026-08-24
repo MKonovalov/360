@@ -46,6 +46,7 @@ describe('Arc-agentnet callback projection orchestration', () => {
       partnerJobId: 'job-123',
       requestId: 'request-123',
       projection: { summary: 'safe' },
+      source: 'callback',
       occurredAt: receivedAt,
     });
     expect(mocks.recordStatus).toHaveBeenCalledWith({
@@ -54,6 +55,7 @@ describe('Arc-agentnet callback projection orchestration', () => {
       partnerJobId: 'job-123',
       requestId: 'request-123',
       partnerStatus: 'succeeded',
+      source: 'callback',
       occurredAt: receivedAt,
     });
   });
