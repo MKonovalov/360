@@ -11,7 +11,7 @@ import { serializeArcAgentnetProjection } from '@/lib/db/queries/arcAgentnetResu
 import type { ArcAgentnetRunRecord } from '@/lib/db/queries/arcAgentnetRunTypes';
 
 const applicationRunIdSchema = z.coerce.number().int().positive();
-const terminalStatuses = new Set(['completed', 'failed', 'cancelled']);
+const terminalStatuses = new Set(['completed', 'cancelled']);
 
 type RouteContext = {
   readonly params: Promise<{ readonly id: string }>;
@@ -39,6 +39,7 @@ export async function GET(_request: Request, context: RouteContext): Promise<Res
         partnerJobId: run.partnerJobId,
         requestId: run.partnerRequestId,
         partnerStatus: 'failed',
+        source: 'poll',
         safeReason: 'job_expired',
       });
       return expired.kind === 'not_found'
@@ -62,9 +63,11 @@ export async function GET(_request: Request, context: RouteContext): Promise<Res
       partnerJobId: run.partnerJobId,
       requestId: run.partnerRequestId,
       projection: polled.value.result,
+      source: 'poll',
     });
     if (projection.kind === 'invalid_input') return safeResponse({ error: 'invalid_result' }, 502);
     if (projection.kind === 'not_found') return safeResponse({ error: 'analysis_run_not_found' }, 404);
+    if (projection.kind === 'conflict') return safeResponse({ error: 'result_conflict' }, 409);
   }
 
   const reconciled = await recordArcAgentnetStatus({
@@ -73,6 +76,7 @@ export async function GET(_request: Request, context: RouteContext): Promise<Res
     partnerJobId: run.partnerJobId,
     requestId: run.partnerRequestId,
     partnerStatus: polled.value.status,
+    source: 'poll',
   });
   if (reconciled.kind === 'not_found') return safeResponse({ error: 'analysis_run_not_found' }, 404);
 
