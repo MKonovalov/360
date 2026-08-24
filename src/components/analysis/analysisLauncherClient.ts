@@ -199,6 +199,7 @@ interface ArcAgentnetPollingOptions {
   readonly applicationRunId: number;
   readonly signal: AbortSignal;
   readonly intervalMs?: number;
+  readonly maxFailedObservations?: number;
   readonly fetchImpl?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 }
 
@@ -211,8 +212,11 @@ export async function pollArcAgentnetRun({
   applicationRunId,
   signal,
   intervalMs = 2_000,
+  maxFailedObservations = 3,
   fetchImpl = fetch,
 }: ArcAgentnetPollingOptions): Promise<ArcAgentnetPollingResult> {
+  let failedObservations = 0;
+  const failedObservationLimit = Math.max(1, maxFailedObservations);
   while (!signal.aborted) {
     try {
       const response = await fetchImpl(`/api/analysis-runs/arc-agentnet/${applicationRunId}`, { signal });
@@ -221,8 +225,14 @@ export async function pollArcAgentnetRun({
       if (!response.ok) return { kind: 'error', message: 'The analysis status could not be loaded. Try again.' };
       const parsed = arcAgentnetStatusResponseSchema.safeParse(payload);
       if (!parsed.success) return { kind: 'error', message: 'The analysis status could not be loaded. Try again.' };
-      if (parsed.data.status === 'completed' || parsed.data.status === 'failed' || parsed.data.status === 'cancelled') {
+      if (parsed.data.status === 'completed' || parsed.data.status === 'cancelled') {
         return { kind: 'terminal', status: parsed.data.status };
+      }
+      if (parsed.data.status === 'failed') {
+        failedObservations += 1;
+        if (failedObservations >= failedObservationLimit) return { kind: 'terminal', status: 'failed' };
+      } else {
+        failedObservations = 0;
       }
       await new Promise<void>((resolve) => {
         let settled = false;

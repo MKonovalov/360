@@ -49,6 +49,7 @@ export interface RecordArcAgentnetStatusInput {
   readonly partnerJobId: string;
   readonly requestId: string;
   readonly partnerStatus: ArcAgentnetPartnerStatus;
+  readonly source: 'poll' | 'callback';
   readonly safeReason?: ArcAgentnetSafeReason;
   readonly occurredAt?: Date;
 }
@@ -64,6 +65,7 @@ export interface ApplyArcAgentnetResultProjectionInput {
   readonly partnerJobId: string;
   readonly requestId: string;
   readonly projection: unknown;
+  readonly source: 'poll' | 'callback';
   readonly resultHash?: string;
   readonly resultSizeBytes?: number;
   readonly occurredAt?: Date;
