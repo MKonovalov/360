@@ -175,6 +175,67 @@ describeWithDatabase('Arc-agentnet local persistence', () => {
     idempotencyId = idempotency?.id ?? 0;
   });
 
+  it('recovers a failed run to running when the partner poll is nonterminal', async () => {
+    const built = buildAnalysisSnapshots({
+      template: {
+        schemaVersion: 1,
+        templateId,
+        templateVersionId,
+        templateKey: `arc-agentnet-${suffix}`,
+        templateName: 'Arc-agentnet integration template',
+        targetType: 'company',
+        version: 1,
+        resolvedInstruction: 'Assess the selected company.',
+        effort: 'standard',
+      },
+      subject: { type: 'company', id: 42_000_002, displayName: 'Arc-agentnet running fixture' },
+      checklist: { schemaVersion: 1, targetType: 'company', practiceAreaId, practiceAreaName: `Arc-agentnet IT ${suffix}`, items: [] },
+      resolvedModelChain: ['partner'],
+    });
+    const input = {
+      initiatingUserId: 'user_arc_running',
+      createdBy: 'user_arc_running',
+      companyId: 42_000_002,
+      templateId,
+      templateVersionId,
+      practiceAreaId,
+      subjectSnapshot: built.subjectSnapshot,
+      templateSnapshot: built.templateSnapshot,
+      checklistSnapshot: built.checklistSnapshot,
+      executionSnapshot: { ...built.executionSnapshot, executor: 'arc-agentnet' },
+      policySnapshot: built.policySnapshot,
+      inputSnapshot: { schemaVersion: 1, analysis: { subjectType: 'company', company: { id: 42_000_002, name: 'Arc-agentnet running fixture', domain: 'fixture.example', profile: { industry: null, headcount: null, headquarters: null, description: null } }, practiceArea: { id: practiceAreaId, name: `Arc-agentnet IT ${suffix}`, shortCode: `ARC${suffix.slice(0, 8)}` }, buyingSignalCategory: 'Financial', template: { kind: 'fixed', templateId, templateVersionId, templateKey: `arc-agentnet-${suffix}`, templateName: 'Arc-agentnet integration template', templateVersion: 1, targetType: 'company', customAgentId: null, customAgentName: null, customAgentVersion: null }, resolvedInstructions: 'Assess the selected company.', checklist: [], publicEvidenceUrls: [] } },
+      partnerJobId: `job-running-${suffix}`,
+      requestId: `request-running-${suffix}`,
+      idempotencyKey: `key-running-${suffix}`,
+      payloadHash: 'c'.repeat(64),
+    } as const;
+    let localRunId = 0;
+    let localMappingId = 0;
+    let localIdempotencyId = 0;
+
+    try {
+      const created = await queries.createArcAgentnetRunWithMapping(input);
+      expect(created.kind).toBe('created');
+      if (created.kind !== 'created') return;
+      localRunId = created.run.id;
+      localMappingId = created.mapping.id;
+      const failed = await queries.recordArcAgentnetStatus({ runId: localRunId, initiatingUserId: input.initiatingUserId, partnerJobId: input.partnerJobId, requestId: input.requestId, partnerStatus: 'failed', source: 'callback', occurredAt: new Date('2026-08-23T12:01:00.000Z') });
+      expect(failed).toMatchObject({ kind: 'transitioned', run: { arcAgentnetLocalStatus: 'failed' } });
+
+      const running = await queries.recordArcAgentnetStatus({ runId: localRunId, initiatingUserId: input.initiatingUserId, partnerJobId: input.partnerJobId, requestId: input.requestId, partnerStatus: 'running', source: 'poll', occurredAt: new Date('2026-08-23T12:01:00.500Z') });
+      expect(running).toMatchObject({ kind: 'transitioned', run: { arcAgentnetLocalStatus: 'running', status: 'running' } });
+      expect(running.kind === 'transitioned' ? running.run.arcAgentnetResultProjection : null).toBeNull();
+    } finally {
+      const idempotency = await queries.findArcAgentnetIdempotency({ initiatingUserId: input.initiatingUserId, companyId: input.companyId, templateId: input.templateId, templateVersionId: input.templateVersionId, idempotencyKey: input.idempotencyKey });
+      localIdempotencyId = idempotency?.id ?? 0;
+      if (localIdempotencyId > 0) await dbModule.db.delete(schema.arcAgentnetIdempotency).where(eq(schema.arcAgentnetIdempotency.id, localIdempotencyId));
+      if (localRunId > 0) await dbModule.db.delete(schema.analysisRunEvent).where(eq(schema.analysisRunEvent.analysisRunId, localRunId));
+      if (localRunId > 0) await dbModule.db.delete(schema.analysisRun).where(eq(schema.analysisRun.id, localRunId));
+      if (localMappingId > 0) await dbModule.db.delete(schema.partnerJobMapping).where(eq(schema.partnerJobMapping.id, localMappingId));
+    }
+  });
+
   it('preserves internal defaults and resolves concurrent same-key creation to one replay', async () => {
     const built = buildAnalysisSnapshots({
       template: {

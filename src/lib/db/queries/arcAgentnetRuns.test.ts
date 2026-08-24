@@ -202,6 +202,27 @@ describe('Arc-agentnet local persistence guards', () => {
     expect(sqlText).toContain('previous_status');
   });
 
+  it('allows an authoritative poll to recover a stale failed run to running', async () => {
+    const execute = executeRows({ outcome: 'transitioned', runId: run.id });
+    const runningRun = { ...run, status: 'running', arcAgentnetLocalStatus: 'running' };
+    selectRows(runningRun);
+
+    const result = await recordArcAgentnetStatus({
+      runId: run.id,
+      initiatingUserId: createInput.initiatingUserId,
+      partnerJobId: createInput.partnerJobId,
+      requestId: createInput.requestId,
+      partnerStatus: 'running',
+      source: 'poll',
+      occurredAt: new Date('2026-08-23T12:00:00.000Z'),
+    });
+
+    expect(result).toEqual({ kind: 'transitioned', run: runningRun });
+    expect(flattenSql(execute.mock.calls[0]?.[0])).toContain(
+      "arc_agentnet_local_status = 'failed' AND running IN ('running', 'completed')",
+    );
+  });
+
   it.each([
     ['succeeded', 'completed'],
     ['failed', 'failed'],

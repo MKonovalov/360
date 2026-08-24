@@ -57,10 +57,10 @@ export async function recordArcAgentnetStatus(
       WHERE analysis_run.id = current_run.id
         AND (
           arc_agentnet_local_status IN ('queued', 'running')
-          OR (${source} = 'poll' AND arc_agentnet_local_status = 'failed' AND ${localStatus} = 'completed')
+          OR (${source} = 'poll' AND arc_agentnet_local_status = 'failed' AND ${localStatus} IN ('running', 'completed'))
         )
         AND CASE
-          WHEN ${localStatus} = 'running' THEN arc_agentnet_local_status = 'queued'
+          WHEN ${localStatus} = 'running' THEN arc_agentnet_local_status IN ('queued', 'failed')
           WHEN ${localStatus} IN ('completed', 'failed', 'cancelled') THEN TRUE
           ELSE FALSE
         END
