@@ -30,6 +30,14 @@ export type {
 
 export async function listActiveAnalysisTemplates(targetType?: AnalysisTargetType) {
   const fixedTemplateKeys = FIXED_ANALYSIS_TEMPLATES.map(({ key }) => key);
+  const isCurrentVersion = eq(
+    analysisTemplateVersion.version,
+    sql<number>`(
+      SELECT MAX(current_version.version)
+      FROM analysis_template_version AS current_version
+      WHERE current_version.template_id = ${analysisTemplate.id}
+    )`,
+  );
   return db
     .select({
       templateId: analysisTemplate.id,
@@ -53,6 +61,7 @@ export async function listActiveAnalysisTemplates(targetType?: AnalysisTargetTyp
             eq(analysisTemplate.status, 'active'),
             eq(analysisTemplate.kind, 'fixed'),
             eq(analysisTemplateVersion.kind, 'fixed'),
+            isCurrentVersion,
             inArray(analysisTemplate.key, fixedTemplateKeys),
           )
         : and(
@@ -60,6 +69,7 @@ export async function listActiveAnalysisTemplates(targetType?: AnalysisTargetTyp
             eq(analysisTemplate.kind, 'fixed'),
             eq(analysisTemplateVersion.kind, 'fixed'),
             eq(analysisTemplate.targetType, targetType),
+            isCurrentVersion,
             inArray(analysisTemplate.key, fixedTemplateKeys),
           ),
     )
