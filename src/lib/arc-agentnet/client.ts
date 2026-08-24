@@ -34,6 +34,12 @@ export type ArcAgentnetJsonObject = {
   readonly [key: string]: ArcAgentnetJsonValue;
 };
 
+export type ArcAgentnetSubmitContext = ArcAgentnetJsonObject & {
+  readonly analysis: ArcAgentnetJsonObject & {
+    readonly resolvedInstructions: string;
+  };
+};
+
 const jsonValueSchema: z.ZodType<ArcAgentnetJsonValue> = z.lazy(() =>
   z.union([
     z.string(),
@@ -69,7 +75,7 @@ export type ArcAgentnetClientConfig = {
 
 export type AnalyzeSubmitInput = {
   readonly idempotencyKey: string;
-  readonly input: ArcAgentnetJsonObject;
+  readonly input: ArcAgentnetSubmitContext;
 };
 
 export type AnalyzeJob = {
@@ -200,7 +206,7 @@ export function createArcAgentnetClient(config: ArcAgentnetClientConfig = {}): A
     submit: ({ idempotencyKey, input }) =>
       request(PARTNER_JOBS_PATH, {
         method: 'POST',
-        body: JSON.stringify({ input }),
+        body: JSON.stringify({ task: input.analysis.resolvedInstructions, context: input }),
         idempotencyKey,
         response: 'job',
       }).then(async (submission) => {
