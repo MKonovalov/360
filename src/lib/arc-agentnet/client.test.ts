@@ -8,8 +8,11 @@ import {
 } from './client';
 
 const submitInput = {
-  target: { type: 'company', id: 42 },
-  signals: ['cost_pressure'],
+  schemaVersion: 1,
+  analysis: {
+    resolvedInstructions: 'Assess the company using bounded evidence.',
+    company: { id: 42, name: 'Acme' },
+  },
 } satisfies ArcAgentnetJsonObject;
 
 function response(body: unknown, status = 200): Response {
@@ -49,11 +52,35 @@ describe('arc-agentnet client', () => {
     expect(headers.get('Idempotency-Key')).toBe('idempotency-123');
     expect(headers.get('X-Partner-Key')).toBe('partner-secret');
     expect(init?.redirect).toBe('error');
-    expect(JSON.parse(String(init?.body))).toEqual({ input: submitInput });
+    const body: unknown = JSON.parse(String(init?.body));
+    expect(body).toEqual({
+      task: 'Assess the company using bounded evidence.',
+      context: submitInput,
+    });
+    expect(body).not.toHaveProperty('input');
+    expect(body).not.toHaveProperty('idempotencyKey');
     expect(registerJob).toHaveBeenCalledWith({
       job: { jobId: 'job-123', status: 'queued', requestId: 'req-123' },
       idempotencyKey: 'idempotency-123',
     });
+  });
+
+  it('maps a partner validation response to a safe HTTP error without persisting a mapping', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response({ detail: 'invalid task' }, 422));
+    const registerJob = vi.fn();
+    const client = createArcAgentnetClient({
+      baseUrl: 'https://agentnet.example.test',
+      partnerKey: 'partner-secret',
+      fetchImpl,
+      registerJob,
+    });
+
+    await expect(client.submit({ idempotencyKey: 'idempotency-123', input: submitInput })).resolves.toEqual({
+      ok: false,
+      kind: 'http_error',
+      status: 422,
+    });
+    expect(registerJob).not.toHaveBeenCalled();
   });
 
   it('does not return a successful submit when the local mapping cannot be persisted', async () => {
