@@ -74,6 +74,49 @@ describe('analysisTemplates query module', () => {
     expect(orderBy).toHaveBeenCalled();
   });
 
+  it('returns only the latest immutable version for each active fixed template', async () => {
+    const latestCompany = {
+      templateId: 1,
+      templateVersionId: 12,
+      key: 'company-buying-signal-analysis',
+      name: 'Company Buying Signal Analysis',
+      targetType: 'company',
+      version: 2,
+      supportedEfforts: ['standard'],
+      defaultEffort: 'standard',
+      executor: 'internal',
+    };
+    const latestPersona = {
+      ...latestCompany,
+      templateId: 2,
+      templateVersionId: 22,
+      key: 'persona-buying-signal-analysis',
+      name: 'Persona Buying Signal Analysis',
+      targetType: 'persona',
+    };
+    const historicalCompany = { ...latestCompany, templateVersionId: 11, version: 1 };
+    const historicalPersona = { ...latestPersona, templateVersionId: 21, version: 1 };
+    const latestRows = [latestCompany, latestPersona];
+    const historicalRows = [historicalCompany, historicalPersona];
+    const where = vi.fn();
+    const orderBy = vi.fn().mockImplementation(async () => {
+      const whereSql = flattenSql(where.mock.calls[0]?.[0]);
+      return whereSql.includes('MAX') ? latestRows : [...latestRows, ...historicalRows];
+    });
+    where.mockReturnValue({ orderBy });
+    const innerJoin = vi.fn().mockReturnValue({ where });
+    const from = vi.fn().mockReturnValue({ innerJoin });
+    mocks.db.select.mockReturnValue({ from });
+
+    const result = await listActiveAnalysisTemplates();
+
+    expect(result).toEqual(latestRows);
+    expect(result.map((row) => row.version)).toEqual([2, 2]);
+    const whereSql = flattenSql(where.mock.calls[0]?.[0]);
+    expect(whereSql).toContain('MAX');
+    expect(whereSql).toContain('current_version.template_id');
+  });
+
   it.each(['company', 'persona'] as const)(
     'filters active catalog pairs to the requested %s target',
     async (targetType) => {
