@@ -22,6 +22,7 @@ export async function recordArcAgentnetStatus(
   getOwnedRun: GetOwnedRun,
 ): Promise<RecordArcAgentnetStatusResult> {
   const localStatus = mapArcAgentnetPartnerStatusToLocalStatus(input.partnerStatus);
+  const source = input.source;
   const occurredAt = input.occurredAt ?? new Date();
   const reason = input.safeReason ?? defaultSafeReason(localStatus);
   const result = await db.execute<{ readonly outcome: 'transitioned'; readonly runId: number }>(sql`
@@ -47,14 +48,17 @@ export async function recordArcAgentnetStatus(
           safe_reason = ${reason}, arc_agentnet_safe_reason = ${reason},
           started_at = CASE WHEN ${localStatus} = 'running' THEN COALESCE(started_at, ${occurredAt}) ELSE started_at END,
           arc_agentnet_started_at = CASE WHEN ${localStatus} = 'running' THEN COALESCE(arc_agentnet_started_at, ${occurredAt}) ELSE arc_agentnet_started_at END,
-          completed_at = CASE WHEN ${localStatus} IN ('completed', 'failed', 'cancelled') THEN COALESCE(completed_at, ${occurredAt}) ELSE completed_at END,
-          terminal_at = CASE WHEN ${localStatus} IN ('completed', 'failed', 'cancelled') THEN COALESCE(terminal_at, ${occurredAt}) ELSE terminal_at END,
-          arc_agentnet_completed_at = CASE WHEN ${localStatus} IN ('completed', 'failed', 'cancelled') THEN COALESCE(arc_agentnet_completed_at, ${occurredAt}) ELSE arc_agentnet_completed_at END,
-          arc_agentnet_terminal_at = CASE WHEN ${localStatus} IN ('completed', 'failed', 'cancelled') THEN COALESCE(arc_agentnet_terminal_at, ${occurredAt}) ELSE arc_agentnet_terminal_at END,
+          completed_at = CASE WHEN ${localStatus} = 'completed' AND ${source} = 'poll' AND arc_agentnet_local_status = 'failed' THEN ${occurredAt} WHEN ${localStatus} IN ('completed', 'failed', 'cancelled') THEN COALESCE(completed_at, ${occurredAt}) ELSE completed_at END,
+          terminal_at = CASE WHEN ${localStatus} = 'completed' AND ${source} = 'poll' AND arc_agentnet_local_status = 'failed' THEN ${occurredAt} WHEN ${localStatus} IN ('completed', 'failed', 'cancelled') THEN COALESCE(terminal_at, ${occurredAt}) ELSE terminal_at END,
+          arc_agentnet_completed_at = CASE WHEN ${localStatus} = 'completed' AND ${source} = 'poll' AND arc_agentnet_local_status = 'failed' THEN ${occurredAt} WHEN ${localStatus} IN ('completed', 'failed', 'cancelled') THEN COALESCE(arc_agentnet_completed_at, ${occurredAt}) ELSE arc_agentnet_completed_at END,
+          arc_agentnet_terminal_at = CASE WHEN ${localStatus} = 'completed' AND ${source} = 'poll' AND arc_agentnet_local_status = 'failed' THEN ${occurredAt} WHEN ${localStatus} IN ('completed', 'failed', 'cancelled') THEN COALESCE(arc_agentnet_terminal_at, ${occurredAt}) ELSE arc_agentnet_terminal_at END,
           updated_at = ${occurredAt}
       FROM current_run
       WHERE analysis_run.id = current_run.id
-        AND arc_agentnet_local_status IN ('queued', 'running')
+        AND (
+          arc_agentnet_local_status IN ('queued', 'running')
+          OR (${source} = 'poll' AND arc_agentnet_local_status = 'failed' AND ${localStatus} = 'completed')
+        )
         AND CASE
           WHEN ${localStatus} = 'running' THEN arc_agentnet_local_status = 'queued'
           WHEN ${localStatus} IN ('completed', 'failed', 'cancelled') THEN TRUE
@@ -63,8 +67,8 @@ export async function recordArcAgentnetStatus(
       RETURNING analysis_run.id
     ),
     inserted_event AS (
-      INSERT INTO analysis_run_event (analysis_run_id, event_key, from_status, to_status, actor_kind, actor_id, safe_reason, attempt)
-      SELECT id, concat(id, ':arc-agentnet:', ${localStatus}), previous_status, ${localStatus}, 'system', 'arc-agentnet', ${reason}, 1
+      INSERT INTO analysis_run_event (analysis_run_id, event_key, from_status, to_status, actor_kind, actor_id, safe_reason, attempt, created_at)
+      SELECT updated.id, concat(updated.id, ':arc-agentnet:', ${localStatus}::text), current_run.previous_status::text::analysis_run_status, ${localStatus}::text::analysis_run_status, 'system', 'arc-agentnet', ${reason}, 1, ${occurredAt}
       FROM updated JOIN current_run ON current_run.id = updated.id
       RETURNING analysis_run_id
     )
@@ -82,6 +86,7 @@ export async function applyArcAgentnetResultProjection(
 ): Promise<ApplyArcAgentnetResultProjectionResult> {
   const serialized = serializeArcAgentnetProjection(input.projection);
   if (!serialized.ok) return { kind: 'invalid_input' };
+  const source = input.source;
   const occurredAt = input.occurredAt ?? new Date();
   const result = await db.execute<{ readonly outcome: ApplyArcAgentnetResultProjectionResult['kind'] }>(sql`
     WITH current_run AS MATERIALIZED (
@@ -115,12 +120,15 @@ export async function applyArcAgentnetResultProjection(
             AND mapping.partner_job_id = ${input.partnerJobId}
          AND mapping.request_id = ${input.requestId}
        )
-        AND arc_agentnet_local_status IN ('queued', 'running')
+        AND (
+          arc_agentnet_local_status IN ('queued', 'running')
+          OR (${source} = 'poll' AND arc_agentnet_local_status = 'failed')
+        )
         AND (arc_agentnet_result_hash IS NULL OR (
           arc_agentnet_result_hash = ${serialized.hash}
           AND arc_agentnet_result_size_bytes = ${serialized.sizeBytes}
           AND arc_agentnet_result_projection IS NOT DISTINCT FROM ${serialized.serialized}::jsonb
-        ))
+        ) OR (${source} = 'poll' AND arc_agentnet_local_status = 'failed'))
       RETURNING id
     )
     SELECT CASE
@@ -129,6 +137,7 @@ export async function applyArcAgentnetResultProjection(
         AND (SELECT result_hash FROM current_run) = ${serialized.hash}
         AND (SELECT result_size_bytes FROM current_run) = ${serialized.sizeBytes}
         AND (SELECT result_projection FROM current_run) IS NOT DISTINCT FROM ${serialized.serialized}::jsonb THEN 'replayed'
+      WHEN EXISTS (SELECT 1 FROM updated) THEN 'applied'
       WHEN EXISTS (SELECT 1 FROM current_run) THEN 'conflict'
       ELSE 'not_found'
     END AS outcome
