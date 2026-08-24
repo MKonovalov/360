@@ -2,7 +2,7 @@ import 'server-only';
 
 import { createHash } from 'node:crypto';
 
-import { arcAgentnetClient, type ArcAgentnetJsonObject } from '@/lib/arc-agentnet/client';
+import { arcAgentnetClient, type ArcAgentnetSubmitContext } from '@/lib/arc-agentnet/client';
 import { buildBoundedArcAgentnetInput } from '@/lib/analysis/buildArcAgentnetPayload';
 import { resolveAnalysisLaunch, type ResolvedCompanyArcAgentnetLaunch } from '@/lib/analysis/compatibility';
 import { buildPhase33AnalysisSnapshots } from '@/lib/analysis/snapshots';
@@ -173,7 +173,7 @@ function toTemplateMetadata(launch: ResolvedCompanyArcAgentnetLaunch) {
       };
 }
 
-function toPartnerJson(input: BoundedArcAgentnetInput): ArcAgentnetJsonObject {
+function toPartnerJson(input: BoundedArcAgentnetInput): ArcAgentnetSubmitContext {
   return {
     schemaVersion: input.schemaVersion,
     analysis: {
