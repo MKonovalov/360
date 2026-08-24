@@ -56,7 +56,7 @@ export async function GET(_request: Request, context: RouteContext): Promise<Res
     return safeResponse({ error: 'status_unavailable' }, 503);
   }
 
-  if (polled.value.result !== undefined) {
+  if (polled.value.status === 'succeeded' && polled.value.result !== undefined) {
     const projection = await applyArcAgentnetResultProjection({
       runId: run.id,
       initiatingUserId: userId,

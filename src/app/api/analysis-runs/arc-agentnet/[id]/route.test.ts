@@ -163,6 +163,44 @@ describe('GET /api/analysis-runs/arc-agentnet/[id]', () => {
     expect(payload).toMatchObject({ status: 'completed', result: { summary: 'polled result' } });
   });
 
+  it('recovers a locally failed run when the authoritative poll is still running', async () => {
+    const failedRun = {
+      ...run,
+      status: 'failed',
+      arcAgentnetLocalStatus: 'failed',
+      arcAgentnetSafeReason: 'execution_failed',
+    };
+    const runningRun = {
+      ...failedRun,
+      status: 'running',
+      arcAgentnetLocalStatus: 'running',
+      arcAgentnetSafeReason: null,
+      arcAgentnetResultProjection: null,
+    };
+    mocks.getArcAgentnetRunById.mockResolvedValue(failedRun);
+    mocks.poll.mockResolvedValue({
+      ok: true,
+      value: {
+        jobId: 'partner-secret-id',
+        requestId: 'request-42',
+        status: 'running',
+        result: { summary: 'not complete yet' },
+      },
+    });
+    mocks.recordArcAgentnetStatus.mockResolvedValue({ kind: 'transitioned', run: runningRun });
+
+    const response = await GET(new Request('https://360.arclumenpartners.com'), { params: Promise.resolve({ id: '101' }) });
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mocks.recordArcAgentnetStatus).toHaveBeenCalledWith(expect.objectContaining({
+      partnerStatus: 'running',
+      source: 'poll',
+    }));
+    expect(mocks.applyArcAgentnetResultProjection).not.toHaveBeenCalled();
+    expect(payload).toMatchObject({ status: 'running', result: null });
+  });
+
   it('does not complete a failed run when the authoritative poll result conflicts', async () => {
     mocks.getArcAgentnetRunById.mockResolvedValue({
       ...run,
