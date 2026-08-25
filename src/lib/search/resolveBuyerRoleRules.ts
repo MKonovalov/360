@@ -1,4 +1,9 @@
-import type { SearchBuyerRoleSnapshot } from '@/lib/db/schema';
+import type {
+  SearchBuyerRoleEvidenceSnapshot,
+  SearchBuyerRoleRuleMatchSnapshot,
+  SearchBuyerRoleSelectorSnapshot,
+  SearchBuyerRoleSnapshot,
+} from '@/lib/db/schema';
 import { buyerRoleRuleSchema, type BuyerRoleRule } from './templateContracts';
 
 export type BuyerRoleRecord = {
@@ -10,15 +15,9 @@ export type BuyerRoleRecord = {
   readonly geographies: readonly string[] | null;
 };
 
-type SelectorKind = 'role_name' | 'department' | 'function' | 'seniority' | 'geography';
-type MatchedSelector = { readonly kind: SelectorKind | 'explicit_id'; readonly value: string };
-export type BuyerRoleRuleMatch = {
-  readonly ruleId: string;
-  readonly label: string;
-  readonly required: boolean;
-  readonly match: BuyerRoleRule['match'];
-  readonly matchedSelectors: readonly MatchedSelector[];
-};
+type SelectorKind = Exclude<SearchBuyerRoleSelectorSnapshot['kind'], 'explicit_id'>;
+type MatchedSelector = SearchBuyerRoleSelectorSnapshot;
+export type BuyerRoleRuleMatch = SearchBuyerRoleRuleMatchSnapshot;
 export type BuyerRoleRuleDiagnostic = {
   readonly ruleId: string;
   readonly label: string;
@@ -28,11 +27,7 @@ export type BuyerRoleRuleDiagnostic = {
   readonly missingBuyerRoleIds?: readonly number[];
 };
 
-export type BuyerRoleRuleEvidence = {
-  readonly buyerRoleId: number;
-  readonly buyerRoleName: string;
-  readonly matchedRules: readonly BuyerRoleRuleMatch[];
-};
+export type BuyerRoleRuleEvidence = SearchBuyerRoleEvidenceSnapshot;
 
 export type ResolvedBuyerRole = SearchBuyerRoleSnapshot;
 

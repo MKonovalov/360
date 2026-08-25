@@ -115,6 +115,28 @@ describe('resolveBuyerRoleRules', () => {
     expect(result.buyerRoleEvidence.find(({ buyerRoleId }) => buyerRoleId === 2)?.matchedRules.map(({ ruleId }) => ruleId)).toEqual(['any', 'all']);
   });
 
+  it('records both explicit and selector evidence when one rule resolves through both paths', () => {
+    const result = resolveBuyerRoleRules({
+      rules: [makeRule({ ruleId: 'mixed', buyerRoleIds: [1], roleNames: ['COO'] })],
+      buyerRoles: [
+        makeRole({ id: 1, name: 'CFO' }),
+        makeRole({ id: 2, name: 'COO' }),
+      ],
+    });
+
+    if (!result.ok) throw new Error('expected mixed explicit and selector matches');
+    expect(result.buyerRoleEvidence).toEqual([
+      expect.objectContaining({
+        buyerRoleId: 1,
+        matchedRules: [expect.objectContaining({ ruleId: 'mixed', matchedSelectors: [{ kind: 'explicit_id', value: '1' }] })],
+      }),
+      expect.objectContaining({
+        buyerRoleId: 2,
+        matchedRules: [expect.objectContaining({ ruleId: 'mixed', matchedSelectors: [{ kind: 'role_name', value: 'COO' }] })],
+      }),
+    ]);
+  });
+
   it('keeps unmatched optional rules as diagnostics without creating a role', () => {
     const result = resolveBuyerRoleRules({
       rules: [makeRule({ ruleId: 'optional', roleNames: ['Unknown'], required: false })],
