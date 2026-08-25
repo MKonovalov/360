@@ -4,7 +4,11 @@ import type {
   SearchBuyerRoleSelectorSnapshot,
   SearchBuyerRoleSnapshot,
 } from '@/lib/db/schema';
-import { buyerRoleRuleSchema, type BuyerRoleRule } from './templateContracts';
+import {
+  buyerRoleEvidenceSnapshotSchema,
+  buyerRoleRuleSchema,
+  type BuyerRoleRule,
+} from './templateContracts';
 
 export type BuyerRoleRecord = {
   readonly id: number;
@@ -43,6 +47,18 @@ export type BuyerRoleResolution =
       readonly reason: 'buyer_role_rule_invalid' | 'buyer_role_rule_unresolved';
       readonly diagnostics: readonly BuyerRoleRuleDiagnostic[];
     };
+
+export function parseBuyerRoleEvidenceSnapshot(input: unknown): readonly SearchBuyerRoleEvidenceSnapshot[] | undefined {
+  const parsed = buyerRoleEvidenceSnapshotSchema.safeParse(input);
+  if (!parsed.success) return undefined;
+  return Object.freeze(parsed.data.map((evidence) => Object.freeze({
+    ...evidence,
+    matchedRules: Object.freeze(evidence.matchedRules.map((rule) => Object.freeze({
+      ...rule,
+      matchedSelectors: Object.freeze(rule.matchedSelectors.map((selector) => Object.freeze({ ...selector }))),
+    }))),
+  })));
+}
 
 const selectorGroups = (rule: BuyerRoleRule): readonly { readonly kind: SelectorKind; readonly values: readonly string[] }[] => [
   { kind: 'role_name', values: rule.roleNames },

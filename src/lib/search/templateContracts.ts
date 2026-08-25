@@ -22,6 +22,9 @@ const RULE_LABEL_MAX_LENGTH = 200;
 const RULE_SELECTOR_VALUE_MAX_LENGTH = 200;
 const MAX_BUYER_ROLE_IDS_PER_RULE = 25;
 const MAX_SELECTOR_VALUES = 25;
+const MAX_BUYER_ROLE_EVIDENCE = 100;
+const MAX_MATCHED_RULES_PER_ROLE = 50;
+const MAX_MATCHED_SELECTORS_PER_RULE = MAX_SELECTOR_VALUES * 5 + 1;
 
 const positiveIdSchema = z.number().int().positive();
 const boundedSelectorSchema = z.string().trim().min(1).max(RULE_SELECTOR_VALUE_MAX_LENGTH);
@@ -46,6 +49,35 @@ export const buyerRoleRuleSchema = z
   })
   .strict();
 export type BuyerRoleRule = z.infer<typeof buyerRoleRuleSchema>;
+
+const buyerRoleEvidenceSelectorSchema = z
+  .object({
+    kind: z.enum(['role_name', 'department', 'function', 'seniority', 'geography', 'explicit_id']),
+    value: boundedSelectorSchema,
+  })
+  .strict();
+
+const buyerRoleRuleMatchEvidenceSchema = z
+  .object({
+    ruleId: ruleIdSchema,
+    label: z.string().trim().min(1).max(RULE_LABEL_MAX_LENGTH),
+    required: z.boolean(),
+    match: z.enum(['any_selector', 'all_selectors']),
+    matchedSelectors: z.array(buyerRoleEvidenceSelectorSchema).min(1).max(MAX_MATCHED_SELECTORS_PER_RULE),
+  })
+  .strict();
+
+export const buyerRoleEvidenceSnapshotSchema = z
+  .array(
+    z
+      .object({
+        buyerRoleId: positiveIdSchema,
+        buyerRoleName: z.string().trim().min(1).max(RULE_LABEL_MAX_LENGTH),
+        matchedRules: z.array(buyerRoleRuleMatchEvidenceSchema).min(1).max(MAX_MATCHED_RULES_PER_ROLE),
+      })
+      .strict(),
+  )
+  .max(MAX_BUYER_ROLE_EVIDENCE);
 
 const MAX_SOURCE_KINDS = 10;
 const SOURCE_KIND_MAX_LENGTH = 60;
