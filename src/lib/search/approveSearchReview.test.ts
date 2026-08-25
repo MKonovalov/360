@@ -1,0 +1,113 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  db: { execute: vi.fn() },
+}));
+
+vi.mock('@/lib/db/index', () => ({ db: mocks.db }));
+vi.mock('server-only', () => ({}));
+
+import { approveSearchReview } from './approveSearchReview';
+
+const input = {
+  reviewId: 7,
+  expectedRevision: 2,
+  actorUserId: 'user_owner',
+};
+
+function resultRow(overrides: Record<string, unknown> = {}) {
+  return {
+    kind: 'approved',
+    personaId: 31,
+    companyId: 42,
+    companyPersonaRoleCreated: false,
+    buyerRoleResults: [
+      { buyerRoleId: 11, created: false },
+      { buyerRoleId: 17, created: true },
+    ],
+    approvalAuditId: 99,
+    ...overrides,
+  };
+}
+
+beforeEach(() => mocks.db.execute.mockReset());
+
+describe('approveSearchReview', () => {
+  it('approves an eligible current candidate and returns deterministic reused/created link results', async () => {
+    mocks.db.execute.mockResolvedValue({ rows: [resultRow()] });
+
+    await expect(approveSearchReview(input)).resolves.toEqual({
+      kind: 'approved',
+      personaId: 31,
+      companyPersonaRole: { companyId: 42, personaId: 31, created: false },
+      buyerRoles: [
+        { buyerRoleId: 11, created: false },
+        { buyerRoleId: 17, created: true },
+      ],
+      auditIds: [99],
+    });
+
+    const sqlText = JSON.stringify(mocks.db.execute.mock.calls[0]?.[0]);
+    expect(sqlText).toContain('FOR UPDATE');
+    expect(sqlText).toContain('persona.email');
+    expect(sqlText).toContain('linkedin_url');
+    expect(sqlText).toContain('company_persona_role');
+    expect(sqlText).toContain('company_persona_role_buyer_role');
+    expect(sqlText).toContain('buyer_role');
+    expect(sqlText).toContain('search_candidate_audit');
+    expect(sqlText).not.toContain('offering_buyer_role');
+  });
+
+  it('keeps exact matching precedence and applies only explicitly staged Persona fields', async () => {
+    mocks.db.execute.mockResolvedValue({ rows: [resultRow()] });
+
+    await approveSearchReview(input);
+
+    const sqlText = JSON.stringify(mocks.db.execute.mock.calls[0]?.[0]);
+    expect(sqlText.indexOf('email')).toBeLessThan(sqlText.indexOf('linkedin_url'));
+    expect(sqlText).toContain('name_company_domain');
+    expect(sqlText).toContain('search_candidate_edited');
+    expect(sqlText).toContain('persona_snapshot');
+    expect(sqlText).toContain('CASE');
+    expect(sqlText).toContain('fullName');
+  });
+
+  it.each([
+    ['ambiguous_match', { kind: 'ambiguous_match' }],
+    ['inconclusive evidence', { kind: 'inconclusive' }],
+    ['missing Buyer Role', { kind: 'unknown_buyer_role' }],
+    ['already terminal', { kind: 'already_terminal' }],
+    ['stale revision', { kind: 'stale_revision' }],
+    ['unauthorized owner', { kind: 'unauthorized' }],
+    ['company identity mismatch', { kind: 'company_mismatch' }],
+  ])('returns a safe %s outcome without a domain result', async (_label, row) => {
+    mocks.db.execute.mockResolvedValue({ rows: [row] });
+
+    await expect(approveSearchReview(input)).resolves.toEqual(row);
+  });
+
+  it('rejects malformed approval input without reaching the database', async () => {
+    await expect(approveSearchReview({ ...input, expectedRevision: 0, extra: 'blocked' })).resolves.toEqual({
+      kind: 'invalid_input',
+    });
+    expect(mocks.db.execute).not.toHaveBeenCalled();
+  });
+
+  it('uses one atomic statement so any branch failure rolls back every write', async () => {
+    mocks.db.execute.mockRejectedValueOnce(new Error('constraint failure'));
+
+    await expect(approveSearchReview(input)).resolves.toEqual({ kind: 'persistence_failed' });
+    expect(mocks.db.execute).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(mocks.db.execute.mock.calls[0]?.[0])).not.toContain('partner');
+  });
+
+  it('does not expose partner identifiers, prompts, or private reasoning in the approved result', async () => {
+    mocks.db.execute.mockResolvedValue({ rows: [resultRow({ partnerJobId: 'secret', prompt: 'hidden' })] });
+
+    const result = await approveSearchReview(input);
+
+    expect(JSON.stringify(result)).not.toContain('secret');
+    expect(JSON.stringify(result)).not.toContain('hidden');
+    expect(result).toEqual(expect.objectContaining({ kind: 'approved' }));
+  });
+});
