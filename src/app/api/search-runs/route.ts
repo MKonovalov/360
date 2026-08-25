@@ -9,9 +9,10 @@ import { resolveSearchLaunch } from '@/lib/search/resolveSearchLaunch';
 import {
   createSearchRun,
   findSearchRunIdempotency,
+  markSearchRunDispatchFailed,
 } from '@/lib/search/searchRuns';
 import { submitSearchJob } from '@/lib/search/searchArcAgentnet';
-import { noStoreJson, readJsonBody } from '@/lib/search/routeSupport';
+import { jsonBodyFailureResponse, noStoreJson, readJsonBody } from '@/lib/search/routeSupport';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -68,7 +69,7 @@ function partnerFailureResponse(kind: 'not_configured' | 'network' | 'invalid_in
 export async function POST(request: Request): Promise<Response> {
   const { userId } = await requireStaffAccess();
   const body = await readJsonBody(request);
-  if (!body.ok) return noStoreJson({ error: 'invalid_input' }, 400);
+  if (!body.ok) return jsonBodyFailureResponse(body);
 
   const parsed = searchLaunchRequestSchema.safeParse(body.body);
   if (!parsed.success) return noStoreJson({ error: 'invalid_input' }, 400);
@@ -114,7 +115,9 @@ export async function POST(request: Request): Promise<Response> {
       case 'active_run_exists':
         return noStoreJson({ error: created.kind }, 409);
       case 'replayed':
-        return noStoreJson({ searchRunId: created.run.id, status: 'queued', replayed: true });
+        return noStoreJson({ searchRunId: created.run.id, status: created.run.status, replayed: true });
+      case 'retryable_failed':
+        break;
       case 'created':
         break;
       default:
@@ -134,8 +137,12 @@ export async function POST(request: Request): Promise<Response> {
       runId: created.run.id,
       initiatingUserId: userId,
     });
-    if (!submitted.ok) return partnerFailureResponse(submitted.kind);
-    return noStoreJson({ searchRunId: created.run.id, status: 'queued', replayed: false }, 201);
+    if (!submitted.ok) {
+      const failedRun = await markSearchRunDispatchFailed(created.run.id, userId);
+      if (!failedRun) return noStoreJson({ error: 'persistence_unavailable' }, 503);
+      return partnerFailureResponse(submitted.kind);
+    }
+    return noStoreJson({ searchRunId: created.run.id, status: 'queued', replayed: created.kind === 'retryable_failed' }, created.kind === 'retryable_failed' ? 200 : 201);
   } catch (error: unknown) {
     if (error instanceof Error) return noStoreJson({ error: 'persistence_unavailable' }, 503);
     throw error;

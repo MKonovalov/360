@@ -1,4 +1,5 @@
 import { auth } from '@clerk/nextjs/server';
+import { unstable_noStore } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 // D-08: any signed-in Clerk user = staff, no roles/claims check in Phase 1.
@@ -8,6 +9,7 @@ import { redirect } from 'next/navigation';
 // auth decision — every protected Server Component/Server Action/Route
 // Handler must call this instead of inlining an auth() check.
 export async function requireStaffAccess() {
+  unstable_noStore();
   const { userId } = await auth(); // auth() is async under @clerk/nextjs — always await it
   if (!userId) {
     redirect('/sign-in');

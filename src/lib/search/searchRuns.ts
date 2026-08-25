@@ -34,6 +34,7 @@ export interface CreateSearchRunInput {
 
 export type CreateSearchRunResult =
   | { readonly kind: 'created'; readonly run: SearchRunRecord }
+  | { readonly kind: 'retryable_failed'; readonly run: SearchRunRecord }
   | { readonly kind: 'replayed'; readonly run: SearchRunRecord }
   | { readonly kind: 'idempotency_conflict' }
   | { readonly kind: 'active_run_exists' };
@@ -75,9 +76,10 @@ export interface SearchRunIdempotencyRecord {
   readonly id: number;
   readonly runId: number;
   readonly inputFingerprint: string;
+  readonly status: SearchRunRecord['status'];
 }
 
-type SearchRunOutcome = 'created' | 'replayed' | 'idempotency_conflict' | 'active_run_exists';
+type SearchRunOutcome = 'created' | 'retryable_failed' | 'replayed' | 'idempotency_conflict' | 'active_run_exists';
 
 function hasPostgresCode(error: unknown, code: string): boolean {
   let current: unknown = error;
@@ -152,7 +154,7 @@ export async function findSearchRunIdempotency(
   idempotencyKey: string,
 ): Promise<SearchRunIdempotencyRecord | undefined> {
   const rows = await db
-    .select({ id: searchRun.id, runId: searchRun.id, inputFingerprint: searchRun.inputFingerprint })
+    .select({ id: searchRun.id, runId: searchRun.id, inputFingerprint: searchRun.inputFingerprint, status: searchRun.status })
     .from(searchRun)
     .where(sql`${searchRun.initiatingUserId} = ${initiatingUserId} AND ${searchRun.idempotencyKey} = ${idempotencyKey}`);
   return rows[0];
@@ -163,10 +165,25 @@ export async function createSearchRun(input: CreateSearchRunInput): Promise<Crea
   try {
     const result = await db.execute<{ readonly outcome: SearchRunOutcome; readonly runId: number | null }>(sql`
       WITH existing_run AS MATERIALIZED (
-        SELECT id, input_fingerprint
+        SELECT id, input_fingerprint, status
         FROM search_run
         WHERE initiating_user_id = ${input.initiatingUserId}
           AND idempotency_key = ${input.idempotencyKey}
+      ),
+      reopened_run AS (
+        UPDATE search_run
+        SET status = 'queued',
+            packet_hash = NULL,
+            packet_schema_version = NULL,
+            terminal_result_summary = NULL,
+            started_at = NULL,
+            completed_at = NULL,
+            terminal_at = NULL,
+            updated_at = now()
+        WHERE id = (SELECT id FROM existing_run)
+          AND input_fingerprint = ${input.inputFingerprint}
+          AND status = 'failed'
+        RETURNING id
       ),
       inserted_run AS (
         INSERT INTO search_run (
@@ -186,10 +203,11 @@ export async function createSearchRun(input: CreateSearchRunInput): Promise<Crea
       SELECT CASE
         WHEN EXISTS (SELECT 1 FROM existing_run)
           AND (SELECT input_fingerprint FROM existing_run) <> ${input.inputFingerprint} THEN 'idempotency_conflict'
+        WHEN EXISTS (SELECT 1 FROM reopened_run) THEN 'retryable_failed'
         WHEN EXISTS (SELECT 1 FROM existing_run) THEN 'replayed'
         ELSE 'created'
       END AS outcome,
-      COALESCE((SELECT id FROM existing_run), (SELECT id FROM inserted_run)) AS "runId"
+      COALESCE((SELECT id FROM reopened_run), (SELECT id FROM existing_run), (SELECT id FROM inserted_run)) AS "runId"
     `);
     outcome = result.rows[0];
   } catch (error: unknown) {
@@ -212,7 +230,26 @@ export async function createSearchRun(input: CreateSearchRunInput): Promise<Crea
   if (outcome.runId === null) throw new Error('Search persistence returned no run ID');
   const run = await getSearchRunById(outcome.runId, input.initiatingUserId);
   if (!run) throw new Error('Search run disappeared after persistence');
-  return outcome.outcome === 'created' ? { kind: 'created', run } : { kind: 'replayed', run };
+  if (outcome.outcome === 'created') return { kind: 'created', run };
+  if (outcome.outcome === 'retryable_failed') return { kind: 'retryable_failed', run };
+  return { kind: 'replayed', run };
+}
+
+export async function markSearchRunDispatchFailed(
+  runId: number,
+  initiatingUserId: string,
+): Promise<SearchRunRecord | undefined> {
+  await db.execute(sql`
+    UPDATE search_run
+    SET status = 'failed',
+        completed_at = COALESCE(completed_at, now()),
+        terminal_at = COALESCE(terminal_at, now()),
+        updated_at = now()
+    WHERE id = ${runId}
+      AND initiating_user_id = ${initiatingUserId}
+      AND status IN ('queued', 'running')
+  `);
+  return getSearchRunById(runId, initiatingUserId);
 }
 
 function localStatus(status: ArcAgentnetPartnerStatus): SearchRunRecord['status'] {

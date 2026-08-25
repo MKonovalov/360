@@ -3,7 +3,7 @@ import 'server-only';
 import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { searchRejectRequestSchema } from '@/lib/search/contracts';
 import { rejectSearchReview, type RejectionResult } from '@/lib/search/rejectSearchReview';
-import { noStoreJson, parsePositiveLocalId, readJsonBody } from '@/lib/search/routeSupport';
+import { jsonBodyFailureResponse, noStoreJson, parsePositiveLocalId, readJsonBody } from '@/lib/search/routeSupport';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -34,7 +34,7 @@ export async function POST(request: Request, context: RouteContext<'/api/search-
   if (reviewId === undefined) return noStoreJson({ error: 'invalid_id' }, 400);
 
   const body = await readJsonBody(request);
-  if (!body.ok) return noStoreJson({ error: 'invalid_input' }, 400);
+  if (!body.ok) return jsonBodyFailureResponse(body);
   const parsed = searchRejectRequestSchema.safeParse(body.body);
   if (!parsed.success) return noStoreJson({ error: 'invalid_input' }, 400);
 

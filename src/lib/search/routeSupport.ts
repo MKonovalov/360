@@ -11,6 +11,12 @@ const localIdSchema = z
   .transform(Number)
   .refine(Number.isSafeInteger);
 
+export const MAX_SEARCH_REQUEST_BYTES = 64 * 1024;
+
+export type JsonBodyResult =
+  | { readonly ok: true; readonly body: unknown }
+  | { readonly ok: false; readonly reason: 'invalid_input' | 'request_too_large' };
+
 export function parsePositiveLocalId(value: string): number | undefined {
   const parsed = localIdSchema.safeParse(value);
   return parsed.success ? parsed.data : undefined;
@@ -20,13 +26,47 @@ export function noStoreJson(body: unknown, status = 200): Response {
   return Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 }
 
-export async function readJsonBody(request: Request): Promise<{ readonly ok: true; readonly body: unknown } | { readonly ok: false }> {
+export async function readJsonBody(request: Request): Promise<JsonBodyResult> {
+  const contentLength = request.headers.get('content-length');
+  if (contentLength !== null) {
+    const parsedLength = Number(contentLength);
+    if (Number.isSafeInteger(parsedLength) && parsedLength > MAX_SEARCH_REQUEST_BYTES) {
+      return { ok: false, reason: 'request_too_large' };
+    }
+  }
+
+  const body = request.body;
+  if (body === null) return { ok: false, reason: 'invalid_input' };
+
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let byteLength = 0;
   try {
-    return { ok: true, body: await request.json() };
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      byteLength += chunk.value.byteLength;
+      if (byteLength > MAX_SEARCH_REQUEST_BYTES) return { ok: false, reason: 'request_too_large' };
+      chunks.push(chunk.value);
+    }
+
+    const input = new Uint8Array(byteLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+      input.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return { ok: true, body: JSON.parse(new TextDecoder().decode(input)) };
   } catch (error: unknown) {
-    if (error instanceof Error) return { ok: false };
+    if (error instanceof Error) return { ok: false, reason: 'invalid_input' };
     throw error;
   }
+}
+
+export function jsonBodyFailureResponse(result: Extract<JsonBodyResult, { readonly ok: false }>): Response {
+  return result.reason === 'request_too_large'
+    ? noStoreJson({ error: result.reason }, 413)
+    : noStoreJson({ error: result.reason }, 400);
 }
 
 function safeMatch(match: SearchMatch): SearchReviewProjection['match'] {

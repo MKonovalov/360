@@ -152,7 +152,19 @@ export async function reconcileSearchRun(
   const run = await getRun(runId, initiatingUserId);
   if (!run) return { kind: 'not_found' };
   const mapping = await getMapping(runId, initiatingUserId);
-  if (!mapping) return { kind: 'not_found' };
+  if (!mapping) {
+    switch (run.status) {
+      case 'succeeded':
+      case 'failed':
+      case 'cancelled':
+        return { kind: run.status, run };
+      case 'queued':
+      case 'running':
+        return { kind: 'not_found' };
+      default:
+        return assertNever(run.status);
+    }
+  }
   const polled = await pollSearchJob({ partnerJobId: mapping.partnerJobId, client: dependencies.client });
   if (!polled.ok) {
     if (polled.kind !== 'job_expired') return { kind: 'poll_failed', failure: polled };
@@ -243,4 +255,8 @@ export async function reconcileSearchRun(
   return terminal.kind === 'conflict'
     ? { kind: 'terminal_conflict', run: terminalRun }
     : { kind: polled.value.status, run: terminalRun };
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled Search run status: ${String(value)}`);
 }

@@ -4,7 +4,7 @@ import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { getSearchReviewById } from '@/lib/db/queries/searchReviews';
 import { searchEditRequestSchema } from '@/lib/search/contracts';
 import { editSearchReview, type EditSearchReviewResult } from '@/lib/search/editSearchReview';
-import { noStoreJson, parsePositiveLocalId, readJsonBody, safeSearchReviewProjection } from '@/lib/search/routeSupport';
+import { jsonBodyFailureResponse, noStoreJson, parsePositiveLocalId, readJsonBody, safeSearchReviewProjection } from '@/lib/search/routeSupport';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -53,7 +53,7 @@ export async function PATCH(request: Request, context: RouteContext<'/api/search
   if (reviewId === undefined) return noStoreJson({ error: 'invalid_id' }, 400);
 
   const body = await readJsonBody(request);
-  if (!body.ok) return noStoreJson({ error: 'invalid_input' }, 400);
+  if (!body.ok) return jsonBodyFailureResponse(body);
   const parsed = searchEditRequestSchema.safeParse(body.body);
   if (!parsed.success) return noStoreJson({ error: 'invalid_input' }, 400);
 

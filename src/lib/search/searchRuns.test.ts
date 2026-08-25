@@ -14,6 +14,7 @@ vi.mock('@/lib/db/schema', () => ({
     companyId: 'search_run.company_id',
     templateVersionId: 'search_run.template_version_id',
     partnerJobMappingId: 'search_run.partner_job_mapping_id',
+    status: 'search_run.status',
   },
   partnerJobMapping: {
     id: 'partner_job_mapping.id',
@@ -28,6 +29,7 @@ import {
   associateSearchRunPartnerMapping,
   getSearchRunById,
   getSearchStatusProjection,
+  markSearchRunDispatchFailed,
   recordSearchRunStatus,
   recordSearchTerminalResult,
   type CreateSearchRunInput,
@@ -113,6 +115,30 @@ describe('Search run persistence', () => {
     await expect(createSearchRun({ ...createInput, inputFingerprint: 'b'.repeat(64) })).resolves.toEqual({
       kind: 'idempotency_conflict',
     });
+  });
+
+  it('reopens a failed same-key run without creating a second local run', async () => {
+    mocks.db.execute.mockResolvedValueOnce({ rows: [{ outcome: 'retryable_failed', runId: run.id }] });
+    selectRows({ ...run, status: 'queued' });
+
+    await expect(createSearchRun(createInput)).resolves.toEqual({
+      kind: 'retryable_failed',
+      run: { ...run, status: 'queued' },
+    });
+
+    expect(flattenSql(mocks.db.execute.mock.calls[0]?.[0])).toContain("status = 'failed'");
+  });
+
+  it('marks an unmapped dispatch failure terminal while preserving existing mapping columns', async () => {
+    mocks.db.execute.mockResolvedValue({ rows: [{ runId: run.id }] });
+    const failedRun = { ...run, status: 'failed' as const, partnerJobMappingId: 202 };
+    selectRows(failedRun);
+
+    await expect(markSearchRunDispatchFailed(run.id, createInput.initiatingUserId)).resolves.toEqual(failedRun);
+
+    const sqlText = flattenSql(mocks.db.execute.mock.calls[0]?.[0]);
+    expect(sqlText).toContain("status = 'failed'");
+    expect(sqlText).not.toContain('partner_job_mapping_id = NULL');
   });
 
   it('maps the active Company/template uniqueness guard to active_run_exists', async () => {

@@ -3,7 +3,7 @@ import 'server-only';
 import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { searchBulkRequestSchema } from '@/lib/search/contracts';
 import { bulkSearchReviews, type BulkSearchResult } from '@/lib/search/bulkSearchReviews';
-import { noStoreJson, readJsonBody } from '@/lib/search/routeSupport';
+import { jsonBodyFailureResponse, noStoreJson, readJsonBody } from '@/lib/search/routeSupport';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -39,7 +39,7 @@ function assertNever(value: never): never {
 export async function POST(request: Request): Promise<Response> {
   const { userId } = await requireStaffAccess();
   const body = await readJsonBody(request);
-  if (!body.ok) return noStoreJson({ error: 'invalid_input' }, 400);
+  if (!body.ok) return jsonBodyFailureResponse(body);
   const parsed = searchBulkRequestSchema.safeParse(body.body);
   if (!parsed.success) return noStoreJson({ error: 'invalid_input' }, 400);
   const reviewIds = [...new Set(parsed.data.reviewIds)];

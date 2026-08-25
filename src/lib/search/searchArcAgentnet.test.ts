@@ -285,4 +285,13 @@ describe('reconcileSearchRun', () => {
     expect(recordStatus).not.toHaveBeenCalled();
     expect(recordTerminal).not.toHaveBeenCalled();
   });
+
+  it('returns an unmapped failed run as safe terminal status', async () => {
+    const failedRun = { id: 101, initiatingUserId: 'user-1', partnerJobMappingId: null, status: 'failed' } as const;
+
+    await expect(reconcileSearchRun(101, 'user-1', {
+      getRun: vi.fn().mockResolvedValue(failedRun),
+      getMapping: vi.fn().mockResolvedValue(undefined),
+    })).resolves.toEqual({ kind: 'failed', run: failedRun });
+  });
 });

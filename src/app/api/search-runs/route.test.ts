@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   resolveSearchLaunch: vi.fn(),
   findSearchRunIdempotency: vi.fn(),
   createSearchRun: vi.fn(),
+  markSearchRunDispatchFailed: vi.fn(),
   submitSearchJob: vi.fn(),
 }));
 
@@ -19,6 +20,7 @@ vi.mock('@/lib/search/resolveSearchLaunch', () => ({ resolveSearchLaunch: mocks.
 vi.mock('@/lib/search/searchRuns', () => ({
   findSearchRunIdempotency: mocks.findSearchRunIdempotency,
   createSearchRun: mocks.createSearchRun,
+  markSearchRunDispatchFailed: mocks.markSearchRunDispatchFailed,
 }));
 vi.mock('@/lib/search/searchArcAgentnet', () => ({ submitSearchJob: mocks.submitSearchJob }));
 
@@ -66,6 +68,7 @@ describe('POST /api/search-runs', () => {
     mocks.resolveSearchLaunch.mockResolvedValue(resolution);
     mocks.findSearchRunIdempotency.mockResolvedValue(undefined);
     mocks.createSearchRun.mockResolvedValue({ kind: 'created', run: { id: 101, status: 'queued' } });
+    mocks.markSearchRunDispatchFailed.mockResolvedValue({ id: 101, status: 'failed' });
     mocks.submitSearchJob.mockResolvedValue({ ok: true, value: { jobId: 'partner-secret', requestId: 'request-secret', status: 'queued' } });
   });
 
@@ -111,6 +114,15 @@ describe('POST /api/search-runs', () => {
     expect(forged.headers.get('Cache-Control')).toBe('no-store');
     expect(mocks.resolveSearchLaunch).not.toHaveBeenCalled();
     expect(mocks.submitSearchJob).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversized JSON with a cache-safe 413 before resolution', async () => {
+    const response = await POST(request({ payload: 'x'.repeat(70_000) }));
+
+    expect(response.status).toBe(413);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    await expect(response.json()).resolves.toEqual({ error: 'request_too_large' });
+    expect(mocks.resolveSearchLaunch).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -162,6 +174,17 @@ describe('POST /api/search-runs', () => {
     expect(mocks.submitSearchJob).not.toHaveBeenCalled();
   });
 
+  it('reopens a failed same-key run and dispatches again using the existing local run', async () => {
+    mocks.createSearchRun.mockResolvedValue({ kind: 'retryable_failed', run: { id: 303, status: 'queued' } });
+
+    const response = await POST(request(validBody));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    await expect(response.json()).resolves.toEqual({ searchRunId: 303, status: 'queued', replayed: true });
+    expect(mocks.submitSearchJob).toHaveBeenCalledWith(expect.objectContaining({ runId: 303 }));
+  });
+
   it.each([
     ['idempotency_conflict', 409, 'idempotency_conflict'],
     ['active_run_exists', 409, 'active_run_exists'],
@@ -184,5 +207,6 @@ describe('POST /api/search-runs', () => {
     expect(response.status).toBe(status);
     expect(response.headers.get('Cache-Control')).toBe('no-store');
     await expect(response.json()).resolves.toEqual({ error });
+    expect(mocks.markSearchRunDispatchFailed).toHaveBeenCalledWith(101, 'staff-1');
   });
 });
