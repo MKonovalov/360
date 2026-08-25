@@ -1,12 +1,24 @@
 import 'server-only';
 
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import { db } from '../index';
-import { searchReviewProjectionSchema, type SearchReviewProjection } from '@/lib/search/contracts';
+import { searchCandidate, searchRun } from '../schema';
+import { searchReviewProjectionSchema, searchPersonaDraftSchema, searchBuyerRoleProposalSchema, type SearchPersonaDraft, type SearchReviewProjection } from '@/lib/search/contracts';
+
+export interface SearchReviewEditState {
+  readonly reviewId: number;
+  readonly ownerUserId: string;
+  readonly status: 'pending' | 'inconclusive' | 'ambiguous_match' | 'approved' | 'rejected';
+  readonly revision: number;
+  readonly persona: SearchPersonaDraft;
+  readonly buyerRoleIds: readonly number[];
+}
 
 export { searchReviewProjectionSchema } from '@/lib/search/contracts';
 export type { SearchReviewProjection } from '@/lib/search/contracts';
+export { stageSearchReviewEdit } from './searchReviewAudits';
+export type { StageSearchReviewEditInput, StageSearchReviewEditResult } from '@/lib/search/editSearchReview';
 
 interface SearchReviewQueryRow extends Record<string, unknown> {
   readonly reviewId: unknown;
@@ -172,4 +184,34 @@ export async function listSearchReviews(searchRunId: number, userId: string): Pr
 export async function getSearchReviewById(reviewId: number, userId: string): Promise<SearchReviewProjection | undefined> {
   const reviews = await queryReviews(reviewId, userId);
   return reviews[0];
+}
+
+export async function getSearchReviewEditState(reviewId: number): Promise<SearchReviewEditState | undefined> {
+  if (!Number.isInteger(reviewId) || reviewId < 1) return undefined;
+  const rows = await db
+    .select({
+      reviewId: searchCandidate.id,
+      ownerUserId: searchRun.initiatingUserId,
+      status: searchCandidate.status,
+      revision: searchCandidate.revision,
+      persona: searchCandidate.personaSnapshot,
+      buyerRoles: searchCandidate.buyerRoleSnapshot,
+    })
+    .from(searchCandidate)
+    .innerJoin(searchRun, eq(searchCandidate.searchRunId, searchRun.id))
+    .where(eq(searchCandidate.id, reviewId))
+    .limit(1);
+  const row = rows[0];
+  if (!row) return undefined;
+  const persona = searchPersonaDraftSchema.safeParse(row.persona);
+  const buyerRoles = searchBuyerRoleProposalSchema.array().safeParse(row.buyerRoles);
+  if (!persona.success || !buyerRoles.success) return undefined;
+  return {
+    reviewId: row.reviewId,
+    ownerUserId: row.ownerUserId,
+    status: row.status,
+    revision: row.revision,
+    persona: persona.data,
+    buyerRoleIds: buyerRoles.data.map(({ buyerRoleId }) => buyerRoleId).sort((left, right) => left - right),
+  };
 }
