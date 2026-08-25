@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { db } from '../index';
 import type { SearchCandidateAuditChange } from '../schema';
+import { searchEditRequestSchema } from '@/lib/search/contracts';
 import type { SearchPersonaDraft } from '@/lib/search/contracts';
 import type { StageSearchReviewEditInput, StageSearchReviewEditResult } from '@/lib/search/editSearchReview';
 
@@ -29,23 +30,6 @@ const AUDIT_VALUE_MAX_LENGTH = 1_000;
 const AUDIT_CHANGE_PATH_MAX_LENGTH = 80;
 const MAX_AUDIT_CHANGES = 20;
 
-const searchReviewAuditChangeSchema = z
-  .object({
-    path: z.string().trim().min(1).max(AUDIT_CHANGE_PATH_MAX_LENGTH),
-    before: z.string().max(AUDIT_VALUE_MAX_LENGTH).nullable(),
-    after: z.string().max(AUDIT_VALUE_MAX_LENGTH).nullable(),
-  })
-  .strict();
-
-const searchReviewAuditAppendSchema = z
-  .object({
-    searchCandidateId: z.number().int().positive(),
-    actorId: z.string().trim().min(1).max(200),
-    revision: z.number().int().positive(),
-    changes: z.array(searchReviewAuditChangeSchema).max(MAX_AUDIT_CHANGES),
-  })
-  .strict();
-
 const PERSONA_EDIT_FIELDS = [
   'firstName',
   'lastName',
@@ -63,6 +47,38 @@ const PERSONA_EDIT_FIELDS = [
   'bio',
   'photoUrl',
 ] as const satisfies readonly (keyof SearchPersonaDraft)[];
+
+const AUDIT_CHANGE_PATHS = new Set([
+  ...PERSONA_EDIT_FIELDS.map((field) => `persona.${field}`),
+  'buyerRoleIds',
+  'edit.reason',
+]);
+
+const searchReviewAuditChangeSchema = z
+  .object({
+    path: z.string().trim().min(1).max(AUDIT_CHANGE_PATH_MAX_LENGTH).refine((path) => AUDIT_CHANGE_PATHS.has(path)),
+    before: z.string().max(AUDIT_VALUE_MAX_LENGTH).nullable(),
+    after: z.string().max(AUDIT_VALUE_MAX_LENGTH).nullable(),
+  })
+  .strict();
+
+const searchReviewAuditAppendSchema = z
+  .object({
+    searchCandidateId: z.number().int().positive(),
+    actorId: z.string().trim().min(1).max(200),
+    revision: z.number().int().positive(),
+    changes: z.array(searchReviewAuditChangeSchema).max(MAX_AUDIT_CHANGES),
+  })
+  .strict();
+
+const stageSearchReviewEditSchema = searchEditRequestSchema
+  .pick({ expectedRevision: true, persona: true, buyerRoleIds: true })
+  .extend({
+    reviewId: z.number().int().positive(),
+    actorUserId: z.string().trim().min(1).max(200),
+    changes: z.array(searchReviewAuditChangeSchema).max(MAX_AUDIT_CHANGES),
+  })
+  .strict();
 
 function redactText(value: string): string {
   return value
@@ -124,6 +140,11 @@ interface SearchReviewAuditRow extends Record<string, unknown> {
 export async function appendSearchReviewAudit(input: unknown): Promise<SearchReviewAuditEvent | undefined> {
   const parsed = searchReviewAuditAppendSchema.safeParse(input);
   if (!parsed.success) return undefined;
+  const changes = parsed.data.changes.map((change) => ({
+    path: change.path,
+    before: redactSearchReviewAuditValue(change.path, change.before),
+    after: redactSearchReviewAuditValue(change.path, change.after),
+  }));
 
   const result = await db.execute<SearchReviewAuditRow>(sql`
     INSERT INTO search_candidate_audit (
@@ -138,7 +159,7 @@ export async function appendSearchReviewAudit(input: unknown): Promise<SearchRev
       ${SEARCH_REVIEW_EDIT_EVENT},
       ${parsed.data.actorId},
       ${parsed.data.revision},
-      ${JSON.stringify(parsed.data.changes)}::jsonb,
+      ${JSON.stringify(changes)}::jsonb,
       now()
     )
     RETURNING
@@ -172,7 +193,14 @@ interface StageSearchReviewEditRow extends Record<string, unknown> {
 }
 
 export async function stageSearchReviewEdit(input: StageSearchReviewEditInput): Promise<StageSearchReviewEditResult> {
-  const roleIds = [...new Set(input.buyerRoleIds)].sort((left, right) => left - right);
+  const parsed = stageSearchReviewEditSchema.safeParse(input);
+  if (!parsed.success) return { kind: 'persistence_failed' };
+  const roleIds = [...new Set(parsed.data.buyerRoleIds)].sort((left, right) => left - right);
+  const changes = parsed.data.changes.map((change) => ({
+    path: change.path,
+    before: redactSearchReviewAuditValue(change.path, change.before),
+    after: redactSearchReviewAuditValue(change.path, change.after),
+  }));
   const roleIdList = roleIds.length === 0
     ? sql`SELECT NULL::integer AS id, NULL::text AS name WHERE false`
     : sql`SELECT id, name FROM buyer_role WHERE id IN (${sql.join(roleIds.map((id) => sql`${id}`), sql`, `)})`;
@@ -192,37 +220,37 @@ export async function stageSearchReviewEdit(input: StageSearchReviewEditInput): 
       SELECT candidate.id, candidate.revision, candidate.status, run.initiating_user_id AS owner_user_id
       FROM search_candidate candidate
       INNER JOIN search_run run ON run.id = candidate.search_run_id
-      WHERE candidate.id = ${input.reviewId}
+      WHERE candidate.id = ${parsed.data.reviewId}
     ),
     updated AS (
       UPDATE search_candidate candidate
-      SET persona_snapshot = ${JSON.stringify(input.persona)}::jsonb,
+      SET persona_snapshot = ${JSON.stringify(parsed.data.persona)}::jsonb,
           buyer_role_snapshot = (SELECT snapshot FROM role_validation),
           revision = candidate.revision + 1,
           edit_count = candidate.edit_count + 1,
-          last_edited_by = ${input.actorUserId},
+          last_edited_by = ${parsed.data.actorUserId},
           updated_at = now()
       FROM candidate_state state, role_validation roles
       WHERE candidate.id = state.id
-        AND candidate.revision = ${input.expectedRevision}
+        AND candidate.revision = ${parsed.data.expectedRevision}
         AND candidate.status IN ('pending', 'inconclusive', 'ambiguous_match')
-        AND state.owner_user_id = ${input.actorUserId}
-        AND state.revision = ${input.expectedRevision}
+        AND state.owner_user_id = ${parsed.data.actorUserId}
+        AND state.revision = ${parsed.data.expectedRevision}
         AND state.status IN ('pending', 'inconclusive', 'ambiguous_match')
         AND roles.found_count = ${roleIds.length}
       RETURNING candidate.id, candidate.revision, candidate.edit_count
     ),
     audit_event AS (
       INSERT INTO search_candidate_audit (search_candidate_id, event_type, actor_id, revision, changes, created_at)
-      SELECT id, 'search_candidate_edited', ${input.actorUserId}, revision, ${JSON.stringify(input.changes)}::jsonb, now()
+      SELECT id, 'search_candidate_edited', ${parsed.data.actorUserId}, revision, ${JSON.stringify(changes)}::jsonb, now()
       FROM updated
       RETURNING id, search_candidate_id, revision, created_at
     )
     SELECT CASE
       WHEN NOT EXISTS (SELECT 1 FROM candidate_state) THEN 'not_found'
-      WHEN NOT EXISTS (SELECT 1 FROM candidate_state WHERE owner_user_id = ${input.actorUserId}) THEN 'unauthorized'
-      WHEN NOT EXISTS (SELECT 1 FROM candidate_state WHERE owner_user_id = ${input.actorUserId} AND revision = ${input.expectedRevision}) THEN 'stale_revision'
-      WHEN NOT EXISTS (SELECT 1 FROM candidate_state WHERE owner_user_id = ${input.actorUserId} AND revision = ${input.expectedRevision} AND status IN ('pending', 'inconclusive', 'ambiguous_match')) THEN 'ineligible'
+      WHEN NOT EXISTS (SELECT 1 FROM candidate_state WHERE owner_user_id = ${parsed.data.actorUserId}) THEN 'unauthorized'
+      WHEN NOT EXISTS (SELECT 1 FROM candidate_state WHERE owner_user_id = ${parsed.data.actorUserId} AND revision = ${parsed.data.expectedRevision}) THEN 'stale_revision'
+      WHEN NOT EXISTS (SELECT 1 FROM candidate_state WHERE owner_user_id = ${parsed.data.actorUserId} AND revision = ${parsed.data.expectedRevision} AND status IN ('pending', 'inconclusive', 'ambiguous_match')) THEN 'ineligible'
       WHEN (SELECT found_count FROM role_validation) <> ${roleIds.length} THEN 'unknown_role'
       WHEN NOT EXISTS (SELECT 1 FROM updated) THEN 'persistence_failed'
       ELSE 'edited'
