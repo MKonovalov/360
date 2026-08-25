@@ -81,7 +81,7 @@ describe('approveSearchReview', () => {
     expect(sqlText).toContain('NFKC');
     expect(sqlText).toContain('utm_');
     expect(sqlText).toContain('fbclid');
-    expect(sqlText).toContain("'[?#].*$'");
+    expect(sqlText).not.toContain("regexp_replace(regexp_replace(lower(");
   });
 
   it('sorts retained LinkedIn query parameters without lowercasing their pathname', async () => {

@@ -53,8 +53,13 @@ describeWithDatabase('Search approval identity normalization against Neon', () =
     const encodedLinkedIn = 'https://www.linkedin.com/in/Ada?keep=a%20b';
     const plusLinkedIn = 'HTTPS://WWW.LINKEDIN.COM/in/Ada?%74rk=ignored&keep=a+b';
     const malformedLinkedIn = 'https://www.linkedin.com/in/Ada?a=%FF';
+    const malformedHexLinkedIn = 'https://www.linkedin.com/in/Ada?a=%aG';
+    const malformedSecondHexLinkedIn = 'https://www.linkedin.com/in/Ada?a=%1G';
+    const nonUrlLinkedIn = 'not-a-url';
     const malformedDomain = 'not a domain/path';
     const userinfoDomain = 'user@example.com';
+    const invalidPortDomain = 'example.com:99999';
+    const encodedAuthorityDomain = 'https://%65xample.com';
     const trailingDotDomain = '\u00a0HTTPS://WWW.Example.COM.\u00a0';
     const result = await dbModule.db.execute(sql`
       SELECT
@@ -62,8 +67,13 @@ describeWithDatabase('Search approval identity normalization against Neon', () =
         ${searchApprovalLinkedInKey(sql`${encodedLinkedIn}`)} AS encoded_linkedin_key,
         ${searchApprovalLinkedInKey(sql`${plusLinkedIn}`)} AS plus_linkedin_key,
         ${searchApprovalLinkedInKey(sql`${malformedLinkedIn}`)} AS malformed_linkedin_key,
+        ${searchApprovalLinkedInKey(sql`${malformedHexLinkedIn}`)} AS malformed_hex_linkedin_key,
+        ${searchApprovalLinkedInKey(sql`${malformedSecondHexLinkedIn}`)} AS malformed_second_hex_linkedin_key,
+        ${searchApprovalLinkedInKey(sql`${nonUrlLinkedIn}`)} AS non_url_linkedin_key,
         ${searchApprovalDomainKey(sql`${malformedDomain}`)} AS malformed_domain_key,
         ${searchApprovalDomainKey(sql`${userinfoDomain}`)} AS userinfo_domain_key,
+        ${searchApprovalDomainKey(sql`${invalidPortDomain}`)} AS invalid_port_domain_key,
+        ${searchApprovalDomainKey(sql`${encodedAuthorityDomain}`)} AS encoded_authority_domain_key,
         ${searchApprovalDomainKey(sql`${trailingDotDomain}`)} AS trailing_dot_domain_key
     `);
 
@@ -72,8 +82,13 @@ describeWithDatabase('Search approval identity normalization against Neon', () =
       encoded_linkedin_key: normalizeSearchLinkedInUrl(encodedLinkedIn),
       plus_linkedin_key: normalizeSearchLinkedInUrl(plusLinkedIn),
       malformed_linkedin_key: normalizeSearchLinkedInUrl(malformedLinkedIn),
+      malformed_hex_linkedin_key: normalizeSearchLinkedInUrl(malformedHexLinkedIn),
+      malformed_second_hex_linkedin_key: normalizeSearchLinkedInUrl(malformedSecondHexLinkedIn),
+      non_url_linkedin_key: normalizeSearchLinkedInUrl(nonUrlLinkedIn),
       malformed_domain_key: normalizeSearchDomain(malformedDomain),
       userinfo_domain_key: normalizeSearchDomain(userinfoDomain),
+      invalid_port_domain_key: normalizeSearchDomain(invalidPortDomain),
+      encoded_authority_domain_key: normalizeSearchDomain(encodedAuthorityDomain),
       trailing_dot_domain_key: normalizeSearchDomain(trailingDotDomain),
     });
   });
