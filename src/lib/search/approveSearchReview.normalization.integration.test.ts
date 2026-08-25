@@ -1,8 +1,13 @@
 import { randomUUID } from 'node:crypto';
 
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import {
+  searchApprovalDomainKey,
+  searchApprovalEmailKey,
+  searchApprovalLinkedInKey,
+} from '@/lib/db/queries/searchApprovalNormalization';
 import {
   createApprovalIntegrationHarness,
   type ApprovalIntegrationHarness,
@@ -38,6 +43,36 @@ describeWithDatabase('Search approval identity normalization against Neon', () =
     if (harness) await harness.cleanup();
   });
 
+  it('produces TypeScript-equivalent identity keys for normalization edge cases', async () => {
+    const email = '\t\u00a0Ada@example.com\u00a0\t';
+    const encodedLinkedIn = 'https://www.linkedin.com/in/Ada?keep=a%20b';
+    const plusLinkedIn = 'HTTPS://WWW.LINKEDIN.COM/in/Ada?%74rk=ignored&keep=a+b';
+    const malformedLinkedIn = 'https://www.linkedin.com/in/Ada?a=%FF';
+    const malformedDomain = 'not a domain/path';
+    const userinfoDomain = 'user@example.com';
+    const trailingDotDomain = ' HTTPS://WWW.Example.COM./ ';
+    const result = await dbModule.db.execute(sql`
+      SELECT
+        ${searchApprovalEmailKey(sql`${email}`)} AS email_key,
+        ${searchApprovalLinkedInKey(sql`${encodedLinkedIn}`)} AS encoded_linkedin_key,
+        ${searchApprovalLinkedInKey(sql`${plusLinkedIn}`)} AS plus_linkedin_key,
+        ${searchApprovalLinkedInKey(sql`${malformedLinkedIn}`)} AS malformed_linkedin_key,
+        ${searchApprovalDomainKey(sql`${malformedDomain}`)} AS malformed_domain_key,
+        ${searchApprovalDomainKey(sql`${userinfoDomain}`)} AS userinfo_domain_key,
+        ${searchApprovalDomainKey(sql`${trailingDotDomain}`)} AS trailing_dot_domain_key
+    `);
+
+    expect(result.rows[0]).toMatchObject({
+      email_key: 'ada@example.com',
+      encoded_linkedin_key: 'https://www.linkedin.com/in/Ada?keep=a+b',
+      plus_linkedin_key: 'https://www.linkedin.com/in/Ada?keep=a+b',
+      malformed_linkedin_key: null,
+      malformed_domain_key: 'not a domain/path',
+      userinfo_domain_key: null,
+      trailing_dot_domain_key: 'example.com',
+    });
+  });
+
   it('reuses an existing Persona for reordered retained and removed tracking parameters', async () => {
     const suffix = randomUUID();
     const existingLinkedIn = `https://www.linkedin.com/in/ordered-${suffix}?b=2&a=Value`;
@@ -60,6 +95,73 @@ describeWithDatabase('Search approval identity normalization against Neon', () =
       packetCandidateId: `linkedin-order-${suffix}`,
       personaSnapshot: {
         firstName: null, lastName: null, fullName: `Incoming ordered ${suffix}`, title: 'Incoming title',
+        email: null, linkedinUrl: candidateLinkedIn, phone: null, location: null, department: null,
+        function: null, seniority: 'c_level', companyName, companyDomain, bio: null, photoUrl: null,
+      },
+      matchSnapshot: { kind: 'existing_persona', personaId: existingPersona.id, matchedBy: 'linkedin_url' },
+    });
+
+    await expect(approveSearchReview({ reviewId: review, expectedRevision: 1, actorUserId: 'search-approval-integration' })).resolves.toMatchObject({
+      kind: 'approved',
+      personaId: existingPersona.id,
+    });
+  });
+
+  it('reuses an existing Persona when email whitespace is NFKC-normalized before trimming', async () => {
+    const suffix = randomUUID();
+    const email = `email-${suffix}@example.com`;
+    const [existingPersona] = await dbModule.db.insert(schema.persona).values({
+      name: `Existing email ${suffix}`,
+      email: `\u00a0${email}\u00a0`,
+    }).returning();
+    if (!existingPersona) throw new Error('email normalization integration Persona was not created');
+    harness.trackPersona(existingPersona.id);
+    const [existingRole] = await dbModule.db.insert(schema.companyPersonaRole).values({
+      companyId,
+      personaId: existingPersona.id,
+      isCurrent: true,
+    }).returning({ id: schema.companyPersonaRole.id });
+    if (!existingRole) throw new Error('email normalization integration role was not created');
+    harness.trackRole(existingRole.id);
+
+    const review = await harness.insertCandidate({
+      packetCandidateId: `email-normalization-${suffix}`,
+      personaSnapshot: {
+        firstName: null, lastName: null, fullName: `Incoming email ${suffix}`, title: 'Incoming title',
+        email: ` ${email} `, linkedinUrl: null, phone: null, location: null, department: null,
+        function: null, seniority: 'c_level', companyName, companyDomain, bio: null, photoUrl: null,
+      },
+      matchSnapshot: { kind: 'existing_persona', personaId: existingPersona.id, matchedBy: 'email' },
+    });
+
+    await expect(approveSearchReview({ reviewId: review, expectedRevision: 1, actorUserId: 'search-approval-integration' })).resolves.toMatchObject({
+      kind: 'approved',
+      personaId: existingPersona.id,
+    });
+  });
+
+  it('reuses an existing Persona for URLSearchParams-equivalent LinkedIn query encoding', async () => {
+    const suffix = randomUUID();
+    const existingLinkedIn = `https://www.linkedin.com/in/query-${suffix}?keep=a%20b`;
+    const candidateLinkedIn = `HTTPS://WWW.LINKEDIN.COM/in/query-${suffix}?%74rk=ignored&keep=a+b`;
+    const [existingPersona] = await dbModule.db.insert(schema.persona).values({
+      name: `Existing query ${suffix}`,
+      linkedinUrl: existingLinkedIn,
+    }).returning();
+    if (!existingPersona) throw new Error('query normalization integration Persona was not created');
+    harness.trackPersona(existingPersona.id);
+    const [existingRole] = await dbModule.db.insert(schema.companyPersonaRole).values({
+      companyId,
+      personaId: existingPersona.id,
+      isCurrent: true,
+    }).returning({ id: schema.companyPersonaRole.id });
+    if (!existingRole) throw new Error('query normalization integration role was not created');
+    harness.trackRole(existingRole.id);
+
+    const review = await harness.insertCandidate({
+      packetCandidateId: `linkedin-query-${suffix}`,
+      personaSnapshot: {
+        firstName: null, lastName: null, fullName: `Incoming query ${suffix}`, title: 'Incoming title',
         email: null, linkedinUrl: candidateLinkedIn, phone: null, location: null, department: null,
         function: null, seniority: 'c_level', companyName, companyDomain, bio: null, photoUrl: null,
       },

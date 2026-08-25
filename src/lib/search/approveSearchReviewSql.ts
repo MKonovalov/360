@@ -4,6 +4,7 @@ import {
   searchApprovalDomainKey,
   searchApprovalEmailKey,
   searchApprovalLinkedInKey,
+  searchApprovalLinkedInMatchKey,
   searchApprovalNameKey,
 } from '@/lib/db/queries/searchApprovalNormalization';
 
@@ -30,7 +31,7 @@ export function buildApproveSearchReviewSql(input: ApprovalStatementInput): SQL<
     candidate_keys AS MATERIALIZED (
       SELECT state.*,
         NULLIF(${searchApprovalEmailKey(sql`state.persona_snapshot->>'email'`)}, '') AS email_key,
-        NULLIF(${searchApprovalLinkedInKey(sql`state.persona_snapshot->>'linkedinUrl'`)}, '') AS linkedin_key,
+        NULLIF(${searchApprovalLinkedInMatchKey(sql`state.persona_snapshot->>'linkedinUrl'`)}, '') AS linkedin_key,
         NULLIF(${searchApprovalNameKey(sql`state.persona_snapshot->>'fullName'`)}, '') AS name_key,
         NULLIF(${searchApprovalDomainKey(sql`state.company_domain`)}, '') AS company_domain_key,
         (state.company_snapshot->>'id' = state.company_id::text AND state.company_snapshot->>'name' = state.company_name
@@ -51,7 +52,7 @@ export function buildApproveSearchReviewSql(input: ApprovalStatementInput): SQL<
     ),
     linkedin_matches AS (
       SELECT keys.id AS candidate_id, matched.id AS persona_id FROM candidate_keys keys
-      INNER JOIN persona matched ON keys.linkedin_key IS NOT NULL AND ${searchApprovalLinkedInKey(sql`matched.linkedin_url`)} = keys.linkedin_key
+      INNER JOIN persona matched ON keys.linkedin_key IS NOT NULL AND ${searchApprovalLinkedInMatchKey(sql`matched.linkedin_url`)} = keys.linkedin_key
     ),
     name_matches AS (
       SELECT keys.id AS candidate_id, matched.id AS persona_id FROM candidate_keys keys
