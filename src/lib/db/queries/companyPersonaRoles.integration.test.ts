@@ -45,8 +45,26 @@ describeWithDatabase('Company Persona Role relationship queries', () => {
     await dbModule.db.delete(schema.company).where(eq(schema.company.id, companyId));
   });
 
-  it('reuses one Company Persona Role under concurrent duplicate approval retries', async () => {
+  it('preserves historical roles while reusing one current role under concurrent retries', async () => {
     // Given
+    const historicalRoles = await Promise.all([
+      queries.insertCompanyPersonaRole({
+        companyId,
+        personaId,
+        title: 'Former Chief Financial Officer',
+        isCurrent: false,
+        startDate: '2018-01-01',
+        endDate: '2021-12-31',
+      }),
+      queries.insertCompanyPersonaRole({
+        companyId,
+        personaId,
+        title: 'Former Transformation Lead',
+        isCurrent: false,
+        startDate: '2022-01-01',
+        endDate: '2023-12-31',
+      }),
+    ]);
     const input = { companyId, personaId, title: 'Chief Financial Officer', isCurrent: true } as const;
 
     // When
@@ -58,10 +76,14 @@ describeWithDatabase('Company Persona Role relationship queries', () => {
     // Then
     expect(outcomes.filter((outcome) => outcome.created)).toHaveLength(1);
     expect(outcomes.map((outcome) => outcome.id)).toEqual([outcomes[0]?.id, outcomes[0]?.id]);
-    const rows = await dbModule.db.select({ id: schema.companyPersonaRole.id }).from(schema.companyPersonaRole)
+    const rows = await dbModule.db.select({ id: schema.companyPersonaRole.id, isCurrent: schema.companyPersonaRole.isCurrent }).from(schema.companyPersonaRole)
       .where(and(eq(schema.companyPersonaRole.companyId, companyId), eq(schema.companyPersonaRole.personaId, personaId)))
       .orderBy(asc(schema.companyPersonaRole.id));
-    expect(rows).toHaveLength(1);
+    expect(historicalRoles).toHaveLength(2);
+    expect(rows).toHaveLength(3);
+    expect(rows.filter((row) => row.isCurrent)).toHaveLength(1);
+    expect(rows.filter((row) => !row.isCurrent)).toHaveLength(2);
+    expect(rows.find((row) => row.isCurrent)?.id).toBe(outcomes[0]?.id);
   });
 
   it('reuses one Buyer Role link under concurrent duplicate approval retries', async () => {

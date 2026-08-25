@@ -1,4 +1,4 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { db } from '../index';
 import { company, companyPersonaRole, companyPersonaRoleBuyerRole, persona } from '../schema';
 
@@ -11,19 +11,24 @@ export interface InsertCompanyPersonaRoleInput {
   endDate?: string;
 }
 
+export type InsertCurrentCompanyPersonaRoleInput = Omit<InsertCompanyPersonaRoleInput, 'isCurrent'> & {
+  isCurrent: true;
+};
+
 export async function insertCompanyPersonaRole(row: InsertCompanyPersonaRoleInput) {
   const [inserted] = await db.insert(companyPersonaRole).values(row).returning();
   return inserted;
 }
 
 export async function insertCompanyPersonaRoleIfMissing(
-  input: InsertCompanyPersonaRoleInput,
+  input: InsertCurrentCompanyPersonaRoleInput,
 ): Promise<{ id: number; created: boolean }> {
   const [inserted] = await db
     .insert(companyPersonaRole)
     .values(input)
     .onConflictDoNothing({
       target: [companyPersonaRole.companyId, companyPersonaRole.personaId],
+      where: sql`${companyPersonaRole.isCurrent} = true`,
     })
     .returning({ id: companyPersonaRole.id });
   if (inserted) return { id: inserted.id, created: true };
@@ -35,6 +40,7 @@ export async function insertCompanyPersonaRoleIfMissing(
       and(
         eq(companyPersonaRole.companyId, input.companyId),
         eq(companyPersonaRole.personaId, input.personaId),
+        eq(companyPersonaRole.isCurrent, true),
       ),
     )
     .orderBy(asc(companyPersonaRole.id))
