@@ -47,11 +47,28 @@ describe('Search identity normalization parity cases', () => {
     expect(normalizeSearchLinkedInUrl('https://www.linkedin.com/in/Ada?a=%FF')).toBeNull();
   });
 
+  it('fails closed for percent sequences with a non-hexadecimal second byte', () => {
+    expect(normalizeSearchLinkedInUrl('https://www.linkedin.com/in/Ada?a=%aG')).toBeNull();
+    expect(normalizeSearchLinkedInUrl('https://www.linkedin.com/in/Ada?a=%1G')).toBeNull();
+  });
+
+  it('fails closed for unsupported non-URL LinkedIn values', () => {
+    expect(normalizeSearchLinkedInUrl('not-a-url')).toBeNull();
+  });
+
+  it('fails closed for invalid Company URL ports', () => {
+    expect(normalizeSearchDomain('example.com:99999')).toBeNull();
+  });
+
   it('fails closed for userinfo-like domains', () => {
     expect(normalizeSearchDomain('user@example.com')).toBeNull();
   });
 
   it('fails closed for valid UTF-8 query bytes outside the SQL grammar', () => {
     expect(normalizeSearchLinkedInUrl('https://www.linkedin.com/in/Ada?a=%C3%A9')).toBeNull();
+  });
+
+  it('fails closed for percent-encoded Company URL authorities', () => {
+    expect(normalizeSearchDomain('https://%65xample.com')).toBeNull();
   });
 });

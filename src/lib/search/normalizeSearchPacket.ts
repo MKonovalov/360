@@ -130,6 +130,7 @@ const LINKEDIN_URL_BASE_PATTERN = /^https?:\/\/[A-Za-z0-9._-]+(?:\/[^?#]*)?$/iu;
 const MALFORMED_PERCENT_PATTERN = /%(?![0-9A-Fa-f]{2})/u;
 const UNSUPPORTED_PERCENT_PATTERN = /%[89A-Fa-f][0-9A-Fa-f]|%00/iu;
 const USERINFO_AUTHORITY_PATTERN = /^(?:[a-z][a-z\d+.-]*:\/\/)?[^/?#]*@/iu;
+const PERCENT_AUTHORITY_PATTERN = /^(?:[a-z][a-z\d+.-]*:\/\/)?[^/?#]*%/iu;
 const UNSUPPORTED_CONTROL_PATTERN = /[\u0000-\u0008\u000E-\u001F\u007F]/u;
 
 function isAscii(value: string): boolean {
@@ -161,6 +162,7 @@ export function normalizeSearchDomain(value: string | null | undefined): string 
     UNSUPPORTED_CONTROL_PATTERN.test(normalized) ||
     hasUnsupportedPercentEncoding(normalized) ||
     USERINFO_AUTHORITY_PATTERN.test(normalized) ||
+    PERCENT_AUTHORITY_PATTERN.test(normalized) ||
     !DOMAIN_INPUT_PATTERN.test(normalized)
   ) {
     return null;
