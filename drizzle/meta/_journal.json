@@ -85,6 +85,20 @@
       "when": 1787661376487,
       "tag": "0018_buyer_role_search_selectors",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1787665374316,
+      "tag": "0019_search_candidate_claims",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1787667101560,
+      "tag": "0020_search_run_buyer_role_evidence",
+      "breakpoints": true
     }
   ]
 }
