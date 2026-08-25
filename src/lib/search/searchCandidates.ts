@@ -1,7 +1,5 @@
 import 'server-only';
 
-import { createHash } from 'node:crypto';
-
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db/index';
@@ -22,6 +20,7 @@ import {
   type SearchEligibilitySnapshot,
   type SearchMatchSnapshot,
   type SearchPersonaSnapshot,
+  type SearchTerminalResultSummary,
 } from '@/lib/db/schema';
 
 import { evaluateSearchEvidence, type SearchEligibility } from './searchEvidence';
@@ -40,6 +39,7 @@ interface SearchCandidateRun {
   readonly status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
   readonly packetHash: string | null;
   readonly packetSchemaVersion: number | null;
+  readonly terminalResultSummary: SearchTerminalResultSummary | null;
   readonly companySnapshot: { readonly id: number; readonly name: string; readonly domain: string | null };
   readonly templateSnapshot: {
     readonly buyerRoleRules: readonly SearchBuyerRoleRuleSnapshot[];
@@ -91,10 +91,14 @@ export interface SearchCandidateStore {
     readonly actorUserId: string;
     readonly candidates: readonly SearchCandidateWrite[];
   }) => Promise<void>;
-  readonly updateRunPacket: (input: {
+  readonly claimPacket: (input: {
     readonly searchRunId: number;
     readonly userId: string;
-    readonly expectedPacketHash: string | null;
+    readonly packetHash: string;
+  }) => Promise<'claimed' | 'replayed' | 'conflict' | 'not_found'>;
+  readonly completePacket: (input: {
+    readonly searchRunId: number;
+    readonly userId: string;
     readonly packetHash: string;
     readonly packetSchemaVersion: number | null;
     readonly terminalResultSummary: {
@@ -118,6 +122,7 @@ export type SearchProcessResult =
       readonly kind: 'applied';
       readonly searchRunId: number;
       readonly packetHash: string;
+      readonly packetSchemaVersion: number;
       readonly normalizedCandidateCount: number;
       readonly diagnostics: readonly SearchProcessingDiagnostic[];
     }
@@ -125,11 +130,12 @@ export type SearchProcessResult =
       readonly kind: 'invalid_packet';
       readonly searchRunId: number;
       readonly packetHash: string;
+      readonly packetSchemaVersion: null;
       readonly reason: 'invalid_packet' | 'packet_too_large' | 'unsupported_schema_version';
       readonly diagnostics: readonly SearchProcessingDiagnostic[];
     }
-  | { readonly kind: 'replayed'; readonly searchRunId: number; readonly packetHash: string }
-  | { readonly kind: 'conflict'; readonly searchRunId: number; readonly packetHash: string }
+  | { readonly kind: 'replayed'; readonly searchRunId: number; readonly packetHash: string; readonly packetSchemaVersion: number | null }
+  | { readonly kind: 'conflict'; readonly searchRunId: number; readonly packetHash: string; readonly packetSchemaVersion: number | null }
   | { readonly kind: 'not_found' }
   | { readonly kind: 'not_terminal'; readonly searchRunId: number };
 
@@ -224,14 +230,38 @@ const defaultStore: SearchCandidateStore = {
     }
   },
 
-  async updateRunPacket({
-    searchRunId,
-    userId,
-    expectedPacketHash,
-    packetHash,
-    packetSchemaVersion,
-    terminalResultSummary,
-  }) {
+  async claimPacket({ searchRunId, userId, packetHash }) {
+    const claimed = await db.execute<{ readonly id: number }>(sql`
+      UPDATE search_run
+      SET packet_hash = ${packetHash}, updated_at = now()
+      WHERE id = ${searchRunId}
+        AND initiating_user_id = ${userId}
+        AND status IN ('queued', 'running', 'succeeded')
+        AND packet_hash IS NULL
+      RETURNING id
+    `);
+    if (claimed.rows[0]?.id === searchRunId) return 'claimed';
+
+    const rows = await db
+      .select({ status: searchRun.status, packetHash: searchRun.packetHash, terminalResultSummary: searchRun.terminalResultSummary })
+      .from(searchRun)
+      .where(and(eq(searchRun.id, searchRunId), eq(searchRun.initiatingUserId, userId)));
+    const current = rows[0];
+    if (!current) return 'not_found';
+    switch (current.status) {
+      case 'queued':
+      case 'running':
+      case 'succeeded':
+        break;
+      case 'failed':
+      case 'cancelled':
+        return 'conflict';
+    }
+    if (current.packetHash !== packetHash) return 'conflict';
+    return current.terminalResultSummary === null ? 'claimed' : 'replayed';
+  },
+
+  async completePacket({ searchRunId, userId, packetHash, packetSchemaVersion, terminalResultSummary }) {
     const result = await db
       .update(searchRun)
       .set({ packetHash, packetSchemaVersion, terminalResultSummary, updatedAt: new Date() })
@@ -239,30 +269,21 @@ const defaultStore: SearchCandidateStore = {
         and(
           eq(searchRun.id, searchRunId),
           eq(searchRun.initiatingUserId, userId),
-          expectedPacketHash === null ? sql`${searchRun.packetHash} IS NULL` : eq(searchRun.packetHash, expectedPacketHash),
+          eq(searchRun.packetHash, packetHash),
+          sql`${searchRun.terminalResultSummary} IS NULL`,
         ),
       )
       .returning({ id: searchRun.id });
-    return result.length > 0;
+    if (result.length > 0) return true;
+
+    const rows = await db
+      .select({ packetHash: searchRun.packetHash, terminalResultSummary: searchRun.terminalResultSummary })
+      .from(searchRun)
+      .where(and(eq(searchRun.id, searchRunId), eq(searchRun.initiatingUserId, userId)));
+    const current = rows[0];
+    return current?.packetHash === packetHash && current.terminalResultSummary !== null;
   },
 };
-
-function canonicalize(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonicalize);
-  if (value !== null && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>)
-        .sort(([left], [right]) => left.localeCompare(right))
-        .map(([key, nested]) => [key, canonicalize(nested)]),
-    );
-  }
-  return value;
-}
-
-function hashPacket(value: unknown): string {
-  const serialized = JSON.stringify(canonicalize(value));
-  return createHash('sha256').update(serialized === undefined ? 'null' : serialized).digest('hex');
-}
 
 function parseDate(value: string | undefined): Date | null {
   if (value === undefined) return null;
@@ -464,32 +485,57 @@ function toCandidateWrite(
 }
 
 export async function processSearchTerminalResult(
-  input: { readonly searchRunId: number; readonly packet: unknown; readonly userId: string },
+  input: {
+    readonly searchRunId: number;
+    readonly packet: unknown;
+    readonly userId: string;
+    readonly terminalStatus?: 'succeeded';
+  },
   store: SearchCandidateStore = defaultStore,
 ): Promise<SearchProcessResult> {
   const run = await store.getRun(input.searchRunId, input.userId);
   if (!run) return { kind: 'not_found' };
-  if (run.status !== 'succeeded') return { kind: 'not_terminal', searchRunId: input.searchRunId };
+  if (run.status !== 'succeeded' && input.terminalStatus !== 'succeeded') {
+    return { kind: 'not_terminal', searchRunId: input.searchRunId };
+  }
 
   const normalized = normalizeSearchPacket(input.packet, {
     resolvedRuleIds: run.templateSnapshot.buyerRoleRules.filter((rule) => rule.required).map((rule) => rule.ruleId),
     companyDomain: run.companySnapshot.domain,
   });
-  const rawPacketHash = hashPacket(input.packet);
-  if (run.packetHash !== null && run.packetHash === normalized.packetHash) {
-    return { kind: 'replayed', searchRunId: input.searchRunId, packetHash: normalized.packetHash };
-  }
-  if (run.packetHash !== null && run.packetHash !== rawPacketHash) {
-    return { kind: 'conflict', searchRunId: input.searchRunId, packetHash: normalized.packetHash };
+
+  const claim = await store.claimPacket({
+    searchRunId: input.searchRunId,
+    userId: input.userId,
+    packetHash: normalized.packetHash,
+  });
+  switch (claim) {
+    case 'not_found':
+      return { kind: 'not_found' };
+    case 'replayed':
+      return {
+        kind: 'replayed',
+        searchRunId: input.searchRunId,
+        packetHash: normalized.packetHash,
+        packetSchemaVersion: run.packetSchemaVersion,
+      };
+    case 'conflict':
+      return {
+        kind: 'conflict',
+        searchRunId: input.searchRunId,
+        packetHash: normalized.packetHash,
+        packetSchemaVersion: normalized.ok ? normalized.schemaVersion : null,
+      };
+    case 'claimed':
+      break;
   }
 
   const diagnostics: SearchProcessingDiagnostic[] = [...normalized.diagnostics];
   if (!normalized.ok) {
     await store.persistCandidates({ searchRunId: input.searchRunId, actorUserId: input.userId, candidates: [] });
-    const updated = await store.updateRunPacket({
+    const completed = await store.completePacket({
       searchRunId: input.searchRunId,
       userId: input.userId,
-      expectedPacketHash: run.packetHash,
       packetHash: normalized.packetHash,
       packetSchemaVersion: null,
       terminalResultSummary: {
@@ -500,11 +546,14 @@ export async function processSearchTerminalResult(
         normalizedCandidateCount: 0,
       },
     });
-    if (!updated) return { kind: 'conflict', searchRunId: input.searchRunId, packetHash: normalized.packetHash };
+    if (!completed) {
+      return { kind: 'conflict', searchRunId: input.searchRunId, packetHash: normalized.packetHash, packetSchemaVersion: null };
+    }
     return {
       kind: 'invalid_packet',
       searchRunId: input.searchRunId,
       packetHash: normalized.packetHash,
+      packetSchemaVersion: null,
       reason: normalized.reason,
       diagnostics,
     };
@@ -545,10 +594,9 @@ export async function processSearchTerminalResult(
   }
 
   await store.persistCandidates({ searchRunId: input.searchRunId, actorUserId: input.userId, candidates: writes });
-  const updated = await store.updateRunPacket({
+  const completed = await store.completePacket({
     searchRunId: input.searchRunId,
     userId: input.userId,
-    expectedPacketHash: run.packetHash,
     packetHash: normalized.packetHash,
     packetSchemaVersion: normalized.schemaVersion,
     terminalResultSummary: {
@@ -561,11 +609,19 @@ export async function processSearchTerminalResult(
       normalizedCandidateCount: writes.length,
     },
   });
-  if (!updated) return { kind: 'conflict', searchRunId: input.searchRunId, packetHash: normalized.packetHash };
+  if (!completed) {
+    return {
+      kind: 'conflict',
+      searchRunId: input.searchRunId,
+      packetHash: normalized.packetHash,
+      packetSchemaVersion: normalized.schemaVersion,
+    };
+  }
   return {
     kind: 'applied',
     searchRunId: input.searchRunId,
     packetHash: normalized.packetHash,
+    packetSchemaVersion: normalized.schemaVersion,
     normalizedCandidateCount: writes.length,
     diagnostics,
   };

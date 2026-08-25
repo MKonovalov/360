@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('server-only', () => ({}));
 
 import type { PersonaMatchRecord } from './searchMatching';
+import type { SearchTerminalResultSummary } from '@/lib/db/schema';
+import type { SearchRunStatus } from './contracts';
 import { processSearchTerminalResult } from './searchCandidates';
 
 const persona = {
@@ -58,14 +60,15 @@ const candidate = {
   ],
 };
 
-function createRun() {
+function createRun(status: SearchRunStatus = 'succeeded') {
   return {
     id: 101,
     initiatingUserId: 'user_360',
     companyId: 42,
-    status: 'succeeded' as const,
+    status,
     packetHash: null as string | null,
     packetSchemaVersion: null as number | null,
+    terminalResultSummary: null as SearchTerminalResultSummary | null,
     companySnapshot: { id: 42, name: 'Acme', domain: 'acme.example' },
     templateSnapshot: {
       buyerRoleRules: [
@@ -145,9 +148,27 @@ function createStore(run: TestRun, personas: readonly PersonaMatchRecord[] = [])
     getRun: vi.fn().mockResolvedValue(run),
     listPersonasForCompany: vi.fn().mockResolvedValue(personas),
     persistCandidates: vi.fn().mockResolvedValue(undefined),
-    updateRunPacket: vi.fn().mockImplementation(async ({ packetHash, packetSchemaVersion }: { packetHash: string; packetSchemaVersion: number }) => {
-      run.packetHash = packetHash;
+    claimPacket: vi.fn().mockImplementation(async ({ packetHash }: { packetHash: string }) => {
+      if (run.packetHash === null) {
+        run.packetHash = packetHash;
+        return 'claimed';
+      }
+      if (run.packetHash !== packetHash) return 'conflict';
+      return run.terminalResultSummary === null ? 'claimed' : 'replayed';
+    }),
+    completePacket: vi.fn().mockImplementation(async ({
+      packetHash,
+      packetSchemaVersion,
+      terminalResultSummary,
+    }: {
+      packetHash: string;
+      packetSchemaVersion: number | null;
+      terminalResultSummary: SearchTerminalResultSummary;
+    }) => {
+      if (run.packetHash !== packetHash) return false;
+      if (run.terminalResultSummary !== null) return true;
       run.packetSchemaVersion = packetSchemaVersion;
+      run.terminalResultSummary = terminalResultSummary;
       return true;
     }),
   };
@@ -307,9 +328,9 @@ describe('processSearchTerminalResult', () => {
   });
 
   it('replays an identical terminal packet without duplicate candidates and conflicts on changed packets', async () => {
-    const run = createRun();
+    const run = createRun('running');
     const store = createStore(run);
-    const input = { searchRunId: run.id, userId: run.initiatingUserId, packet: packet() };
+    const input = { searchRunId: run.id, userId: run.initiatingUserId, packet: packet(), terminalStatus: 'succeeded' as const };
 
     await expect(processSearchTerminalResult(input, store)).resolves.toMatchObject({ kind: 'applied' });
     await expect(processSearchTerminalResult(input, store)).resolves.toMatchObject({ kind: 'replayed' });
@@ -335,5 +356,20 @@ describe('processSearchTerminalResult', () => {
     });
     expect(store.persistCandidates.mock.calls[0]?.[0].candidates).toEqual([]);
     await expect(processSearchTerminalResult(input, store)).resolves.toMatchObject({ kind: 'replayed' });
+  });
+
+  it('keeps a claimed packet retryable when candidate persistence fails', async () => {
+    const run = createRun('running');
+    const store = createStore(run);
+    store.persistCandidates.mockRejectedValue(new Error('candidate persistence failed'));
+    const input = { searchRunId: run.id, userId: run.initiatingUserId, packet: packet(), terminalStatus: 'succeeded' as const };
+
+    await expect(processSearchTerminalResult(input, store)).rejects.toThrow('candidate persistence failed');
+    expect(run.packetHash).toMatch(/^[a-f0-9]{64}$/u);
+    expect(run.terminalResultSummary).toBeNull();
+
+    store.persistCandidates.mockResolvedValue(undefined);
+    await expect(processSearchTerminalResult(input, store)).resolves.toMatchObject({ kind: 'applied' });
+    expect(run.terminalResultSummary).not.toBeNull();
   });
 });
