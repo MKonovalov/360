@@ -92,6 +92,7 @@ export type ArcAgentnetJob = AnalyzeJob;
 export type ArcAgentnetClientFailure =
   | { readonly ok: false; readonly kind: 'not_configured'; readonly status: null }
   | { readonly ok: false; readonly kind: 'network'; readonly status: null }
+  | { readonly ok: false; readonly kind: 'invalid_input'; readonly status: null }
   | { readonly ok: false; readonly kind: 'invalid_response'; readonly status: number }
   | { readonly ok: false; readonly kind: 'http_error'; readonly status: number }
   | { readonly ok: false; readonly kind: 'job_expired'; readonly status: 410 }

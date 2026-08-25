@@ -1,13 +1,13 @@
-import { createHash } from 'node:crypto';
+import { z } from 'zod';
 
 import {
   arcAgentnetClient,
   type ArcAgentnetClient,
   type ArcAgentnetClientResult,
   type ArcAgentnetJob,
-  type ArcAgentnetSubmitContext,
 } from '@/lib/arc-agentnet/client';
 import type { SearchTerminalResultSummary } from '@/lib/db/schema';
+import { normalizeSearchPacket } from './normalizeSearchPacket';
 import {
   getSearchRunById,
   getSearchRunPartnerMapping,
@@ -19,13 +19,43 @@ import {
   type SearchRunRecord,
 } from './searchRuns';
 
-export type SearchSubmitContext = ArcAgentnetSubmitContext;
+export interface SearchSubmitContext {
+  readonly schemaVersion: number;
+  readonly analysis: {
+    readonly resolvedInstructions: string;
+    readonly subjectType: 'company';
+    readonly company: {
+      readonly id: number;
+      readonly name: string;
+      readonly domain: string | null;
+    };
+  };
+}
+
+const searchSubmitContextSchema = z
+  .object({
+    schemaVersion: z.number().int().positive(),
+    analysis: z
+      .object({
+        resolvedInstructions: z.string().trim().min(1).max(20_000),
+        subjectType: z.literal('company'),
+        company: z
+          .object({
+            id: z.number().int().positive(),
+            name: z.string().trim().min(1).max(200),
+            domain: z.string().trim().min(1).max(253).nullable(),
+          })
+          .strict(),
+      })
+      .strict(),
+  })
+  .strict();
 
 export interface SearchJobInput {
   readonly idempotencyKey: string;
   readonly context: SearchSubmitContext;
-  readonly runId?: number;
-  readonly initiatingUserId?: string;
+  readonly runId: number;
+  readonly initiatingUserId: string;
   readonly associateMapping?: typeof associateSearchRunPartnerMapping;
   readonly client?: ArcAgentnetClient;
 }
@@ -36,8 +66,10 @@ export interface SearchPollInput {
 }
 
 export async function submitSearchJob(input: SearchJobInput): Promise<ArcAgentnetClientResult<ArcAgentnetJob>> {
-  const submitted = await (input.client ?? arcAgentnetClient).submit({ idempotencyKey: input.idempotencyKey, input: input.context });
-  if (!submitted.ok || input.runId === undefined || input.initiatingUserId === undefined) return submitted;
+  const parsedContext = searchSubmitContextSchema.safeParse(input.context);
+  if (!parsedContext.success) return { ok: false, kind: 'invalid_input', status: null };
+  const submitted = await (input.client ?? arcAgentnetClient).submit({ idempotencyKey: input.idempotencyKey, input: parsedContext.data });
+  if (!submitted.ok) return submitted;
   try {
     const associated = await (input.associateMapping ?? associateSearchRunPartnerMapping)({
       runId: input.runId,
@@ -70,19 +102,6 @@ export type SearchReconciliationResult =
   | { readonly kind: 'poll_failed'; readonly failure: Exclude<ArcAgentnetClientResult<ArcAgentnetJob>, { readonly ok: true }> }
   | { readonly kind: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled'; readonly run: SearchRunRecord }
   | { readonly kind: 'terminal_conflict'; readonly run: SearchRunRecord };
-
-function canonicalize(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonicalize);
-  if (value !== null && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value as Record<string, unknown>).sort(([left], [right]) => left.localeCompare(right)).map(([key, nested]) => [key, canonicalize(nested)]));
-  }
-  return value;
-}
-
-function hashResult(value: unknown): string | null {
-  if (value === undefined) return null;
-  return createHash('sha256').update(JSON.stringify(canonicalize(value))).digest('hex');
-}
 
 function packetFromResult(result: unknown): unknown {
   if (result !== null && typeof result === 'object' && 'output' in result) return (result as { output?: unknown }).output;
@@ -163,6 +182,10 @@ export async function reconcileSearchRun(
   }
 
   const packet = packetFromResult(polled.value.result);
+  const normalized = normalizeSearchPacket(packet, {
+    resolvedRuleIds: run.templateSnapshot.buyerRoleRules.filter((rule) => rule.required).map((rule) => rule.ruleId),
+    companyDomain: run.companySnapshot.domain,
+  });
   const summary = terminalSummary(polled.value.result);
   const terminal = await recordTerminal({
     runId,
@@ -170,8 +193,8 @@ export async function reconcileSearchRun(
     partnerJobId: polled.value.jobId,
     requestId: polled.value.requestId,
     status: polled.value.status,
-    packetHash: polled.value.status === 'succeeded' ? hashResult(packet) : null,
-    packetSchemaVersion: typeof summary.schemaVersion === 'number' ? summary.schemaVersion : null,
+    packetHash: polled.value.status === 'succeeded' ? normalized.packetHash : null,
+    packetSchemaVersion: normalized.ok ? normalized.schemaVersion : null,
     terminalResultSummary: summary,
   });
   const terminalRun = terminalResultRun(terminal);

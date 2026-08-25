@@ -364,6 +364,16 @@ function sanitizeBuyerRoles(
   run: SearchCandidateRun,
 ): { ok: true; proposals: readonly SearchBuyerRoleProposalSnapshot[] } | { ok: false; diagnostic: SearchProcessingDiagnostic } {
   const evidence = validateBuyerRoleEvidence(run);
+  if (evidence === undefined) {
+    return {
+      ok: false,
+      diagnostic: {
+        code: 'invalid_buyer_role_proposal',
+        message: `Candidate ${candidate.candidateId} cannot use malformed Buyer Role evidence.`,
+        candidateId: candidate.candidateId,
+      },
+    };
+  }
   const rolesById = new Map(run.buyerRoleSnapshot.map((role) => [role.id, role]));
   const rulesById = new Map(run.templateSnapshot.buyerRoleRules.map((rule) => [rule.ruleId, rule]));
   const ruleIdsByRoleId = new Map(
@@ -381,7 +391,7 @@ function sanitizeBuyerRoles(
       const rule = rulesById.get(ruleId);
       return rule === undefined || !ruleIdsByRoleId.get(proposal.buyerRoleId)?.has(ruleId);
     });
-    if (role === undefined || evidence === undefined || hasInvalidRule) {
+    if (role === undefined || hasInvalidRule) {
       return {
         ok: false,
         diagnostic: {

@@ -1,10 +1,16 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
 
 import type { ArcAgentnetClient, ArcAgentnetJob } from '@/lib/arc-agentnet/client';
 
-import { pollSearchJob, reconcileSearchRun, submitSearchJob } from './searchArcAgentnet';
+import {
+  pollSearchJob,
+  reconcileSearchRun,
+  submitSearchJob,
+  type SearchJobInput,
+} from './searchArcAgentnet';
+import { normalizeSearchPacket } from './normalizeSearchPacket';
 
 const context = {
   schemaVersion: 1,
@@ -26,12 +32,45 @@ function fakeClient(overrides: Partial<ArcAgentnetClient> = {}): ArcAgentnetClie
 }
 
 describe('Search Arc Agent Net adapter', () => {
+  it('requires durable run ownership before a partner submission can succeed', () => {
+    expectTypeOf<SearchJobInput['runId']>().toEqualTypeOf<number>();
+    expectTypeOf<SearchJobInput['initiatingUserId']>().toEqualTypeOf<string>();
+  });
+
   it('submits only the bounded resolved Search context through the existing client', async () => {
     const job: ArcAgentnetJob = { jobId: 'job-1', requestId: 'request-1', status: 'queued' };
     const client = fakeClient({ submit: vi.fn().mockResolvedValue({ ok: true, value: job }) });
 
-    await expect(submitSearchJob({ idempotencyKey: 'search-key', context, client })).resolves.toEqual({ ok: true, value: job });
+    await expect(submitSearchJob({
+      idempotencyKey: 'search-key',
+      context,
+      runId: 101,
+      initiatingUserId: 'user-1',
+      associateMapping: vi.fn().mockResolvedValue({ id: 101 }),
+      client,
+    })).resolves.toEqual({ ok: true, value: job });
     expect(client.submit).toHaveBeenCalledWith({ idempotencyKey: 'search-key', input: context });
+  });
+
+  it('rejects unbounded Search context fields before partner submission', async () => {
+    const client = fakeClient({ submit: vi.fn().mockResolvedValue({
+      ok: true,
+      value: { jobId: 'job-1', requestId: 'request-1', status: 'queued' },
+    }) });
+    const unsafeContext = {
+      ...context,
+      analysis: { ...context.analysis, partnerSecret: 'must-not-forward' },
+    };
+
+    await expect(submitSearchJob({
+      idempotencyKey: 'search-key',
+      context: unsafeContext,
+      runId: 101,
+      initiatingUserId: 'user-1',
+      associateMapping: vi.fn(),
+      client,
+    })).resolves.toEqual({ ok: false, kind: 'invalid_input', status: null });
+    expect(client.submit).not.toHaveBeenCalled();
   });
 
   it('associates the returned partner identities with the durable Search run', async () => {
@@ -66,7 +105,14 @@ describe('Search Arc Agent Net adapter', () => {
 
 describe('reconcileSearchRun', () => {
   it('records observed terminal packets exactly once and leaves zero-candidate success without Reviews', async () => {
-    const run = { id: 101, initiatingUserId: 'user-1', partnerJobMappingId: 202, status: 'running' } as const;
+    const run = {
+      id: 101,
+      initiatingUserId: 'user-1',
+      partnerJobMappingId: 202,
+      status: 'running',
+      companySnapshot: { id: 42, name: 'Acme', domain: 'acme.example' },
+      templateSnapshot: { buyerRoleRules: [] },
+    } as const;
     const mapping = { id: 202, partnerJobId: 'job-1', requestId: 'request-1' } as const;
     const job: ArcAgentnetJob = {
       jobId: mapping.partnerJobId,
@@ -93,6 +139,70 @@ describe('reconcileSearchRun', () => {
       terminalResultSummary: expect.objectContaining({ candidateCount: 0 }),
     }));
     expect(result).not.toHaveProperty('reviewsUrl');
+  });
+
+  it('records the same normalized packet hash used by candidate processing', async () => {
+    const packet = {
+      schemaVersion: 1,
+      candidates: [{
+        candidateId: 'candidate-1',
+        persona: {
+          firstName: 'Ada',
+          lastName: 'Lovelace',
+          fullName: ' Ada   Lovelace ',
+          title: ' CFO ',
+          email: ' ADA@EXAMPLE.COM ',
+          linkedinUrl: null,
+          phone: null,
+          location: 'London',
+          department: 'Finance',
+          function: 'Transformation',
+          seniority: 'c_level',
+          companyName: 'Acme',
+          companyDomain: 'acme.example',
+          bio: null,
+          photoUrl: null,
+        },
+        buyerRoleProposals: [],
+        sources: [{
+          sourceId: 'source-1',
+          kind: 'company_website' as const,
+          url: 'https://acme.example/about/?utm_source=search',
+          title: 'About Acme',
+        }],
+        claims: [],
+      }],
+    };
+    const expected = normalizeSearchPacket(packet, { companyDomain: 'acme.example', resolvedRuleIds: [] });
+    const run = {
+      id: 101,
+      initiatingUserId: 'user-1',
+      partnerJobMappingId: 202,
+      status: 'running',
+      companySnapshot: { id: 42, name: 'Acme', domain: 'acme.example' },
+      templateSnapshot: { buyerRoleRules: [] },
+    };
+    const mapping = { id: 202, partnerJobId: 'job-1', requestId: 'request-1' };
+    const client = fakeClient({ poll: vi.fn().mockResolvedValue({
+      ok: true,
+      value: { jobId: 'job-1', requestId: 'request-1', status: 'succeeded', result: packet },
+    }) });
+    const recordStatus = vi.fn().mockResolvedValue({ kind: 'transitioned', run: { ...run, status: 'succeeded' } });
+    const recordTerminal = vi.fn().mockResolvedValue({ kind: 'applied', run: { ...run, status: 'succeeded' } });
+
+    await reconcileSearchRun(101, 'user-1', {
+      client,
+      getRun: vi.fn().mockResolvedValue(run),
+      getMapping: vi.fn().mockResolvedValue(mapping),
+      recordStatus,
+      recordTerminal,
+    });
+
+    expect(expected.ok).toBe(true);
+    expect(recordTerminal).toHaveBeenCalledWith(expect.objectContaining({
+      packetHash: expected.packetHash,
+      packetSchemaVersion: 1,
+    }));
   });
 
   it('does not mutate local status when polling cannot observe partner state', async () => {

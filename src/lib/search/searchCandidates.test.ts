@@ -288,6 +288,24 @@ describe('processSearchTerminalResult', () => {
     expect(store.persistCandidates.mock.calls[0]?.[0].candidates).toEqual([]);
   });
 
+  it('drops zero-proposal candidates when stored Buyer Role evidence is malformed', async () => {
+    const baseRun = createRun();
+    const run = { ...baseRun, buyerRoleEvidenceSnapshot: null };
+    const store = createStore(run);
+    const zeroProposalCandidate = { ...candidate, buyerRoleProposals: [] };
+
+    const result = await processSearchTerminalResult(
+      { searchRunId: run.id, userId: run.initiatingUserId, packet: packet([zeroProposalCandidate]) },
+      store,
+    );
+
+    expect(result).toMatchObject({ kind: 'applied', normalizedCandidateCount: 0 });
+    expect(result).toMatchObject({
+      diagnostics: [expect.objectContaining({ code: 'invalid_buyer_role_proposal', candidateId: 'candidate-1' })],
+    });
+    expect(store.persistCandidates.mock.calls[0]?.[0].candidates).toEqual([]);
+  });
+
   it('replays an identical terminal packet without duplicate candidates and conflicts on changed packets', async () => {
     const run = createRun();
     const store = createStore(run);
