@@ -23,7 +23,7 @@ function searchApprovalHasUnsupportedPercentEncoding(value: SQL<unknown>): SQL<u
   const component = sql`COALESCE(${value}, '')`;
   return sql`
     ${component} ~ '%([^0-9A-Fa-f]|$)'
-    OR ${component} ~ '%[0-9A-Fa-f]$'
+    OR ${component} ~ '%[0-9A-Fa-f]([^0-9A-Fa-f]|$)'
     OR ${component} ~* '%[89A-Fa-f][0-9A-Fa-f]'
     OR ${component} ~* '%00'
   `;
@@ -46,9 +46,15 @@ export function searchApprovalDomainKey(value: SQL<unknown>): SQL<unknown> {
   const textKey = searchApprovalTextKey(value);
   const withoutScheme = sql`regexp_replace(lower(${textKey}), '^[a-z][a-z\\d+.-]*://', '')`;
   const withoutWww = sql`regexp_replace(${withoutScheme}, '^www\\.', '')`;
+  const authority = sql`regexp_replace(${withoutScheme}, '[/?#].*$', '')`;
   const withoutPath = sql`regexp_replace(${withoutWww}, '[/:?#].*$', '')`;
   const validHost = sql`regexp_replace(${withoutPath}, ':\\d+$', '')`;
   const validDomain = sql`regexp_replace(${validHost}, '\\.$', '')`;
+  const port = sql`NULLIF(substring(${authority} FROM '^[^:]+:([0-9]+)$'), '')`;
+  const portSupported = sql`
+    ${port} IS NULL OR ${port} ~ '^0*(?:0|[1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$'
+  `;
+  const authorityHasPercent = sql`${authority} ~ '%'`;
   const hasUserInfo = sql`
     ${textKey} ~* '^[a-z][a-z\\d+.-]*://[^/?#]*@'
     OR ${textKey} ~ '^[^/?#]*@'
@@ -61,12 +67,15 @@ export function searchApprovalDomainKey(value: SQL<unknown>): SQL<unknown> {
     AND NOT (${hasUnsupportedControl})
     AND NOT (${hasUserInfo})
     AND NOT (${hasUnsupportedPercentEncoding})
+    AND NOT (${authorityHasPercent})
+    AND ${portSupported}
     AND ${textKey} ~* '^(?:[a-z][a-z\\d+.-]*://)?[^\\s/?#:]+(?::\\d+)?(?:[/?#].*)?$'
   `;
   return sql`
     CASE
       WHEN ${textKey} IS NULL THEN NULL
-      WHEN ${textKey} = '' OR NOT ${isAscii} OR ${hasUnsupportedControl} OR ${hasUserInfo} OR ${hasUnsupportedPercentEncoding} THEN NULL
+      WHEN ${textKey} = '' THEN NULL
+      WHEN NOT ${isAscii} OR ${hasUnsupportedControl} OR ${hasUserInfo} OR ${hasUnsupportedPercentEncoding} OR ${authorityHasPercent} OR NOT (${portSupported}) THEN NULL
       WHEN ${isSupportedUrl} THEN ${validDomain}
       ELSE NULL
     END
@@ -200,13 +209,11 @@ export function searchApprovalLinkedInKey(value: SQL<unknown>): SQL<unknown> {
       ELSE '?' || ${retainedQuery}
     END
   `;
-  const fallback = sql`regexp_replace(regexp_replace(lower(${textKey}), '[?#].*$', ''), '/+$', '')`;
-
   return sql`
     CASE
+      WHEN ${textKey} = '' THEN ''
       WHEN ${urlBaseSupported} AND ${querySupported} THEN ${validUrl}
-      WHEN ${textKey} ~* '^[a-z][a-z\\d+.-]*://' THEN NULL
-      ELSE ${fallback}
+      ELSE NULL
     END
   `;
 }

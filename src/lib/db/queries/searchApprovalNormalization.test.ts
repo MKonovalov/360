@@ -52,4 +52,28 @@ describe('search approval SQL normalization contracts', () => {
     expect(text).toContain('IS NULL');
     expect(text).toContain('octet_length');
   });
+
+  it('validates every percent sign before SQL query decoding', () => {
+    const text = flattenSql(searchApprovalLinkedInKey(sql`value`));
+
+    expect(text).toContain("'%[0-9A-Fa-f]([^0-9A-Fa-f]|$)'");
+  });
+
+  it('does not fall back to arbitrary non-URL LinkedIn values', () => {
+    const text = flattenSql(searchApprovalLinkedInKey(sql`value`));
+
+    expect(text).not.toContain("regexp_replace(regexp_replace(lower(");
+  });
+
+  it('validates Company URL ports against the URL port range', () => {
+    const text = flattenSql(searchApprovalDomainKey(sql`value`));
+
+    expect(text).toContain('6553[0-5]');
+  });
+
+  it('rejects percent escapes in Company URL authorities', () => {
+    const text = flattenSql(searchApprovalDomainKey(sql`value`));
+
+    expect(text).toContain("~ '%'");
+  });
 });
