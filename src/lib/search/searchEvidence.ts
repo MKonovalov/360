@@ -77,7 +77,7 @@ export function evaluateSearchEvidence(
       deficiencies.push(`unverified_claim:${claim.claimId}`);
       continue;
     }
-    if (countableSourceIds.size > 0 && !claim.sourceIds.some((sourceId) => countableSourceIds.has(sourceId))) {
+    if (!claim.sourceIds.some((sourceId) => countableSourceIds.has(sourceId))) {
       deficiencies.push(`claim_without_eligible_source:${claim.claimId}`);
     }
   }

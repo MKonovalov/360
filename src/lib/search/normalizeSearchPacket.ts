@@ -14,6 +14,7 @@ import {
 } from './contracts';
 
 const TRACKING_QUERY_KEYS = new Set(['fbclid', 'gclid', 'dclid', 'msclkid', 'mc_cid', 'mc_eid', 'trk']);
+const MAX_CANDIDATES_PER_PACKET = 25;
 const SUPPORTED_CLAIM_FIELDS = new Set([
   'firstName',
   'lastName',
@@ -36,6 +37,7 @@ export type SearchNormalizationDiagnosticCode =
   | 'invalid_packet'
   | 'packet_too_large'
   | 'unsupported_schema_version'
+  | 'duplicate_candidate_id'
   | 'invalid_candidate'
   | 'unsupported_source_kind'
   | 'invalid_source'
@@ -111,12 +113,16 @@ const packetEnvelopeSchema = z
     schemaVersion: searchSchemaVersionSchema,
     // Candidate-level validation is intentionally deferred so one malformed
     // candidate cannot turn every valid candidate into a Review-less packet.
-    candidates: z.array(z.unknown()),
+    candidates: z.array(z.unknown()).max(MAX_CANDIDATES_PER_PACKET),
   })
   .strict();
 
 function normalizeText(value: string): string {
   return value.normalize('NFKC').trim().replace(/\s+/gu, ' ');
+}
+
+function compareCanonicalStrings(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 function normalizeNullableText(value: string | null): string | null {
@@ -155,7 +161,7 @@ export function normalizeSearchLinkedInUrl(value: string | null | undefined): st
     const url = new URL(normalizeText(value));
     const retainedParams = [...url.searchParams.entries()]
       .filter(([key]) => !key.toLowerCase().startsWith('utm_') && !TRACKING_QUERY_KEYS.has(key.toLowerCase()))
-      .sort(([left], [right]) => left.localeCompare(right));
+      .sort(([left], [right]) => compareCanonicalStrings(left, right));
     url.search = '';
     for (const [key, paramValue] of retainedParams) url.searchParams.append(key, paramValue);
     url.hash = '';
@@ -192,7 +198,7 @@ function normalizeSourceUrl(value: string): string {
   const url = new URL(value);
   const retainedParams = [...url.searchParams.entries()]
     .filter(([key]) => !key.toLowerCase().startsWith('utm_') && !TRACKING_QUERY_KEYS.has(key.toLowerCase()))
-    .sort(([left], [right]) => left.localeCompare(right));
+    .sort(([left], [right]) => compareCanonicalStrings(left, right));
   url.search = '';
   for (const [key, paramValue] of retainedParams) url.searchParams.append(key, paramValue);
   url.hash = '';
@@ -335,7 +341,8 @@ function normalizeCandidate(
     const normalizedSource: NormalizedSearchSource = {
       ...source,
       url: normalizedUrl,
-      isPublicHttps: source.url.startsWith('https:') && !isPrivateOrUnsafeSourceHost(new URL(source.url).hostname),
+      isPublicHttps:
+        new URL(normalizedUrl).protocol === 'https:' && !isPrivateOrUnsafeSourceHost(new URL(normalizedUrl).hostname),
     };
     sourceById.set(source.sourceId, normalizedSource);
     sources.push(normalizedSource);
@@ -354,7 +361,9 @@ function normalizeCandidate(
       continue;
     }
     claimIds.add(claim.claimId);
-    const canonicalSourceIds = [...new Set(claim.sourceIds.map((sourceId) => sourceIdAliases.get(sourceId) ?? sourceId))];
+    const canonicalSourceIds = [...new Set(claim.sourceIds.map((sourceId) => sourceIdAliases.get(sourceId) ?? sourceId))].sort(
+      compareCanonicalStrings,
+    );
     const validSourceIds = canonicalSourceIds.filter((sourceId) => sourceById.has(sourceId));
     for (const sourceId of canonicalSourceIds) {
       if (!sourceById.has(sourceId)) {
@@ -397,13 +406,19 @@ function normalizeCandidate(
       name: normalizeSearchName(persona.fullName),
       companyDomain: normalizeSearchDomain(context.companyDomain) ?? normalizeSearchDomain(persona.companyDomain),
     },
-    buyerRoleProposals: candidate.buyerRoleProposals.map((proposal) => ({
-      ...proposal,
-      buyerRoleName: normalizeText(proposal.buyerRoleName),
-      matchedRuleIds: proposal.matchedRuleIds.map(normalizeText),
-    })),
-    sources: sources.sort((left, right) => left.sourceId.localeCompare(right.sourceId)),
-    claims: claims.sort((left, right) => left.claimId.localeCompare(right.claimId)),
+    buyerRoleProposals: candidate.buyerRoleProposals
+      .map((proposal) => ({
+        ...proposal,
+        buyerRoleName: normalizeText(proposal.buyerRoleName),
+        matchedRuleIds: proposal.matchedRuleIds.map(normalizeText).sort(compareCanonicalStrings),
+      }))
+      .sort((left, right) => {
+        const byRoleId = left.buyerRoleId - right.buyerRoleId;
+        if (byRoleId !== 0) return byRoleId;
+        return compareCanonicalStrings(safeJson(left), safeJson(right));
+      }),
+    sources: sources.sort((left, right) => compareCanonicalStrings(left.sourceId, right.sourceId)),
+    claims: claims.sort((left, right) => compareCanonicalStrings(left.claimId, right.claimId)),
   };
   return normalizedCandidate;
 }
@@ -441,10 +456,34 @@ export function normalizeSearchPacket(
   }
 
   const diagnostics: SearchNormalizationDiagnostic[] = [];
+  const candidateIds = new Set<string>();
+  const duplicateCandidateIds = new Set<string>();
+  for (const rawCandidate of envelope.data.candidates) {
+    if (rawCandidate === null || typeof rawCandidate !== 'object') continue;
+    const rawCandidateId = (rawCandidate as { candidateId?: unknown }).candidateId;
+    if (typeof rawCandidateId !== 'string') continue;
+    const candidateId = normalizeText(rawCandidateId);
+    if (candidateIds.has(candidateId)) duplicateCandidateIds.add(candidateId);
+    candidateIds.add(candidateId);
+  }
+  if (duplicateCandidateIds.size > 0) {
+    const duplicateDiagnostics = [...duplicateCandidateIds]
+      .sort(compareCanonicalStrings)
+      .map((candidateId) =>
+        diagnostic('duplicate_candidate_id', `Duplicate Search candidate ID: ${candidateId}.`, { candidateId }),
+      );
+    return {
+      ok: false,
+      packetHash: rawHash,
+      reason: 'invalid_packet',
+      candidates: [],
+      diagnostics: duplicateDiagnostics,
+    };
+  }
   const candidates = envelope.data.candidates
     .map((rawCandidate) => normalizeCandidate(rawCandidate, context, diagnostics))
     .filter((candidate): candidate is NormalizedSearchCandidate => candidate !== undefined)
-    .sort((left, right) => left.candidateId.localeCompare(right.candidateId));
+    .sort((left, right) => compareCanonicalStrings(left.candidateId, right.candidateId));
   const normalizedPacket = {
     schemaVersion: envelope.data.schemaVersion,
     candidates,
@@ -456,7 +495,8 @@ export function normalizeSearchPacket(
     schemaVersion: envelope.data.schemaVersion,
     candidates,
     diagnostics: diagnostics.sort((left, right) =>
-      `${left.candidateId ?? ''}:${left.code}:${left.claimId ?? ''}:${left.sourceId ?? ''}`.localeCompare(
+      compareCanonicalStrings(
+        `${left.candidateId ?? ''}:${left.code}:${left.claimId ?? ''}:${left.sourceId ?? ''}`,
         `${right.candidateId ?? ''}:${right.code}:${right.claimId ?? ''}:${right.sourceId ?? ''}`,
       ),
     ),

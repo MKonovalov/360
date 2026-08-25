@@ -86,7 +86,11 @@ describe('evaluateSearchEvidence', () => {
     expect(result).toEqual({
       status: 'inconclusive',
       eligible: false,
-      deficiencies: ['insufficient_public_sources:2', 'missing_required_rule:rule-gbs'],
+      deficiencies: [
+        'claim_without_eligible_source:claim-1',
+        'insufficient_public_sources:2',
+        'missing_required_rule:rule-gbs',
+      ],
     });
   });
 
@@ -119,6 +123,40 @@ describe('evaluateSearchEvidence', () => {
       status: 'inconclusive',
       eligible: false,
       deficiencies: ['no_allowed_public_sources', 'unsupported_claim:claim-1'],
+    });
+  });
+
+  it('keeps claims ineligible when their source kind is disallowed and no minimum is required', () => {
+    const result = evaluateSearchEvidence(
+      {
+        ...candidate,
+        sources: [{ ...candidate.sources[0], kind: 'news_article' }],
+      },
+      { ...policy, minimumPublicSources: 0 },
+      [],
+    );
+
+    expect(result).toEqual({
+      status: 'inconclusive',
+      eligible: false,
+      deficiencies: ['claim_without_eligible_source:claim-1'],
+    });
+  });
+
+  it('keeps claims ineligible when their source is unsafe and no minimum is required', () => {
+    const result = evaluateSearchEvidence(
+      {
+        ...candidate,
+        sources: [{ ...candidate.sources[0], url: 'https://localhost/about', isPublicHttps: false }],
+      },
+      { ...policy, minimumPublicSources: 0 },
+      [],
+    );
+
+    expect(result).toEqual({
+      status: 'inconclusive',
+      eligible: false,
+      deficiencies: ['claim_without_eligible_source:claim-1'],
     });
   });
 });

@@ -70,6 +70,28 @@ describe('normalizeSearchEmail, normalizeSearchName, normalizeSearchDomain, and 
 });
 
 describe('normalizeSearchPacket', () => {
+  it('rejects packets over the declared candidate limit before normalization', () => {
+    const result = normalizeSearchPacket({
+      schemaVersion: 1,
+      candidates: Array.from({ length: 26 }, (_, index) => ({ ...candidate, candidateId: `candidate-${index}` })),
+    });
+
+    expect(result).toMatchObject({ ok: false, reason: 'invalid_packet', candidates: [] });
+    expect(result.diagnostics).toEqual([expect.objectContaining({ code: 'invalid_packet' })]);
+  });
+
+  it('rejects duplicate packet-local candidate IDs before creating normalized candidates', () => {
+    const result = normalizeSearchPacket({
+      schemaVersion: 1,
+      candidates: [candidate, { ...candidate, persona: { ...persona, title: 'COO' } }],
+    });
+
+    expect(result).toMatchObject({ ok: false, reason: 'invalid_packet', candidates: [] });
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({ code: 'duplicate_candidate_id', candidateId: 'candidate-1' }),
+    ]);
+  });
+
   it('normalizes Persona fields and sources while producing a stable packet hash', () => {
     const first = normalizeSearchPacket(
       { schemaVersion: 1, candidates: [candidate] },
@@ -109,6 +131,57 @@ describe('normalizeSearchPacket', () => {
       companyDomain: 'example.com',
     });
     expect(first.candidates[0]?.sources[0]?.url).toBe('https://example.com/about?ref=kept');
+  });
+
+  it('canonicalizes set-valued packet content before hashing', () => {
+    const firstProposal = candidate.buyerRoleProposals[0];
+    const firstClaim = candidate.claims[0];
+    if (!firstProposal || !firstClaim) throw new Error('expected candidate fixtures');
+
+    const first = {
+      schemaVersion: 1,
+      candidates: [
+        {
+          ...candidate,
+          buyerRoleProposals: [
+            { ...firstProposal, buyerRoleId: 10, matchedRuleIds: ['rule-2', 'rule-1'] },
+            { ...firstProposal, buyerRoleId: 2, buyerRoleName: 'Head of GBS', matchedRuleIds: ['rule-3'] },
+          ],
+          sources: [source, { ...source, sourceId: 'source-2', url: 'https://example.com/second' }],
+          claims: [{ ...firstClaim, sourceIds: ['source-2', 'source-1'] }],
+        },
+      ],
+    };
+    const reordered = {
+      schemaVersion: 1,
+      candidates: [
+        {
+          ...first.candidates[0],
+          buyerRoleProposals: [...first.candidates[0].buyerRoleProposals].reverse().map((proposal) => ({
+            ...proposal,
+            matchedRuleIds: [...proposal.matchedRuleIds].reverse(),
+          })),
+          sources: [...first.candidates[0].sources].reverse(),
+          claims: [{ ...firstClaim, sourceIds: ['source-1', 'source-2'] }],
+        },
+      ],
+    };
+
+    expect(normalizeSearchPacket(first).packetHash).toBe(normalizeSearchPacket(reordered).packetHash);
+  });
+
+  it('classifies uppercase HTTPS sources as public after URL normalization', () => {
+    const result = normalizeSearchPacket({
+      schemaVersion: 1,
+      candidates: [{ ...candidate, sources: [{ ...source, url: 'HTTPS://EXAMPLE.COM/about' }] }],
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected packet envelope to be valid');
+    expect(result.candidates[0]?.sources[0]).toMatchObject({
+      url: 'https://example.com/about',
+      isPublicHttps: true,
+    });
   });
 
   it('keeps valid candidates and records invalid candidates as diagnostics-only', () => {
