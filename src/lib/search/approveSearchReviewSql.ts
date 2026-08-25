@@ -5,7 +5,7 @@ import {
   searchApprovalEmailKey,
   searchApprovalLinkedInKey,
   searchApprovalNameKey,
-} from '@/lib/db/queries/personas';
+} from '@/lib/db/queries/searchApprovalNormalization';
 
 export interface ApprovalStatementInput {
   readonly reviewId: number;

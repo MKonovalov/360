@@ -81,7 +81,28 @@ describe('approveSearchReview', () => {
     expect(sqlText).toContain('NFKC');
     expect(sqlText).toContain('utm_');
     expect(sqlText).toContain('fbclid');
-    expect(sqlText).not.toContain("'[?#].*$'");
+    expect(sqlText).toContain("'[?#].*$'");
+  });
+
+  it('sorts retained LinkedIn query parameters without lowercasing their pathname', async () => {
+    mocks.db.execute.mockResolvedValue({ rows: [resultRow()] });
+
+    await approveSearchReview(input);
+
+    const sqlText = JSON.stringify(mocks.db.execute.mock.calls[0]?.[0]);
+    expect(sqlText).toContain('regexp_split_to_table');
+    expect(sqlText).toContain('WITH ORDINALITY');
+    expect(sqlText).toContain('string_agg');
+    expect(sqlText).toContain('linkedin.com');
+  });
+
+  it('strips trailing dots from approval Company domains', async () => {
+    mocks.db.execute.mockResolvedValue({ rows: [resultRow()] });
+
+    await approveSearchReview(input);
+
+    const sqlText = JSON.stringify(mocks.db.execute.mock.calls[0]?.[0]);
+    expect(sqlText).toContain("'[/.]+$'");
   });
 
   it('loads the complete evidence snapshot and resolves concurrent exact-key inserts', async () => {
