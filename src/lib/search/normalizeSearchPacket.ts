@@ -225,6 +225,18 @@ function safeJson(input: unknown): string {
   }
 }
 
+function canonicalSourceKey(source: NormalizedSearchSource): string {
+  return safeJson([
+    source.sourceId,
+    source.kind,
+    source.url,
+    source.title ?? null,
+    source.providerLabel ?? null,
+    source.publishedAt ?? null,
+    source.accessedAt ?? null,
+  ]);
+}
+
 function canonicalize(input: unknown): unknown {
   if (Array.isArray(input)) return input.map(canonicalize);
   if (input !== null && typeof input === 'object') {
@@ -316,7 +328,20 @@ function normalizeCandidate(
   const sourceIdAliases = new Map<string, string>();
   const sources: NormalizedSearchSource[] = [];
 
-  for (const source of candidate.sources) {
+  const preparedSources = candidate.sources
+    .map((source) => {
+      const normalizedUrl = normalizeSourceUrl(source.url);
+      const normalizedSource: NormalizedSearchSource = {
+        ...source,
+        url: normalizedUrl,
+        isPublicHttps:
+          new URL(normalizedUrl).protocol === 'https:' && !isPrivateOrUnsafeSourceHost(new URL(normalizedUrl).hostname),
+      };
+      return { source: normalizedSource, canonicalKey: canonicalSourceKey(normalizedSource) };
+    })
+    .sort((left, right) => compareCanonicalStrings(left.canonicalKey, right.canonicalKey));
+
+  for (const { source } of preparedSources) {
     if (sourceById.has(source.sourceId)) {
       diagnostics.push(
         diagnostic('duplicate_source_id', `Duplicate Search source ID: ${source.sourceId}.`, {
@@ -326,26 +351,19 @@ function normalizeCandidate(
       );
       continue;
     }
-    const normalizedUrl = normalizeSourceUrl(source.url);
-    const existing = sources.find((item) => item.url === normalizedUrl);
+    const existing = sources.find((item) => item.url === source.url);
     if (existing) {
       sourceIdAliases.set(source.sourceId, existing.sourceId);
       diagnostics.push(
-        diagnostic('duplicate_source_url', `Duplicate normalized Search source URL: ${normalizedUrl}.`, {
+        diagnostic('duplicate_source_url', `Duplicate normalized Search source URL: ${source.url}.`, {
           candidateId: candidate.candidateId,
           sourceId: source.sourceId,
         }),
       );
       continue;
     }
-    const normalizedSource: NormalizedSearchSource = {
-      ...source,
-      url: normalizedUrl,
-      isPublicHttps:
-        new URL(normalizedUrl).protocol === 'https:' && !isPrivateOrUnsafeSourceHost(new URL(normalizedUrl).hostname),
-    };
-    sourceById.set(source.sourceId, normalizedSource);
-    sources.push(normalizedSource);
+    sourceById.set(source.sourceId, source);
+    sources.push(source);
   }
 
   const claimIds = new Set<string>();

@@ -235,6 +235,53 @@ describe('normalizeSearchPacket', () => {
     );
   });
 
+  it('chooses a deterministic winner when duplicate source URLs arrive in reverse order', () => {
+    const sourceZ = {
+      ...source,
+      sourceId: 'source-z',
+      title: 'Zeta source',
+      providerLabel: 'Provider Z',
+    };
+    const sourceA = {
+      ...source,
+      sourceId: 'source-a',
+      url: 'https://EXAMPLE.com/about/?ref=kept#fragment',
+      title: 'Alpha source',
+      providerLabel: 'Provider A',
+    };
+    const first = normalizeSearchPacket({
+      schemaVersion: 1,
+      candidates: [
+        {
+          ...candidate,
+          sources: [sourceZ, sourceA],
+          claims: [{ ...candidate.claims[0], sourceIds: ['source-z', 'source-a'] }],
+        },
+      ],
+    });
+    const reversed = normalizeSearchPacket({
+      schemaVersion: 1,
+      candidates: [
+        {
+          ...candidate,
+          sources: [sourceA, sourceZ],
+          claims: [{ ...candidate.claims[0], sourceIds: ['source-a', 'source-z'] }],
+        },
+      ],
+    });
+
+    expect(first.ok).toBe(true);
+    expect(reversed.ok).toBe(true);
+    if (!first.ok || !reversed.ok) throw new Error('expected valid packets');
+
+    expect(reversed.packetHash).toBe(first.packetHash);
+    expect(reversed.candidates).toEqual(first.candidates);
+    expect(first.candidates[0]?.sources).toEqual([
+      expect.objectContaining({ sourceId: 'source-a', title: 'Alpha source', providerLabel: 'Provider A' }),
+    ]);
+    expect(first.candidates[0]?.claims[0]?.sourceIds).toEqual(['source-a']);
+  });
+
   it('rejects unsafe top-level packet shape and never accepts Markdown as machine input', () => {
     const result = normalizeSearchPacket({ schemaVersion: 1, candidates: [], markdown: 'debug transcript' });
 
