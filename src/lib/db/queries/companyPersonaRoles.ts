@@ -81,6 +81,20 @@ export async function insertCompanyPersonaRoleBuyerRoleIfMissing(
   return { created: false };
 }
 
+// Explicit Search approval names keep callers on the partial/current-role and
+// composite-link uniqueness guards instead of using an unconditional insert.
+export async function insertCompanyPersonaRoleForSearchApproval(
+  input: InsertCurrentCompanyPersonaRoleInput,
+): Promise<{ id: number; created: boolean }> {
+  return insertCompanyPersonaRoleIfMissing(input);
+}
+
+export async function insertCompanyPersonaRoleBuyerRoleForSearchApproval(
+  input: InsertCompanyPersonaRoleBuyerRoleInput,
+): Promise<{ created: boolean }> {
+  return insertCompanyPersonaRoleBuyerRoleIfMissing(input);
+}
+
 // COMP-04: linked personas for a company's detail pane — inner join keeps
 // only roles with a resolvable persona (should always be true given FK
 // constraints, but inner join is the correct/simplest expression either way).

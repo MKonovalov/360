@@ -1,4 +1,5 @@
 import { and, eq, ilike, exists, not, or, sql } from 'drizzle-orm';
+import type { SQL } from 'drizzle-orm';
 import { db } from '../index';
 import { persona, companyPersonaRole, company, signal, seniorityEnum } from '../schema';
 import { normalizeEmail, buildUpdatePatch } from '@/lib/import/dedupKeys';
@@ -200,4 +201,23 @@ export async function applyPersonaEnrichment(
     .where(and(eq(persona.id, id), eq(persona.version, baseVersion)))
     .returning({ id: persona.id });
   return updated !== undefined;
+}
+
+// Search approval uses these exact, non-fuzzy keys inside its single SQL
+// statement. Keeping the normalization fragments here prevents an approval
+// caller from falling back to broad text matching or string-built SQL.
+export function searchApprovalEmailKey(value: SQL<unknown>): SQL<unknown> {
+  return sql`lower(btrim(${value}))`;
+}
+
+export function searchApprovalLinkedInKey(value: SQL<unknown>): SQL<unknown> {
+  return sql`regexp_replace(regexp_replace(regexp_replace(lower(btrim(${value})), '^https?://www\\.', 'https://'), '[?#].*$', ''), '/+$', '')`;
+}
+
+export function searchApprovalNameKey(value: SQL<unknown>): SQL<unknown> {
+  return sql`lower(regexp_replace(btrim(${value}), '\\s+', ' ', 'g'))`;
+}
+
+export function searchApprovalDomainKey(value: SQL<unknown>): SQL<unknown> {
+  return sql`regexp_replace(regexp_replace(lower(btrim(${value})), '^https?://www\\.', ''), '/+$', '')`;
 }
