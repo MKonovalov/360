@@ -125,6 +125,21 @@ function compareCanonicalStrings(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
+const DOMAIN_INPUT_PATTERN = /^(?:[a-z][a-z\d+.-]*:\/\/)?[^\s/?#:]+(?::\d+)?(?:[/?#].*)?$/iu;
+const LINKEDIN_URL_BASE_PATTERN = /^https?:\/\/[A-Za-z0-9._-]+(?:\/[^?#]*)?$/iu;
+const MALFORMED_PERCENT_PATTERN = /%(?![0-9A-Fa-f]{2})/u;
+const UNSUPPORTED_PERCENT_PATTERN = /%[89A-Fa-f][0-9A-Fa-f]|%00/iu;
+const USERINFO_AUTHORITY_PATTERN = /^(?:[a-z][a-z\d+.-]*:\/\/)?[^/?#]*@/iu;
+const UNSUPPORTED_CONTROL_PATTERN = /[\u0000-\u0008\u000E-\u001F\u007F]/u;
+
+function isAscii(value: string): boolean {
+  return !/[^\x00-\x7F]/u.test(value);
+}
+
+function hasUnsupportedPercentEncoding(value: string): boolean {
+  return MALFORMED_PERCENT_PATTERN.test(value) || UNSUPPORTED_PERCENT_PATTERN.test(value);
+}
+
 function normalizeNullableText(value: string | null): string | null {
   return value === null ? null : normalizeText(value);
 }
@@ -140,25 +155,47 @@ export function normalizeSearchName(value: string): string {
 export function normalizeSearchDomain(value: string | null | undefined): string | null {
   if (value === null || value === undefined) return null;
   const normalized = normalizeText(value);
-  if (normalized === '') return null;
+  if (
+    normalized === '' ||
+    !isAscii(normalized) ||
+    UNSUPPORTED_CONTROL_PATTERN.test(normalized) ||
+    hasUnsupportedPercentEncoding(normalized) ||
+    USERINFO_AUTHORITY_PATTERN.test(normalized) ||
+    !DOMAIN_INPUT_PATTERN.test(normalized)
+  ) {
+    return null;
+  }
 
   try {
     const candidate = normalized.includes('://') ? normalized : `https://${normalized}`;
     const url = new URL(candidate);
     return url.hostname.toLowerCase().replace(/^www\./u, '').replace(/\.$/u, '') || null;
   } catch {
-    return normalized
-      .toLowerCase()
-      .replace(/^[a-z][a-z\d+.-]*:\/\//u, '')
-      .replace(/^www\./u, '')
-      .replace(/[/.]+$/u, '') || null;
+    return null;
   }
 }
 
 export function normalizeSearchLinkedInUrl(value: string | null | undefined): string | null {
   if (value === null || value === undefined) return null;
+  const normalized = normalizeText(value);
+  if (normalized === '') return '';
+  const hashless = normalized.replace(/#.*$/u, '');
+  const urlBase = (hashless.split('?')[0] ?? '').replace(/\/+$/u, '');
+  if (
+    !isAscii(hashless) ||
+    UNSUPPORTED_CONTROL_PATTERN.test(hashless) ||
+    hasUnsupportedPercentEncoding(hashless) ||
+    USERINFO_AUTHORITY_PATTERN.test(urlBase) ||
+    !LINKEDIN_URL_BASE_PATTERN.test(urlBase) ||
+    /[\s]/u.test(urlBase) ||
+    /(^|\/)\.{1,2}(?:\/|$)/u.test(urlBase) ||
+    /%2e/iu.test(urlBase)
+  ) {
+    return null;
+  }
+
   try {
-    const url = new URL(normalizeText(value));
+    const url = new URL(normalized);
     const retainedParams = [...url.searchParams.entries()]
       .filter(([key]) => !key.toLowerCase().startsWith('utm_') && !TRACKING_QUERY_KEYS.has(key.toLowerCase()))
       .sort(([left], [right]) => compareCanonicalStrings(left, right));
@@ -169,7 +206,7 @@ export function normalizeSearchLinkedInUrl(value: string | null | undefined): st
     url.pathname = url.pathname.replace(/\/+$/u, '');
     return url.toString().replace(/\/$/u, '');
   } catch {
-    return normalizeText(value).toLowerCase().replace(/[?#].*$/u, '').replace(/\/+$/u, '');
+    return null;
   }
 }
 

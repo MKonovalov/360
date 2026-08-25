@@ -20,6 +20,7 @@ describe('Search identity normalization parity cases', () => {
 
   it('normalizes trailing-dot Company domains', () => {
     expect(normalizeSearchDomain(' HTTPS://WWW.Example.COM./ ')).toBe('example.com');
+    expect(normalizeSearchDomain('\u00a0HTTPS://WWW.Example.COM.\u00a0')).toBe('example.com');
   });
 
   it('trims email after NFKC normalization', () => {
@@ -38,17 +39,19 @@ describe('Search identity normalization parity cases', () => {
     expect(percentEncoded).toBe(plusEncoded);
   });
 
-  it('preserves the path in the malformed-domain fallback', () => {
-    expect(normalizeSearchDomain('not a domain/path')).toBe('not a domain/path');
+  it('fails closed for malformed domain input', () => {
+    expect(normalizeSearchDomain('not a domain/path')).toBeNull();
   });
 
-  it('normalizes malformed LinkedIn percent encoding without throwing', () => {
-    expect(normalizeSearchLinkedInUrl('https://www.linkedin.com/in/Ada?a=%FF')).toBe(
-      'https://www.linkedin.com/in/Ada?a=%EF%BF%BD',
-    );
+  it('fails closed for malformed LinkedIn percent encoding', () => {
+    expect(normalizeSearchLinkedInUrl('https://www.linkedin.com/in/Ada?a=%FF')).toBeNull();
   });
 
-  it('parses userinfo-like domains through the TypeScript URL contract', () => {
-    expect(normalizeSearchDomain('user@example.com')).toBe('example.com');
+  it('fails closed for userinfo-like domains', () => {
+    expect(normalizeSearchDomain('user@example.com')).toBeNull();
+  });
+
+  it('fails closed for valid UTF-8 query bytes outside the SQL grammar', () => {
+    expect(normalizeSearchLinkedInUrl('https://www.linkedin.com/in/Ada?a=%C3%A9')).toBeNull();
   });
 });
