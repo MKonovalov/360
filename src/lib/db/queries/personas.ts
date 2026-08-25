@@ -206,18 +206,24 @@ export async function applyPersonaEnrichment(
 // Search approval uses these exact, non-fuzzy keys inside its single SQL
 // statement. Keeping the normalization fragments here prevents an approval
 // caller from falling back to broad text matching or string-built SQL.
+function searchApprovalTextKey(value: SQL<unknown>): SQL<unknown> {
+  return sql`regexp_replace(normalize(btrim(${value}), NFKC), '\\s+', ' ', 'g')`;
+}
+
 export function searchApprovalEmailKey(value: SQL<unknown>): SQL<unknown> {
-  return sql`lower(btrim(${value}))`;
+  return sql`lower(${searchApprovalTextKey(value)})`;
 }
 
 export function searchApprovalLinkedInKey(value: SQL<unknown>): SQL<unknown> {
-  return sql`regexp_replace(regexp_replace(regexp_replace(lower(btrim(${value})), '^https?://www\\.', 'https://'), '[?#].*$', ''), '/+$', '')`;
+  const textKey = searchApprovalTextKey(value);
+  const withoutTracking = sql`regexp_replace(${textKey}, '([?&])(utm_[^=&]*|fbclid|gclid|dclid|msclkid|mc_cid|mc_eid|trk)(=[^&]*)?(&|$)', '\\1', 'gi')`;
+  return sql`regexp_replace(regexp_replace(regexp_replace(lower(${withoutTracking}), '^https?://www\\.', 'https://'), '#.*$', ''), '[?&]$', '')`;
 }
 
 export function searchApprovalNameKey(value: SQL<unknown>): SQL<unknown> {
-  return sql`lower(regexp_replace(btrim(${value}), '\\s+', ' ', 'g'))`;
+  return sql`lower(${searchApprovalTextKey(value)})`;
 }
 
 export function searchApprovalDomainKey(value: SQL<unknown>): SQL<unknown> {
-  return sql`regexp_replace(regexp_replace(lower(btrim(${value})), '^https?://www\\.', ''), '/+$', '')`;
+  return sql`regexp_replace(regexp_replace(regexp_replace(lower(${searchApprovalTextKey(value)}), '^[a-z][a-z\\d+.-]*://', ''), '^www\\.', ''), '[/:].*$', '')`;
 }

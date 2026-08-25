@@ -31,6 +31,15 @@ const resultRowSchema = z.discriminatedUnion('kind', [
   ...(['not_found', 'unauthorized', 'stale_revision', 'already_terminal', 'ambiguous_match', 'inconclusive', 'unknown_buyer_role', 'company_mismatch', 'invalid_persona', 'conflict', 'persistence_failed'] as const).map((kind) => z.object({ kind: z.literal(kind) })),
 ]);
 
+function hasPostgresCode(error: unknown, code: string): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < 4 && current instanceof Error; depth += 1) {
+    if (Reflect.get(current, 'code') === code) return true;
+    current = current.cause;
+  }
+  return false;
+}
+
 function normalizeResult(row: unknown): ApprovalResult {
   const parsed = resultRowSchema.safeParse(row);
   if (!parsed.success) return { kind: 'persistence_failed' };
@@ -65,7 +74,6 @@ export async function approveSearchReview(input: unknown): Promise<ApprovalResul
     const result = await db.execute(buildApproveSearchReviewSql(parsed.data));
     return normalizeResult(result.rows[0]);
   } catch (error: unknown) {
-    if (error instanceof Error) return { kind: 'persistence_failed' };
-    return { kind: 'persistence_failed' };
+    return hasPostgresCode(error, '23505') ? { kind: 'conflict' } : { kind: 'persistence_failed' };
   }
 }

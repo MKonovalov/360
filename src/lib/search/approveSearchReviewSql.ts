@@ -129,8 +129,8 @@ export function buildApproveSearchReviewSql(input: ApprovalStatementInput): SQL<
       UPDATE persona target SET name = CASE WHEN state.full_name_staged THEN state.persona_snapshot->>'fullName' ELSE target.name END,
         title = CASE WHEN state.title_staged THEN NULLIF(state.persona_snapshot->>'title', '') ELSE target.title END,
         seniority = CASE WHEN state.seniority_staged THEN NULLIF(state.persona_snapshot->>'seniority', '')::seniority ELSE target.seniority END,
-        email = CASE WHEN state.email_staged THEN NULLIF(lower(btrim(state.persona_snapshot->>'email')), '') ELSE target.email END,
-        linkedin_url = CASE WHEN state.linkedin_staged THEN NULLIF(state.persona_snapshot->>'linkedinUrl', '') ELSE target.linkedin_url END,
+        email = CASE WHEN state.email_staged THEN NULLIF(${searchApprovalEmailKey(sql`state.persona_snapshot->>'email'`)}, '') ELSE target.email END,
+        linkedin_url = CASE WHEN state.linkedin_staged THEN NULLIF(${searchApprovalLinkedInKey(sql`state.persona_snapshot->>'linkedinUrl'`)}, '') ELSE target.linkedin_url END,
         version = target.version + 1
       FROM eligible_state state WHERE state.match_kind = 'existing' AND state.locked_persona_id = target.id
         AND (state.full_name_staged OR state.title_staged OR state.seniority_staged OR state.email_staged OR state.linkedin_staged)
@@ -141,7 +141,7 @@ export function buildApproveSearchReviewSql(input: ApprovalStatementInput): SQL<
     upserted_persona AS (
       INSERT INTO persona AS target (name, title, seniority, email, linkedin_url)
       SELECT state.persona_snapshot->>'fullName', NULLIF(state.persona_snapshot->>'title', ''), NULLIF(state.persona_snapshot->>'seniority', '')::seniority,
-        NULLIF(lower(btrim(state.persona_snapshot->>'email')), ''), NULLIF(state.persona_snapshot->>'linkedinUrl', '')
+        NULLIF(${searchApprovalEmailKey(sql`state.persona_snapshot->>'email'`)}, ''), NULLIF(${searchApprovalLinkedInKey(sql`state.persona_snapshot->>'linkedinUrl'`)}, '')
       FROM eligible_state state WHERE state.match_kind = 'new'
       ON CONFLICT (email) DO UPDATE SET id = target.id
       RETURNING id, email, name, (xmax = 0) AS created

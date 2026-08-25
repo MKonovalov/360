@@ -72,6 +72,18 @@ describe('approveSearchReview', () => {
     expect(sqlText).toContain('fullName');
   });
 
+  it('uses the canonical Search normalization rules for approval matching', async () => {
+    mocks.db.execute.mockResolvedValue({ rows: [resultRow()] });
+
+    await approveSearchReview(input);
+
+    const sqlText = JSON.stringify(mocks.db.execute.mock.calls[0]?.[0]);
+    expect(sqlText).toContain('NFKC');
+    expect(sqlText).toContain('utm_');
+    expect(sqlText).toContain('fbclid');
+    expect(sqlText).not.toContain("'[?#].*$'");
+  });
+
   it('loads the complete evidence snapshot and resolves concurrent exact-key inserts', async () => {
     mocks.db.execute.mockResolvedValue({ rows: [resultRow()] });
 
@@ -92,6 +104,7 @@ describe('approveSearchReview', () => {
     ['stale revision', { kind: 'stale_revision' }],
     ['unauthorized owner', { kind: 'unauthorized' }],
     ['company identity mismatch', { kind: 'company_mismatch' }],
+    ['database conflict', { kind: 'conflict' }],
   ])('returns a safe %s outcome without a domain result', async (_label, row) => {
     mocks.db.execute.mockResolvedValue({ rows: [row] });
 
@@ -111,6 +124,12 @@ describe('approveSearchReview', () => {
     await expect(approveSearchReview(input)).resolves.toEqual({ kind: 'persistence_failed' });
     expect(mocks.db.execute).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(mocks.db.execute.mock.calls[0]?.[0])).not.toContain('partner');
+  });
+
+  it('maps a database uniqueness conflict to the explicit conflict outcome', async () => {
+    mocks.db.execute.mockRejectedValueOnce(Object.assign(new Error('duplicate key'), { code: '23505' }));
+
+    await expect(approveSearchReview(input)).resolves.toEqual({ kind: 'conflict' });
   });
 
   it('does not expose partner identifiers, prompts, or private reasoning in the approved result', async () => {
