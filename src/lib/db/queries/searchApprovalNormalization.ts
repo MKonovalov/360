@@ -19,6 +19,21 @@ function searchApprovalTextKey(value: SQL<unknown>): SQL<unknown> {
   )`;
 }
 
+function searchApprovalHasUnsupportedPercentEncoding(value: SQL<unknown>): SQL<unknown> {
+  const component = sql`COALESCE(${value}, '')`;
+  return sql`
+    ${component} ~ '%([^0-9A-Fa-f]|$)'
+    OR ${component} ~ '%[0-9A-Fa-f]$'
+    OR ${component} ~* '%[89A-Fa-f][0-9A-Fa-f]'
+    OR ${component} ~* '%00'
+  `;
+}
+
+function searchApprovalHasUnsupportedControl(value: SQL<unknown>): SQL<unknown> {
+  const component = sql`COALESCE(${value}, '')`;
+  return sql`${component} ~ '[[:cntrl:]]'`;
+}
+
 export function searchApprovalEmailKey(value: SQL<unknown>): SQL<unknown> {
   return sql`lower(${searchApprovalTextKey(value)})`;
 }
@@ -34,36 +49,37 @@ export function searchApprovalDomainKey(value: SQL<unknown>): SQL<unknown> {
   const withoutPath = sql`regexp_replace(${withoutWww}, '[/:?#].*$', '')`;
   const validHost = sql`regexp_replace(${withoutPath}, ':\\d+$', '')`;
   const validDomain = sql`regexp_replace(${validHost}, '\\.$', '')`;
-  const fallback = sql`regexp_replace(${withoutWww}, '[/.]+$', '')`;
   const hasUserInfo = sql`
     ${textKey} ~* '^[a-z][a-z\\d+.-]*://[^/?#]*@'
     OR ${textKey} ~ '^[^/?#]*@'
   `;
   const isAscii = sql`octet_length(${textKey}) = length(${textKey})`;
+  const hasUnsupportedPercentEncoding = searchApprovalHasUnsupportedPercentEncoding(textKey);
+  const hasUnsupportedControl = searchApprovalHasUnsupportedControl(textKey);
   const isSupportedUrl = sql`
     ${isAscii}
+    AND NOT (${hasUnsupportedControl})
     AND NOT (${hasUserInfo})
+    AND NOT (${hasUnsupportedPercentEncoding})
     AND ${textKey} ~* '^(?:[a-z][a-z\\d+.-]*://)?[^\\s/?#:]+(?::\\d+)?(?:[/?#].*)?$'
   `;
   return sql`
     CASE
       WHEN ${textKey} IS NULL THEN NULL
-      WHEN NOT ${isAscii} OR ${hasUserInfo} THEN NULL
+      WHEN ${textKey} = '' OR NOT ${isAscii} OR ${hasUnsupportedControl} OR ${hasUserInfo} OR ${hasUnsupportedPercentEncoding} THEN NULL
       WHEN ${isSupportedUrl} THEN ${validDomain}
-      ELSE ${fallback}
+      ELSE NULL
     END
   `;
 }
 
 function searchApprovalFormSupported(value: SQL<unknown>): SQL<unknown> {
   const component = sql`COALESCE(${value}, '')`;
+  const hasUnsupportedPercentEncoding = searchApprovalHasUnsupportedPercentEncoding(value);
   return sql`
     octet_length(${component}) = length(${component})
     AND ${component} !~ '[[:cntrl:]]'
-    AND ${component} !~ '%([^0-9A-Fa-f]|$)'
-    AND ${component} !~ '%[0-9A-Fa-f]$'
-    AND ${component} !~* '%[89A-Fa-f][0-9A-Fa-f]'
-    AND ${component} !~* '%00'
+    AND NOT (${hasUnsupportedPercentEncoding})
   `;
 }
 
@@ -138,14 +154,15 @@ export function searchApprovalLinkedInKey(value: SQL<unknown>): SQL<unknown> {
   const linkedinBase = canonicalBase;
   const query = sql`NULLIF(substring(${hashless} FROM '\\?([^#]*)$'), '')`;
   const querySupported = sql`${query} IS NULL OR ${searchApprovalFormSupported(query)}`;
+  const baseHasUnsupportedPercentEncoding = searchApprovalHasUnsupportedPercentEncoding(urlBase);
+  const baseHasUnsupportedControl = searchApprovalHasUnsupportedControl(urlBase);
   const urlBaseSupported = sql`
     ${urlBase} ~* '^https?://[A-Za-z0-9._-]+(?:/[^?#]*)?$'
     AND octet_length(${urlBase}) = length(${urlBase})
     AND ${urlBase} !~ '[[:space:]]'
+    AND NOT (${baseHasUnsupportedControl})
     AND ${urlBase} !~ '(^|/)\\.{1,2}(/|$)'
-    AND ${urlBase} !~* '%([^0-9A-Fa-f]|$)'
-    AND ${urlBase} !~* '%[0-9A-Fa-f]$'
-    AND ${urlBase} !~* '%[89A-Fa-f][0-9A-Fa-f]'
+    AND NOT (${baseHasUnsupportedPercentEncoding})
     AND ${urlBase} !~* '%2e'
   `;
   const retainedQuery = sql`(

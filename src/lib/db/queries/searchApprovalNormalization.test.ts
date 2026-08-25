@@ -37,11 +37,11 @@ describe('search approval SQL normalization contracts', () => {
     expect(text).toContain('encode(convert_to(');
   });
 
-  it('keeps malformed domain paths in the fallback branch', () => {
+  it('exposes a fail-closed branch for unsupported domain inputs', () => {
     const text = flattenSql(searchApprovalDomainKey(sql`value`));
 
     expect(text).toContain('CASE');
-    expect(text).toContain("'[/:?#].*$', '')");
+    expect(text).toContain('THEN NULL');
   });
 
   it('preserves the LinkedIn www host and exposes fail-closed boundaries', () => {
