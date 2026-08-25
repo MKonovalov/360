@@ -28,6 +28,7 @@ export interface CreateSearchRunInput {
   readonly companySnapshot: SearchCompanySnapshot;
   readonly templateSnapshot: SearchTemplateSnapshot;
   readonly buyerRoleSnapshot: SearchRunRecord['buyerRoleSnapshot'];
+  readonly buyerRoleEvidenceSnapshot: SearchRunRecord['buyerRoleEvidenceSnapshot'];
   readonly evidencePolicySnapshot: SearchEvidencePolicySnapshot;
 }
 
@@ -171,12 +172,13 @@ export async function createSearchRun(input: CreateSearchRunInput): Promise<Crea
         INSERT INTO search_run (
           initiating_user_id, idempotency_key, input_fingerprint, company_id,
           template_version_id, company_snapshot, template_snapshot,
-          buyer_role_snapshot, evidence_policy_snapshot, status
+          buyer_role_snapshot, buyer_role_evidence_snapshot, evidence_policy_snapshot, status
         )
         SELECT
           ${input.initiatingUserId}, ${input.idempotencyKey}, ${input.inputFingerprint}, ${input.companyId},
           ${input.templateVersionId}, ${JSON.stringify(input.companySnapshot)}::jsonb,
           ${JSON.stringify(input.templateSnapshot)}::jsonb, ${JSON.stringify(input.buyerRoleSnapshot)}::jsonb,
+          ${JSON.stringify(input.buyerRoleEvidenceSnapshot)}::jsonb,
           ${JSON.stringify(input.evidencePolicySnapshot)}::jsonb, 'queued'
         WHERE NOT EXISTS (SELECT 1 FROM existing_run)
         RETURNING id

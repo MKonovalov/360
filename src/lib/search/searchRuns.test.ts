@@ -74,6 +74,7 @@ const createInput: CreateSearchRunInput = {
     status: 'active',
   },
   buyerRoleSnapshot: [{ id: 1, name: 'CFO' }],
+  buyerRoleEvidenceSnapshot: [],
   evidencePolicySnapshot: { minimumPublicSources: 1, allowedSourceKinds: [], requireHttps: true, allowPrivateSources: false },
 };
 

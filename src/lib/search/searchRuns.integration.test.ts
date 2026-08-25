@@ -84,6 +84,7 @@ describeWithDatabase('Search run persistence against Neon', () => {
         status: 'active' as const,
       },
       buyerRoleSnapshot: [],
+      buyerRoleEvidenceSnapshot: [],
       evidencePolicySnapshot: { minimumPublicSources: 1, allowedSourceKinds: [], requireHttps: true, allowPrivateSources: false },
     } satisfies import('./searchRuns').CreateSearchRunInput;
 
