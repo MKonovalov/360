@@ -78,12 +78,16 @@ export type AnalyzeSubmitInput = {
   readonly input: ArcAgentnetSubmitContext;
 };
 
+export type ArcAgentnetSubmitInput = AnalyzeSubmitInput;
+
 export type AnalyzeJob = {
   readonly jobId: string;
   readonly status: ArcAgentnetStatus;
   readonly requestId: string;
   readonly result?: ArcAgentnetJsonValue;
 };
+
+export type ArcAgentnetJob = AnalyzeJob;
 
 export type ArcAgentnetClientFailure =
   | { readonly ok: false; readonly kind: 'not_configured'; readonly status: null }
