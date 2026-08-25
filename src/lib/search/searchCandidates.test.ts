@@ -239,6 +239,39 @@ describe('processSearchTerminalResult', () => {
     ]);
   });
 
+  it('keeps candidates with missing claim sources out of Reviews while preserving valid claims', async () => {
+    const run = createRun();
+    const store = createStore(run);
+    const invalidClaimCandidate = {
+      ...candidate,
+      candidateId: 'missing-source-candidate',
+      claims: [{ ...candidate.claims[0], sourceIds: ['missing-source'] }],
+    };
+
+    const result = await processSearchTerminalResult(
+      {
+        searchRunId: run.id,
+        userId: run.initiatingUserId,
+        packet: packet([candidate, invalidClaimCandidate]),
+      },
+      store,
+    );
+
+    expect(result).toMatchObject({ kind: 'applied', normalizedCandidateCount: 1 });
+    expect(result).toMatchObject({
+      diagnostics: [
+        expect.objectContaining({
+          code: 'missing_source_reference',
+          candidateId: 'missing-source-candidate',
+          sourceId: 'missing-source',
+        }),
+      ],
+    });
+    expect(store.persistCandidates.mock.calls[0]?.[0].candidates).toEqual([
+      expect.objectContaining({ packetCandidateId: 'candidate-1', claimsSnapshot: [expect.objectContaining({ sourceIds: ['source-1'] })] }),
+    ]);
+  });
+
   it('rejects a proposal for an unknown Buyer Role even when its rule is known', async () => {
     const run = createRun();
     const store = createStore(run);

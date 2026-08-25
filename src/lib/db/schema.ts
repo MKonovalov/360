@@ -1374,7 +1374,14 @@ export const searchCandidateAudit = pgTable(
     changes: jsonb('changes').$type<readonly SearchCandidateAuditChange[]>().notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
-  (table) => [index('search_candidate_audit_order_idx').on(table.searchCandidateId, table.createdAt, table.id)],
+  (table) => [
+    unique('search_candidate_audit_candidate_event_revision_unique').on(
+      table.searchCandidateId,
+      table.eventType,
+      table.revision,
+    ),
+    index('search_candidate_audit_order_idx').on(table.searchCandidateId, table.createdAt, table.id),
+  ],
 );
 
 export const searchCandidateSource = pgTable(

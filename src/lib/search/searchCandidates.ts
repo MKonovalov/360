@@ -226,7 +226,9 @@ const defaultStore: SearchCandidateStore = {
           }];
     });
     if (auditRows.length > 0) {
-      await db.insert(searchCandidateAudit).values(auditRows).onConflictDoNothing();
+      await db.insert(searchCandidateAudit).values(auditRows).onConflictDoNothing({
+        target: [searchCandidateAudit.searchCandidateId, searchCandidateAudit.eventType, searchCandidateAudit.revision],
+      });
     }
   },
 
@@ -566,6 +568,11 @@ export async function processSearchTerminalResult(
   let inconclusiveCount = 0;
 
   for (const candidate of normalized.candidates) {
+    if (normalized.diagnostics.some((diagnostic) =>
+      diagnostic.code === 'missing_source_reference' && diagnostic.candidateId === candidate.candidateId,
+    )) {
+      continue;
+    }
     const roleResult = sanitizeBuyerRoles(candidate, run);
     if (!roleResult.ok) {
       diagnostics.push(roleResult.diagnostic);

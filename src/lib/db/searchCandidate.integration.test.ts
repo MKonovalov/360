@@ -101,5 +101,25 @@ describeWithDatabase('Search candidate persistence', () => {
 
     expect(inserted).toBeDefined();
     expect(duplicate).toHaveLength(0);
+
+    const ingestionAudit = {
+      searchCandidateId: inserted?.id ?? -1,
+      eventType: 'search_candidate_ingested',
+      actorId: `search-candidate-${suffix}`,
+      revision: 1,
+      changes: [],
+    };
+    const auditAttempts = await Promise.all(
+      [1, 2].map(() =>
+        dbModule.db.insert(schema.searchCandidateAudit).values(ingestionAudit)
+          .onConflictDoNothing()
+          .returning({ id: schema.searchCandidateAudit.id }),
+      ),
+    );
+    expect(auditAttempts.flat()).toHaveLength(1);
+
+    const audits = await dbModule.db.select().from(schema.searchCandidateAudit)
+      .where(eq(schema.searchCandidateAudit.searchCandidateId, inserted?.id ?? -1));
+    expect(audits).toHaveLength(1);
   });
 });
