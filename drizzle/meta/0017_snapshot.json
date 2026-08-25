@@ -2552,7 +2552,30 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "company_persona_role_current_unique_idx": {
+          "name": "company_persona_role_current_unique_idx",
+          "columns": [
+            {
+              "expression": "company_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "persona_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"company_persona_role\".\"is_current\" = true",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "company_persona_role_company_id_company_id_fk": {
           "name": "company_persona_role_company_id_company_id_fk",
@@ -2582,16 +2605,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "company_persona_role_company_persona_unique": {
-          "name": "company_persona_role_company_persona_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "company_id",
-            "persona_id"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

@@ -1,6 +1,6 @@
 CREATE TYPE "public"."search_run_status" AS ENUM('queued', 'running', 'succeeded', 'failed', 'cancelled');--> statement-breakpoint
 CREATE TYPE "public"."search_candidate_status" AS ENUM('pending', 'inconclusive', 'ambiguous_match', 'approved', 'rejected');--> statement-breakpoint
-ALTER TABLE "company_persona_role" ADD CONSTRAINT "company_persona_role_company_persona_unique" UNIQUE("company_id","persona_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "company_persona_role_current_unique_idx" ON "company_persona_role" USING btree ("company_id","persona_id") WHERE "company_persona_role"."is_current" = true;--> statement-breakpoint
 CREATE TABLE "company_persona_role_buyer_role" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"company_persona_role_id" integer NOT NULL,

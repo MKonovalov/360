@@ -244,7 +244,10 @@ export const companyPersonaRole = pgTable(
     endDate: date('end_date'),
   },
   (table) => [
-    unique('company_persona_role_company_persona_unique').on(table.companyId, table.personaId),
+    // Search approval reuses one current relationship while preserving multiple historical role periods.
+    uniqueIndex('company_persona_role_current_unique_idx')
+      .on(table.companyId, table.personaId)
+      .where(sql`${table.isCurrent} = true`),
   ],
 );
 

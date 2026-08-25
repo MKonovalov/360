@@ -21,6 +21,11 @@ type ConstraintRow = {
   readonly constraintType: string;
 };
 
+type IndexRow = {
+  readonly indexName: string;
+  readonly indexDefinition: string;
+};
+
 describeWithDatabase('Search persistence schema', () => {
   let dbModule: typeof import('./index');
 
@@ -132,6 +137,12 @@ describeWithDatabase('Search persistence schema', () => {
         AND contype = 'u'
       ORDER BY conname
     `);
+    const indexes = await dbModule.db.execute<IndexRow>(sql`
+      SELECT indexname AS "indexName", indexdef AS "indexDefinition"
+      FROM pg_indexes
+      WHERE schemaname = 'public'
+        AND tablename = 'company_persona_role'
+    `);
 
     // Then
     expect(foreignKeys).toEqual(expect.arrayContaining([
@@ -140,17 +151,24 @@ describeWithDatabase('Search persistence schema', () => {
       expect.objectContaining({ tableName: 'search_run', columnName: 'template_version_id', referencedTable: 'search_template_version' }),
       expect.objectContaining({ tableName: 'search_run', columnName: 'partner_job_mapping_id', referencedTable: 'partner_job_mapping' }),
       expect.objectContaining({ tableName: 'search_candidate', columnName: 'search_run_id', referencedTable: 'search_run' }),
+      expect.objectContaining({ tableName: 'search_candidate', columnName: 'matched_persona_id', referencedTable: 'persona' }),
       expect.objectContaining({ tableName: 'search_candidate_source', columnName: 'search_candidate_id', referencedTable: 'search_candidate' }),
       expect.objectContaining({ tableName: 'search_candidate_audit', columnName: 'search_candidate_id', referencedTable: 'search_candidate' }),
       expect.objectContaining({ tableName: 'company_persona_role_buyer_role', columnName: 'company_persona_role_id', referencedTable: 'company_persona_role' }),
       expect.objectContaining({ tableName: 'company_persona_role_buyer_role', columnName: 'buyer_role_id', referencedTable: 'buyer_role' }),
     ]));
     expect(constraints.rows.map((constraint) => constraint.constraintName)).toEqual(expect.arrayContaining([
-      'company_persona_role_company_persona_unique',
       'company_persona_role_buyer_role_unique',
       'search_run_actor_idempotency_unique',
       'search_candidate_run_packet_id_unique',
     ]));
+    expect(constraints.rows.map((constraint) => constraint.constraintName)).not.toContain('company_persona_role_company_persona_unique');
+    expect(indexes.rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ indexName: 'company_persona_role_current_unique_idx' }),
+    ]));
+    const currentRoleIndex = indexes.rows.find((index) => index.indexName === 'company_persona_role_current_unique_idx');
+    expect(currentRoleIndex?.indexDefinition).toContain('is_current');
+    expect(currentRoleIndex?.indexDefinition).toContain('WHERE');
     expect(foreignKeys.rows.some((row) => row.referencedTable === 'offering_buyer_role' || row.referencedTable === 'persona_signal')).toBe(false);
   });
 });
