@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 // 30-02: buyer_role query boundaries against a live DB. Gated on
@@ -104,6 +105,33 @@ describeWithDatabase('buyerRoles query boundaries', () => {
     expect(row?.name).toBe(created.name);
     // Insert-time convention: updatedBy starts equal to createdBy.
     expect(row?.updatedBy).toBe('integration-test');
+  });
+
+  it('round-trips nullable multi-value selector metadata for Search resolution', async () => {
+    const created = await queries.insertBuyerRole({
+      name: `IT-BR-${randomUUID()}`,
+      createdBy: 'integration-test',
+    });
+    buyerRoleIds.push(created.id);
+
+    await dbModule.db
+      .update(schema.buyerRole)
+      .set({
+        departments: ['Finance'],
+        functions: ['Transformation'],
+        seniorities: ['C-Level'],
+        geographies: ['United States', 'Canada'],
+      })
+      .where(eq(schema.buyerRole.id, created.id));
+
+    const row = (await queries.listBuyerRoles()).find((candidate) => candidate.id === created.id);
+
+    expect(row).toMatchObject({
+      departments: ['Finance'],
+      functions: ['Transformation'],
+      seniorities: ['C-Level'],
+      geographies: ['United States', 'Canada'],
+    });
   });
 
   it('hasBuyerRoleDependents flips true once an offeringBuyerRole references it', async () => {

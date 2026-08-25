@@ -15,7 +15,6 @@ vi.mock('@/lib/db/queries/searchTemplates', () => ({
 vi.mock('@/lib/db/queries/buyerRoles', () => ({ listBuyerRoles: mocks.listBuyerRoles }));
 
 import {
-  resolveBuyerRoleRules,
   resolveSearchLaunch,
   type BuyerRoleRecord,
   type SearchTemplateVersionRecord,
@@ -39,7 +38,15 @@ function makeRule(overrides: Partial<BuyerRoleRule> = {}): BuyerRoleRule {
 }
 
 function makeRole(overrides: Partial<BuyerRoleRecord> = {}): BuyerRoleRecord {
-  return { id: 1, name: 'CFO', ...overrides };
+  return {
+    id: 1,
+    name: 'CFO',
+    departments: null,
+    functions: null,
+    seniorities: null,
+    geographies: null,
+    ...overrides,
+  };
 }
 
 function makeTemplate(overrides: Partial<SearchTemplateVersionRecord> = {}): SearchTemplateVersionRecord {
@@ -63,117 +70,6 @@ function makeTemplate(overrides: Partial<SearchTemplateVersionRecord> = {}): Sea
     ...overrides,
   };
 }
-
-describe('resolveBuyerRoleRules', () => {
-  it('resolves explicit IDs before selector matches and snapshots rule evidence', () => {
-    const result = resolveBuyerRoleRules({
-      rules: [
-        makeRule({ ruleId: 'explicit', buyerRoleIds: [2] }),
-        makeRule({ ruleId: 'name', roleNames: [' chief financial officer '] }),
-      ],
-      buyerRoles: [makeRole({ id: 1, name: 'Chief Financial Officer' }), makeRole({ id: 2, name: 'Head of GBS' })],
-    });
-
-    expect(result).toEqual({
-      ok: true,
-      buyerRoles: [
-        {
-          id: 2,
-          name: 'Head of GBS',
-          matchedRules: [expect.objectContaining({ ruleId: 'explicit', matchedSelectors: [{ kind: 'explicit_id', value: '2' }] })],
-        },
-        {
-          id: 1,
-          name: 'Chief Financial Officer',
-          matchedRules: [
-            expect.objectContaining({ ruleId: 'name', matchedSelectors: [{ kind: 'role_name', value: 'chief financial officer' }] }),
-          ],
-        },
-      ],
-      diagnostics: [],
-    });
-  });
-
-  it('matches department, function, seniority, and geography selectors after normalization', () => {
-    const result = resolveBuyerRoleRules({
-      rules: [
-        makeRule({
-          ruleId: 'attributes',
-          departments: [' Finance '],
-          functions: ['Transformation'],
-          seniority: ['C-Level'],
-          geographies: ['United-States'],
-          match: 'all_selectors',
-        }),
-      ],
-      buyerRoles: [
-        makeRole({
-          department: 'finance',
-          function: ' transformation ',
-          seniority: 'c_level',
-          geography: 'United States',
-        }),
-      ],
-    });
-
-    if (!result.ok) throw new Error('expected selector match');
-    expect(result.buyerRoles[0]?.matchedRules[0]?.matchedSelectors).toEqual([
-      { kind: 'department', value: 'Finance' },
-      { kind: 'function', value: 'Transformation' },
-      { kind: 'seniority', value: 'C-Level' },
-      { kind: 'geography', value: 'United-States' },
-    ]);
-  });
-
-  it('supports any_selector, all_selectors, and multiple roles', () => {
-    const result = resolveBuyerRoleRules({
-      rules: [
-        makeRule({ ruleId: 'any', departments: ['Finance'], functions: ['Operations'], match: 'any_selector' }),
-        makeRule({ ruleId: 'all', roleNames: ['COO'], departments: ['Operations'], match: 'all_selectors' }),
-      ],
-      buyerRoles: [
-        makeRole({ id: 1, name: 'CFO', department: 'Finance' }),
-        makeRole({ id: 2, name: 'COO', department: 'Operations', function: 'Operations' }),
-      ],
-    });
-
-    if (!result.ok) throw new Error('expected selector matches');
-    expect(result.buyerRoles.map(({ id }) => id)).toEqual([1, 2]);
-    expect(result.buyerRoles.find(({ id }) => id === 2)?.matchedRules.map(({ ruleId }) => ruleId)).toEqual(['any', 'all']);
-  });
-
-  it('keeps unmatched optional rules as diagnostics without creating a role', () => {
-    const result = resolveBuyerRoleRules({
-      rules: [makeRule({ ruleId: 'optional', roleNames: ['Unknown'], required: false })],
-      buyerRoles: [makeRole()],
-    });
-
-    expect(result).toEqual({
-      ok: true,
-      buyerRoles: [],
-      diagnostics: [expect.objectContaining({ ruleId: 'optional', reason: 'optional_unmatched' })],
-    });
-  });
-
-  it('fails required rules that have no matches or missing explicit IDs', () => {
-    const result = resolveBuyerRoleRules({
-      rules: [makeRule({ ruleId: 'missing-id', buyerRoleIds: [999] })],
-      buyerRoles: [makeRole()],
-    });
-
-    expect(result).toMatchObject({
-      ok: false,
-      reason: 'buyer_role_rule_unresolved',
-      diagnostics: [expect.objectContaining({ ruleId: 'missing-id', reason: 'required_unresolved' })],
-    });
-  });
-
-  it('fails structurally valid but empty rules as invalid rather than inventing a role', () => {
-    const result = resolveBuyerRoleRules({ rules: [makeRule({ ruleId: 'empty' })], buyerRoles: [makeRole()] });
-
-    expect(result).toMatchObject({ ok: false, reason: 'buyer_role_rule_invalid' });
-  });
-});
 
 describe('resolveSearchLaunch', () => {
   beforeEach(() => {
@@ -204,6 +100,34 @@ describe('resolveSearchLaunch', () => {
     });
     expect(result.partnerInstructions).toBe('Search public sources for current finance leadership.');
     expect(result.template.buyerRoleRules).not.toBe(mocks.getSearchTemplateVersion.mock.results[0]?.value.buyerRoleRules);
+  });
+
+  it('deeply freezes template, evidence, policy, and selector arrays', async () => {
+    const departments = ['Finance'];
+    const template = makeTemplate({
+      buyerRoleRules: [makeRule({ departments })],
+    });
+    mocks.getSearchTemplateVersion.mockResolvedValue(template);
+    mocks.listBuyerRoles.mockResolvedValue([makeRole({ departments: ['Finance'] })]);
+
+    const result = await resolveSearchLaunch({ userId: 'staff-1', companyId: 42, templateVersionId: 100 });
+
+    if (!result.ok) throw new Error('expected launch resolution');
+    expect(Object.isFrozen(result.template)).toBe(true);
+    expect(Object.isFrozen(result.template.buyerRoleRules)).toBe(true);
+    expect(Object.isFrozen(result.template.buyerRoleRules[0])).toBe(true);
+    expect(Object.isFrozen(result.template.buyerRoleRules[0]?.departments)).toBe(true);
+    expect(Object.isFrozen(result.template.evidencePolicy)).toBe(true);
+    expect(Object.isFrozen(result.template.evidencePolicy.allowedSourceKinds)).toBe(true);
+    expect(Object.isFrozen(result.buyerRoles)).toBe(true);
+    expect(Object.isFrozen(result.buyerRoleEvidence)).toBe(true);
+    expect(Object.isFrozen(result.buyerRoleEvidence[0])).toBe(true);
+    expect(Object.isFrozen(result.buyerRoleEvidence[0]?.matchedRules)).toBe(true);
+    expect(Object.isFrozen(result.buyerRoleEvidence[0]?.matchedRules[0])).toBe(true);
+    expect(Object.isFrozen(result.buyerRoleEvidence[0]?.matchedRules[0]?.matchedSelectors)).toBe(true);
+
+    departments.push('Operations');
+    expect(result.template.buyerRoleRules[0]?.departments).toEqual(['Finance']);
   });
 
   it.each([

@@ -1,6 +1,11 @@
 import { eq, sql } from 'drizzle-orm';
 
-import type { BuyerRoleRule, EvidencePolicy } from '@/lib/search/templateContracts';
+import {
+  buyerRoleRuleSchema,
+  evidencePolicySchema,
+  type BuyerRoleRule,
+  type EvidencePolicy,
+} from '@/lib/search/templateContracts';
 import { db } from '../index';
 import { searchTemplate, searchTemplateVersion } from '../schema';
 
@@ -49,9 +54,13 @@ export async function getSearchTemplateVersion(
   const row = rows[0];
   if (!row) return undefined;
 
+  const parsedBuyerRoleRules = buyerRoleRuleSchema.array().safeParse(row.buyerRoleRules);
+  const parsedEvidencePolicy = evidencePolicySchema.safeParse(row.evidencePolicy);
+  if (!parsedBuyerRoleRules.success || !parsedEvidencePolicy.success) return undefined;
+
   return {
     ...row,
-    buyerRoleRules: row.buyerRoleRules.map((rule) => ({
+    buyerRoleRules: parsedBuyerRoleRules.data.map((rule) => ({
       ...rule,
       buyerRoleIds: [...rule.buyerRoleIds],
       roleNames: [...rule.roleNames],
@@ -61,8 +70,8 @@ export async function getSearchTemplateVersion(
       geographies: [...rule.geographies],
     })),
     evidencePolicy: {
-      ...row.evidencePolicy,
-      allowedSourceKinds: [...row.evidencePolicy.allowedSourceKinds],
+      ...parsedEvidencePolicy.data,
+      allowedSourceKinds: [...parsedEvidencePolicy.data.allowedSourceKinds],
     },
   };
 }

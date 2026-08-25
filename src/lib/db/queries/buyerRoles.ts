@@ -14,6 +14,10 @@ export async function insertBuyerRole(input: {
   // "name + description" (30-02). The column is already nullable in
   // schema.ts; only this input type was too narrow.
   description?: string;
+  departments?: readonly string[] | null;
+  functions?: readonly string[] | null;
+  seniorities?: readonly string[] | null;
+  geographies?: readonly string[] | null;
   createdBy: string;
 }) {
   const [inserted] = await db
@@ -21,6 +25,10 @@ export async function insertBuyerRole(input: {
     .values({
       name: input.name,
       description: input.description,
+      ...(input.departments !== undefined ? { departments: input.departments === null ? null : [...input.departments] } : {}),
+      ...(input.functions !== undefined ? { functions: input.functions === null ? null : [...input.functions] } : {}),
+      ...(input.seniorities !== undefined ? { seniorities: input.seniorities === null ? null : [...input.seniorities] } : {}),
+      ...(input.geographies !== undefined ? { geographies: input.geographies === null ? null : [...input.geographies] } : {}),
       createdBy: input.createdBy,
       // Insert-time convention: updatedBy starts equal to createdBy (T-30-03).
       updatedBy: input.createdBy,
@@ -46,8 +54,22 @@ export async function updateBuyerRole(
 
 // Plain reusable lookup — all buyer roles, no status filter. Order is
 // deterministic by id (stable insert order).
+const buyerRoleListProjection = {
+  id: buyerRole.id,
+  name: buyerRole.name,
+  description: buyerRole.description,
+  departments: buyerRole.departments,
+  functions: buyerRole.functions,
+  seniorities: buyerRole.seniorities,
+  geographies: buyerRole.geographies,
+  createdBy: buyerRole.createdBy,
+  updatedBy: buyerRole.updatedBy,
+  createdAt: buyerRole.createdAt,
+  updatedAt: buyerRole.updatedAt,
+};
+
 export async function listBuyerRoles() {
-  return db.select().from(buyerRole).orderBy(buyerRole.id);
+  return db.select(buyerRoleListProjection).from(buyerRole).orderBy(buyerRole.id);
 }
 
 // True if this buyer role is referenced by either dependent table. Uses LIMIT 1
