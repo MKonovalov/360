@@ -64,6 +64,7 @@ describeWithDatabase('Search candidate persistence', () => {
         status: 'active',
       },
       buyerRoleSnapshot: [],
+      buyerRoleEvidenceSnapshot: [],
       evidencePolicySnapshot: { minimumPublicSources: 1, allowedSourceKinds: ['company_site'], requireHttps: true, allowPrivateSources: false },
     }).returning({ id: schema.searchRun.id });
     runId = run.id;
