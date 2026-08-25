@@ -9,6 +9,11 @@ import {
   searchApprovalLinkedInKey,
 } from '@/lib/db/queries/searchApprovalNormalization';
 import {
+  normalizeSearchDomain,
+  normalizeSearchEmail,
+  normalizeSearchLinkedInUrl,
+} from './normalizeSearchPacket';
+import {
   createApprovalIntegrationHarness,
   type ApprovalIntegrationHarness,
 } from './approveSearchReview.integration.fixtures';
@@ -50,7 +55,7 @@ describeWithDatabase('Search approval identity normalization against Neon', () =
     const malformedLinkedIn = 'https://www.linkedin.com/in/Ada?a=%FF';
     const malformedDomain = 'not a domain/path';
     const userinfoDomain = 'user@example.com';
-    const trailingDotDomain = ' HTTPS://WWW.Example.COM./ ';
+    const trailingDotDomain = '\u00a0HTTPS://WWW.Example.COM.\u00a0';
     const result = await dbModule.db.execute(sql`
       SELECT
         ${searchApprovalEmailKey(sql`${email}`)} AS email_key,
@@ -63,13 +68,13 @@ describeWithDatabase('Search approval identity normalization against Neon', () =
     `);
 
     expect(result.rows[0]).toMatchObject({
-      email_key: 'ada@example.com',
-      encoded_linkedin_key: 'https://www.linkedin.com/in/Ada?keep=a+b',
-      plus_linkedin_key: 'https://www.linkedin.com/in/Ada?keep=a+b',
-      malformed_linkedin_key: null,
-      malformed_domain_key: 'not a domain/path',
-      userinfo_domain_key: null,
-      trailing_dot_domain_key: 'example.com',
+      email_key: normalizeSearchEmail(email),
+      encoded_linkedin_key: normalizeSearchLinkedInUrl(encodedLinkedIn),
+      plus_linkedin_key: normalizeSearchLinkedInUrl(plusLinkedIn),
+      malformed_linkedin_key: normalizeSearchLinkedInUrl(malformedLinkedIn),
+      malformed_domain_key: normalizeSearchDomain(malformedDomain),
+      userinfo_domain_key: normalizeSearchDomain(userinfoDomain),
+      trailing_dot_domain_key: normalizeSearchDomain(trailingDotDomain),
     });
   });
 

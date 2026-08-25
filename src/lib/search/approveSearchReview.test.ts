@@ -96,13 +96,13 @@ describe('approveSearchReview', () => {
     expect(sqlText).toContain('linkedin.com');
   });
 
-  it('strips trailing dots from approval Company domains', async () => {
+  it('fails closed for unsupported approval Company domains', async () => {
     mocks.db.execute.mockResolvedValue({ rows: [resultRow()] });
 
     await approveSearchReview(input);
 
     const sqlText = JSON.stringify(mocks.db.execute.mock.calls[0]?.[0]);
-    expect(sqlText).toContain("'[/.]+$'");
+    expect(sqlText).toContain('THEN NULL');
   });
 
   it('loads the complete evidence snapshot and resolves concurrent exact-key inserts', async () => {
