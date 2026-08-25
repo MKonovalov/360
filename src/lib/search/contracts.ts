@@ -147,7 +147,15 @@ export function isPrivateOrUnsafeSourceHost(hostname: string): boolean {
     return true;
   }
   if (ipaddr.isValid(normalized)) {
-    return UNSAFE_IP_RANGES.has(ipaddr.parse(normalized).range());
+    const address = ipaddr.parse(normalized);
+    // An IPv4-in-IPv6 address's own .range() is always 'ipv4Mapped', which
+    // says nothing about safety — the wrapped IPv4 address's range is the
+    // one that must be checked (e.g. ::ffff:169.254.169.254 wraps a cloud
+    // metadata / link-local IPv4 address).
+    if (address instanceof ipaddr.IPv6 && address.isIPv4MappedAddress()) {
+      return UNSAFE_IP_RANGES.has(address.toIPv4Address().range());
+    }
+    return UNSAFE_IP_RANGES.has(address.range());
   }
   return false;
 }

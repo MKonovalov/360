@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  isPrivateOrUnsafeSourceHost,
   MAX_BULK_REVIEW_IDS,
+  MAX_SEARCH_PACKET_BYTES,
   SEARCH_CANDIDATE_STATUSES,
   SEARCH_RUN_STATUSES,
   SEARCH_SOURCE_KINDS,
@@ -267,6 +269,33 @@ describe('searchSourceSchema', () => {
     ).toBe(false);
   });
 
+  it('rejects an IPv4-mapped IPv6 host resolving to loopback, link-local, or private ranges', () => {
+    expect(isPrivateOrUnsafeSourceHost('::ffff:127.0.0.1')).toBe(true);
+    expect(isPrivateOrUnsafeSourceHost('::ffff:169.254.169.254')).toBe(true);
+    expect(isPrivateOrUnsafeSourceHost('::ffff:10.0.0.5')).toBe(true);
+  });
+
+  it('rejects a bracketed IPv4-mapped IPv6 URL host', () => {
+    expect(
+      searchSourceSchema.safeParse({ ...validSource, url: 'https://[::ffff:127.0.0.1]/about' }).success,
+    ).toBe(false);
+    expect(
+      searchSourceSchema.safeParse({ ...validSource, url: 'https://[::ffff:169.254.169.254]/about' })
+        .success,
+    ).toBe(false);
+    expect(
+      searchSourceSchema.safeParse({ ...validSource, url: 'https://[::ffff:10.0.0.5]/about' }).success,
+    ).toBe(false);
+  });
+
+  it('still accepts a public IPv4-mapped IPv6 host and ordinary public HTTPS hosts', () => {
+    expect(isPrivateOrUnsafeSourceHost('::ffff:8.8.8.8')).toBe(false);
+    expect(
+      searchSourceSchema.safeParse({ ...validSource, url: 'https://[::ffff:8.8.8.8]/about' }).success,
+    ).toBe(true);
+    expect(searchSourceSchema.safeParse(validSource).success).toBe(true);
+  });
+
   it('rejects a URL carrying embedded credentials', () => {
     expect(
       searchSourceSchema.safeParse({ ...validSource, url: 'https://user:pass@example.com/about' }).success,
@@ -333,6 +362,84 @@ describe('searchPacketSchema', () => {
 
   it('rejects an unsupported schema version', () => {
     expect(searchPacketSchema.safeParse({ ...validPacket, schemaVersion: 2 }).success).toBe(false);
+  });
+
+  // Every field below sits at or under its own schema limit (persona bio at
+  // PERSONA_BIO_MAX_LENGTH, source url/title/providerLabel at their maxes,
+  // claim value at CLAIM_VALUE_MAX_LENGTH, opaque IDs at
+  // OPAQUE_PACKET_ID_MAX_LENGTH, array counts at their per-candidate maxes) —
+  // only the total serialized size crosses MAX_SEARCH_PACKET_BYTES.
+  function buildMaximalValidCandidate(candidateIndex: number) {
+    const idBase = 'x'.repeat(70);
+    const sources = Array.from({ length: 20 }, (_, i) => ({
+      sourceId: `${idBase}s${i}`,
+      kind: 'company_website' as const,
+      url: `https://example.com/${'a'.repeat(1990)}`,
+      title: 't'.repeat(300),
+      providerLabel: 'p'.repeat(200),
+    }));
+    const sourceIds = sources.map((source) => source.sourceId);
+    const claims = Array.from({ length: 40 }, (_, i) => ({
+      claimId: `${idBase}c${i}`,
+      field: 'persona.bio',
+      value: 'v'.repeat(2_000),
+      sourceIds: sourceIds.slice(0, 10),
+    }));
+    const buyerRoleProposals = Array.from({ length: 10 }, (_, i) => ({
+      buyerRoleId: i + 1,
+      buyerRoleName: 'r'.repeat(200),
+      matchedRuleIds: Array.from({ length: 10 }, (_, j) => `${idBase}m${i}${j}`),
+      confidence: 'supported' as const,
+    }));
+    return {
+      candidateId: `${idBase}n${candidateIndex}`,
+      persona: {
+        firstName: 'f'.repeat(200),
+        lastName: 'l'.repeat(200),
+        fullName: 'n'.repeat(200),
+        title: 't'.repeat(200),
+        email: null,
+        linkedinUrl: null,
+        phone: null,
+        location: 'o'.repeat(300),
+        department: 'd'.repeat(300),
+        function: 'g'.repeat(300),
+        seniority: 's'.repeat(300),
+        companyName: 'c'.repeat(200),
+        companyDomain: 'd'.repeat(300),
+        bio: 'b'.repeat(2_000),
+        photoUrl: null,
+      },
+      buyerRoleProposals,
+      sources,
+      claims,
+    };
+  }
+
+  it('accepts a single maximal-but-in-bounds candidate under the byte budget', () => {
+    const candidate = buildMaximalValidCandidate(0);
+    expect(searchCandidatePacketSchema.safeParse(candidate).success).toBe(true);
+    expect(searchPacketSchema.safeParse({ schemaVersion: 1, candidates: [candidate] }).success).toBe(true);
+  });
+
+  it('rejects a packet whose per-field/array values are all within their own limits but whose total size exceeds MAX_SEARCH_PACKET_BYTES', () => {
+    const candidates = Array.from({ length: 3 }, (_, index) => buildMaximalValidCandidate(index));
+    const packet = { schemaVersion: 1, candidates };
+    const totalBytes = Buffer.byteLength(JSON.stringify(packet), 'utf8');
+
+    expect(totalBytes).toBeGreaterThan(MAX_SEARCH_PACKET_BYTES);
+    expect(candidates.length).toBeLessThanOrEqual(25);
+    candidates.forEach((candidate) => {
+      expect(searchCandidatePacketSchema.safeParse(candidate).success).toBe(true);
+    });
+
+    const result = searchPacketSchema.safeParse(packet);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((issue) => issue.message.includes('exceeds the maximum size'))).toBe(
+        true,
+      );
+    }
   });
 });
 
