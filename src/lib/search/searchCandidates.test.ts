@@ -136,7 +136,11 @@ function createRun() {
   };
 }
 
-function createStore(run: ReturnType<typeof createRun>, personas: readonly PersonaMatchRecord[] = []) {
+type TestRun = Omit<ReturnType<typeof createRun>, 'buyerRoleEvidenceSnapshot'> & {
+  readonly buyerRoleEvidenceSnapshot: unknown;
+};
+
+function createStore(run: TestRun, personas: readonly PersonaMatchRecord[] = []) {
   return {
     getRun: vi.fn().mockResolvedValue(run),
     listPersonasForCompany: vi.fn().mockResolvedValue(personas),
@@ -224,6 +228,56 @@ describe('processSearchTerminalResult', () => {
 
     const result = await processSearchTerminalResult(
       { searchRunId: run.id, userId: run.initiatingUserId, packet: packet([unknownRoleCandidate]) },
+      store,
+    );
+
+    expect(result).toMatchObject({ kind: 'applied', normalizedCandidateCount: 0 });
+    expect(result).toMatchObject({
+      diagnostics: [expect.objectContaining({ code: 'invalid_buyer_role_proposal', candidateId: 'candidate-1' })],
+    });
+    expect(store.persistCandidates.mock.calls[0]?.[0].candidates).toEqual([]);
+  });
+
+  it.each([
+    'null evidence',
+    'null matchedRules',
+    'undeclared evidence field',
+    'stale same-id rule metadata',
+  ] as const)('rejects %s before authorizing a Buyer Role proposal', async (caseName) => {
+    const baseRun = createRun();
+    const firstEvidence = baseRun.buyerRoleEvidenceSnapshot[0];
+    if (!firstEvidence) throw new Error('expected Buyer Role evidence fixture');
+
+    let evidence: unknown;
+    switch (caseName) {
+      case 'null evidence':
+        evidence = null;
+        break;
+      case 'null matchedRules':
+        evidence = [{ ...firstEvidence, matchedRules: null }, baseRun.buyerRoleEvidenceSnapshot[1]];
+        break;
+      case 'undeclared evidence field':
+        evidence = [{ ...firstEvidence, unexpectedField: 'partner-controlled' }, baseRun.buyerRoleEvidenceSnapshot[1]];
+        break;
+      case 'stale same-id rule metadata':
+        evidence = [
+          {
+            ...firstEvidence,
+            matchedRules: firstEvidence.matchedRules.map((rule) => ({
+              ...rule,
+              label: 'Old Finance Rule',
+              matchedSelectors: rule.matchedSelectors.map((selector) => ({ ...selector, value: 'Old selector' })),
+            })),
+          },
+          baseRun.buyerRoleEvidenceSnapshot[1],
+        ];
+        break;
+    }
+
+    const run = { ...baseRun, buyerRoleEvidenceSnapshot: evidence };
+    const store = createStore(run);
+    const result = await processSearchTerminalResult(
+      { searchRunId: run.id, userId: run.initiatingUserId, packet: packet() },
       store,
     );
 

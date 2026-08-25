@@ -15,6 +15,9 @@ import {
   searchRun,
   type SearchBuyerRoleProposalSnapshot,
   type SearchBuyerRoleEvidenceSnapshot,
+  type SearchBuyerRoleRuleSnapshot,
+  type SearchBuyerRoleSelectorSnapshot,
+  type SearchBuyerRoleSnapshot,
   type SearchCandidateAuditChange,
   type SearchEligibilitySnapshot,
   type SearchMatchSnapshot,
@@ -23,6 +26,7 @@ import {
 
 import { evaluateSearchEvidence, type SearchEligibility } from './searchEvidence';
 import { matchSearchCandidate, type PersonaMatchRecord } from './searchMatching';
+import { parseBuyerRoleEvidenceSnapshot } from './resolveBuyerRoleRules';
 import {
   normalizeSearchPacket,
   type NormalizedSearchCandidate,
@@ -38,11 +42,7 @@ interface SearchCandidateRun {
   readonly packetSchemaVersion: number | null;
   readonly companySnapshot: { readonly id: number; readonly name: string; readonly domain: string | null };
   readonly templateSnapshot: {
-    readonly buyerRoleRules: readonly {
-      readonly ruleId: string;
-      readonly required: boolean;
-      readonly buyerRoleIds: readonly number[];
-    }[];
+    readonly buyerRoleRules: readonly SearchBuyerRoleRuleSnapshot[];
     readonly evidencePolicy: {
       readonly minimumPublicSources: number;
       readonly allowedSourceKinds: readonly string[];
@@ -51,7 +51,7 @@ interface SearchCandidateRun {
     };
   };
   readonly buyerRoleSnapshot: readonly { readonly id: number; readonly name: string }[];
-  readonly buyerRoleEvidenceSnapshot: readonly SearchBuyerRoleEvidenceSnapshot[];
+  readonly buyerRoleEvidenceSnapshot: unknown;
 }
 
 export interface SearchCandidateSourceWrite {
@@ -138,7 +138,10 @@ const defaultStore: SearchCandidateStore = {
     const rows = await db.select().from(searchRun).where(
       and(eq(searchRun.id, searchRunId), eq(searchRun.initiatingUserId, userId)),
     );
-    return rows[0] as SearchCandidateRun | undefined;
+    const row = rows[0];
+    if (!row) return undefined;
+    const evidence = parseBuyerRoleEvidenceSnapshot(row.buyerRoleEvidenceSnapshot);
+    return Object.freeze({ ...row, buyerRoleEvidenceSnapshot: evidence });
   },
 
   async listPersonasForCompany(companyId) {
@@ -271,16 +274,102 @@ function uniqueSorted(values: readonly string[]): string[] {
   return [...new Set(values)].sort((left, right) => left.localeCompare(right));
 }
 
+function normalizeSelector(value: string): string {
+  return value.normalize('NFKC').toLocaleLowerCase('en-US').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+}
+
+function selectorValueMatches(values: readonly string[], value: string): boolean {
+  return values.some((candidate) => normalizeSelector(candidate) === normalizeSelector(value));
+}
+
+function selectorMatchesRule(
+  selector: SearchBuyerRoleSelectorSnapshot,
+  role: SearchBuyerRoleSnapshot,
+  rule: SearchBuyerRoleRuleSnapshot,
+): boolean {
+  switch (selector.kind) {
+    case 'explicit_id':
+      return selector.value === String(role.id) && rule.buyerRoleIds.includes(role.id);
+    case 'role_name':
+      return selectorValueMatches([role.name], selector.value) && selectorValueMatches(rule.roleNames, selector.value);
+    case 'department':
+      return selectorValueMatches(rule.departments, selector.value);
+    case 'function':
+      return selectorValueMatches(rule.functions, selector.value);
+    case 'seniority':
+      return selectorValueMatches(rule.seniority, selector.value);
+    case 'geography':
+      return selectorValueMatches(rule.geographies, selector.value);
+  }
+}
+
+function satisfiesRuleMatch(
+  role: SearchBuyerRoleSnapshot,
+  rule: SearchBuyerRoleRuleSnapshot,
+  selectors: readonly SearchBuyerRoleSelectorSnapshot[],
+): boolean {
+  if (selectors.some((selector) => !selectorMatchesRule(selector, role, rule))) return false;
+  if (selectors.some((selector) => selector.kind === 'explicit_id')) return true;
+
+  const groups = [
+    { kind: 'role_name' as const, values: rule.roleNames },
+    { kind: 'department' as const, values: rule.departments },
+    { kind: 'function' as const, values: rule.functions },
+    { kind: 'seniority' as const, values: rule.seniority },
+    { kind: 'geography' as const, values: rule.geographies },
+  ].filter(({ values }) => values.length > 0);
+  switch (rule.match) {
+    case 'any_selector':
+      return selectors.length > 0;
+    case 'all_selectors':
+      return groups.every(({ kind }) => selectors.some((selector) => selector.kind === kind));
+  }
+}
+
+function validateBuyerRoleEvidence(run: SearchCandidateRun): readonly SearchBuyerRoleEvidenceSnapshot[] | undefined {
+  const evidence = parseBuyerRoleEvidenceSnapshot(run.buyerRoleEvidenceSnapshot);
+  if (!evidence) return undefined;
+
+  const rolesById = new Map(run.buyerRoleSnapshot.map((role) => [role.id, role]));
+  const rulesById = new Map(run.templateSnapshot.buyerRoleRules.map((rule) => [rule.ruleId, rule]));
+  if (rolesById.size !== run.buyerRoleSnapshot.length || rulesById.size !== run.templateSnapshot.buyerRoleRules.length) return undefined;
+  if (evidence.length !== rolesById.size) return undefined;
+
+  const seenRoleIds = new Set<number>();
+  for (const roleEvidence of evidence) {
+    if (seenRoleIds.has(roleEvidence.buyerRoleId)) return undefined;
+    seenRoleIds.add(roleEvidence.buyerRoleId);
+    const role = rolesById.get(roleEvidence.buyerRoleId);
+    if (!role || role.name !== roleEvidence.buyerRoleName) return undefined;
+
+    const seenRuleIds = new Set<string>();
+    for (const ruleEvidence of roleEvidence.matchedRules) {
+      if (seenRuleIds.has(ruleEvidence.ruleId)) return undefined;
+      seenRuleIds.add(ruleEvidence.ruleId);
+      const rule = rulesById.get(ruleEvidence.ruleId);
+      if (
+        !rule ||
+        rule.label !== ruleEvidence.label ||
+        rule.required !== ruleEvidence.required ||
+        rule.match !== ruleEvidence.match ||
+        !satisfiesRuleMatch(role, rule, ruleEvidence.matchedSelectors)
+      ) return undefined;
+    }
+  }
+  return seenRoleIds.size === rolesById.size ? evidence : undefined;
+}
+
 function sanitizeBuyerRoles(
   candidate: NormalizedSearchCandidate,
   run: SearchCandidateRun,
 ): { ok: true; proposals: readonly SearchBuyerRoleProposalSnapshot[] } | { ok: false; diagnostic: SearchProcessingDiagnostic } {
+  const evidence = validateBuyerRoleEvidence(run);
   const rolesById = new Map(run.buyerRoleSnapshot.map((role) => [role.id, role]));
   const rulesById = new Map(run.templateSnapshot.buyerRoleRules.map((rule) => [rule.ruleId, rule]));
   const ruleIdsByRoleId = new Map(
-    run.buyerRoleEvidenceSnapshot.map((evidence) => [
-      evidence.buyerRoleId,
-      new Set(evidence.matchedRules.map((rule) => rule.ruleId)),
+    (evidence ?? []).map((roleEvidence) => [
+      roleEvidence.buyerRoleId,
+      new Set(roleEvidence.matchedRules.map((rule) => rule.ruleId)),
     ]),
   );
   const proposals: SearchBuyerRoleProposalSnapshot[] = [];
@@ -292,7 +381,7 @@ function sanitizeBuyerRoles(
       const rule = rulesById.get(ruleId);
       return rule === undefined || !ruleIdsByRoleId.get(proposal.buyerRoleId)?.has(ruleId);
     });
-    if (role === undefined || hasInvalidRule) {
+    if (role === undefined || evidence === undefined || hasInvalidRule) {
       return {
         ok: false,
         diagnostic: {
