@@ -7,7 +7,6 @@ import {
   type ArcAgentnetJob,
 } from '@/lib/arc-agentnet/client';
 import type { SearchTerminalResultSummary } from '@/lib/db/schema';
-import { normalizeSearchPacket } from './normalizeSearchPacket';
 import {
   getSearchRunById,
   getSearchRunPartnerMapping,
@@ -18,6 +17,7 @@ import {
   type RecordSearchTerminalResultResult,
   type SearchRunRecord,
 } from './searchRuns';
+import { processSearchTerminalResult, type SearchProcessResult } from './searchCandidates';
 
 export interface SearchSubmitContext {
   readonly schemaVersion: number;
@@ -95,11 +95,13 @@ interface ReconcileDependencies {
   readonly getMapping?: typeof getSearchRunPartnerMapping;
   readonly recordStatus?: typeof recordSearchRunStatus;
   readonly recordTerminal?: typeof recordSearchTerminalResult;
+  readonly processTerminal?: typeof processSearchTerminalResult;
 }
 
 export type SearchReconciliationResult =
   | { readonly kind: 'not_found' }
   | { readonly kind: 'poll_failed'; readonly failure: Exclude<ArcAgentnetClientResult<ArcAgentnetJob>, { readonly ok: true }> }
+  | { readonly kind: 'processing_failed'; readonly run: SearchRunRecord }
   | { readonly kind: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled'; readonly run: SearchRunRecord }
   | { readonly kind: 'terminal_conflict'; readonly run: SearchRunRecord };
 
@@ -146,6 +148,7 @@ export async function reconcileSearchRun(
   const getMapping = dependencies.getMapping ?? getSearchRunPartnerMapping;
   const recordStatus = dependencies.recordStatus ?? recordSearchRunStatus;
   const recordTerminal = dependencies.recordTerminal ?? recordSearchTerminalResult;
+  const processTerminal = dependencies.processTerminal ?? processSearchTerminalResult;
   const run = await getRun(runId, initiatingUserId);
   if (!run) return { kind: 'not_found' };
   const mapping = await getMapping(runId, initiatingUserId);
@@ -167,35 +170,73 @@ export async function reconcileSearchRun(
     return terminalRun ? { kind: terminal.kind === 'conflict' ? 'terminal_conflict' : 'failed', run: terminalRun } : { kind: 'not_found' };
   }
 
-  const status = await recordStatus({
-    runId,
-    initiatingUserId,
-    partnerJobId: polled.value.jobId,
-    requestId: polled.value.requestId,
-    partnerStatus: polled.value.status,
-    source: 'poll',
-  });
-  const statusRun = statusResultRun(status);
-  if (!statusRun) return { kind: 'not_found' };
   if (polled.value.status === 'queued' || polled.value.status === 'running' || polled.value.status === 'cancelling') {
+    const status = await recordStatus({
+      runId,
+      initiatingUserId,
+      partnerJobId: polled.value.jobId,
+      requestId: polled.value.requestId,
+      partnerStatus: polled.value.status,
+      source: 'poll',
+    });
+    const statusRun = statusResultRun(status);
+    if (!statusRun) return { kind: 'not_found' };
     return { kind: polled.value.status === 'queued' ? 'queued' : 'running', run: statusRun };
   }
 
   const packet = packetFromResult(polled.value.result);
-  const normalized = normalizeSearchPacket(packet, {
-    resolvedRuleIds: run.templateSnapshot.buyerRoleRules.filter((rule) => rule.required).map((rule) => rule.ruleId),
-    companyDomain: run.companySnapshot.domain,
-  });
-  const summary = terminalSummary(polled.value.result);
+  if (polled.value.status === 'succeeded') {
+    let processed: SearchProcessResult;
+    try {
+      processed = await processTerminal({
+        searchRunId: runId,
+        userId: initiatingUserId,
+        packet,
+        terminalStatus: 'succeeded',
+      });
+    } catch (error: unknown) {
+      if (error instanceof Error) return { kind: 'processing_failed', run };
+      throw error;
+    }
+
+    switch (processed.kind) {
+      case 'not_found':
+        return { kind: 'not_found' };
+      case 'not_terminal':
+      case 'conflict': {
+        const currentRun = await getRun(runId, initiatingUserId);
+        return currentRun ? { kind: 'terminal_conflict', run: currentRun } : { kind: 'not_found' };
+      }
+      case 'invalid_packet':
+      case 'applied':
+      case 'replayed': {
+        const terminal = await recordTerminal({
+          runId,
+          initiatingUserId,
+          partnerJobId: polled.value.jobId,
+          requestId: polled.value.requestId,
+          status: processed.kind === 'invalid_packet' ? 'failed' : 'succeeded',
+          packetHash: processed.packetHash,
+          packetSchemaVersion: processed.packetSchemaVersion,
+          terminalResultSummary: terminalSummary(polled.value.result),
+        });
+        const terminalRun = terminalResultRun(terminal);
+        if (!terminalRun) return { kind: 'not_found' };
+        if (terminal.kind === 'conflict') return { kind: 'terminal_conflict', run: terminalRun };
+        return { kind: processed.kind === 'invalid_packet' ? 'failed' : 'succeeded', run: terminalRun };
+      }
+    }
+  }
+
   const terminal = await recordTerminal({
     runId,
     initiatingUserId,
     partnerJobId: polled.value.jobId,
     requestId: polled.value.requestId,
     status: polled.value.status,
-    packetHash: polled.value.status === 'succeeded' ? normalized.packetHash : null,
-    packetSchemaVersion: normalized.ok ? normalized.schemaVersion : null,
-    terminalResultSummary: summary,
+    packetHash: null,
+    packetSchemaVersion: null,
+    terminalResultSummary: terminalSummary(polled.value.result),
   });
   const terminalRun = terminalResultRun(terminal);
   if (!terminalRun) return { kind: 'not_found' };

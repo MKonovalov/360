@@ -1,6 +1,12 @@
-import { describe, expect, expectTypeOf, it, vi } from 'vitest';
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
+const processSearchTerminalResultMock = vi.hoisted(() => vi.fn());
+vi.mock('./searchCandidates', () => ({ processSearchTerminalResult: processSearchTerminalResultMock }));
+
+afterEach(() => {
+  processSearchTerminalResultMock.mockReset();
+});
 
 import type { ArcAgentnetClient, ArcAgentnetJob } from '@/lib/arc-agentnet/client';
 
@@ -105,6 +111,18 @@ describe('Search Arc Agent Net adapter', () => {
 
 describe('reconcileSearchRun', () => {
   it('records observed terminal packets exactly once and leaves zero-candidate success without Reviews', async () => {
+    const callOrder: string[] = [];
+    processSearchTerminalResultMock.mockImplementation(async () => {
+      callOrder.push('process');
+      return {
+        kind: 'applied',
+        searchRunId: 101,
+        packetHash: 'a'.repeat(64),
+        packetSchemaVersion: 1,
+        normalizedCandidateCount: 0,
+        diagnostics: [],
+      };
+    });
     const run = {
       id: 101,
       initiatingUserId: 'user-1',
@@ -122,7 +140,10 @@ describe('reconcileSearchRun', () => {
     };
     const client = fakeClient({ poll: vi.fn().mockResolvedValue({ ok: true, value: job }) });
     const recordStatus = vi.fn().mockResolvedValue({ kind: 'transitioned', run: { ...run, status: 'succeeded' } });
-    const recordTerminal = vi.fn().mockResolvedValue({ kind: 'applied', run: { ...run, status: 'succeeded' } });
+    const recordTerminal = vi.fn().mockImplementation(async () => {
+      callOrder.push('record');
+      return { kind: 'applied', run: { ...run, status: 'succeeded' } };
+    });
 
     const result = await reconcileSearchRun(101, 'user-1', {
       client,
@@ -133,12 +154,47 @@ describe('reconcileSearchRun', () => {
     });
 
     expect(result).toMatchObject({ kind: 'succeeded', run: { status: 'succeeded' } });
-    expect(recordStatus).toHaveBeenCalledWith(expect.objectContaining({ partnerStatus: 'succeeded' }));
+    expect(recordStatus).not.toHaveBeenCalled();
     expect(recordTerminal).toHaveBeenCalledWith(expect.objectContaining({
       status: 'succeeded',
       terminalResultSummary: expect.objectContaining({ candidateCount: 0 }),
     }));
+    expect(callOrder).toEqual(['process', 'record']);
+    expect(processSearchTerminalResultMock).toHaveBeenCalledWith({
+      searchRunId: 101,
+      userId: 'user-1',
+      packet: { schemaVersion: 1, candidates: [] },
+      terminalStatus: 'succeeded',
+    });
     expect(result).not.toHaveProperty('reviewsUrl');
+  });
+
+  it('keeps a successful run nonterminal when candidate persistence fails', async () => {
+    processSearchTerminalResultMock.mockRejectedValue(new Error('candidate persistence failed'));
+    const run = {
+      id: 101,
+      initiatingUserId: 'user-1',
+      partnerJobMappingId: 202,
+      status: 'running',
+      companySnapshot: { id: 42, name: 'Acme', domain: 'acme.example' },
+      templateSnapshot: { buyerRoleRules: [] },
+    } as const;
+    const mapping = { id: 202, partnerJobId: 'job-1', requestId: 'request-1' } as const;
+    const client = fakeClient({ poll: vi.fn().mockResolvedValue({
+      ok: true,
+      value: { jobId: 'job-1', requestId: 'request-1', status: 'succeeded', result: { schemaVersion: 1, candidates: [] } },
+    }) });
+    const recordTerminal = vi.fn();
+
+    await expect(reconcileSearchRun(101, 'user-1', {
+      client,
+      getRun: vi.fn().mockResolvedValue(run),
+      getMapping: vi.fn().mockResolvedValue(mapping),
+      recordStatus: vi.fn().mockResolvedValue({ kind: 'transitioned', run: { ...run, status: 'succeeded' } }),
+      recordTerminal,
+    })).resolves.toMatchObject({ kind: 'processing_failed', run: { status: 'running' } });
+
+    expect(recordTerminal).not.toHaveBeenCalled();
   });
 
   it('records the same normalized packet hash used by candidate processing', async () => {
@@ -189,6 +245,14 @@ describe('reconcileSearchRun', () => {
     }) });
     const recordStatus = vi.fn().mockResolvedValue({ kind: 'transitioned', run: { ...run, status: 'succeeded' } });
     const recordTerminal = vi.fn().mockResolvedValue({ kind: 'applied', run: { ...run, status: 'succeeded' } });
+    processSearchTerminalResultMock.mockResolvedValue({
+      kind: 'applied',
+      searchRunId: 101,
+      packetHash: expected.packetHash,
+      packetSchemaVersion: 1,
+      normalizedCandidateCount: 1,
+      diagnostics: [],
+    });
 
     await reconcileSearchRun(101, 'user-1', {
       client,
