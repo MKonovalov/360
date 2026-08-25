@@ -66,6 +66,25 @@ export type SearchBuyerRoleSnapshot = {
   readonly name: string;
 };
 
+export type SearchBuyerRoleSelectorSnapshot = {
+  readonly kind: 'role_name' | 'department' | 'function' | 'seniority' | 'geography' | 'explicit_id';
+  readonly value: string;
+};
+
+export type SearchBuyerRoleRuleMatchSnapshot = {
+  readonly ruleId: string;
+  readonly label: string;
+  readonly required: boolean;
+  readonly match: 'any_selector' | 'all_selectors';
+  readonly matchedSelectors: readonly SearchBuyerRoleSelectorSnapshot[];
+};
+
+export type SearchBuyerRoleEvidenceSnapshot = {
+  readonly buyerRoleId: number;
+  readonly buyerRoleName: string;
+  readonly matchedRules: readonly SearchBuyerRoleRuleMatchSnapshot[];
+};
+
 export type SearchTerminalResultSummary = {
   readonly schemaVersion: number;
   readonly candidateCount: number;
@@ -97,6 +116,15 @@ export type SearchBuyerRoleProposalSnapshot = {
   readonly buyerRoleName: string;
   readonly matchedRuleIds: readonly string[];
   readonly confidence: 'supported' | 'uncertain';
+};
+
+export type SearchClaimSnapshot = {
+  readonly claimId: string;
+  readonly field: string;
+  readonly value: string;
+  readonly sourceIds: readonly string[];
+  readonly supported: boolean;
+  readonly verified: boolean;
 };
 
 export type SearchMatchSnapshot =
@@ -1283,6 +1311,7 @@ export const searchRun = pgTable(
     companySnapshot: jsonb('company_snapshot').$type<SearchCompanySnapshot>().notNull(),
     templateSnapshot: jsonb('template_snapshot').$type<SearchTemplateSnapshot>().notNull(),
     buyerRoleSnapshot: jsonb('buyer_role_snapshot').$type<readonly SearchBuyerRoleSnapshot[]>().notNull(),
+    buyerRoleEvidenceSnapshot: jsonb('buyer_role_evidence_snapshot').$type<readonly SearchBuyerRoleEvidenceSnapshot[]>().notNull(),
     evidencePolicySnapshot: jsonb('evidence_policy_snapshot').$type<SearchEvidencePolicySnapshot>().notNull(),
     partnerJobMappingId: integer('partner_job_mapping_id').references(() => partnerJobMapping.id),
     status: searchRunStatusEnum('status').notNull().default('queued'),
@@ -1317,6 +1346,7 @@ export const searchCandidate = pgTable(
     matchedPersonaId: integer('matched_persona_id').references(() => persona.id),
     personaSnapshot: jsonb('persona_snapshot').$type<SearchPersonaSnapshot>().notNull(),
     buyerRoleSnapshot: jsonb('buyer_role_snapshot').$type<readonly SearchBuyerRoleProposalSnapshot[]>().notNull(),
+    claimsSnapshot: jsonb('claims_snapshot').$type<readonly SearchClaimSnapshot[]>().notNull().default([]),
     matchSnapshot: jsonb('match_snapshot').$type<SearchMatchSnapshot>().notNull(),
     eligibilitySnapshot: jsonb('eligibility_snapshot').$type<SearchEligibilitySnapshot>().notNull(),
     status: searchCandidateStatusEnum('status').notNull().default('pending'),
