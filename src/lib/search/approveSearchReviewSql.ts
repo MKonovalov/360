@@ -18,7 +18,7 @@ export function buildApproveSearchReviewSql(input: ApprovalStatementInput): SQL<
   return sql`
     WITH candidate_state AS MATERIALIZED (
       SELECT candidate.id, candidate.status, candidate.revision, candidate.persona_snapshot,
-        candidate.buyer_role_snapshot, candidate.match_snapshot, candidate.eligibility_snapshot,
+        candidate.buyer_role_snapshot, candidate.claims_snapshot, candidate.match_snapshot, candidate.eligibility_snapshot,
         run.initiating_user_id AS owner_user_id, run.company_id, run.status AS run_status,
         run.company_snapshot, selected_company.name AS company_name, selected_company.domain AS company_domain
       FROM search_candidate AS candidate
@@ -136,44 +136,45 @@ export function buildApproveSearchReviewSql(input: ApprovalStatementInput): SQL<
         AND (state.full_name_staged OR state.title_staged OR state.seniority_staged OR state.email_staged OR state.linkedin_staged)
       RETURNING target.id AS persona_id
     ),
-    created_persona AS (
-      INSERT INTO persona (name, title, seniority, email, linkedin_url)
+    -- Narrow no-op conflict updates keep concurrent exact-key reuse visible to later CTEs;
+    -- DO NOTHING would hide the conflicting row from this statement's snapshot.
+    upserted_persona AS (
+      INSERT INTO persona AS target (name, title, seniority, email, linkedin_url)
       SELECT state.persona_snapshot->>'fullName', NULLIF(state.persona_snapshot->>'title', ''), NULLIF(state.persona_snapshot->>'seniority', '')::seniority,
         NULLIF(lower(btrim(state.persona_snapshot->>'email')), ''), NULLIF(state.persona_snapshot->>'linkedinUrl', '')
-      FROM eligible_state state WHERE state.match_kind = 'new' ON CONFLICT (email) DO NOTHING RETURNING id, email, name
+      FROM eligible_state state WHERE state.match_kind = 'new'
+      ON CONFLICT (email) DO UPDATE SET id = target.id
+      RETURNING id, email, name, (xmax = 0) AS created
     ),
     resolved_persona AS MATERIALIZED (
       SELECT state.id AS candidate_id, state.company_id,
-        COALESCE(updated.persona_id, state.locked_persona_id, created.id, fallback.id) AS persona_id,
+        COALESCE(updated.persona_id, state.locked_persona_id, upserted.id) AS persona_id,
         state.persona_snapshot->>'title' AS proposed_title
       FROM eligible_state state
       LEFT JOIN updated_persona updated ON state.match_kind = 'existing' AND updated.persona_id = state.locked_persona_id
-      LEFT JOIN created_persona created ON state.match_kind = 'new' AND (state.email_key IS NULL OR ${searchApprovalEmailKey(sql`created.email`)} = state.email_key)
-      LEFT JOIN persona fallback ON state.match_kind = 'new' AND state.email_key IS NOT NULL AND ${searchApprovalEmailKey(sql`fallback.email`)} = state.email_key
-      WHERE COALESCE(updated.persona_id, state.locked_persona_id, created.id, fallback.id) IS NOT NULL
+      LEFT JOIN upserted_persona upserted ON state.match_kind = 'new' AND (state.email_key IS NULL OR ${searchApprovalEmailKey(sql`upserted.email`)} = state.email_key)
+      WHERE COALESCE(updated.persona_id, state.locked_persona_id, upserted.id) IS NOT NULL
     ),
-    created_company_persona_role AS (
-      INSERT INTO company_persona_role (company_id, persona_id, title, is_current)
+    upserted_company_persona_role AS (
+      INSERT INTO company_persona_role AS target (company_id, persona_id, title, is_current)
       SELECT resolved.company_id, resolved.persona_id, NULLIF(resolved.proposed_title, ''), true FROM resolved_persona resolved
-      ON CONFLICT (company_id, persona_id) WHERE is_current = true DO NOTHING RETURNING id, company_id, persona_id
+      ON CONFLICT (company_id, persona_id) WHERE is_current = true DO UPDATE SET id = target.id
+      RETURNING id, company_id, persona_id, (xmax = 0) AS created
     ),
     resolved_company_persona_role AS MATERIALIZED (
-      SELECT resolved.candidate_id, created.id, created.company_id, created.persona_id, true AS created
-      FROM resolved_persona resolved INNER JOIN created_company_persona_role created ON created.company_id = resolved.company_id AND created.persona_id = resolved.persona_id
-      UNION ALL
-      SELECT resolved.candidate_id, existing.id, existing.company_id, existing.persona_id, false AS created
-      FROM resolved_persona resolved INNER JOIN company_persona_role existing ON existing.company_id = resolved.company_id AND existing.persona_id = resolved.persona_id AND existing.is_current = true
-      WHERE NOT EXISTS (SELECT 1 FROM created_company_persona_role created WHERE created.company_id = existing.company_id AND created.persona_id = existing.persona_id)
+      SELECT resolved.candidate_id, role.id, role.company_id, role.persona_id, role.created
+      FROM resolved_persona resolved INNER JOIN upserted_company_persona_role role ON role.company_id = resolved.company_id AND role.persona_id = resolved.persona_id
     ),
-    created_role_links AS (
-      INSERT INTO company_persona_role_buyer_role (company_persona_role_id, buyer_role_id)
+    upserted_role_links AS (
+      INSERT INTO company_persona_role_buyer_role AS target (company_persona_role_id, buyer_role_id)
       SELECT relationship.id, requested.buyer_role_id FROM resolved_company_persona_role relationship
       INNER JOIN requested_roles requested ON requested.candidate_id = relationship.candidate_id
-      ON CONFLICT (company_persona_role_id, buyer_role_id) DO NOTHING RETURNING id, company_persona_role_id, buyer_role_id
+      ON CONFLICT (company_persona_role_id, buyer_role_id) DO UPDATE SET id = target.id
+      RETURNING id, company_persona_role_id, buyer_role_id, (xmax = 0) AS created
     ),
     role_results AS (
       SELECT requested.candidate_id, requested.buyer_role_id,
-        EXISTS (SELECT 1 FROM created_role_links created WHERE created.company_persona_role_id = relationship.id AND created.buyer_role_id = requested.buyer_role_id) AS created
+        COALESCE((SELECT link.created FROM upserted_role_links link WHERE link.company_persona_role_id = relationship.id AND link.buyer_role_id = requested.buyer_role_id), false) AS created
       FROM requested_roles requested INNER JOIN resolved_company_persona_role relationship ON relationship.candidate_id = requested.candidate_id
     ),
     role_results_aggregate AS (
@@ -205,7 +206,7 @@ export function buildApproveSearchReviewSql(input: ApprovalStatementInput): SQL<
       WHEN NOT EXISTS (SELECT 1 FROM updated_candidate) THEN 'persistence_failed'
       ELSE 'approved' END AS kind,
       (SELECT persona_id FROM resolved_persona) AS "personaId", (SELECT company_id FROM resolved_persona) AS "companyId",
-      EXISTS (SELECT 1 FROM created_company_persona_role) AS "companyPersonaRoleCreated",
+      COALESCE((SELECT created FROM resolved_company_persona_role), false) AS "companyPersonaRoleCreated",
       COALESCE((SELECT buyer_role_results FROM role_results_aggregate), '[]'::jsonb) AS "buyerRoleResults",
       (SELECT id FROM approval_audit) AS "approvalAuditId"
   `;

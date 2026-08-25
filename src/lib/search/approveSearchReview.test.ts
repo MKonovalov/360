@@ -72,6 +72,18 @@ describe('approveSearchReview', () => {
     expect(sqlText).toContain('fullName');
   });
 
+  it('loads the complete evidence snapshot and resolves concurrent exact-key inserts', async () => {
+    mocks.db.execute.mockResolvedValue({ rows: [resultRow()] });
+
+    await approveSearchReview(input);
+
+    const sqlText = JSON.stringify(mocks.db.execute.mock.calls[0]?.[0]);
+    expect(sqlText).toContain('candidate.claims_snapshot');
+    expect(sqlText).toContain('ON CONFLICT (email) DO UPDATE SET');
+    expect(sqlText).toContain('ON CONFLICT (company_id, persona_id) WHERE is_current = true DO UPDATE SET');
+    expect(sqlText).toContain('ON CONFLICT (company_persona_role_id, buyer_role_id) DO UPDATE SET');
+  });
+
   it.each([
     ['ambiguous_match', { kind: 'ambiguous_match' }],
     ['inconclusive evidence', { kind: 'inconclusive' }],
