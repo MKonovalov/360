@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   db: { execute: vi.fn() },
@@ -160,6 +160,82 @@ describe('approveSearchReview', () => {
 
     expect(JSON.stringify(result)).not.toContain('secret');
     expect(JSON.stringify(result)).not.toContain('hidden');
+    expect(result).toEqual(expect.objectContaining({ kind: 'approved' }));
+  });
+});
+
+describe('approveSearchReview — recordSearchMetric seam', () => {
+  const originalSearchFlag = process.env.SEARCH_ENABLED;
+
+  afterEach(() => {
+    if (originalSearchFlag === undefined) delete process.env.SEARCH_ENABLED;
+    else process.env.SEARCH_ENABLED = originalSearchFlag;
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  // env.ts snapshots SEARCH_ENABLED at module-load time, so exercising both
+  // flag states in the same suite requires reloading approveSearchReview
+  // (and its env.ts dependency) fresh per test, after setting process.env —
+  // the same pattern security.test.ts/templateContracts.test.ts already use.
+  async function loadApproveSearchReview() {
+    vi.resetModules();
+    const fresh = await import('./approveSearchReview');
+    return fresh.approveSearchReview;
+  }
+
+  it('emits a bounded approval metric with duplicate-prevention and audit counts when Search is enabled', async () => {
+    process.env.SEARCH_ENABLED = 'true';
+    const freshApproveSearchReview = await loadApproveSearchReview();
+    const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    mocks.db.execute.mockResolvedValue({ rows: [resultRow()] });
+
+    await freshApproveSearchReview(input);
+
+    expect(consoleSpy).toHaveBeenCalledTimes(1);
+    const [payload] = consoleSpy.mock.calls[0] as [string];
+    expect(JSON.parse(payload)).toEqual({
+      schemaVersion: 1,
+      source: 'search',
+      kind: 'approval',
+      reviewId: 7,
+      conflictCount: 0,
+      // resultRow() has companyPersonaRoleCreated: false and one reused Buyer Role (created: false).
+      duplicatePreventedCount: 2,
+      auditRecorded: true,
+    });
+  });
+
+  it('emits a conflict-only approval metric on a database uniqueness conflict when Search is enabled', async () => {
+    process.env.SEARCH_ENABLED = 'true';
+    const freshApproveSearchReview = await loadApproveSearchReview();
+    const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    mocks.db.execute.mockRejectedValueOnce(Object.assign(new Error('duplicate key'), { code: '23505' }));
+
+    await freshApproveSearchReview(input);
+
+    expect(consoleSpy).toHaveBeenCalledTimes(1);
+    const [payload] = consoleSpy.mock.calls[0] as [string];
+    expect(JSON.parse(payload)).toEqual({
+      schemaVersion: 1,
+      source: 'search',
+      kind: 'approval',
+      reviewId: 7,
+      conflictCount: 1,
+      duplicatePreventedCount: 0,
+      auditRecorded: false,
+    });
+  });
+
+  it('emits nothing when Search is disabled, and still returns the real approval result', async () => {
+    delete process.env.SEARCH_ENABLED;
+    const freshApproveSearchReview = await loadApproveSearchReview();
+    const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    mocks.db.execute.mockResolvedValue({ rows: [resultRow()] });
+
+    const result = await freshApproveSearchReview(input);
+
+    expect(consoleSpy).not.toHaveBeenCalled();
     expect(result).toEqual(expect.objectContaining({ kind: 'approved' }));
   });
 });

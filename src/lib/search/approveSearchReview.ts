@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { db } from '@/lib/db/index';
 import { searchApproveRequestSchema } from './contracts';
 import { buildApproveSearchReviewSql } from './approveSearchReviewSql';
+import { recordSearchMetric } from './searchTelemetry';
 
 export interface ApproveSearchReviewInput {
   readonly reviewId: number;
@@ -67,13 +68,35 @@ function normalizeResult(row: unknown): ApprovalResult {
   }
 }
 
+// Folds "approval conflict/duplicate prevention" and "audit completeness"
+// into one event per approveSearchReview() call, sourced entirely from the
+// ApprovalResult this function already returns — no field here is computed
+// solely for telemetry. duplicatePreventedCount counts the Company Persona
+// Role and Buyer Role links this decision reused instead of creating.
+function emitApprovalMetric(reviewId: number, result: ApprovalResult): void {
+  const duplicatePreventedCount = result.kind === 'approved'
+    ? (result.companyPersonaRole.created ? 0 : 1) + result.buyerRoles.filter((role) => !role.created).length
+    : 0;
+  recordSearchMetric({
+    kind: 'approval',
+    reviewId,
+    conflictCount: result.kind === 'conflict' ? 1 : 0,
+    duplicatePreventedCount,
+    auditRecorded: result.kind === 'approved' && result.auditIds.length > 0,
+  });
+}
+
 export async function approveSearchReview(input: unknown): Promise<ApprovalResult> {
   const parsed = inputSchema.safeParse(input);
   if (!parsed.success) return { kind: 'invalid_input' };
   try {
     const result = await db.execute(buildApproveSearchReviewSql(parsed.data));
-    return normalizeResult(result.rows[0]);
+    const normalized = normalizeResult(result.rows[0]);
+    emitApprovalMetric(parsed.data.reviewId, normalized);
+    return normalized;
   } catch (error: unknown) {
-    return hasPostgresCode(error, '23505') ? { kind: 'conflict' } : { kind: 'persistence_failed' };
+    const result: ApprovalResult = hasPostgresCode(error, '23505') ? { kind: 'conflict' } : { kind: 'persistence_failed' };
+    emitApprovalMetric(parsed.data.reviewId, result);
+    return result;
   }
 }
