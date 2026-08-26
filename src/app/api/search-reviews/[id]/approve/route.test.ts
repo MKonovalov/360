@@ -1,10 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ requireStaffAccess: vi.fn(), approveSearchReview: vi.fn() }));
+const mocks = vi.hoisted(() => ({ requireStaffAccess: vi.fn(), approveSearchReview: vi.fn(), isSearchEnabled: vi.fn() }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('@/lib/auth/requireStaffAccess', () => ({ requireStaffAccess: mocks.requireStaffAccess }));
 vi.mock('@/lib/search/approveSearchReview', () => ({ approveSearchReview: mocks.approveSearchReview }));
+vi.mock('@/lib/search/templateContracts', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/search/templateContracts')>('@/lib/search/templateContracts');
+  return { ...actual, isSearchEnabled: mocks.isSearchEnabled };
+});
 
 import { POST } from './route';
 
@@ -22,6 +26,7 @@ describe('POST /api/search-reviews/[id]/approve', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.requireStaffAccess.mockResolvedValue({ userId: 'staff-1' });
+    mocks.isSearchEnabled.mockReturnValue(true);
     mocks.approveSearchReview.mockResolvedValue({
       kind: 'approved', personaId: 900, companyPersonaRole: { companyId: 42, personaId: 900, created: true },
       buyerRoles: [{ buyerRoleId: 3, created: true }], auditIds: [77], partnerJobId: 'secret',
@@ -39,6 +44,15 @@ describe('POST /api/search-reviews/[id]/approve', () => {
     });
     expect(mocks.approveSearchReview).toHaveBeenCalledWith({ reviewId: 501, expectedRevision: 1, actorUserId: 'staff-1' });
     expect(JSON.stringify(body)).not.toContain('partner');
+  });
+
+  it('fails closed when Search is disabled, without deciding the review', async () => {
+    mocks.isSearchEnabled.mockReturnValue(false);
+    const response = await POST(request({ expectedRevision: 1 }), context());
+    expect(response.status).toBe(409);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    await expect(response.json()).resolves.toEqual({ error: 'search_unavailable' });
+    expect(mocks.approveSearchReview).not.toHaveBeenCalled();
   });
 
   it('does not approve for an unauthenticated request', async () => {

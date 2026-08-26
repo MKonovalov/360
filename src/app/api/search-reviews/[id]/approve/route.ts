@@ -2,6 +2,7 @@ import 'server-only';
 
 import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { searchApproveRequestSchema } from '@/lib/search/contracts';
+import { isSearchEnabled } from '@/lib/search/templateContracts';
 import { approveSearchReview, type ApprovalResult } from '@/lib/search/approveSearchReview';
 import { jsonBodyFailureResponse, noStoreJson, parsePositiveLocalId, readJsonBody } from '@/lib/search/routeSupport';
 
@@ -45,6 +46,12 @@ export async function POST(request: Request, context: RouteContext<'/api/search-
   if (!body.ok) return jsonBodyFailureResponse(body);
   const parsed = searchApproveRequestSchema.safeParse(body.body);
   if (!parsed.success) return noStoreJson({ error: 'invalid_input' }, 400);
+  // Rollback gate (Task 14): matches the launch route's fail-closed shape
+  // (src/app/api/search-runs/route.ts) — disabled Search still lets staff
+  // read existing status/Reviews (GET routes never check this flag), it only
+  // blocks new approval side effects (Persona/Company Persona Role/Buyer
+  // Role writes).
+  if (!isSearchEnabled()) return noStoreJson({ error: 'search_unavailable' }, 409);
 
   let result: ApprovalResult;
   try {
