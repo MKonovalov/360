@@ -1,0 +1,1 @@
+ALTER TABLE "search_candidate" ADD COLUMN "claims_snapshot" jsonb DEFAULT '[]'::jsonb NOT NULL;

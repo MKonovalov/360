@@ -23,6 +23,126 @@ import type { BoundedOutputSchema } from '../analysis/customAgentContracts';
 import type { RawAttemptArtifact } from '../analysis/rawAttempt';
 import type { ModelRef } from '../models/modelRef';
 
+export type SearchBuyerRoleRuleSnapshot = {
+  readonly ruleId: string;
+  readonly label: string;
+  readonly buyerRoleIds: readonly number[];
+  readonly roleNames: readonly string[];
+  readonly departments: readonly string[];
+  readonly functions: readonly string[];
+  readonly seniority: readonly string[];
+  readonly geographies: readonly string[];
+  readonly match: 'any_selector' | 'all_selectors';
+  readonly required: boolean;
+};
+
+export type SearchEvidencePolicySnapshot = {
+  readonly minimumPublicSources: number;
+  readonly allowedSourceKinds: readonly string[];
+  readonly requireHttps: boolean;
+  readonly allowPrivateSources: boolean;
+};
+
+export type SearchCompanySnapshot = {
+  readonly id: number;
+  readonly name: string;
+  readonly domain: string | null;
+};
+
+export type SearchTemplateSnapshot = {
+  readonly schemaVersion: number;
+  readonly templateId: number;
+  readonly templateVersionId: number;
+  readonly version: number;
+  readonly name: string;
+  readonly resolvedInstructions: string;
+  readonly buyerRoleRules: readonly SearchBuyerRoleRuleSnapshot[];
+  readonly evidencePolicy: SearchEvidencePolicySnapshot;
+  readonly status: 'active' | 'draft' | 'retired';
+};
+
+export type SearchBuyerRoleSnapshot = {
+  readonly id: number;
+  readonly name: string;
+};
+
+export type SearchBuyerRoleSelectorSnapshot = {
+  readonly kind: 'role_name' | 'department' | 'function' | 'seniority' | 'geography' | 'explicit_id';
+  readonly value: string;
+};
+
+export type SearchBuyerRoleRuleMatchSnapshot = {
+  readonly ruleId: string;
+  readonly label: string;
+  readonly required: boolean;
+  readonly match: 'any_selector' | 'all_selectors';
+  readonly matchedSelectors: readonly SearchBuyerRoleSelectorSnapshot[];
+};
+
+export type SearchBuyerRoleEvidenceSnapshot = {
+  readonly buyerRoleId: number;
+  readonly buyerRoleName: string;
+  readonly matchedRules: readonly SearchBuyerRoleRuleMatchSnapshot[];
+};
+
+export type SearchTerminalResultSummary = {
+  readonly schemaVersion: number;
+  readonly candidateCount: number;
+  readonly sourceCount: number;
+  readonly inconclusiveCount: number;
+  readonly normalizedCandidateCount: number;
+};
+
+export type SearchPersonaSnapshot = {
+  readonly firstName: string | null;
+  readonly lastName: string | null;
+  readonly fullName: string;
+  readonly title: string | null;
+  readonly email: string | null;
+  readonly linkedinUrl: string | null;
+  readonly phone: string | null;
+  readonly location: string | null;
+  readonly department: string | null;
+  readonly function: string | null;
+  readonly seniority: string | null;
+  readonly companyName: string | null;
+  readonly companyDomain: string | null;
+  readonly bio: string | null;
+  readonly photoUrl: string | null;
+};
+
+export type SearchBuyerRoleProposalSnapshot = {
+  readonly buyerRoleId: number;
+  readonly buyerRoleName: string;
+  readonly matchedRuleIds: readonly string[];
+  readonly confidence: 'supported' | 'uncertain';
+};
+
+export type SearchClaimSnapshot = {
+  readonly claimId: string;
+  readonly field: string;
+  readonly value: string;
+  readonly sourceIds: readonly string[];
+  readonly supported: boolean;
+  readonly verified: boolean;
+};
+
+export type SearchMatchSnapshot =
+  | { readonly kind: 'new_persona' }
+  | { readonly kind: 'existing_persona'; readonly personaId: number; readonly matchedBy: 'email' | 'linkedin_url' | 'name_company_domain' }
+  | { readonly kind: 'ambiguous'; readonly personaIds: readonly number[]; readonly matchedBy: 'email' | 'linkedin_url' | 'name_company_domain' };
+
+export type SearchEligibilitySnapshot = {
+  readonly eligible: boolean;
+  readonly deficiencies: readonly string[];
+};
+
+export type SearchCandidateAuditChange = {
+  readonly path: string;
+  readonly before: string | null;
+  readonly after: string | null;
+};
+
 // D-07: fixed-but-extensible enum, seeded with the 4 known signal types.
 // Adding a 5th type is a `drizzle-kit generate` migration (ALTER TYPE ... ADD VALUE),
 // not a schema redesign.
@@ -140,15 +260,24 @@ export const signal = pgTable(
 
 // DATA-02: many-to-many Company<->Persona with date-range metadata,
 // supports "previous companies" (career history) from day one.
-export const companyPersonaRole = pgTable('company_persona_role', {
-  id: serial('id').primaryKey(),
-  companyId: integer('company_id').notNull().references(() => company.id),
-  personaId: integer('persona_id').notNull().references(() => persona.id),
-  title: text('title'),
-  isCurrent: boolean('is_current').notNull().default(false),
-  startDate: date('start_date'),
-  endDate: date('end_date'),
-});
+export const companyPersonaRole = pgTable(
+  'company_persona_role',
+  {
+    id: serial('id').primaryKey(),
+    companyId: integer('company_id').notNull().references(() => company.id),
+    personaId: integer('persona_id').notNull().references(() => persona.id),
+    title: text('title'),
+    isCurrent: boolean('is_current').notNull().default(false),
+    startDate: date('start_date'),
+    endDate: date('end_date'),
+  },
+  (table) => [
+    // Search approval reuses one current relationship while preserving multiple historical role periods.
+    uniqueIndex('company_persona_role_current_unique_idx')
+      .on(table.companyId, table.personaId)
+      .where(sql`${table.isCurrent} = true`),
+  ],
+);
 
 // D-03: discriminates which table recordId points into. No FK — a single
 // recordId column can validly reference either company.id or persona.id,
@@ -425,6 +554,10 @@ export const buyerRole = pgTable('buyer_role', {
   id: serial('id').primaryKey(),
   name: text('name').notNull().unique('buyer_role_name_unique'),
   description: text('description'),
+  departments: text('departments').array(),
+  functions: text('functions').array(),
+  seniorities: text('seniorities').array(),
+  geographies: text('geographies').array(),
   createdBy: text('created_by').notNull(),
   updatedBy: text('updated_by').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -594,6 +727,20 @@ export const analysisTemplateKindEnum = pgEnum('analysis_template_kind', ['fixed
 export const analysisExecutionTargetEnum = pgEnum('analysis_execution_target', EXECUTION_TARGETS);
 export const arcAgentnetLocalStatusEnum = pgEnum('arc_agentnet_local_status', ARC_AGENTNET_LOCAL_STATUSES);
 export const arcAgentnetSafeReasonEnum = pgEnum('arc_agentnet_safe_reason', ARC_AGENTNET_SAFE_REASONS);
+export const searchRunStatusEnum = pgEnum('search_run_status', [
+  'queued',
+  'running',
+  'succeeded',
+  'failed',
+  'cancelled',
+]);
+export const searchCandidateStatusEnum = pgEnum('search_candidate_status', [
+  'pending',
+  'inconclusive',
+  'ambiguous_match',
+  'approved',
+  'rejected',
+]);
 
 export const analysisTemplate = pgTable(
   'analysis_template',
@@ -1101,5 +1248,157 @@ export const arcAgentnetIdempotency = pgTable(
     check('arc_agentnet_idempotency_target_check', sql`${table.executionTarget} = 'arc-agentnet'`),
     check('arc_agentnet_idempotency_scope_values_check', sql`${table.initiatingUserId} <> '' AND ${table.companyId} > 0 AND ${table.templateId} > 0 AND ${table.templateVersionId} > 0 AND ${table.idempotencyKey} <> ''`),
     check('arc_agentnet_idempotency_payload_hash_check', sql`${table.payloadHash} ~ '^[a-f0-9]{64}$'`),
+  ],
+);
+
+export const companyPersonaRoleBuyerRole = pgTable(
+  'company_persona_role_buyer_role',
+  {
+    id: serial('id').primaryKey(),
+    companyPersonaRoleId: integer('company_persona_role_id').notNull().references(() => companyPersonaRole.id),
+    buyerRoleId: integer('buyer_role_id').notNull().references(() => buyerRole.id),
+  },
+  (table) => [
+    unique('company_persona_role_buyer_role_unique').on(table.companyPersonaRoleId, table.buyerRoleId),
+  ],
+);
+
+export const searchTemplate = pgTable(
+  'search_template',
+  {
+    id: serial('id').primaryKey(),
+    key: text('key').notNull().unique('search_template_key_unique'),
+    name: text('name').notNull(),
+    status: catalogStatusEnum('status').notNull().default('active'),
+    createdBy: text('created_by').notNull(),
+    updatedBy: text('updated_by').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [index('search_template_status_idx').on(table.status)],
+);
+
+export const searchTemplateVersion = pgTable(
+  'search_template_version',
+  {
+    id: serial('id').primaryKey(),
+    templateId: integer('template_id').notNull().references(() => searchTemplate.id),
+    version: integer('version').notNull(),
+    name: text('name').notNull(),
+    resolvedInstructions: text('resolved_instructions').notNull(),
+    buyerRoleRules: jsonb('buyer_role_rules').$type<readonly SearchBuyerRoleRuleSnapshot[]>().notNull(),
+    evidencePolicy: jsonb('evidence_policy').$type<SearchEvidencePolicySnapshot>().notNull(),
+    schemaVersion: integer('schema_version').notNull().default(1),
+    status: catalogStatusEnum('status').notNull().default('active'),
+    createdBy: text('created_by').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    unique('search_template_version_template_version_unique').on(table.templateId, table.version),
+    index('search_template_version_status_idx').on(table.templateId, table.status),
+  ],
+);
+
+export const searchRun = pgTable(
+  'search_run',
+  {
+    id: serial('id').primaryKey(),
+    initiatingUserId: text('initiating_user_id').notNull(),
+    idempotencyKey: text('idempotency_key').notNull(),
+    inputFingerprint: text('input_fingerprint').notNull(),
+    companyId: integer('company_id').notNull().references(() => company.id),
+    templateVersionId: integer('template_version_id').notNull().references(() => searchTemplateVersion.id),
+    companySnapshot: jsonb('company_snapshot').$type<SearchCompanySnapshot>().notNull(),
+    templateSnapshot: jsonb('template_snapshot').$type<SearchTemplateSnapshot>().notNull(),
+    buyerRoleSnapshot: jsonb('buyer_role_snapshot').$type<readonly SearchBuyerRoleSnapshot[]>().notNull(),
+    buyerRoleEvidenceSnapshot: jsonb('buyer_role_evidence_snapshot').$type<readonly SearchBuyerRoleEvidenceSnapshot[]>().notNull(),
+    evidencePolicySnapshot: jsonb('evidence_policy_snapshot').$type<SearchEvidencePolicySnapshot>().notNull(),
+    partnerJobMappingId: integer('partner_job_mapping_id').references(() => partnerJobMapping.id),
+    status: searchRunStatusEnum('status').notNull().default('queued'),
+    packetHash: text('packet_hash'),
+    packetSchemaVersion: integer('packet_schema_version'),
+    terminalResultSummary: jsonb('terminal_result_summary').$type<SearchTerminalResultSummary>(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+    startedAt: timestamp('started_at'),
+    completedAt: timestamp('completed_at'),
+    terminalAt: timestamp('terminal_at'),
+  },
+  (table) => [
+    unique('search_run_actor_idempotency_unique').on(table.initiatingUserId, table.idempotencyKey),
+    uniqueIndex('search_run_active_company_template_idx')
+      .on(table.companyId, table.templateVersionId)
+      .where(sql`${table.status} IN ('queued', 'running')`),
+    index('search_run_status_idx').on(table.status),
+    index('search_run_company_template_idx').on(table.companyId, table.templateVersionId, table.createdAt),
+    index('search_run_partner_mapping_idx').on(table.partnerJobMappingId),
+    check('search_run_input_fingerprint_check', sql`${table.inputFingerprint} ~ '^[a-f0-9]{64}$'`),
+    check('search_run_packet_hash_check', sql`${table.packetHash} IS NULL OR ${table.packetHash} ~ '^[a-f0-9]{64}$'`),
+  ],
+);
+
+export const searchCandidate = pgTable(
+  'search_candidate',
+  {
+    id: serial('id').primaryKey(),
+    searchRunId: integer('search_run_id').notNull().references(() => searchRun.id, { onDelete: 'cascade' }),
+    packetCandidateId: text('packet_candidate_id').notNull(),
+    matchedPersonaId: integer('matched_persona_id').references(() => persona.id),
+    personaSnapshot: jsonb('persona_snapshot').$type<SearchPersonaSnapshot>().notNull(),
+    buyerRoleSnapshot: jsonb('buyer_role_snapshot').$type<readonly SearchBuyerRoleProposalSnapshot[]>().notNull(),
+    claimsSnapshot: jsonb('claims_snapshot').$type<readonly SearchClaimSnapshot[]>().notNull().default([]),
+    matchSnapshot: jsonb('match_snapshot').$type<SearchMatchSnapshot>().notNull(),
+    eligibilitySnapshot: jsonb('eligibility_snapshot').$type<SearchEligibilitySnapshot>().notNull(),
+    status: searchCandidateStatusEnum('status').notNull().default('pending'),
+    revision: integer('revision').notNull().default(1),
+    editCount: integer('edit_count').notNull().default(0),
+    lastEditedBy: text('last_edited_by'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    unique('search_candidate_run_packet_id_unique').on(table.searchRunId, table.packetCandidateId),
+    index('search_candidate_status_idx').on(table.searchRunId, table.status),
+    index('search_candidate_run_order_idx').on(table.searchRunId, table.id),
+  ],
+);
+
+export const searchCandidateAudit = pgTable(
+  'search_candidate_audit',
+  {
+    id: serial('id').primaryKey(),
+    searchCandidateId: integer('search_candidate_id').notNull().references(() => searchCandidate.id, { onDelete: 'cascade' }),
+    eventType: text('event_type').notNull(),
+    actorId: text('actor_id').notNull(),
+    revision: integer('revision').notNull(),
+    changes: jsonb('changes').$type<readonly SearchCandidateAuditChange[]>().notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    unique('search_candidate_audit_candidate_event_revision_unique').on(
+      table.searchCandidateId,
+      table.eventType,
+      table.revision,
+    ),
+    index('search_candidate_audit_order_idx').on(table.searchCandidateId, table.createdAt, table.id),
+  ],
+);
+
+export const searchCandidateSource = pgTable(
+  'search_candidate_source',
+  {
+    id: serial('id').primaryKey(),
+    searchCandidateId: integer('search_candidate_id').notNull().references(() => searchCandidate.id, { onDelete: 'cascade' }),
+    packetSourceId: text('packet_source_id').notNull(),
+    kind: text('kind').notNull(),
+    url: text('url').notNull(),
+    title: text('title').notNull(),
+    publishedAt: timestamp('published_at'),
+    accessedAt: timestamp('accessed_at'),
+    supports: jsonb('supports').$type<readonly string[]>().notNull().default([]),
+  },
+  (table) => [
+    unique('search_candidate_source_packet_id_unique').on(table.searchCandidateId, table.packetSourceId),
+    index('search_candidate_source_order_idx').on(table.searchCandidateId, table.id),
   ],
 );

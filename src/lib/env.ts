@@ -70,11 +70,29 @@ const envSchema = z.object({
   X_Partner_Key: z.string().min(1).optional(),
   PARTNER_WEBHOOK_SECRET: z.string().min(32).optional().catch(undefined),
   COMPANY_ANALYSIS_ARC_AGENTNET_ENABLED: z.string().optional(),
+  // Search job (2026-08-25-search-job Task 2): server-only rollout flag for
+  // the Search domain. Same optional/degrade-gracefully shape as
+  // COMPANY_ANALYSIS_ARC_AGENTNET_ENABLED above — unset means disabled, never
+  // a crash at import time. Non-PUBLIC_ prefix = server-only; read only from
+  // this module, never re-exported as a client-side constant.
+  SEARCH_ENABLED: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);
 
 export function isCompanyArcAgentnetEnabled(): boolean {
   const value = env.COMPANY_ANALYSIS_ARC_AGENTNET_ENABLED;
+  return value === 'true' || value === '1' || value === 'on';
+}
+
+// Search job (2026-08-25-search-job Task 2, Global Constraint): feature flag
+// evaluated server-side, at request time, from process.env via this module —
+// never hardcoded into a client bundle. Deterministic mapping mirrors
+// isCompanyArcAgentnetEnabled: unset/'false'/'0'/'off' => disabled (the
+// 'false'/'0'/'off' cases are redundant with the default but are handled
+// explicitly per the Task 2 brief so the mapping is total, not just the
+// unset case), 'true'/'1'/'on' => enabled. Any other value is disabled.
+export function isSearchEnabled(): boolean {
+  const value = env.SEARCH_ENABLED;
   return value === 'true' || value === '1' || value === 'on';
 }

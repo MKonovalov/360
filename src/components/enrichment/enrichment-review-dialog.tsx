@@ -21,6 +21,7 @@ import { humanizeEnum } from '@/components/explorer/explorer-format';
 import { runEnrichment, commitEnrichment } from '@/app/actions/enrichment';
 import { AnalysisMenuAction } from '@/components/analysis/AnalysisMenuAction';
 import { AnalysisLauncher } from '@/components/analysis/AnalysisLauncher';
+import { SearchLauncher, type SearchLauncherConfig } from '@/components/search/SearchLauncher';
 import type { EnrichmentPlanRow } from '@/lib/enrichment/mergePlan';
 
 // Combined detail-panel Menu (Enrich + Analyze) plus the
@@ -87,6 +88,7 @@ export function EnrichMenu({
   disabledReason,
   canAnalyze = true,
   analyzeDisabledReason = 'Analysis unavailable',
+  search,
 }: {
   entityType: 'company' | 'persona';
   recordId: number;
@@ -94,10 +96,12 @@ export function EnrichMenu({
   disabledReason: string;
   canAnalyze?: boolean;
   analyzeDisabledReason?: string;
+  search?: SearchLauncherConfig;
 }) {
   const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [state, setState] = useState<ReviewState>({ status: 'idle' });
   // field → checked; seeded from each row's preAccepted flag when the plan loads
   const [checked, setChecked] = useState<Record<string, boolean>>({});
@@ -180,6 +184,16 @@ export function EnrichMenu({
           <DropdownMenuItem disabled={!canEnrich} onSelect={startEnrichment}>
             {canEnrich ? 'Enrich' : `Enrich — ${disabledReason}`}
           </DropdownMenuItem>
+          {search && (
+            <DropdownMenuItem
+              onSelect={() => {
+                setMenuOpen(false);
+                setSearchOpen(true);
+              }}
+            >
+              Search
+            </DropdownMenuItem>
+          )}
           <AnalysisMenuAction
             canAnalyze={canAnalyze}
             disabledReason={analyzeDisabledReason}
@@ -197,6 +211,14 @@ export function EnrichMenu({
         subjectType={entityType}
         subjectId={recordId}
       />
+
+      {search && (
+        <SearchLauncher
+          {...search}
+          open={searchOpen}
+          onOpenChange={setSearchOpen}
+        />
+      )}
 
       <Dialog open={open} onOpenChange={handleDialogOpenChange}>
         <DialogContent className="max-w-2xl">

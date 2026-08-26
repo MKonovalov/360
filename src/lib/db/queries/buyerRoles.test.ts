@@ -64,6 +64,38 @@ describe('buyerRoles query module (30-02)', () => {
     expect(orderBy).toHaveBeenCalled();
   });
 
+  it('projects nullable selector metadata without dropping the existing Buyer Role fields', async () => {
+    const rows = [
+      {
+        id: 9,
+        name: 'CFO',
+        description: null,
+        departments: ['Finance'],
+        functions: ['Transformation'],
+        seniorities: null,
+        geographies: ['United States'],
+      },
+    ];
+    const orderBy = vi.fn().mockResolvedValue(rows);
+    const from = vi.fn().mockReturnValue({ orderBy });
+    mocks.db.select.mockReturnValue({ from });
+
+    const result = await listBuyerRoles();
+
+    expect(result).toEqual(rows);
+    expect(mocks.db.select).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: expect.anything(),
+        name: expect.anything(),
+        description: expect.anything(),
+        departments: expect.anything(),
+        functions: expect.anything(),
+        seniorities: expect.anything(),
+        geographies: expect.anything(),
+      }),
+    );
+  });
+
   it('updateBuyerRole explicitly stamps updatedAt and updatedBy on top of the patch', async () => {
     const updated = { id: 9, name: 'Chief Financial Officer', updatedBy: 'user-2' };
     const returning = vi.fn().mockResolvedValue([updated]);

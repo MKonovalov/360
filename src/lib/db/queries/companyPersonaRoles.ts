@@ -1,6 +1,6 @@
-import { eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { db } from '../index';
-import { companyPersonaRole, persona, company } from '../schema';
+import { company, companyPersonaRole, companyPersonaRoleBuyerRole, persona } from '../schema';
 
 export interface InsertCompanyPersonaRoleInput {
   companyId: number;
@@ -11,9 +11,88 @@ export interface InsertCompanyPersonaRoleInput {
   endDate?: string;
 }
 
+export type InsertCurrentCompanyPersonaRoleInput = Omit<InsertCompanyPersonaRoleInput, 'isCurrent'> & {
+  isCurrent: true;
+};
+
 export async function insertCompanyPersonaRole(row: InsertCompanyPersonaRoleInput) {
   const [inserted] = await db.insert(companyPersonaRole).values(row).returning();
   return inserted;
+}
+
+export async function insertCompanyPersonaRoleIfMissing(
+  input: InsertCurrentCompanyPersonaRoleInput,
+): Promise<{ id: number; created: boolean }> {
+  const [inserted] = await db
+    .insert(companyPersonaRole)
+    .values(input)
+    .onConflictDoNothing({
+      target: [companyPersonaRole.companyId, companyPersonaRole.personaId],
+      where: sql`${companyPersonaRole.isCurrent} = true`,
+    })
+    .returning({ id: companyPersonaRole.id });
+  if (inserted) return { id: inserted.id, created: true };
+
+  const [existing] = await db
+    .select({ id: companyPersonaRole.id })
+    .from(companyPersonaRole)
+    .where(
+      and(
+        eq(companyPersonaRole.companyId, input.companyId),
+        eq(companyPersonaRole.personaId, input.personaId),
+        eq(companyPersonaRole.isCurrent, true),
+      ),
+    )
+    .orderBy(asc(companyPersonaRole.id))
+    .limit(1);
+  if (!existing) throw new Error('Company Persona Role conflict did not resolve to a row');
+  return { id: existing.id, created: false };
+}
+
+export interface InsertCompanyPersonaRoleBuyerRoleInput {
+  companyPersonaRoleId: number;
+  buyerRoleId: number;
+}
+
+export async function insertCompanyPersonaRoleBuyerRoleIfMissing(
+  input: InsertCompanyPersonaRoleBuyerRoleInput,
+): Promise<{ created: boolean }> {
+  const [inserted] = await db
+    .insert(companyPersonaRoleBuyerRole)
+    .values(input)
+    .onConflictDoNothing({
+      target: [companyPersonaRoleBuyerRole.companyPersonaRoleId, companyPersonaRoleBuyerRole.buyerRoleId],
+    })
+    .returning({ id: companyPersonaRoleBuyerRole.id });
+  if (inserted) return { created: true };
+
+  const [existing] = await db
+    .select({ id: companyPersonaRoleBuyerRole.id })
+    .from(companyPersonaRoleBuyerRole)
+    .where(
+      and(
+        eq(companyPersonaRoleBuyerRole.companyPersonaRoleId, input.companyPersonaRoleId),
+        eq(companyPersonaRoleBuyerRole.buyerRoleId, input.buyerRoleId),
+      ),
+    )
+    .orderBy(asc(companyPersonaRoleBuyerRole.id))
+    .limit(1);
+  if (!existing) throw new Error('Company Persona Role Buyer Role conflict did not resolve to a row');
+  return { created: false };
+}
+
+// Explicit Search approval names keep callers on the partial/current-role and
+// composite-link uniqueness guards instead of using an unconditional insert.
+export async function insertCompanyPersonaRoleForSearchApproval(
+  input: InsertCurrentCompanyPersonaRoleInput,
+): Promise<{ id: number; created: boolean }> {
+  return insertCompanyPersonaRoleIfMissing(input);
+}
+
+export async function insertCompanyPersonaRoleBuyerRoleForSearchApproval(
+  input: InsertCompanyPersonaRoleBuyerRoleInput,
+): Promise<{ created: boolean }> {
+  return insertCompanyPersonaRoleBuyerRoleIfMissing(input);
 }
 
 // COMP-04: linked personas for a company's detail pane — inner join keeps

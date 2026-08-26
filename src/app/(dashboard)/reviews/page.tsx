@@ -2,9 +2,14 @@ import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { listPendingProposals } from '@/lib/db/queries/proposals';
 import { listRunReviewItems } from '@/lib/db/queries/analysisReviews';
 import { getAnalysisPacket } from '@/lib/db/queries/analysisResults';
+import { listBuyerRoles } from '@/lib/db/queries/buyerRoles';
+import { listSearchReviews } from '@/lib/db/queries/searchReviews';
 import { ReviewQueue } from '@/components/reviews/review-queue';
 import { RunReviewSection } from '@/components/reviews/run-review-section';
 import type { RunReviewCardData, RunReviewFinding, RunReviewSource } from '@/components/reviews/run-review-card';
+import { SearchReviewQueue } from '@/components/search/SearchReviewQueue';
+import type { SearchReviewRoleOption } from '@/components/search/SearchReviewEditor';
+import { parsePositiveLocalId } from '@/lib/search/routeSupport';
 
 // Belt-and-suspenders alongside the (dashboard) layout's auth gate
 // (02-RESEARCH.md Pitfall 4) — every page in the group gates itself too, so
@@ -83,8 +88,15 @@ async function projectRunReviewItem(
   };
 }
 
-export default async function ReviewsPage() {
-  await requireStaffAccess();
+export default async function ReviewsPage({
+  searchParams,
+}: {
+  readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { userId } = await requireStaffAccess();
+  const params = await searchParams;
+  const searchRunIdParam = typeof params.searchRunId === 'string' ? params.searchRunId : undefined;
+  const searchRunId = searchRunIdParam === undefined ? undefined : parsePositiveLocalId(searchRunIdParam);
 
   // EXPL-06: a DB-fetch failure degrades to the established per-widget error
   // card (same copy shape as every dashboard widget), never Next.js's default
@@ -115,11 +127,30 @@ export default async function ReviewsPage() {
     runItems = null;
   }
 
+  let searchReviews: Awaited<ReturnType<typeof listSearchReviews>> = [];
+  let searchRoleOptions: readonly SearchReviewRoleOption[] = [];
+  let searchReviewLoadError = false;
+  if (searchRunId !== undefined) {
+    try {
+      const [reviews, buyerRoles] = await Promise.all([listSearchReviews(searchRunId, userId), listBuyerRoles()]);
+      searchReviews = reviews;
+      searchRoleOptions = buyerRoles.map(({ id, name }) => ({ id, name }));
+    } catch {
+      searchReviewLoadError = true;
+    }
+  }
+
   return (
     <div className="flex flex-col gap-12 p-8">
       <h1 className="text-[24px] font-semibold leading-[1.2] text-slate-900">Review Proposals</h1>
       <ReviewQueue proposals={proposals} />
       <RunReviewSection items={runItems} />
+      <SearchReviewQueue
+        reviews={searchReviews}
+        searchRunId={searchRunId}
+        roleOptions={searchRoleOptions}
+        loadError={searchReviewLoadError}
+      />
     </div>
   );
 }
