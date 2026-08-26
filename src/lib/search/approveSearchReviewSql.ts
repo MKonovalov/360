@@ -56,8 +56,8 @@ export function buildApproveSearchReviewSql(input: ApprovalStatementInput): SQL<
     ),
     name_matches AS (
       SELECT keys.id AS candidate_id, matched.id AS persona_id FROM candidate_keys keys
-      INNER JOIN company_persona_role current_role ON current_role.company_id = keys.company_id AND current_role.is_current = true
-      INNER JOIN persona matched ON matched.id = current_role.persona_id AND ${searchApprovalNameKey(sql`matched.name`)} = keys.name_key
+      INNER JOIN company_persona_role cpr ON cpr.company_id = keys.company_id AND cpr.is_current = true
+      INNER JOIN persona matched ON matched.id = cpr.persona_id AND ${searchApprovalNameKey(sql`matched.name`)} = keys.name_key
       WHERE keys.company_domain_key IS NOT NULL AND ${searchApprovalDomainKey(sql`keys.company_domain`)} = keys.company_domain_key
     ),
     email_stats AS (SELECT candidate_id, count(*)::int AS match_count, min(persona_id)::int AS persona_id FROM email_matches GROUP BY candidate_id),
