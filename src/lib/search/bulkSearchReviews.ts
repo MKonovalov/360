@@ -2,9 +2,17 @@ import 'server-only';
 
 import { z } from 'zod';
 
-import { MAX_BULK_REVIEW_IDS, searchBulkRequestSchema } from './contracts';
+import {
+  MAX_BULK_REVIEW_IDS,
+  searchBulkRequestSchema,
+  type BulkSearchCounts,
+  type BulkSearchOutcome,
+  type BulkSearchResult,
+} from './contracts';
 import { approveSearchReview, type ApprovalResult } from './approveSearchReview';
 import { rejectSearchReview, type RejectionResult } from './rejectSearchReview';
+
+export type { BulkSearchCounts, BulkSearchOutcome, BulkSearchResult } from './contracts';
 
 const bulkInputSchema = searchBulkRequestSchema
   .extend({ actorUserId: z.string().trim().min(1).max(200) })
@@ -16,29 +24,6 @@ export interface BulkSearchReviewsInput {
   readonly actorUserId: string;
   readonly revisions: Readonly<Record<number, number>>;
 }
-
-export type BulkSearchReason =
-  | 'ineligible'
-  | 'stale_revision'
-  | 'already_terminal'
-  | 'not_found'
-  | 'conflict'
-  | 'failed';
-
-export type BulkSearchOutcome =
-  | { readonly reviewId: number; readonly outcome: 'approved' | 'rejected' }
-  | { readonly reviewId: number; readonly outcome: 'skipped' | 'failed'; readonly reason: BulkSearchReason };
-
-export interface BulkSearchCounts {
-  readonly approved: number;
-  readonly rejected: number;
-  readonly skipped: number;
-  readonly failed: number;
-}
-
-export type BulkSearchResult =
-  | { readonly kind: 'invalid_input' }
-  | { readonly kind: 'completed'; readonly outcomes: readonly BulkSearchOutcome[]; readonly counts: BulkSearchCounts };
 
 function assertNever(value: never): never {
   throw new Error(`Unhandled Search bulk result: ${String(value)}`);

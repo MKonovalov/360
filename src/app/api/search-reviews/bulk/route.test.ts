@@ -47,6 +47,27 @@ describe('POST /api/search-reviews/bulk', () => {
     expect(JSON.stringify(body)).not.toContain('partner');
   });
 
+  it('does not dispatch bulk actions for an unauthenticated request', async () => {
+    mocks.requireStaffAccess.mockRejectedValue(new Error('NEXT_REDIRECT'));
+    await expect(POST(request(validBody))).rejects.toThrow('NEXT_REDIRECT');
+    expect(mocks.bulkSearchReviews).not.toHaveBeenCalled();
+  });
+
+  it('reports another user Review as skipped rather than exposing or mutating it', async () => {
+    mocks.bulkSearchReviews.mockResolvedValue({
+      kind: 'completed',
+      outcomes: [{ reviewId: 501, outcome: 'skipped', reason: 'not_found' }],
+      counts: { approved: 0, rejected: 0, skipped: 1, failed: 0 },
+    });
+    const response = await POST(request({ reviewIds: [501], action: 'approve', revisions: { '501': 1 } }));
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      kind: 'completed',
+      outcomes: [{ reviewId: 501, outcome: 'skipped', reason: 'not_found' }],
+      counts: { approved: 0, rejected: 0, skipped: 1, failed: 0 },
+    });
+  });
+
   it('rejects malformed JSON, unknown fields, missing revisions, and oversized lists before Task 9', async () => {
     const malformed = await POST(request('{'));
     expect(malformed.status).toBe(400);
