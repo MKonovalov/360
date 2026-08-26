@@ -158,13 +158,11 @@ export async function CompanyDetail({
           canEnrich={Boolean(company.domain && env.APOLLO_API_KEY && env.ENRICHMENT_REVIEW_SECRET)}
           disabledReason={!company.domain ? 'Add a domain first' : 'Company enrichment is not configured'}
           canAnalyze
-          { ...(isSearchEnabled() ? {
-            search: {
-              company: { id: company.id, name: company.name, domain: company.domain },
-              templates: searchTemplates,
-              activeRun: activeSearchRun ?? null,
-            },
-          } : {}) }
+          search={isSearchEnabled() ? {
+            company: { id: company.id, name: company.name, domain: company.domain },
+            templates: searchTemplates,
+            activeRun: activeSearchRun ?? null,
+          } : undefined}
         />
         <ExplorerCloseButton />
       </div>
