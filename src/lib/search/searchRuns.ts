@@ -408,3 +408,21 @@ export async function getSearchStatusProjection(
     reviewsUrl: total > 0 ? `/reviews?searchRunId=${runId}` : null,
   };
 }
+
+export async function getActiveSearchStatusProjection(
+  companyId: number,
+  initiatingUserId: string,
+): Promise<SearchStatusProjection | undefined> {
+  const result = await db.execute<{ readonly id: number | string }>(sql`
+    SELECT id
+    FROM search_run
+    WHERE company_id = ${companyId}
+      AND initiating_user_id = ${initiatingUserId}
+      AND status IN ('queued', 'running')
+    ORDER BY created_at DESC
+    LIMIT 1
+  `);
+  const runId = Number(result.rows[0]?.id);
+  if (!Number.isSafeInteger(runId) || runId <= 0) return undefined;
+  return getSearchStatusProjection(runId, initiatingUserId);
+}

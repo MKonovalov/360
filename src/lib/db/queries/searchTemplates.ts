@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 import {
   buyerRoleRuleSchema,
@@ -8,6 +8,9 @@ import {
 } from '@/lib/search/templateContracts';
 import { db } from '../index';
 import { searchTemplate, searchTemplateVersion } from '../schema';
+import { listBuyerRoles } from './buyerRoles';
+import { resolveBuyerRoleRules } from '@/lib/search/resolveBuyerRoleRules';
+import type { SearchTemplateProjection } from '@/components/search/searchClient';
 
 export type SearchTemplateLifecycle = 'active' | 'draft' | 'retired';
 
@@ -74,4 +77,49 @@ export async function getSearchTemplateVersion(
       allowedSourceKinds: [...parsedEvidencePolicy.data.allowedSourceKinds],
     },
   };
+}
+
+export async function listActiveSearchTemplateProjections(): Promise<readonly SearchTemplateProjection[]> {
+  const isCurrent = sql<boolean>`search_template_version.version = (
+    SELECT MAX(current_version.version)
+    FROM search_template_version AS current_version
+    WHERE current_version.template_id = search_template_version.template_id
+  )`;
+  const rows = await db
+    .select({
+      templateId: searchTemplate.id,
+      templateVersionId: searchTemplateVersion.id,
+      version: searchTemplateVersion.version,
+      name: searchTemplateVersion.name,
+      buyerRoleRules: searchTemplateVersion.buyerRoleRules,
+      evidencePolicy: searchTemplateVersion.evidencePolicy,
+    })
+    .from(searchTemplateVersion)
+    .innerJoin(searchTemplate, eq(searchTemplateVersion.templateId, searchTemplate.id))
+    .where(and(
+      eq(searchTemplate.status, 'active'),
+      eq(searchTemplateVersion.status, 'active'),
+      isCurrent,
+    ))
+    .orderBy(searchTemplate.id, searchTemplateVersion.version);
+
+  const buyerRoles = await listBuyerRoles();
+  return rows.flatMap((row) => {
+    const parsedRules = buyerRoleRuleSchema.array().safeParse(row.buyerRoleRules);
+    const parsedPolicy = evidencePolicySchema.safeParse(row.evidencePolicy);
+    if (!parsedRules.success || !parsedPolicy.success) return [];
+
+    const resolution = resolveBuyerRoleRules({ rules: parsedRules.data, buyerRoles });
+    if (!resolution.ok) return [];
+
+    return [{
+      id: row.templateId,
+      versionId: row.templateVersionId,
+      name: row.name,
+      version: row.version,
+      buyerRoles: resolution.buyerRoles,
+      buyerRoleEvidence: resolution.buyerRoleEvidence,
+      evidencePolicy: parsedPolicy.data,
+    }];
+  });
 }

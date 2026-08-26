@@ -15,10 +15,16 @@ import { env } from '@/lib/env';
 import { listAnalysisRunsForSubject } from '@/lib/db/queries/analysisRuns';
 import { listConfirmedCandidateOfferingsForSubject } from '@/lib/db/queries/confirmedCandidates';
 import { getAnalysisPacket } from '@/lib/db/queries/analysisResults';
+import { listActiveSearchTemplateProjections } from '@/lib/db/queries/searchTemplates';
+import { getActiveSearchStatusProjection } from '@/lib/search/searchRuns';
+import { isSearchEnabled } from '@/lib/search/templateContracts';
+import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { AnalysisHistory, projectRunReviewCards } from '@/components/analysis/analysis-history';
 import { ConfirmedCandidateOfferings } from '@/components/analysis/confirmed-candidate-offerings';
 
 export async function CompanyDetail({ id }: { id: number }) {
+  const { userId } = await requireStaffAccess();
+
   // EXPL-06/D-09: mirrors company-list.tsx's try/catch error-card pattern —
   // a DB-fetch failure degrades to known-good UI, never Next.js's default
   // 500 page. The not-found check below is deliberately OUTSIDE this
@@ -73,6 +79,21 @@ export async function CompanyDetail({ id }: { id: number }) {
   // DB failure must never be masked as "no articles".
   const articles = await fetchArcpediaArticles(company.name);
 
+  let searchTemplates: Awaited<ReturnType<typeof listActiveSearchTemplateProjections>> = [];
+  let activeSearchRun: Awaited<ReturnType<typeof getActiveSearchStatusProjection>>;
+  if (isSearchEnabled()) {
+    try {
+      [searchTemplates, activeSearchRun] = await Promise.all([
+        listActiveSearchTemplateProjections(),
+        getActiveSearchStatusProjection(company.id, userId),
+      ]);
+    } catch {
+      // Search availability is additive; a failed projection must not block the Company detail.
+      searchTemplates = [];
+      activeSearchRun = undefined;
+    }
+  }
+
   return (
     <div className="relative space-y-12 bg-white p-8">
       <RecordViewTracker recordType="company" recordId={company.id} />
@@ -83,6 +104,13 @@ export async function CompanyDetail({ id }: { id: number }) {
           canEnrich={Boolean(company.domain && env.APOLLO_API_KEY && env.ENRICHMENT_REVIEW_SECRET)}
           disabledReason={!company.domain ? 'Add a domain first' : 'Company enrichment is not configured'}
           canAnalyze
+          { ...(isSearchEnabled() ? {
+            search: {
+              company: { id: company.id, name: company.name, domain: company.domain },
+              templates: searchTemplates,
+              activeRun: activeSearchRun ?? null,
+            },
+          } : {}) }
         />
         <ExplorerCloseButton />
       </div>
