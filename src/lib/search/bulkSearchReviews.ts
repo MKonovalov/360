@@ -11,6 +11,7 @@ import {
 } from './contracts';
 import { approveSearchReview, type ApprovalResult } from './approveSearchReview';
 import { rejectSearchReview, type RejectionResult } from './rejectSearchReview';
+import { recordSearchMetric } from './searchTelemetry';
 
 export type { BulkSearchCounts, BulkSearchOutcome, BulkSearchResult } from './contracts';
 
@@ -124,5 +125,12 @@ export async function bulkSearchReviews(input: unknown): Promise<BulkSearchResul
     }
   }
 
-  return { kind: 'completed', outcomes, counts: countOutcomes(outcomes) };
+  const counts = countOutcomes(outcomes);
+  // reviewIds is deduplicated and already proven non-empty by the guard
+  // above (length === 0 returns invalid_input before this point) — its
+  // first entry anchors the batch-level metric, mirroring the single
+  // approval event's reviewId identity (bulkSearchReviews has no single
+  // parent run ID for an arbitrary cross-run batch).
+  recordSearchMetric({ kind: 'bulk_outcome', reviewId: reviewIds[0], ...counts });
+  return { kind: 'completed', outcomes, counts };
 }

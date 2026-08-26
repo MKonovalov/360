@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   approveSearchReview: vi.fn(),
@@ -172,5 +172,72 @@ describe('bulkSearchReviews', () => {
     expect(results).toEqual(invalidInputs.map(() => ({ kind: 'invalid_input' })));
     expect(mocks.approveSearchReview).not.toHaveBeenCalled();
     expect(mocks.rejectSearchReview).not.toHaveBeenCalled();
+  });
+});
+
+describe('bulkSearchReviews — recordSearchMetric seam', () => {
+  const originalSearchFlag = process.env.SEARCH_ENABLED;
+
+  afterEach(() => {
+    if (originalSearchFlag === undefined) delete process.env.SEARCH_ENABLED;
+    else process.env.SEARCH_ENABLED = originalSearchFlag;
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  // env.ts snapshots SEARCH_ENABLED at module-load time, so exercising both
+  // flag states in the same suite requires reloading bulkSearchReviews (and
+  // its env.ts dependency) fresh per test, after setting process.env — the
+  // same pattern security.test.ts/templateContracts.test.ts already use.
+  async function loadBulkSearchReviews() {
+    vi.resetModules();
+    const fresh = await import('./bulkSearchReviews');
+    return fresh.bulkSearchReviews;
+  }
+
+  it('emits one bounded bulk outcome metric anchored on the first review ID when Search is enabled', async () => {
+    process.env.SEARCH_ENABLED = 'true';
+    const freshBulkSearchReviews = await loadBulkSearchReviews();
+    const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    mocks.approveSearchReview
+      .mockResolvedValueOnce({ kind: 'approved', personaId: 31 })
+      .mockResolvedValueOnce({ kind: 'stale_revision' });
+
+    await freshBulkSearchReviews(approveInput);
+
+    expect(consoleSpy).toHaveBeenCalledTimes(1);
+    const [payload] = consoleSpy.mock.calls[0] as [string];
+    expect(JSON.parse(payload)).toEqual({
+      schemaVersion: 1,
+      source: 'search',
+      kind: 'bulk_outcome',
+      reviewId: 7,
+      approved: 1,
+      rejected: 0,
+      skipped: 1,
+      failed: 0,
+    });
+  });
+
+  it('emits nothing when Search is disabled, and still returns the real bulk result', async () => {
+    delete process.env.SEARCH_ENABLED;
+    const freshBulkSearchReviews = await loadBulkSearchReviews();
+    const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    mocks.approveSearchReview.mockResolvedValue({ kind: 'approved', personaId: 31 });
+
+    const result = await freshBulkSearchReviews(approveInput);
+
+    expect(consoleSpy).not.toHaveBeenCalled();
+    expect(result.kind).toBe('completed');
+  });
+
+  it('emits nothing for invalid input rejected before dispatch, even when Search is enabled', async () => {
+    process.env.SEARCH_ENABLED = 'true';
+    const freshBulkSearchReviews = await loadBulkSearchReviews();
+    const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+
+    await freshBulkSearchReviews({ ...approveInput, reviewIds: [], revisions: {} });
+
+    expect(consoleSpy).not.toHaveBeenCalled();
   });
 });
