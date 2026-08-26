@@ -292,7 +292,7 @@ function hashPacket(input: unknown): string {
   return createHash('sha256').update(safeJson(input)).digest('hex');
 }
 
-function byteLength(input: unknown): number | undefined {
+export function byteLength(input: unknown): number | undefined {
   try {
     const serialized = JSON.stringify(input);
     return serialized === undefined ? undefined : Buffer.byteLength(serialized, 'utf8');

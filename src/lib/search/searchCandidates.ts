@@ -27,10 +27,12 @@ import { evaluateSearchEvidence, type SearchEligibility } from './searchEvidence
 import { matchSearchCandidate, type PersonaMatchRecord } from './searchMatching';
 import { parseBuyerRoleEvidenceSnapshot } from './resolveBuyerRoleRules';
 import {
+  byteLength,
   normalizeSearchPacket,
   type NormalizedSearchCandidate,
   type SearchNormalizationDiagnostic,
 } from './normalizeSearchPacket';
+import { recordSearchMetric } from './searchTelemetry';
 
 interface SearchCandidateRun {
   readonly id: number;
@@ -505,6 +507,15 @@ export async function processSearchTerminalResult(
     resolvedRuleIds: run.templateSnapshot.buyerRoleRules.filter((rule) => rule.required).map((rule) => rule.ruleId),
     companyDomain: run.companySnapshot.domain,
   });
+  const packetByteCount = byteLength(input.packet);
+  if (packetByteCount !== undefined) {
+    recordSearchMetric({
+      kind: 'normalization',
+      searchRunId: input.searchRunId,
+      packetByteCount,
+      packetValid: normalized.ok,
+    });
+  }
 
   const claim = await store.claimPacket({
     searchRunId: input.searchRunId,
@@ -566,6 +577,7 @@ export async function processSearchTerminalResult(
   const writes: SearchCandidateWrite[] = [];
   let sourceCount = 0;
   let inconclusiveCount = 0;
+  let ambiguousCount = 0;
 
   for (const candidate of normalized.candidates) {
     if (normalized.diagnostics.some((diagnostic) =>
@@ -596,9 +608,20 @@ export async function processSearchTerminalResult(
       requiredRuleIds,
     );
     if (eligibility.status === 'inconclusive') inconclusiveCount += 1;
+    if (match.kind === 'ambiguous') ambiguousCount += 1;
     sourceCount += candidate.sources.length;
     writes.push(toCandidateWrite(candidateWithRoles, roleResult.proposals, match, eligibility));
   }
+
+  recordSearchMetric({
+    kind: 'candidate_counts',
+    searchRunId: input.searchRunId,
+    candidateCount: normalized.candidates.length,
+    sourceCount,
+    inconclusiveCount,
+    ambiguousCount,
+    normalizedCandidateCount: writes.length,
+  });
 
   await store.persistCandidates({ searchRunId: input.searchRunId, actorUserId: input.userId, candidates: writes });
   const completed = await store.completePacket({

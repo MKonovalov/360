@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
 
@@ -176,6 +176,15 @@ function createStore(run: TestRun, personas: readonly PersonaMatchRecord[] = [])
 
 function packet(candidates: readonly unknown[] = [candidate]) {
   return { schemaVersion: 1, candidates };
+}
+
+function cyclicPacket(): unknown {
+  const input: { schemaVersion: number; candidates: readonly unknown[]; self?: unknown } = {
+    schemaVersion: 1,
+    candidates: [],
+  };
+  input.self = input;
+  return input;
 }
 
 describe('processSearchTerminalResult', () => {
@@ -404,5 +413,136 @@ describe('processSearchTerminalResult', () => {
     store.persistCandidates.mockResolvedValue(undefined);
     await expect(processSearchTerminalResult(input, store)).resolves.toMatchObject({ kind: 'applied' });
     expect(run.terminalResultSummary).not.toBeNull();
+  });
+});
+
+describe('recordSearchMetric seam — processSearchTerminalResult', () => {
+  const originalSearchFlag = process.env.SEARCH_ENABLED;
+
+  afterEach(() => {
+    if (originalSearchFlag === undefined) delete process.env.SEARCH_ENABLED;
+    else process.env.SEARCH_ENABLED = originalSearchFlag;
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  // env.ts snapshots SEARCH_ENABLED at module-load time, so exercising both
+  // flag states in the same suite requires reloading processSearchTerminalResult
+  // (and its env.ts dependency) fresh per test, after setting process.env —
+  // the same pattern security.test.ts/templateContracts.test.ts already use.
+  async function loadFresh() {
+    vi.resetModules();
+    return import('./searchCandidates');
+  }
+
+  it('emits normalization and candidate_counts metrics for a valid packet, with Search enabled', async () => {
+    process.env.SEARCH_ENABLED = 'true';
+    const fresh = await loadFresh();
+    const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const run = createRun();
+    const store = createStore(run);
+    const input = { searchRunId: run.id, userId: run.initiatingUserId, packet: packet() };
+
+    await fresh.processSearchTerminalResult(input, store);
+
+    const payloads = (consoleSpy.mock.calls as [string][]).map(([payload]) => JSON.parse(payload));
+    expect(payloads).toEqual([
+      {
+        schemaVersion: 1, source: 'search', kind: 'normalization',
+        searchRunId: 101, packetByteCount: Buffer.byteLength(JSON.stringify(input.packet), 'utf8'), packetValid: true,
+      },
+      {
+        schemaVersion: 1, source: 'search', kind: 'candidate_counts', searchRunId: 101,
+        candidateCount: 1, sourceCount: 1, inconclusiveCount: 0, ambiguousCount: 0, normalizedCandidateCount: 1,
+      },
+    ]);
+  });
+
+  it('counts an ambiguous match in the candidate_counts metric, with Search enabled', async () => {
+    process.env.SEARCH_ENABLED = 'true';
+    const fresh = await loadFresh();
+    const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const run = createRun();
+    const store = createStore(run, [
+      { id: 17, name: 'Ada Lovelace', email: 'ada@example.com', linkedinUrl: null, companyDomain: 'acme.example' },
+      { id: 18, name: 'Ada Lovelace', email: 'ada@example.com', linkedinUrl: null, companyDomain: 'acme.example' },
+    ]);
+    const input = { searchRunId: run.id, userId: run.initiatingUserId, packet: packet() };
+
+    await fresh.processSearchTerminalResult(input, store);
+
+    const [, candidateCountsPayload] = (consoleSpy.mock.calls as [string][]).map(([payload]) => JSON.parse(payload));
+    expect(candidateCountsPayload).toMatchObject({ kind: 'candidate_counts', ambiguousCount: 1 });
+  });
+
+  it('emits an invalid-packet normalization metric and no candidate_counts metric, with Search enabled', async () => {
+    process.env.SEARCH_ENABLED = 'true';
+    const fresh = await loadFresh();
+    const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const run = createRun();
+    const store = createStore(run);
+    const input = { searchRunId: run.id, userId: run.initiatingUserId, packet: { not: 'a valid packet' } };
+
+    await fresh.processSearchTerminalResult(input, store);
+
+    const payloads = (consoleSpy.mock.calls as [string][]).map(([payload]) => JSON.parse(payload));
+    expect(payloads).toEqual([
+      {
+        schemaVersion: 1, source: 'search', kind: 'normalization',
+        searchRunId: 101, packetByteCount: Buffer.byteLength(JSON.stringify(input.packet), 'utf8'), packetValid: false,
+      },
+    ]);
+  });
+
+  it.each([
+    ['cyclic', cyclicPacket],
+    ['BigInt', () => ({ schemaVersion: 1, candidates: [], value: BigInt(1) })],
+  ] as const)('returns invalid_packet without throwing for a %s packet when Search is enabled', async (_name, createPacket) => {
+    process.env.SEARCH_ENABLED = 'true';
+    const fresh = await loadFresh();
+    const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const run = createRun();
+    const store = createStore(run);
+
+    const result = await fresh.processSearchTerminalResult(
+      { searchRunId: run.id, userId: run.initiatingUserId, packet: createPacket() },
+      store,
+    );
+
+    expect(result).toMatchObject({ kind: 'invalid_packet', reason: 'invalid_packet' });
+    expect(consoleSpy).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['cyclic', cyclicPacket],
+    ['BigInt', () => ({ schemaVersion: 1, candidates: [], value: BigInt(1) })],
+  ] as const)('returns invalid_packet without throwing for a %s packet when Search is disabled', async (_name, createPacket) => {
+    delete process.env.SEARCH_ENABLED;
+    const fresh = await loadFresh();
+    const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const run = createRun();
+    const store = createStore(run);
+
+    const result = await fresh.processSearchTerminalResult(
+      { searchRunId: run.id, userId: run.initiatingUserId, packet: createPacket() },
+      store,
+    );
+
+    expect(result).toMatchObject({ kind: 'invalid_packet', reason: 'invalid_packet' });
+    expect(consoleSpy).not.toHaveBeenCalled();
+  });
+
+  it('emits nothing when Search is disabled, and still returns the real processing result', async () => {
+    delete process.env.SEARCH_ENABLED;
+    const fresh = await loadFresh();
+    const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const run = createRun();
+    const store = createStore(run);
+    const input = { searchRunId: run.id, userId: run.initiatingUserId, packet: packet() };
+
+    const result = await fresh.processSearchTerminalResult(input, store);
+
+    expect(consoleSpy).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ kind: 'applied' });
   });
 });
