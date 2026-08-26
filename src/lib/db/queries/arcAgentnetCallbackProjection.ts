@@ -22,6 +22,7 @@ export async function applyArcAgentnetCallbackProjection(input: Readonly<{
       partnerJobId: input.callback.jobId,
       requestId: input.callback.requestId,
       projection: input.callback.result,
+      source: 'callback',
       occurredAt: input.receivedAt,
     });
   }
@@ -32,6 +33,7 @@ export async function applyArcAgentnetCallbackProjection(input: Readonly<{
     partnerJobId: input.callback.jobId,
     requestId: input.callback.requestId,
     partnerStatus: input.callback.status,
+    source: 'callback',
     occurredAt: input.receivedAt,
   });
 }

@@ -1,25 +1,15 @@
 import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
-import { debugAdminConfig } from '@/lib/auth/debugAdminConfig';
 import { AppShellLayout } from '@/components/layout/app-shell-layout';
-import { DebugLaunchPreferenceProvider } from '@/components/analysis/debug-launch-preference-provider';
 
-// Mirrors companies/layout.tsx's post-refactor shape exactly (D-01/D-02) —
-// this auth gate covers the entire (dashboard) route group, and the shared
-// AppShellLayout puts the Start Page inside the same AppSidebar shell as
-// /companies and /personas.
+// Mirrors companies/layout.tsx's shape exactly (D-01/D-02) — this auth gate
+// covers the entire (dashboard) route group, and the shared AppShellLayout
+// puts the Start Page inside the same AppSidebar shell as /companies and
+// /personas. The DebugLaunchPreferenceProvider mounts once at the true app
+// root (src/app/layout.tsx) instead of here, since (dashboard) is a sibling
+// route tree to /companies and /personas, not their ancestor — see
+// src/app/layout.tsx and layout.test.tsx for the shared-boundary rationale.
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { userId } = await requireStaffAccess();
-  const canUseDebugLaunches =
-    debugAdminConfig.captureEnabled
-    && userId !== null
-    && debugAdminConfig.adminUserIds.includes(userId);
+  await requireStaffAccess();
 
-  return (
-    <DebugLaunchPreferenceProvider
-      key={canUseDebugLaunches ? 'debug-enabled' : 'debug-disabled'}
-      canUseDebugLaunches={canUseDebugLaunches}
-    >
-      <AppShellLayout>{children}</AppShellLayout>
-    </DebugLaunchPreferenceProvider>
-  );
+  return <AppShellLayout>{children}</AppShellLayout>;
 }

@@ -136,7 +136,7 @@ test('RUN-01/02: authenticated Company launch survives navigation and database r
   expect(template.version).toBe(1);
   expect(template.supportedEfforts).toEqual(['standard']);
 
-  await page.goto(`/companies?selected=${company.id}`);
+  await page.goto(`/companies/${company.id}`);
   await expect(page.getByRole('heading', { name: 'Start analysis', exact: true })).toBeVisible();
   await expect(page.locator(`#analysis-template-company-${company.id}`)).toContainText('Company Buying Signal Analysis');
   await expect(page.locator(`#analysis-practice-area-company-${company.id}`)).toContainText(practiceArea.name);

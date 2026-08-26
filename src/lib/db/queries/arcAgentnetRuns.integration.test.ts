@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto';
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 
 import { buildAnalysisSnapshots } from '@/lib/analysis/snapshots';
 import { parseFixtureDatabaseUrl } from '@/lib/verification/databaseIdentity';
 import { serializeArcAgentnetProjection } from './arcAgentnetResultValidation';
+
+vi.mock('server-only', () => ({}));
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 const describeWithDatabase = testDatabaseUrl && parseFixtureDatabaseUrl(testDatabaseUrl)
@@ -62,6 +64,7 @@ describeWithDatabase('Arc-agentnet local persistence', () => {
 
   afterAll(async () => {
     if (!dbModule || !schema) return;
+    if (runId > 0) await dbModule.db.delete(schema.arcAgentnetIdempotency).where(eq(schema.arcAgentnetIdempotency.analysisRunId, runId));
     if (idempotencyId > 0) await dbModule.db.delete(schema.arcAgentnetIdempotency).where(eq(schema.arcAgentnetIdempotency.id, idempotencyId));
     if (runId > 0) await dbModule.db.delete(schema.analysisRunEvent).where(eq(schema.analysisRunEvent.analysisRunId, runId));
     if (runId > 0) await dbModule.db.delete(schema.analysisRun).where(eq(schema.analysisRun.id, runId));
@@ -119,17 +122,47 @@ describeWithDatabase('Arc-agentnet local persistence', () => {
     const conflict = await queries.createArcAgentnetRunWithMapping({ ...input, payloadHash: 'b'.repeat(64), partnerJobId: `job-conflict-${suffix}`, requestId: `request-conflict-${suffix}` });
     expect(conflict).toEqual({ kind: 'idempotency_conflict' });
 
-    const completed = await queries.recordArcAgentnetStatus({ runId, initiatingUserId: input.initiatingUserId, partnerJobId: input.partnerJobId, requestId: input.requestId, partnerStatus: 'succeeded', occurredAt: new Date('2026-08-23T12:00:00.000Z') });
+    const callbackProjection = await queries.applyArcAgentnetResultProjection({ runId, initiatingUserId: input.initiatingUserId, partnerJobId: input.partnerJobId, requestId: input.requestId, source: 'callback', resultHash: 'a'.repeat(64), resultSizeBytes: 40, projection: { summary: 'callback result' } });
+    expect(callbackProjection.kind).toBe('applied');
+
+    const failed = await queries.recordArcAgentnetStatus({ runId, initiatingUserId: input.initiatingUserId, partnerJobId: input.partnerJobId, requestId: input.requestId, partnerStatus: 'failed', source: 'callback', occurredAt: new Date('2026-08-23T12:00:00.000Z') });
+    expect(failed).toMatchObject({ kind: 'transitioned', run: { arcAgentnetLocalStatus: 'failed', status: 'failed' } });
+    if (failed.kind !== 'transitioned') return;
+
+    const serializedPoll = serializeArcAgentnetProjection({ summary: 'authoritative poll result' });
+    expect(serializedPoll.ok).toBe(true);
+    if (!serializedPoll.ok) return;
+    const polledProjection = await queries.applyArcAgentnetResultProjection({ runId, initiatingUserId: input.initiatingUserId, partnerJobId: input.partnerJobId, requestId: input.requestId, source: 'poll', resultHash: serializedPoll.hash, resultSizeBytes: serializedPoll.sizeBytes, projection: { summary: 'authoritative poll result' } });
+    expect(polledProjection).toMatchObject({ kind: 'applied', run: { arcAgentnetResultHash: serializedPoll.hash, arcAgentnetResultProjection: { summary: 'authoritative poll result' } } });
+
+    const completed = await queries.recordArcAgentnetStatus({ runId, initiatingUserId: input.initiatingUserId, partnerJobId: input.partnerJobId, requestId: input.requestId, partnerStatus: 'succeeded', source: 'poll', occurredAt: new Date('2026-08-23T12:00:01.000Z') });
     expect(completed).toMatchObject({ kind: 'transitioned', run: { arcAgentnetLocalStatus: 'completed', status: 'completed' } });
 
-    const stalePoll = await queries.recordArcAgentnetStatus({ runId, initiatingUserId: input.initiatingUserId, partnerJobId: input.partnerJobId, requestId: input.requestId, partnerStatus: 'running', occurredAt: new Date('2026-08-23T12:00:01.000Z') });
+    const staleCallbackProjection = await queries.applyArcAgentnetResultProjection({ runId, initiatingUserId: input.initiatingUserId, partnerJobId: input.partnerJobId, requestId: input.requestId, source: 'callback', resultHash: 'a'.repeat(64), resultSizeBytes: 40, projection: { summary: 'callback result' } });
+    expect(staleCallbackProjection).toMatchObject({ kind: 'conflict', run: { arcAgentnetResultHash: serializedPoll.hash } });
+
+    const stalePoll = await queries.recordArcAgentnetStatus({ runId, initiatingUserId: input.initiatingUserId, partnerJobId: input.partnerJobId, requestId: input.requestId, partnerStatus: 'running', source: 'poll', occurredAt: new Date('2026-08-23T12:00:02.000Z') });
     expect(stalePoll).toMatchObject({ kind: 'replayed', run: { arcAgentnetLocalStatus: 'completed' } });
 
-    const projection = await queries.applyArcAgentnetResultProjection({ runId, initiatingUserId: input.initiatingUserId, partnerJobId: input.partnerJobId, requestId: input.requestId, resultHash: 'c'.repeat(64), resultSizeBytes: 42, projection: { summary: 'safe' } });
-    const serializedProjection = serializeArcAgentnetProjection({ summary: 'safe' });
-    expect(serializedProjection.ok).toBe(true);
-    if (!serializedProjection.ok) return;
-    expect(projection).toMatchObject({ kind: 'applied', run: { arcAgentnetResultHash: serializedProjection.hash, arcAgentnetResultSizeBytes: serializedProjection.sizeBytes } });
+    const staleCallbackStatus = await queries.recordArcAgentnetStatus({ runId, initiatingUserId: input.initiatingUserId, partnerJobId: input.partnerJobId, requestId: input.requestId, partnerStatus: 'failed', source: 'callback', occurredAt: new Date('2026-08-23T12:00:03.000Z') });
+    expect(staleCallbackStatus).toMatchObject({ kind: 'replayed', run: { arcAgentnetLocalStatus: 'completed' } });
+
+    const events = await dbModule.db.select().from(schema.analysisRunEvent)
+      .where(eq(schema.analysisRunEvent.analysisRunId, runId))
+      .orderBy(asc(schema.analysisRunEvent.createdAt), asc(schema.analysisRunEvent.id));
+    expect(events).toHaveLength(3);
+    expect(events.map((event) => event.toStatus)).toEqual(expect.arrayContaining(['queued', 'failed', 'completed']));
+
+    const finalRun = await queries.getArcAgentnetRunById(runId, input.initiatingUserId);
+    const failedEvent = events.find((event) => event.toStatus === 'failed');
+    const completedEvent = events.find((event) => event.toStatus === 'completed');
+    expect(finalRun).toMatchObject({
+      arcAgentnetLocalStatus: 'completed',
+      arcAgentnetResultHash: serializedPoll.hash,
+      arcAgentnetResultProjection: { summary: 'authoritative poll result' },
+    });
+    expect(failedEvent?.createdAt.getTime()).toBe(failed?.run && failed.run.arcAgentnetCompletedAt?.getTime());
+    expect(completedEvent?.createdAt.getTime()).toBe(finalRun?.arcAgentnetCompletedAt?.getTime());
 
     const idempotency = await queries.findArcAgentnetIdempotency({
       initiatingUserId: input.initiatingUserId,
@@ -140,6 +173,67 @@ describeWithDatabase('Arc-agentnet local persistence', () => {
     });
     expect(idempotency?.analysisRunId).toBe(runId);
     idempotencyId = idempotency?.id ?? 0;
+  });
+
+  it('recovers a failed run to running when the partner poll is nonterminal', async () => {
+    const built = buildAnalysisSnapshots({
+      template: {
+        schemaVersion: 1,
+        templateId,
+        templateVersionId,
+        templateKey: `arc-agentnet-${suffix}`,
+        templateName: 'Arc-agentnet integration template',
+        targetType: 'company',
+        version: 1,
+        resolvedInstruction: 'Assess the selected company.',
+        effort: 'standard',
+      },
+      subject: { type: 'company', id: 42_000_002, displayName: 'Arc-agentnet running fixture' },
+      checklist: { schemaVersion: 1, targetType: 'company', practiceAreaId, practiceAreaName: `Arc-agentnet IT ${suffix}`, items: [] },
+      resolvedModelChain: ['partner'],
+    });
+    const input = {
+      initiatingUserId: 'user_arc_running',
+      createdBy: 'user_arc_running',
+      companyId: 42_000_002,
+      templateId,
+      templateVersionId,
+      practiceAreaId,
+      subjectSnapshot: built.subjectSnapshot,
+      templateSnapshot: built.templateSnapshot,
+      checklistSnapshot: built.checklistSnapshot,
+      executionSnapshot: { ...built.executionSnapshot, executor: 'arc-agentnet' },
+      policySnapshot: built.policySnapshot,
+      inputSnapshot: { schemaVersion: 1, analysis: { subjectType: 'company', company: { id: 42_000_002, name: 'Arc-agentnet running fixture', domain: 'fixture.example', profile: { industry: null, headcount: null, headquarters: null, description: null } }, practiceArea: { id: practiceAreaId, name: `Arc-agentnet IT ${suffix}`, shortCode: `ARC${suffix.slice(0, 8)}` }, buyingSignalCategory: 'Financial', template: { kind: 'fixed', templateId, templateVersionId, templateKey: `arc-agentnet-${suffix}`, templateName: 'Arc-agentnet integration template', templateVersion: 1, targetType: 'company', customAgentId: null, customAgentName: null, customAgentVersion: null }, resolvedInstructions: 'Assess the selected company.', checklist: [], publicEvidenceUrls: [] } },
+      partnerJobId: `job-running-${suffix}`,
+      requestId: `request-running-${suffix}`,
+      idempotencyKey: `key-running-${suffix}`,
+      payloadHash: 'c'.repeat(64),
+    } as const;
+    let localRunId = 0;
+    let localMappingId = 0;
+    let localIdempotencyId = 0;
+
+    try {
+      const created = await queries.createArcAgentnetRunWithMapping(input);
+      expect(created.kind).toBe('created');
+      if (created.kind !== 'created') return;
+      localRunId = created.run.id;
+      localMappingId = created.mapping.id;
+      const failed = await queries.recordArcAgentnetStatus({ runId: localRunId, initiatingUserId: input.initiatingUserId, partnerJobId: input.partnerJobId, requestId: input.requestId, partnerStatus: 'failed', source: 'callback', occurredAt: new Date('2026-08-23T12:01:00.000Z') });
+      expect(failed).toMatchObject({ kind: 'transitioned', run: { arcAgentnetLocalStatus: 'failed' } });
+
+      const running = await queries.recordArcAgentnetStatus({ runId: localRunId, initiatingUserId: input.initiatingUserId, partnerJobId: input.partnerJobId, requestId: input.requestId, partnerStatus: 'running', source: 'poll', occurredAt: new Date('2026-08-23T12:01:00.500Z') });
+      expect(running).toMatchObject({ kind: 'transitioned', run: { arcAgentnetLocalStatus: 'running', status: 'running' } });
+      expect(running.kind === 'transitioned' ? running.run.arcAgentnetResultProjection : null).toBeNull();
+    } finally {
+      const idempotency = await queries.findArcAgentnetIdempotency({ initiatingUserId: input.initiatingUserId, companyId: input.companyId, templateId: input.templateId, templateVersionId: input.templateVersionId, idempotencyKey: input.idempotencyKey });
+      localIdempotencyId = idempotency?.id ?? 0;
+      if (localIdempotencyId > 0) await dbModule.db.delete(schema.arcAgentnetIdempotency).where(eq(schema.arcAgentnetIdempotency.id, localIdempotencyId));
+      if (localRunId > 0) await dbModule.db.delete(schema.analysisRunEvent).where(eq(schema.analysisRunEvent.analysisRunId, localRunId));
+      if (localRunId > 0) await dbModule.db.delete(schema.analysisRun).where(eq(schema.analysisRun.id, localRunId));
+      if (localMappingId > 0) await dbModule.db.delete(schema.partnerJobMapping).where(eq(schema.partnerJobMapping.id, localMappingId));
+    }
   });
 
   it('preserves internal defaults and resolves concurrent same-key creation to one replay', async () => {

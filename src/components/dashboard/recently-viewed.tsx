@@ -7,9 +7,9 @@ import { getPersonaById } from '@/lib/db/queries/personas';
 // Pitfall 3 (06-RESEARCH.md): never build the route via naive `${recordType}s`
 // pluralization — 'company' incorrectly pluralizes to 'companys'. This
 // explicit lookup is the single source of truth for record-type -> route.
-const ROUTE_BY_RECORD_TYPE = {
-  company: '/companies',
-  persona: '/personas',
+const HREF_BY_RECORD_TYPE = {
+  company: (recordId: number) => `/companies/${recordId}`,
+  persona: (recordId: number) => `/personas?selected=${recordId}`,
 } as const;
 
 // EXPL-06: this widget's own try/catch is fully independent of the other
@@ -88,7 +88,7 @@ export async function RecentlyViewed() {
             className="flex items-center justify-between gap-2 text-sm"
           >
             <Link
-              href={`${ROUTE_BY_RECORD_TYPE[row.recordType]}?selected=${row.recordId}`}
+              href={HREF_BY_RECORD_TYPE[row.recordType](row.recordId)}
               className="text-indigo-600 hover:underline"
             >
               {row.name ?? 'Unknown'}

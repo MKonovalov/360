@@ -71,7 +71,7 @@ export async function NeedsAttention() {
         {rowsWithHighSignals.map(({ company, highStrengthTypes }) => (
           <div key={company.id} className="flex items-center justify-between gap-2 text-sm">
             <Link
-              href={`/companies?selected=${company.id}`}
+              href={`/companies/${company.id}`}
               className="text-indigo-600 hover:underline"
             >
               {company.name}

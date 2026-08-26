@@ -1,16 +1,18 @@
 import { notFound } from 'next/navigation';
+import type { ReactNode } from 'react';
 import { getCompanyById } from '@/lib/db/queries/companies';
 import { listSignalsForCompany } from '@/lib/db/queries/signals';
 import { listPersonasForCompany } from '@/lib/db/queries/companyPersonaRoles';
 import { countPendingProposalsForCompany } from '@/lib/db/queries/proposals';
-import { Badge } from '@/components/ui/badge';
-import { SignalBadge } from '@/components/companies/signal-badge';
-import { ProposalBadge } from '@/components/companies/proposal-badge';
 import { fetchArcpediaArticles } from '@/lib/arcpedia';
-import { ExplorerCloseButton } from '@/components/explorer/explorer-table-behavior';
-import { EnrichMenu } from '@/components/enrichment/enrichment-review-dialog';
+import { CompanyDetailErrorState } from '@/components/companies/company-detail-states';
+import { CompanyDetailHeader } from '@/components/companies/company-detail-header';
+import { CompanyDetailAnalysis } from '@/components/companies/company-detail-analysis';
+import { CompanyDetailGeneral } from '@/components/companies/company-detail-general';
+import { CompanyDetailKnowledge } from '@/components/companies/company-detail-knowledge';
+import { CompanyDetailPersonas } from '@/components/companies/company-detail-personas';
+import { CompanyDetailTabs } from '@/components/companies/company-detail-tabs';
 import { RecordViewTracker } from '@/components/dashboard/record-view-tracker';
-import { humanizeEnum, dateFormatter, FirmographicField, FieldSourceBadge } from '@/components/explorer/explorer-format';
 import { env } from '@/lib/env';
 import { listAnalysisRunsForSubject } from '@/lib/db/queries/analysisRuns';
 import { listConfirmedCandidateOfferingsForSubject } from '@/lib/db/queries/confirmedCandidates';
@@ -42,42 +44,94 @@ export async function CompanyDetail({ id }: { id: number }) {
         listPersonasForCompany(id),
         countPendingProposalsForCompany(id),
       ]);
+      return { tab, signals, pendingProposalCount };
     }
+    case 'personas': {
+      const personaRoles = await listPersonasForCompany(company.id);
+      return { tab, personaRoles };
+    }
+    case 'knowledge': {
+      let articles: KnowledgeArticles = [];
+      try {
+        articles = await fetchArcpediaArticles(company.name);
+      } catch {
+        articles = [];
+      }
+      return { tab, articles };
+    }
+    case 'analysis': {
+      const [analysisRuns, confirmedCandidateOfferings] = await Promise.all([
+        listAnalysisRunsForSubject({ targetType: 'company', subjectId: company.id }).catch(() => null),
+        listConfirmedCandidateOfferingsForSubject({ targetType: 'company', subjectId: company.id }).catch(() => null),
+      ]);
+      const reviewCards = analysisRuns
+        ? await projectRunReviewCards(analysisRuns, getAnalysisPacket)
+        : [];
+      return { tab, analysisRuns, reviewCards, confirmedCandidateOfferings };
+    }
+    default:
+      return assertNever(tab);
+  }
+}
+
+export async function CompanyDetail({
+  id,
+  tab = 'general',
+}: {
+  readonly id: number;
+  readonly tab?: CompanyTab;
+}) {
+  let company: Company | undefined;
+  try {
+    company = await getCompanyById(id);
   } catch {
-    return (
-      <div className="flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-8 text-center">
-        <p className="text-[18px] font-semibold leading-[1.2] text-slate-900">
-          {"Couldn't load company"}
-        </p>
-        <p className="text-sm text-slate-500">
-          Something went wrong fetching this data. Try refreshing the page.
-        </p>
-      </div>
-    );
+    return <CompanyDetailErrorState />;
   }
 
-  // RESEARCH.md Open Question #1 (RESOLVED): a structurally invalid/nonexistent
-  // id is a real 404, distinct from the UI-SPEC's "fetch failed" error copy.
   if (!company) {
     notFound();
   }
 
-  const [analysisRuns, confirmedCandidateOfferings] = await Promise.all([
-    listAnalysisRunsForSubject({ targetType: 'company', subjectId: company.id }).catch(() => null),
-    listConfirmedCandidateOfferingsForSubject({ targetType: 'company', subjectId: company.id }).catch(() => null),
-  ]);
-  const reviewCards = analysisRuns
-    ? await projectRunReviewCards(analysisRuns, getAnalysisPacket)
-    : [];
+  let tabData: CompanyDetailTabData;
+  try {
+    tabData = await loadCompanyDetailTab(company, tab);
+  } catch {
+    return <CompanyDetailErrorState />;
+  }
 
-  // D-04/Pitfall 4: fired only after the confirmed-exists check above — a
-  // broken/deleted-record deep link must never write a recentlyViewed row
-  // for a nonexistent id.
-  // D-10: independent failure domain from the DB-fetch try/catch above —
-  // fetchArcpediaArticles never throws (Task 1), so an Arcpedia
-  // timeout/failure must never surface the DB error card above, and a
-  // DB failure must never be masked as "no articles".
-  const articles = await fetchArcpediaArticles(company.name);
+  let content: ReactNode;
+  switch (tabData.tab) {
+      case 'general': {
+        content = (
+          <CompanyDetailGeneral
+            company={company}
+            signals={tabData.signals}
+            pendingProposalCount={tabData.pendingProposalCount}
+          />
+        );
+        break;
+      }
+      case 'personas': {
+        content = <CompanyDetailPersonas personaRoles={tabData.personaRoles} />;
+        break;
+      }
+      case 'knowledge': {
+        content = <CompanyDetailKnowledge articles={tabData.articles} />;
+        break;
+      }
+      case 'analysis': {
+        content = (
+          <CompanyDetailAnalysis
+            analysisRuns={tabData.analysisRuns}
+            reviewCards={tabData.reviewCards}
+            confirmedCandidateOfferings={tabData.confirmedCandidateOfferings}
+          />
+        );
+        break;
+      }
+      default:
+        content = assertNever(tabData);
+  }
 
   let searchTemplates: Awaited<ReturnType<typeof listActiveSearchTemplateProjections>> = [];
   let activeSearchRun: Awaited<ReturnType<typeof getActiveSearchStatusProjection>>;
@@ -95,7 +149,7 @@ export async function CompanyDetail({ id }: { id: number }) {
   }
 
   return (
-    <div className="relative space-y-12 bg-white p-8">
+    <div className="space-y-8 bg-white p-4 sm:p-8">
       <RecordViewTracker recordType="company" recordId={company.id} />
       <div className="absolute top-3 right-3 flex items-center gap-1">
         <EnrichMenu
@@ -205,30 +259,8 @@ export async function CompanyDetail({ id }: { id: number }) {
         )}
       </section>
 
-      {articles.length > 0 ? (
-        <section>
-          <h2 className="mb-4 text-[18px] font-semibold leading-[1.2] text-slate-900">
-            Related Knowledge
-          </h2>
-          <ul className="space-y-4">
-            {articles.map((article) => (
-              <li key={article.slug}>
-                <a
-                  href={`https://arcpedia.arclumen.de/wiki/${encodeURIComponent(article.slug)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[14px] font-normal leading-[1.5] text-indigo-600"
-                >
-                  {article.title}
-                </a>
-                <p className="text-[14px] font-normal leading-[1.5] text-slate-500">
-                  {article.snippet}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <CompanyDetailTabs id={company.id} activeTab={tab} />
+      {content}
     </div>
   );
 }

@@ -451,6 +451,20 @@ describe('analysisLauncherClient', () => {
       expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/analysis-runs/arc-agentnet/73');
     });
 
+    it('continues after a local failed observation so polling can repair it to completed', async () => {
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(jsonResponse({ applicationRunId: 73, status: 'failed', safeReason: 'execution_failed' }))
+        .mockResolvedValueOnce(jsonResponse({ applicationRunId: 73, status: 'completed', safeReason: 'completed', result: { summary: 'safe' } }));
+
+      await expect(pollArcAgentnetRun({
+        applicationRunId: 73,
+        signal: new AbortController().signal,
+        intervalMs: 0,
+        fetchImpl: fetchMock,
+      })).resolves.toEqual({ kind: 'terminal', status: 'completed' });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
     it('aborts local-ID polling without another request', async () => {
       const controller = new AbortController();
       controller.abort();

@@ -190,14 +190,37 @@ describe('Arc-agentnet local persistence guards', () => {
     const execute = executeRows();
     selectRows({ ...run, status: 'completed', arcAgentnetLocalStatus: 'completed' });
 
-    const result = await recordArcAgentnetStatus({ runId: run.id, initiatingUserId: createInput.initiatingUserId, partnerJobId: createInput.partnerJobId, requestId: createInput.requestId, partnerStatus: 'running', occurredAt: new Date('2026-08-23T12:00:00.000Z') });
+    const result = await recordArcAgentnetStatus({ runId: run.id, initiatingUserId: createInput.initiatingUserId, partnerJobId: createInput.partnerJobId, requestId: createInput.requestId, partnerStatus: 'running', source: 'callback', occurredAt: new Date('2026-08-23T12:00:00.000Z') });
 
     expect(result).toEqual({ kind: 'replayed', run: { ...run, status: 'completed', arcAgentnetLocalStatus: 'completed' } });
     expect(execute).toHaveBeenCalledTimes(1);
     const sqlText = flattenSql(execute.mock.calls[0]?.[0]);
     expect(sqlText).toContain("IN ('queued', 'running')");
+    expect(sqlText).toContain('SELECT updated.id, concat(updated.id');
+    expect(sqlText).toContain('created_at');
     expect(sqlText).toContain('FOR UPDATE');
     expect(sqlText).toContain('previous_status');
+  });
+
+  it('allows an authoritative poll to recover a stale failed run to running', async () => {
+    const execute = executeRows({ outcome: 'transitioned', runId: run.id });
+    const runningRun = { ...run, status: 'running', arcAgentnetLocalStatus: 'running' };
+    selectRows(runningRun);
+
+    const result = await recordArcAgentnetStatus({
+      runId: run.id,
+      initiatingUserId: createInput.initiatingUserId,
+      partnerJobId: createInput.partnerJobId,
+      requestId: createInput.requestId,
+      partnerStatus: 'running',
+      source: 'poll',
+      occurredAt: new Date('2026-08-23T12:00:00.000Z'),
+    });
+
+    expect(result).toEqual({ kind: 'transitioned', run: runningRun });
+    expect(flattenSql(execute.mock.calls[0]?.[0])).toContain(
+      "arc_agentnet_local_status = 'failed' AND running IN ('running', 'completed')",
+    );
   });
 
   it.each([
@@ -208,7 +231,7 @@ describe('Arc-agentnet local persistence guards', () => {
     const execute = executeRows({ outcome: 'transitioned', runId: run.id });
     selectRows({ ...run, status: localStatus, arcAgentnetLocalStatus: localStatus });
 
-    const result = await recordArcAgentnetStatus({ runId: run.id, initiatingUserId: createInput.initiatingUserId, partnerJobId: createInput.partnerJobId, requestId: createInput.requestId, partnerStatus });
+    const result = await recordArcAgentnetStatus({ runId: run.id, initiatingUserId: createInput.initiatingUserId, partnerJobId: createInput.partnerJobId, requestId: createInput.requestId, partnerStatus, source: 'poll' });
 
     expect(result).toMatchObject({ kind: 'transitioned', run: { status: localStatus, arcAgentnetLocalStatus: localStatus } });
     expect(flattenSql(execute.mock.calls[0]?.[0])).toContain(localStatus);
@@ -223,6 +246,7 @@ describe('Arc-agentnet local persistence guards', () => {
       initiatingUserId: createInput.initiatingUserId,
       partnerJobId: createInput.partnerJobId,
       requestId: createInput.requestId,
+      source: 'poll',
       resultHash: 'd'.repeat(64),
       resultSizeBytes: 1,
       projection: { summary: 'safe' },
@@ -247,6 +271,7 @@ describe('Arc-agentnet local persistence guards', () => {
       initiatingUserId: createInput.initiatingUserId,
       partnerJobId: createInput.partnerJobId,
       requestId: createInput.requestId,
+      source: 'callback',
       projection: { apiKey: 'secret' },
     });
 

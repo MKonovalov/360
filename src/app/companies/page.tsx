@@ -4,7 +4,9 @@ import { CompanySearchInput } from '@/components/companies/company-search-input'
 import { CompanyFilters } from '@/components/companies/company-filters';
 import { ExplorerMenu } from '@/components/explorer/explorer-menu';
 import { listDistinctIndustries } from '@/lib/db/queries/companies';
-import { parseCompanyFilters, parseSelectedId } from '@/lib/params/companyFilters';
+import { parseCompanyFilters } from '@/lib/params/companyFilters';
+import { buildCompanyLegacyRedirect } from '@/lib/params/companyRoute';
+import { redirect } from 'next/navigation';
 
 // Belt-and-suspenders alongside the layout's auth gate (02-RESEARCH.md
 // Pitfall 4) — every page under /companies gates itself too, so the
@@ -16,8 +18,11 @@ export default async function CompaniesPage({
 }) {
   await requireStaffAccess();
 
-  const filters = parseCompanyFilters(await searchParams);
-  const selectedId = parseSelectedId(await searchParams);
+  const search = await searchParams;
+  const legacyRedirect = buildCompanyLegacyRedirect(search);
+  if (legacyRedirect) redirect(legacyRedirect);
+
+  const filters = parseCompanyFilters(search);
   const industries = (await listDistinctIndustries())
     .map((row) => row.industry)
     .filter((industry): industry is string => Boolean(industry));
@@ -37,7 +42,7 @@ export default async function CompaniesPage({
         <CompanySearchInput />
         <CompanyFilters industries={industries} />
       </div>
-      <CompanyList filters={filters} selectedId={selectedId} />
+      <CompanyList filters={filters} />
     </div>
   );
 }
