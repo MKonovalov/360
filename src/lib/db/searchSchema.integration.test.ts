@@ -92,6 +92,10 @@ describeWithDatabase('Search persistence schema', () => {
       'id',
       'name',
       'description',
+      'departments',
+      'functions',
+      'seniorities',
+      'geographies',
       'created_by',
       'updated_by',
       'created_at',
@@ -145,7 +149,7 @@ describeWithDatabase('Search persistence schema', () => {
     `);
 
     // Then
-    expect(foreignKeys).toEqual(expect.arrayContaining([
+    expect(foreignKeys.rows).toEqual(expect.arrayContaining([
       expect.objectContaining({ tableName: 'search_template_version', columnName: 'template_id', referencedTable: 'search_template' }),
       expect.objectContaining({ tableName: 'search_run', columnName: 'company_id', referencedTable: 'company' }),
       expect.objectContaining({ tableName: 'search_run', columnName: 'template_version_id', referencedTable: 'search_template_version' }),
