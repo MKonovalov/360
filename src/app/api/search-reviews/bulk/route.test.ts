@@ -1,10 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ requireStaffAccess: vi.fn(), bulkSearchReviews: vi.fn() }));
+const mocks = vi.hoisted(() => ({ requireStaffAccess: vi.fn(), bulkSearchReviews: vi.fn(), isSearchEnabled: vi.fn() }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('@/lib/auth/requireStaffAccess', () => ({ requireStaffAccess: mocks.requireStaffAccess }));
 vi.mock('@/lib/search/bulkSearchReviews', () => ({ bulkSearchReviews: mocks.bulkSearchReviews }));
+vi.mock('@/lib/search/templateContracts', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/search/templateContracts')>('@/lib/search/templateContracts');
+  return { ...actual, isSearchEnabled: mocks.isSearchEnabled };
+});
 
 import { POST } from './route';
 
@@ -20,6 +24,7 @@ describe('POST /api/search-reviews/bulk', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.requireStaffAccess.mockResolvedValue({ userId: 'staff-1' });
+    mocks.isSearchEnabled.mockReturnValue(true);
     mocks.bulkSearchReviews.mockResolvedValue({
       kind: 'completed',
       outcomes: [
@@ -93,5 +98,39 @@ describe('POST /api/search-reviews/bulk', () => {
     expect(response.status).toBe(400);
     expect(response.headers.get('Cache-Control')).toBe('no-store');
     await expect(response.json()).resolves.toEqual({ error: 'invalid_input' });
+  });
+
+  it('fails closed on a bulk approve batch when Search is disabled, without dispatching any candidate', async () => {
+    mocks.isSearchEnabled.mockReturnValue(false);
+    const response = await POST(request(validBody));
+    expect(response.status).toBe(409);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    await expect(response.json()).resolves.toEqual({ error: 'search_unavailable' });
+    expect(mocks.bulkSearchReviews).not.toHaveBeenCalled();
+  });
+
+  it('still processes a bulk reject batch when Search is disabled (rejection creates no Persona/relationship data)', async () => {
+    mocks.isSearchEnabled.mockReturnValue(false);
+    mocks.bulkSearchReviews.mockResolvedValue({
+      kind: 'completed',
+      outcomes: [{ reviewId: 501, outcome: 'rejected' }, { reviewId: 502, outcome: 'rejected' }],
+      counts: { approved: 0, rejected: 2, skipped: 0, failed: 0 },
+    });
+    const response = await POST(request({ ...validBody, action: 'reject' }));
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    await expect(response.json()).resolves.toEqual({
+      kind: 'completed',
+      outcomes: [{ reviewId: 501, outcome: 'rejected' }, { reviewId: 502, outcome: 'rejected' }],
+      counts: { approved: 0, rejected: 2, skipped: 0, failed: 0 },
+    });
+    expect(mocks.bulkSearchReviews).toHaveBeenCalledWith({ ...validBody, action: 'reject', actorUserId: 'staff-1' });
+  });
+
+  it('dispatches a bulk approve batch when Search is enabled', async () => {
+    mocks.isSearchEnabled.mockReturnValue(true);
+    const response = await POST(request(validBody));
+    expect(response.status).toBe(200);
+    expect(mocks.bulkSearchReviews).toHaveBeenCalledWith({ ...validBody, actorUserId: 'staff-1' });
   });
 });

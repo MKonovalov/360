@@ -2,6 +2,7 @@ import 'server-only';
 
 import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { searchBulkRequestSchema } from '@/lib/search/contracts';
+import { isSearchEnabled } from '@/lib/search/templateContracts';
 import { bulkSearchReviews, type BulkSearchResult } from '@/lib/search/bulkSearchReviews';
 import { jsonBodyFailureResponse, noStoreJson, readJsonBody } from '@/lib/search/routeSupport';
 
@@ -47,6 +48,13 @@ export async function POST(request: Request): Promise<Response> {
   if (revisionKeys.length !== reviewIds.length || reviewIds.some((reviewId) => !revisionKeys.includes(String(reviewId)))) {
     return noStoreJson({ error: 'invalid_input' }, 400);
   }
+  // Rollback gate (Task 14 residual): mirrors the single-approve route's
+  // fail-closed shape (search-reviews/[id]/approve/route.ts). Rejection
+  // creates no Persona/relationship data, so it stays available under
+  // rollback like the read routes; only the approve action is blocked, and
+  // it is blocked for the whole batch before any candidate is dispatched —
+  // no partial approve/skip mix from a disabled flag.
+  if (parsed.data.action === 'approve' && !isSearchEnabled()) return noStoreJson({ error: 'search_unavailable' }, 409);
 
   let result: BulkSearchResult;
   try {
