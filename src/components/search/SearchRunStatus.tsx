@@ -16,7 +16,9 @@ export function searchRunStatusCopy(status: SearchRunStatusValue): string {
 
 export function SearchRunStatus({ projection }: { readonly projection: SearchStatusProjection }) {
   const { candidateCounts } = projection;
-  const hasReviews = candidateCounts.total > 0 && isLocalReviewsUrl(projection.reviewsUrl);
+  const hasReviews = projection.status === 'succeeded'
+    && candidateCounts.total > 0
+    && isLocalReviewsUrl(projection.reviewsUrl);
 
   return (
     <section
@@ -35,7 +37,7 @@ export function SearchRunStatus({ projection }: { readonly projection: SearchSta
         </span>
       </div>
 
-      <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+      <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
         <div>
           <dt className="text-xs text-slate-500">Company</dt>
           <dd className="font-medium text-slate-900">{projection.company.name}</dd>
@@ -51,6 +53,10 @@ export function SearchRunStatus({ projection }: { readonly projection: SearchSta
         <div>
           <dt className="text-xs text-slate-500">Candidates</dt>
           <dd className="font-medium text-slate-900">{candidateCounts.total}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-slate-500">Run ID</dt>
+          <dd className="font-medium text-slate-900">{projection.searchRunId}</dd>
         </div>
       </dl>
 
