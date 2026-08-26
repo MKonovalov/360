@@ -33,6 +33,20 @@ describe('POST /api/search-reviews/[id]/reject', () => {
     expect(mocks.rejectSearchReview).toHaveBeenCalledWith({ reviewId: 501, expectedRevision: 1, reason: 'Insufficient evidence', actorUserId: 'staff-1' });
   });
 
+  it('does not reject for an unauthenticated request', async () => {
+    mocks.requireStaffAccess.mockRejectedValue(new Error('NEXT_REDIRECT'));
+    await expect(POST(request({ expectedRevision: 1 }), context())).rejects.toThrow('NEXT_REDIRECT');
+    expect(mocks.rejectSearchReview).not.toHaveBeenCalled();
+  });
+
+  it('rejects an oversized rejection body before parsing or rejecting', async () => {
+    const oversized = await POST(request({ payload: 'x'.repeat(70_000) }), context());
+    expect(oversized.status).toBe(413);
+    expect(oversized.headers.get('Cache-Control')).toBe('no-store');
+    await expect(oversized.json()).resolves.toEqual({ error: 'request_too_large' });
+    expect(mocks.rejectSearchReview).not.toHaveBeenCalled();
+  });
+
   it('rejects malformed, unknown, and invalid-ID requests before Task 8', async () => {
     const malformed = await POST(request('{'), context());
     expect(malformed.status).toBe(400);

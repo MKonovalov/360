@@ -61,6 +61,24 @@ describe('/api/search-reviews/[id]', () => {
     expect(mocks.getSearchReviewById).toHaveBeenCalledWith(501, 'staff-1');
   });
 
+  it('does not read or edit a Review for an unauthenticated request', async () => {
+    mocks.requireStaffAccess.mockRejectedValue(new Error('NEXT_REDIRECT'));
+    const getRequest = new Request('http://localhost/api/search-reviews/501');
+    await expect(GET(getRequest, context())).rejects.toThrow('NEXT_REDIRECT');
+    expect(mocks.getSearchReviewById).not.toHaveBeenCalled();
+
+    await expect(PATCH(request(edit), context())).rejects.toThrow('NEXT_REDIRECT');
+    expect(mocks.editSearchReview).not.toHaveBeenCalled();
+  });
+
+  it('rejects an oversized PATCH body before parsing or editing', async () => {
+    const oversized = await PATCH(request({ payload: 'x'.repeat(70_000) }), context());
+    expect(oversized.status).toBe(413);
+    expect(oversized.headers.get('Cache-Control')).toBe('no-store');
+    await expect(oversized.json()).resolves.toEqual({ error: 'request_too_large' });
+    expect(mocks.editSearchReview).not.toHaveBeenCalled();
+  });
+
   it('does not expose another user Review', async () => {
     mocks.getSearchReviewById.mockResolvedValue(undefined);
     const response = await GET(new Request('http://localhost/api/search-reviews/501'), context());

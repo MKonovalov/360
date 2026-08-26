@@ -41,6 +41,20 @@ describe('POST /api/search-reviews/[id]/approve', () => {
     expect(JSON.stringify(body)).not.toContain('partner');
   });
 
+  it('does not approve for an unauthenticated request', async () => {
+    mocks.requireStaffAccess.mockRejectedValue(new Error('NEXT_REDIRECT'));
+    await expect(POST(request({ expectedRevision: 1 }), context())).rejects.toThrow('NEXT_REDIRECT');
+    expect(mocks.approveSearchReview).not.toHaveBeenCalled();
+  });
+
+  it('rejects an oversized approval body before parsing or approving', async () => {
+    const oversized = await POST(request({ payload: 'x'.repeat(70_000) }), context());
+    expect(oversized.status).toBe(413);
+    expect(oversized.headers.get('Cache-Control')).toBe('no-store');
+    await expect(oversized.json()).resolves.toEqual({ error: 'request_too_large' });
+    expect(mocks.approveSearchReview).not.toHaveBeenCalled();
+  });
+
   it('rejects malformed JSON, unknown fields, and invalid local IDs before approval', async () => {
     const malformed = await POST(request('{'), context());
     expect(malformed.status).toBe(400);
