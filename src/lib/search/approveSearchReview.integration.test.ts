@@ -77,6 +77,27 @@ describeWithDatabase('Search review approval against Neon', () => {
     expect(links).toHaveLength(1);
   });
 
+  it('blocks approval and writes nothing when the persisted eligibility snapshot marks the candidate ineligible', async () => {
+    const suffix = randomUUID();
+    const candidateName = `Insufficient Evidence ${suffix}`;
+    const review = await harness.insertCandidate({
+      packetCandidateId: `insufficient-evidence-${suffix}`,
+      personaSnapshot: {
+        firstName: null, lastName: null, fullName: candidateName, title: 'Incoming title',
+        email: `insufficient-evidence-${suffix}@example.com`, linkedinUrl: null, phone: null, location: null,
+        department: null, function: null, seniority: 'c_level', companyName, companyDomain, bio: null, photoUrl: null,
+      },
+      eligibilitySnapshot: { eligible: false, deficiencies: ['insufficient_public_sources:0'] },
+      matchSnapshot: { kind: 'new_persona' },
+    });
+
+    await expect(approveSearchReview({ reviewId: review, expectedRevision: 1, actorUserId: 'search-approval-integration' })).resolves.toEqual({ kind: 'inconclusive' });
+    const [candidate] = await dbModule.db.select().from(schema.searchCandidate).where(eq(schema.searchCandidate.id, review));
+    expect(candidate).toMatchObject({ status: 'pending', revision: 1, matchedPersonaId: null });
+    const personas = await dbModule.db.select().from(schema.persona).where(eq(schema.persona.name, candidateName));
+    expect(personas).toHaveLength(0);
+  });
+
   it.each([
     {
       label: 'email',

@@ -3,9 +3,20 @@ import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 vi.mock('server-only', () => ({}));
 const processSearchTerminalResultMock = vi.hoisted(() => vi.fn());
 vi.mock('./searchCandidates', () => ({ processSearchTerminalResult: processSearchTerminalResultMock }));
+const arcAgentnetClientMock = vi.hoisted(() => ({
+  submit: vi.fn(),
+  poll: vi.fn(),
+  cancel: vi.fn(),
+  delete: vi.fn(),
+}));
+vi.mock('@/lib/arc-agentnet/client', () => ({ arcAgentnetClient: arcAgentnetClientMock }));
 
 afterEach(() => {
   processSearchTerminalResultMock.mockReset();
+  arcAgentnetClientMock.submit.mockReset();
+  arcAgentnetClientMock.poll.mockReset();
+  arcAgentnetClientMock.cancel.mockReset();
+  arcAgentnetClientMock.delete.mockReset();
 });
 
 import type { ArcAgentnetClient, ArcAgentnetJob } from '@/lib/arc-agentnet/client';
@@ -106,6 +117,57 @@ describe('Search Arc Agent Net adapter', () => {
 
     await expect(pollSearchJob({ partnerJobId: 'job/with spaces', client })).resolves.toEqual(failure);
     expect(client.poll).toHaveBeenCalledWith({ jobId: 'job/with spaces' });
+  });
+
+  it('submits through the shared Arc Agent Net client singleton when no client override is provided', async () => {
+    const job: ArcAgentnetJob = { jobId: 'job-1', requestId: 'request-1', status: 'queued' };
+    arcAgentnetClientMock.submit.mockResolvedValue({ ok: true, value: job });
+
+    await expect(submitSearchJob({
+      idempotencyKey: 'search-key',
+      context,
+      runId: 101,
+      initiatingUserId: 'user-1',
+      associateMapping: vi.fn().mockResolvedValue({ id: 101 }),
+    })).resolves.toEqual({ ok: true, value: job });
+
+    expect(arcAgentnetClientMock.submit).toHaveBeenCalledWith({ idempotencyKey: 'search-key', input: context });
+  });
+
+  it('polls through the shared Arc Agent Net client singleton when no client override is provided', async () => {
+    const failure = { ok: false as const, kind: 'network' as const, status: null };
+    arcAgentnetClientMock.poll.mockResolvedValue(failure);
+
+    await expect(pollSearchJob({ partnerJobId: 'job-1' })).resolves.toEqual(failure);
+    expect(arcAgentnetClientMock.poll).toHaveBeenCalledWith({ jobId: 'job-1' });
+  });
+
+  it('returns a persistence failure without a false success when the mapping association is not recorded', async () => {
+    const job: ArcAgentnetJob = { jobId: 'job-1', requestId: 'request-1', status: 'queued' };
+    const client = fakeClient({ submit: vi.fn().mockResolvedValue({ ok: true, value: job }) });
+
+    await expect(submitSearchJob({
+      idempotencyKey: 'search-key',
+      context,
+      runId: 101,
+      initiatingUserId: 'user-1',
+      associateMapping: vi.fn().mockResolvedValue(undefined),
+      client,
+    })).resolves.toEqual({ ok: false, kind: 'persistence', status: null });
+  });
+
+  it('returns a persistence failure without throwing when the mapping association rejects', async () => {
+    const job: ArcAgentnetJob = { jobId: 'job-1', requestId: 'request-1', status: 'queued' };
+    const client = fakeClient({ submit: vi.fn().mockResolvedValue({ ok: true, value: job }) });
+
+    await expect(submitSearchJob({
+      idempotencyKey: 'search-key',
+      context,
+      runId: 101,
+      initiatingUserId: 'user-1',
+      associateMapping: vi.fn().mockRejectedValue(new Error('connection reset')),
+      client,
+    })).resolves.toEqual({ ok: false, kind: 'persistence', status: null });
   });
 });
 
@@ -293,5 +355,61 @@ describe('reconcileSearchRun', () => {
       getRun: vi.fn().mockResolvedValue(failedRun),
       getMapping: vi.fn().mockResolvedValue(undefined),
     })).resolves.toEqual({ kind: 'failed', run: failedRun });
+  });
+
+  it('records a terminal failed status without processing candidates when the partner job has expired', async () => {
+    const run = {
+      id: 101,
+      initiatingUserId: 'user-1',
+      partnerJobMappingId: 202,
+      status: 'running',
+      companySnapshot: { id: 42, name: 'Acme', domain: 'acme.example' },
+      templateSnapshot: { buyerRoleRules: [] },
+    } as const;
+    const mapping = { id: 202, partnerJobId: 'job-1', requestId: 'request-1' } as const;
+    const client = fakeClient({ poll: vi.fn().mockResolvedValue({ ok: false, kind: 'job_expired', status: 410 }) });
+    const failedRun = { ...run, status: 'failed' as const };
+    const recordTerminal = vi.fn().mockResolvedValue({ kind: 'applied', run: failedRun });
+
+    await expect(reconcileSearchRun(101, 'user-1', {
+      client,
+      getRun: vi.fn().mockResolvedValue(run),
+      getMapping: vi.fn().mockResolvedValue(mapping),
+      recordTerminal,
+    })).resolves.toEqual({ kind: 'failed', run: failedRun });
+
+    expect(recordTerminal).toHaveBeenCalledWith({
+      runId: 101,
+      initiatingUserId: 'user-1',
+      partnerJobId: 'job-1',
+      requestId: 'request-1',
+      status: 'failed',
+      packetHash: null,
+      packetSchemaVersion: null,
+      terminalResultSummary: { schemaVersion: 1, candidateCount: 0, sourceCount: 0, inconclusiveCount: 0, normalizedCandidateCount: 0 },
+    });
+    expect(processSearchTerminalResultMock).not.toHaveBeenCalled();
+  });
+
+  it('surfaces a terminal conflict instead of overwriting an already recorded terminal result on expiry', async () => {
+    const run = {
+      id: 101,
+      initiatingUserId: 'user-1',
+      partnerJobMappingId: 202,
+      status: 'running',
+      companySnapshot: { id: 42, name: 'Acme', domain: 'acme.example' },
+      templateSnapshot: { buyerRoleRules: [] },
+    } as const;
+    const mapping = { id: 202, partnerJobId: 'job-1', requestId: 'request-1' } as const;
+    const client = fakeClient({ poll: vi.fn().mockResolvedValue({ ok: false, kind: 'job_expired', status: 410 }) });
+    const conflictedRun = { ...run, status: 'succeeded' as const };
+    const recordTerminal = vi.fn().mockResolvedValue({ kind: 'conflict', run: conflictedRun });
+
+    await expect(reconcileSearchRun(101, 'user-1', {
+      client,
+      getRun: vi.fn().mockResolvedValue(run),
+      getMapping: vi.fn().mockResolvedValue(mapping),
+      recordTerminal,
+    })).resolves.toEqual({ kind: 'terminal_conflict', run: conflictedRun });
   });
 });
