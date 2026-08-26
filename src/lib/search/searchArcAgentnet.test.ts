@@ -413,3 +413,161 @@ describe('reconcileSearchRun', () => {
     })).resolves.toEqual({ kind: 'terminal_conflict', run: conflictedRun });
   });
 });
+
+describe('recordSearchMetric seam — submitSearchJob and reconcileSearchRun', () => {
+  const originalSearchFlag = process.env.SEARCH_ENABLED;
+
+  afterEach(() => {
+    if (originalSearchFlag === undefined) delete process.env.SEARCH_ENABLED;
+    else process.env.SEARCH_ENABLED = originalSearchFlag;
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  // env.ts snapshots SEARCH_ENABLED at module-load time, so exercising both
+  // flag states in the same suite requires reloading searchArcAgentnet (and
+  // its env.ts dependency) fresh per test, after setting process.env — the
+  // same pattern security.test.ts/templateContracts.test.ts already use. The
+  // existing vi.mock('./searchCandidates', ...)/vi.mock('@/lib/arc-agentnet/client', ...)
+  // registrations above still apply to the freshly loaded module.
+  async function loadFresh() {
+    vi.resetModules();
+    return import('./searchArcAgentnet');
+  }
+
+  it('emits a dispatch_error metric when the partner submit itself fails, with Search enabled', async () => {
+    process.env.SEARCH_ENABLED = 'true';
+    const fresh = await loadFresh();
+    const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const client = fakeClient({ submit: vi.fn().mockResolvedValue({ ok: false, kind: 'network', status: null }) });
+
+    await fresh.submitSearchJob({
+      idempotencyKey: 'search-key', context, runId: 101, initiatingUserId: 'user-1',
+      associateMapping: vi.fn(), client,
+    });
+
+    expect(consoleSpy).toHaveBeenCalledTimes(1);
+    const [payload] = consoleSpy.mock.calls[0] as [string];
+    expect(JSON.parse(payload)).toEqual({
+      schemaVersion: 1, source: 'search', kind: 'dispatch_error', searchRunId: 101, reason: 'network',
+    });
+  });
+
+  it('emits a dispatch_error(persistence) metric when the mapping association fails, with Search enabled', async () => {
+    process.env.SEARCH_ENABLED = 'true';
+    const fresh = await loadFresh();
+    const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const job: ArcAgentnetJob = { jobId: 'job-1', requestId: 'request-1', status: 'queued' };
+    const client = fakeClient({ submit: vi.fn().mockResolvedValue({ ok: true, value: job }) });
+
+    await fresh.submitSearchJob({
+      idempotencyKey: 'search-key', context, runId: 101, initiatingUserId: 'user-1',
+      associateMapping: vi.fn().mockResolvedValue(undefined), client,
+    });
+
+    const [payload] = consoleSpy.mock.calls[0] as [string];
+    expect(JSON.parse(payload)).toEqual({
+      schemaVersion: 1, source: 'search', kind: 'dispatch_error', searchRunId: 101, reason: 'persistence',
+    });
+  });
+
+  it('emits nothing from submitSearchJob when Search is disabled, and still returns the real result', async () => {
+    delete process.env.SEARCH_ENABLED;
+    const fresh = await loadFresh();
+    const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const client = fakeClient({ submit: vi.fn().mockResolvedValue({ ok: false, kind: 'network', status: null }) });
+
+    const result = await fresh.submitSearchJob({
+      idempotencyKey: 'search-key', context, runId: 101, initiatingUserId: 'user-1',
+      associateMapping: vi.fn(), client,
+    });
+
+    expect(consoleSpy).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: false, kind: 'network', status: null });
+  });
+
+  it('emits a poll_error and a terminal lifecycle metric on job expiry, with Search enabled', async () => {
+    process.env.SEARCH_ENABLED = 'true';
+    const fresh = await loadFresh();
+    const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const run = {
+      id: 101, initiatingUserId: 'user-1', partnerJobMappingId: 202, status: 'running',
+      companySnapshot: { id: 42, name: 'Acme', domain: 'acme.example' }, templateSnapshot: { buyerRoleRules: [] },
+    } as const;
+    const mapping = { id: 202, partnerJobId: 'job-1', requestId: 'request-1' } as const;
+    const client = fakeClient({ poll: vi.fn().mockResolvedValue({ ok: false, kind: 'job_expired', status: 410 }) });
+    const failedRun = { ...run, status: 'failed' as const };
+
+    await fresh.reconcileSearchRun(101, 'user-1', {
+      client,
+      getRun: vi.fn().mockResolvedValue(run),
+      getMapping: vi.fn().mockResolvedValue(mapping),
+      recordTerminal: vi.fn().mockResolvedValue({ kind: 'applied', run: failedRun }),
+    });
+
+    const payloads = (consoleSpy.mock.calls as [string][]).map(([payload]) => JSON.parse(payload));
+    expect(payloads).toEqual([
+      { schemaVersion: 1, source: 'search', kind: 'poll_error', searchRunId: 101, reason: 'job_expired' },
+      { schemaVersion: 1, source: 'search', kind: 'lifecycle', searchRunId: 101, status: 'failed' },
+    ]);
+  });
+
+  it('emits a poll_error metric for a non-expiry poll failure, with Search enabled', async () => {
+    process.env.SEARCH_ENABLED = 'true';
+    const fresh = await loadFresh();
+    const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const client = fakeClient({ poll: vi.fn().mockResolvedValue({ ok: false, kind: 'network', status: null }) });
+
+    await fresh.reconcileSearchRun(101, 'user-1', {
+      client,
+      getRun: vi.fn().mockResolvedValue({ id: 101, partnerJobMappingId: 202, status: 'running' }),
+      getMapping: vi.fn().mockResolvedValue({ id: 202, partnerJobId: 'job-1', requestId: 'request-1' }),
+    });
+
+    expect(consoleSpy).toHaveBeenCalledTimes(1);
+    const [payload] = consoleSpy.mock.calls[0] as [string];
+    expect(JSON.parse(payload)).toEqual({
+      schemaVersion: 1, source: 'search', kind: 'poll_error', searchRunId: 101, reason: 'network',
+    });
+  });
+
+  it('emits a lifecycle metric for an in-progress poll status, with Search enabled', async () => {
+    process.env.SEARCH_ENABLED = 'true';
+    const fresh = await loadFresh();
+    const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const run = { id: 101, initiatingUserId: 'user-1', partnerJobMappingId: 202, status: 'queued' } as const;
+    const mapping = { id: 202, partnerJobId: 'job-1', requestId: 'request-1' } as const;
+    const client = fakeClient({
+      poll: vi.fn().mockResolvedValue({ ok: true, value: { jobId: 'job-1', requestId: 'request-1', status: 'running' } }),
+    });
+
+    await fresh.reconcileSearchRun(101, 'user-1', {
+      client,
+      getRun: vi.fn().mockResolvedValue(run),
+      getMapping: vi.fn().mockResolvedValue(mapping),
+      recordStatus: vi.fn().mockResolvedValue({ kind: 'transitioned', run: { ...run, status: 'running' } }),
+    });
+
+    expect(consoleSpy).toHaveBeenCalledTimes(1);
+    const [payload] = consoleSpy.mock.calls[0] as [string];
+    expect(JSON.parse(payload)).toEqual({
+      schemaVersion: 1, source: 'search', kind: 'lifecycle', searchRunId: 101, status: 'running',
+    });
+  });
+
+  it('emits nothing from reconcileSearchRun when Search is disabled, and still returns the real result', async () => {
+    delete process.env.SEARCH_ENABLED;
+    const fresh = await loadFresh();
+    const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const client = fakeClient({ poll: vi.fn().mockResolvedValue({ ok: false, kind: 'network', status: null }) });
+
+    const result = await fresh.reconcileSearchRun(101, 'user-1', {
+      client,
+      getRun: vi.fn().mockResolvedValue({ id: 101, partnerJobMappingId: 202, status: 'running' }),
+      getMapping: vi.fn().mockResolvedValue({ id: 202, partnerJobId: 'job-1', requestId: 'request-1' }),
+    });
+
+    expect(consoleSpy).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ kind: 'poll_failed' });
+  });
+});

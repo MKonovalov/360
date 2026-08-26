@@ -18,6 +18,7 @@ import {
   type SearchRunRecord,
 } from './searchRuns';
 import { processSearchTerminalResult, type SearchProcessResult } from './searchCandidates';
+import { recordSearchMetric } from './searchTelemetry';
 
 export interface SearchSubmitContext {
   readonly schemaVersion: number;
@@ -69,7 +70,10 @@ export async function submitSearchJob(input: SearchJobInput): Promise<ArcAgentne
   const parsedContext = searchSubmitContextSchema.safeParse(input.context);
   if (!parsedContext.success) return { ok: false, kind: 'invalid_input', status: null };
   const submitted = await (input.client ?? arcAgentnetClient).submit({ idempotencyKey: input.idempotencyKey, input: parsedContext.data });
-  if (!submitted.ok) return submitted;
+  if (!submitted.ok) {
+    recordSearchMetric({ kind: 'dispatch_error', searchRunId: input.runId, reason: submitted.kind });
+    return submitted;
+  }
   try {
     const associated = await (input.associateMapping ?? associateSearchRunPartnerMapping)({
       runId: input.runId,
@@ -77,10 +81,13 @@ export async function submitSearchJob(input: SearchJobInput): Promise<ArcAgentne
       partnerJobId: submitted.value.jobId,
       requestId: submitted.value.requestId,
     });
-    return associated === undefined
-      ? { ok: false, kind: 'persistence', status: null }
-      : submitted;
+    if (associated === undefined) {
+      recordSearchMetric({ kind: 'dispatch_error', searchRunId: input.runId, reason: 'persistence' });
+      return { ok: false, kind: 'persistence', status: null };
+    }
+    return submitted;
   } catch {
+    recordSearchMetric({ kind: 'dispatch_error', searchRunId: input.runId, reason: 'persistence' });
     return { ok: false, kind: 'persistence', status: null };
   }
 }
@@ -157,6 +164,7 @@ export async function reconcileSearchRun(
       case 'succeeded':
       case 'failed':
       case 'cancelled':
+        recordSearchMetric({ kind: 'lifecycle', searchRunId: runId, status: run.status });
         return { kind: run.status, run };
       case 'queued':
       case 'running':
@@ -167,7 +175,11 @@ export async function reconcileSearchRun(
   }
   const polled = await pollSearchJob({ partnerJobId: mapping.partnerJobId, client: dependencies.client });
   if (!polled.ok) {
-    if (polled.kind !== 'job_expired') return { kind: 'poll_failed', failure: polled };
+    if (polled.kind !== 'job_expired') {
+      recordSearchMetric({ kind: 'poll_error', searchRunId: runId, reason: polled.kind });
+      return { kind: 'poll_failed', failure: polled };
+    }
+    recordSearchMetric({ kind: 'poll_error', searchRunId: runId, reason: 'job_expired' });
     const terminal = await recordTerminal({
       runId,
       initiatingUserId,
@@ -179,7 +191,9 @@ export async function reconcileSearchRun(
       terminalResultSummary: { schemaVersion: 1, candidateCount: 0, sourceCount: 0, inconclusiveCount: 0, normalizedCandidateCount: 0 },
     });
     const terminalRun = terminalResultRun(terminal);
-    return terminalRun ? { kind: terminal.kind === 'conflict' ? 'terminal_conflict' : 'failed', run: terminalRun } : { kind: 'not_found' };
+    if (!terminalRun) return { kind: 'not_found' };
+    recordSearchMetric({ kind: 'lifecycle', searchRunId: runId, status: terminalRun.status });
+    return { kind: terminal.kind === 'conflict' ? 'terminal_conflict' : 'failed', run: terminalRun };
   }
 
   if (polled.value.status === 'queued' || polled.value.status === 'running' || polled.value.status === 'cancelling') {
@@ -193,6 +207,7 @@ export async function reconcileSearchRun(
     });
     const statusRun = statusResultRun(status);
     if (!statusRun) return { kind: 'not_found' };
+    recordSearchMetric({ kind: 'lifecycle', searchRunId: runId, status: statusRun.status });
     return { kind: polled.value.status === 'queued' ? 'queued' : 'running', run: statusRun };
   }
 
@@ -234,6 +249,7 @@ export async function reconcileSearchRun(
         });
         const terminalRun = terminalResultRun(terminal);
         if (!terminalRun) return { kind: 'not_found' };
+        recordSearchMetric({ kind: 'lifecycle', searchRunId: runId, status: terminalRun.status });
         if (terminal.kind === 'conflict') return { kind: 'terminal_conflict', run: terminalRun };
         return { kind: processed.kind === 'invalid_packet' ? 'failed' : 'succeeded', run: terminalRun };
       }
@@ -252,6 +268,7 @@ export async function reconcileSearchRun(
   });
   const terminalRun = terminalResultRun(terminal);
   if (!terminalRun) return { kind: 'not_found' };
+  recordSearchMetric({ kind: 'lifecycle', searchRunId: runId, status: terminalRun.status });
   return terminal.kind === 'conflict'
     ? { kind: 'terminal_conflict', run: terminalRun }
     : { kind: polled.value.status, run: terminalRun };
