@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   createSearchLaunchPayload,
+  launchSearchRun,
   pollSearchRun,
   searchErrorMessage,
 } from './searchClient';
@@ -51,6 +52,52 @@ describe('searchClient', () => {
     });
     expect(JSON.stringify(payload)).not.toContain('partner');
     expect(JSON.stringify(payload)).not.toContain('instruction');
+  });
+
+  it('POSTs the exact opaque launch contract without partner-controlled fields', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ searchRunId: 73, status: 'queued' }, 201));
+    vi.stubGlobal('fetch', fetchMock);
+    const payload = createSearchLaunchPayload({
+      companyId: 42,
+      templateVersionId: 11,
+      idempotencyKey: 'opaque-browser-key',
+    });
+
+    await expect(launchSearchRun({ payload, signal: new AbortController().signal })).resolves.toEqual({
+      kind: 'started',
+      searchRunId: 73,
+      status: 'queued',
+      replayed: false,
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/search-runs');
+    expect(init.method).toBe('POST');
+    expect(init.headers).toEqual({ 'Content-Type': 'application/json' });
+    expect(JSON.parse(String(init.body))).toEqual(payload);
+    expect(String(init.body)).not.toContain('partner');
+    expect(String(init.body)).not.toContain('instruction');
+  });
+
+  it('maps an aborted launch request to an aborted result', async () => {
+    const controller = new AbortController();
+    const fetchMock = vi.fn().mockImplementation((_url: string, init: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const resultPromise = launchSearchRun({
+      payload: createSearchLaunchPayload({
+        companyId: 42,
+        templateVersionId: 11,
+        idempotencyKey: 'opaque-browser-key',
+      }),
+      signal: controller.signal,
+    });
+    controller.abort();
+
+    await expect(resultPromise).resolves.toEqual({ kind: 'aborted' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('maps dispatch, expiry, validation, and persistence failures to safe copy', () => {
