@@ -44,6 +44,13 @@ describe('GET /api/search-runs/[id]', () => {
     expect(JSON.stringify(body)).not.toContain('partner');
   });
 
+  it('does not reconcile or read status for an unauthenticated request', async () => {
+    mocks.requireStaffAccess.mockRejectedValue(new Error('NEXT_REDIRECT'));
+    await expect(GET(new Request('http://localhost/api/search-runs/101'), context('101'))).rejects.toThrow('NEXT_REDIRECT');
+    expect(mocks.reconcileSearchRun).not.toHaveBeenCalled();
+    expect(mocks.getSearchStatusProjection).not.toHaveBeenCalled();
+  });
+
   it.each(['0', '-1', 'abc', '1.5', '999999999999999999999'])('rejects invalid local ID %s', async (id) => {
     const response = await GET(new Request(`http://localhost/api/search-runs/${id}`), context(id));
     expect(response.status).toBe(400);

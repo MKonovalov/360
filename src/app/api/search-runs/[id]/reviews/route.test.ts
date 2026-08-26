@@ -57,6 +57,13 @@ describe('GET /api/search-runs/[id]/reviews', () => {
     expect(JSON.stringify(body)).not.toContain('secret');
   });
 
+  it('does not reconcile or list Reviews for an unauthenticated request', async () => {
+    mocks.requireStaffAccess.mockRejectedValue(new Error('NEXT_REDIRECT'));
+    await expect(GET(new Request('http://localhost/api/search-runs/101/reviews'), context('101'))).rejects.toThrow('NEXT_REDIRECT');
+    expect(mocks.reconcileSearchRun).not.toHaveBeenCalled();
+    expect(mocks.listSearchReviews).not.toHaveBeenCalled();
+  });
+
   it('returns an empty list for an inaccessible run without leaking existence', async () => {
     mocks.reconcileSearchRun.mockResolvedValue({ kind: 'not_found' });
     const response = await GET(new Request('http://localhost/api/search-runs/101/reviews'), context('101'));
