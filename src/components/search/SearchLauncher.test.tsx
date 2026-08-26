@@ -4,7 +4,9 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import type { SearchStatusProjection } from '@/lib/search/contracts';
 
 import {
+  SEARCH_LAUNCHER_DIALOG_CLASS_NAME,
   SearchLauncherPanel,
+  abortSearchLauncherRequest,
   canStartSearch,
   initialSearchTemplateVersionId,
   type SearchTemplateProjection,
@@ -96,5 +98,24 @@ describe('SearchLauncher', () => {
 
     expect(html).toContain('Search is running');
     expect(html).toContain('disabled');
+  });
+
+  it('keeps launcher content viewport-bounded at narrow and desktop sizes', () => {
+    expect(SEARCH_LAUNCHER_DIALOG_CLASS_NAME).toContain('max-h-[calc(100dvh-2rem)]');
+    expect(SEARCH_LAUNCHER_DIALOG_CLASS_NAME).toContain('overflow-y-auto');
+    expect(SEARCH_LAUNCHER_DIALOG_CLASS_NAME).toContain('sm:max-h-[calc(100dvh-4rem)]');
+    expect(SEARCH_LAUNCHER_DIALOG_CLASS_NAME).toContain('sm:overflow-y-auto');
+  });
+
+  it('aborts the same request lifecycle used by close and unmount cleanup', () => {
+    const controller = new AbortController();
+    const controllerRef = { current: controller };
+    const generationRef = { current: 4 };
+
+    abortSearchLauncherRequest({ controllerRef, generationRef });
+
+    expect(controller.signal.aborted).toBe(true);
+    expect(controllerRef.current).toBeNull();
+    expect(generationRef.current).toBe(5);
   });
 });
