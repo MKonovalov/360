@@ -374,3 +374,112 @@ export const searchBulkRequestSchema = z
   })
   .strict();
 export type SearchBulkRequest = z.infer<typeof searchBulkRequestSchema>;
+
+const searchReviewSourceProjectionSchema = z
+  .object({
+    packetSourceId: opaquePacketIdSchema,
+    kind: z.enum(SEARCH_SOURCE_KINDS),
+    url: searchSourceUrlSchema,
+    title: z.string().trim().min(1).max(SOURCE_TITLE_MAX_LENGTH),
+    supports: z.array(opaquePacketIdSchema),
+  })
+  .strict();
+
+const searchReviewClaimProjectionSchema = searchClaimSchema
+  .extend({
+    supported: z.boolean(),
+    verified: z.boolean(),
+  })
+  .strict();
+
+const searchReviewAuditSummarySchema = z
+  .object({
+    editCount: z.number().int().nonnegative(),
+    lastEventType: z.string().trim().min(1).nullable(),
+    lastActorId: z.string().trim().min(1).nullable(),
+  })
+  .strict();
+
+export const searchReviewProjectionSchema = z
+  .object({
+    reviewId: positiveIdSchema,
+    searchRunId: positiveIdSchema,
+    packetCandidateId: opaquePacketIdSchema,
+    company: z
+      .object({
+        id: positiveIdSchema,
+        name: z.string().trim().min(1),
+        domain: z.string().trim().min(1).nullable(),
+      })
+      .strict(),
+    persona: searchPersonaDraftSchema,
+    buyerRoles: z.array(searchBuyerRoleProposalSchema),
+    sources: z.array(searchReviewSourceProjectionSchema),
+    claims: z.array(searchReviewClaimProjectionSchema),
+    match: searchMatchSchema,
+    eligibility: z
+      .object({ eligible: z.boolean(), deficiencies: z.array(z.string()) })
+      .strict(),
+    status: searchCandidateStatusSchema,
+    revision: positiveIdSchema,
+    editCount: z.number().int().nonnegative(),
+    latestEditor: z.string().trim().min(1).nullable(),
+    audit: searchReviewAuditSummarySchema,
+  })
+  .strict();
+
+export type SearchReviewProjection = z.infer<typeof searchReviewProjectionSchema>;
+
+export type BulkSearchReason =
+  | 'ineligible'
+  | 'stale_revision'
+  | 'already_terminal'
+  | 'not_found'
+  | 'conflict'
+  | 'failed';
+
+export type BulkSearchOutcome =
+  | { readonly reviewId: number; readonly outcome: 'approved' | 'rejected' }
+  | { readonly reviewId: number; readonly outcome: 'skipped' | 'failed'; readonly reason: BulkSearchReason };
+
+export interface BulkSearchCounts {
+  readonly approved: number;
+  readonly rejected: number;
+  readonly skipped: number;
+  readonly failed: number;
+}
+
+export type BulkSearchResult =
+  | { readonly kind: 'invalid_input' }
+  | { readonly kind: 'completed'; readonly outcomes: readonly BulkSearchOutcome[]; readonly counts: BulkSearchCounts };
+
+const bulkSearchOutcomeSchema = z.discriminatedUnion('outcome', [
+  z.object({ reviewId: positiveIdSchema, outcome: z.enum(['approved', 'rejected']) }).strict(),
+  z.object({
+    reviewId: positiveIdSchema,
+    outcome: z.enum(['skipped', 'failed']),
+    reason: z.enum(['ineligible', 'stale_revision', 'already_terminal', 'not_found', 'conflict', 'failed']),
+  }).strict(),
+]);
+
+export const searchBulkResultSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('invalid_input') }).strict(),
+  z.object({
+    kind: z.literal('completed'),
+    outcomes: z.array(bulkSearchOutcomeSchema),
+    counts: z.object({
+      approved: z.number().int().nonnegative(),
+      rejected: z.number().int().nonnegative(),
+      skipped: z.number().int().nonnegative(),
+      failed: z.number().int().nonnegative(),
+    }).strict(),
+  }).strict(),
+]);
+
+export type SearchReviewResponse = { readonly review: SearchReviewProjection };
+export type SearchReviewListResponse = readonly SearchReviewProjection[];
+export type SearchReviewErrorResponse = { readonly error: string };
+
+export const searchReviewResponseSchema = z.object({ review: searchReviewProjectionSchema }).strict();
+export const searchReviewListResponseSchema = z.array(searchReviewProjectionSchema);
+export const searchReviewErrorResponseSchema = z.object({ error: z.string().min(1) }).loose();
