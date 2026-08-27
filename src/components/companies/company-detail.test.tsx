@@ -1,5 +1,4 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import Link from 'next/link';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -12,8 +11,10 @@ const mocks = vi.hoisted(() => ({
   listConfirmedCandidateOfferingsForSubject: vi.fn(),
   getAnalysisPacket: vi.fn(),
   projectRunReviewCards: vi.fn(),
+  requireStaffAccess: vi.fn(),
 }));
 
+vi.mock('server-only', () => ({}));
 vi.mock('@/lib/db/queries/companies', () => ({ getCompanyById: mocks.getCompanyById }));
 vi.mock('@/lib/db/queries/signals', () => ({ listSignalsForCompany: mocks.listSignalsForCompany }));
 vi.mock('@/lib/db/queries/companyPersonaRoles', () => ({ listPersonasForCompany: mocks.listPersonasForCompany }));
@@ -24,28 +25,12 @@ vi.mock('@/lib/db/queries/confirmedCandidates', () => ({
   listConfirmedCandidateOfferingsForSubject: mocks.listConfirmedCandidateOfferingsForSubject,
 }));
 vi.mock('@/lib/db/queries/analysisResults', () => ({ getAnalysisPacket: mocks.getAnalysisPacket }));
-vi.mock('@/components/companies/company-detail-header', () => ({
-  CompanyDetailBackLink: () => <Link href="/companies">Back</Link>,
-  CompanyDetailHeader: ({
-    companyName,
-    industry,
-    recordId,
-  }: {
-    readonly companyName: string;
-    readonly industry: string | null;
-    readonly recordId: number;
-  }) => (
-    <header data-agent-record-id={recordId}>
-      <Link href="/companies">Back</Link>
-      <h1>{companyName}</h1>
-      <p>{industry}</p>
-      <span>Enrich</span>
-      <span>Analyze</span>
-    </header>
-  ),
-}));
+vi.mock('@/lib/auth/requireStaffAccess', () => ({ requireStaffAccess: mocks.requireStaffAccess }));
 vi.mock('@/components/enrichment/enrichment-review-dialog', () => ({
   EnrichMenu: () => <button type="button">Actions</button>,
+}));
+vi.mock('@/components/explorer/explorer-table-behavior', () => ({
+  ExplorerCloseButton: () => <button type="button">Close</button>,
 }));
 vi.mock('@/components/dashboard/record-view-tracker', () => ({
   RecordViewTracker: () => null,
@@ -97,6 +82,7 @@ async function renderTab(tab: 'general' | 'personas' | 'knowledge' | 'analysis')
 describe('CompanyDetail lazy tab query boundaries', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.requireStaffAccess.mockResolvedValue({ userId: 'staff-1' });
     mocks.getCompanyById.mockResolvedValue(company);
     mocks.listSignalsForCompany.mockResolvedValue([]);
     mocks.listPersonasForCompany.mockResolvedValue([]);
@@ -126,16 +112,15 @@ describe('CompanyDetail lazy tab query boundaries', () => {
   });
 
   it.each(['general', 'personas', 'knowledge', 'analysis'] as const)(
-    'keeps the stable header, Agent actions, and list link on the %s tab',
+    'keeps company identity, Agent actions, and tab navigation on the %s tab',
     async (tab) => {
       const markup = await renderTab(tab);
 
       expect(markup).toContain('Acme Corporation');
       expect(markup).toContain('Technology');
-      expect(markup).toContain('data-agent-record-id="42"');
-      expect(markup).toContain('Enrich');
-      expect(markup).toContain('Analyze');
-      expect(markup).toContain('href="/companies"');
+      expect(markup).toContain('Actions');
+      expect(markup).toContain('Close');
+      expect(markup).toContain('Company detail sections');
     },
   );
 
