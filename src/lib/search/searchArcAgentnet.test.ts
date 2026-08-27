@@ -9,7 +9,10 @@ const arcAgentnetClientMock = vi.hoisted(() => ({
   cancel: vi.fn(),
   delete: vi.fn(),
 }));
-vi.mock('@/lib/arc-agentnet/client', () => ({ arcAgentnetClient: arcAgentnetClientMock }));
+vi.mock('@/lib/arc-agentnet/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/arc-agentnet/client')>();
+  return { ...actual, arcAgentnetClient: arcAgentnetClientMock };
+});
 
 afterEach(() => {
   processSearchTerminalResultMock.mockReset();
@@ -19,7 +22,7 @@ afterEach(() => {
   arcAgentnetClientMock.delete.mockReset();
 });
 
-import type { ArcAgentnetClient, ArcAgentnetJob } from '@/lib/arc-agentnet/client';
+import { createArcAgentnetClient, type ArcAgentnetClient, type ArcAgentnetJob } from '@/lib/arc-agentnet/client';
 
 import {
   pollSearchJob,
@@ -66,7 +69,44 @@ describe('Search Arc Agent Net adapter', () => {
       associateMapping: vi.fn().mockResolvedValue({ id: 101 }),
       client,
     })).resolves.toEqual({ ok: true, value: job });
-    expect(client.submit).toHaveBeenCalledWith({ idempotencyKey: 'search-key', input: context });
+    expect(client.submit).toHaveBeenCalledWith({
+      idempotencyKey: 'search-key',
+      input: context,
+      specId: '6f9b69d738a24462b620a3c38968985b',
+    });
+  });
+
+  it('sends the required Search spec_id in the real outgoing partner JSON body', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response(
+      JSON.stringify({ job_id: 'job-1', status: 'queued', request_id: 'request-1' }),
+      { status: 202, headers: { 'content-type': 'application/json' } },
+    ));
+    const realClient = createArcAgentnetClient({
+      baseUrl: 'https://agentnet.example.test',
+      partnerKey: 'partner-secret',
+      fetchImpl,
+      registerJob: vi.fn().mockResolvedValue({ ok: true, mappingId: 1 }),
+    });
+
+    await expect(submitSearchJob({
+      idempotencyKey: 'search-key',
+      context,
+      runId: 101,
+      initiatingUserId: 'user-1',
+      associateMapping: vi.fn().mockResolvedValue({ id: 101 }),
+      client: realClient,
+    })).resolves.toEqual({
+      ok: true,
+      value: { jobId: 'job-1', requestId: 'request-1', status: 'queued' },
+    });
+
+    const [, init] = fetchImpl.mock.calls[0] ?? [];
+    const body: unknown = JSON.parse(String(init?.body));
+    expect(body).toEqual({
+      task: context.analysis.resolvedInstructions,
+      context,
+      spec_id: '6f9b69d738a24462b620a3c38968985b',
+    });
   });
 
   it('rejects unbounded Search context fields before partner submission', async () => {
@@ -131,7 +171,11 @@ describe('Search Arc Agent Net adapter', () => {
       associateMapping: vi.fn().mockResolvedValue({ id: 101 }),
     })).resolves.toEqual({ ok: true, value: job });
 
-    expect(arcAgentnetClientMock.submit).toHaveBeenCalledWith({ idempotencyKey: 'search-key', input: context });
+    expect(arcAgentnetClientMock.submit).toHaveBeenCalledWith({
+      idempotencyKey: 'search-key',
+      input: context,
+      specId: '6f9b69d738a24462b620a3c38968985b',
+    });
   });
 
   it('polls through the shared Arc Agent Net client singleton when no client override is provided', async () => {

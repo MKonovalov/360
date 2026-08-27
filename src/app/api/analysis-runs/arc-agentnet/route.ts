@@ -19,6 +19,11 @@ import { isPhase39FixtureMode, PHASE39_APPROVED_POLICY } from '@/lib/verificatio
 import { isPhase36FixtureMode, PHASE36_APPROVED_POLICY } from '@/lib/verification/phase36Fixtures';
 import { PHASE33_STANDARD_APPROVED_POLICY } from '@/lib/analysis/contracts';
 
+// Partner-assigned deployment spec id for the Analyze job type. Legacy
+// Analysis jobs must always send this — never the Search flow's spec id
+// (SEARCH_SPEC_ID in searchArcAgentnet.ts).
+const ANALYZE_SPEC_ID = '0893dfc5232945f2872fc40ea38146c0';
+
 export async function POST(request: Request): Promise<Response> {
   const { userId } = await requireStaffAccess();
   let body: unknown;
@@ -76,6 +81,7 @@ export async function POST(request: Request): Promise<Response> {
   const partnerJob = await arcAgentnetClient.submit({
     idempotencyKey: parsed.data.idempotencyKey,
     input: toPartnerJson(input),
+    specId: ANALYZE_SPEC_ID,
   });
   if (!partnerJob.ok) return partnerErrorResponse(partnerJob.kind);
 

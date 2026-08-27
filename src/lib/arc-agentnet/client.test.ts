@@ -65,6 +65,96 @@ describe('arc-agentnet client', () => {
     });
   });
 
+  it('includes the caller-provided spec_id in the outgoing JSON body when specId is supplied', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      response({ job_id: 'job-search-1', status: 'queued', request_id: 'req-search-1' }, 202),
+    );
+    const registerJob = vi.fn().mockResolvedValue({ ok: true, mappingId: 1 });
+    const client = createArcAgentnetClient({
+      baseUrl: 'https://agentnet.example.test',
+      partnerKey: 'partner-secret',
+      fetchImpl,
+      registerJob,
+    });
+
+    await client.submit({
+      idempotencyKey: 'search-idempotency-1',
+      input: submitInput,
+      specId: '6f9b69d738a24462b620a3c38968985b',
+    });
+
+    const [, init] = fetchImpl.mock.calls[0] ?? [];
+    const body: unknown = JSON.parse(String(init?.body));
+    expect(body).toEqual({
+      task: 'Assess the company using bounded evidence.',
+      context: submitInput,
+      spec_id: '6f9b69d738a24462b620a3c38968985b',
+    });
+  });
+
+  it('sends the Analyze deployment spec_id in the outgoing JSON body, excluding the Search spec_id', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      response({ job_id: 'job-analyze-1', status: 'queued', request_id: 'req-analyze-1' }, 202),
+    );
+    const registerJob = vi.fn().mockResolvedValue({ ok: true, mappingId: 1 });
+    const client = createArcAgentnetClient({
+      baseUrl: 'https://agentnet.example.test',
+      partnerKey: 'partner-secret',
+      fetchImpl,
+      registerJob,
+    });
+
+    await client.submit({
+      idempotencyKey: 'analyze-idempotency-1',
+      input: submitInput,
+      specId: '0893dfc5232945f2872fc40ea38146c0',
+    });
+
+    const [, init] = fetchImpl.mock.calls[0] ?? [];
+    const body: unknown = JSON.parse(String(init?.body));
+    expect(body).toEqual({
+      task: 'Assess the company using bounded evidence.',
+      context: submitInput,
+      spec_id: '0893dfc5232945f2872fc40ea38146c0',
+    });
+  });
+
+  it('accepts an HTTP 200 running acknowledgement when partner identities are present', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      response({ job_id: 'job-running', status: 'running', request_id: 'req-running' }),
+    );
+    const registerJob = vi.fn().mockResolvedValue({ ok: true, mappingId: 1 });
+    const client = createArcAgentnetClient({
+      baseUrl: 'https://agentnet.example.test',
+      partnerKey: 'partner-secret',
+      fetchImpl,
+      registerJob,
+    });
+
+    await expect(client.submit({ idempotencyKey: 'idempotency-running', input: submitInput })).resolves.toEqual({
+      ok: true,
+      value: { jobId: 'job-running', status: 'running', requestId: 'req-running' },
+    });
+  });
+
+  it('rejects a status-only HTTP 200 running acknowledgement as a malformed partner response', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response({ status: 'running' }));
+    const registerJob = vi.fn();
+    const client = createArcAgentnetClient({
+      baseUrl: 'https://agentnet.example.test',
+      partnerKey: 'partner-secret',
+      fetchImpl,
+      registerJob,
+    });
+
+    await expect(client.submit({ idempotencyKey: 'idempotency-malformed', input: submitInput })).resolves.toEqual({
+      ok: false,
+      kind: 'invalid_response',
+      status: 200,
+    });
+    expect(registerJob).not.toHaveBeenCalled();
+  });
+
   it('maps a partner validation response to a safe HTTP error without persisting a mapping', async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response({ detail: 'invalid task' }, 422));
     const registerJob = vi.fn();

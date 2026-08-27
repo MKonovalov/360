@@ -115,36 +115,36 @@ export async function CompanyDetail({
 
   let content: ReactNode;
   switch (tabData.tab) {
-      case 'general': {
-        content = (
-          <CompanyDetailGeneral
-            company={company}
-            signals={tabData.signals}
-            pendingProposalCount={tabData.pendingProposalCount}
-          />
-        );
-        break;
-      }
-      case 'personas': {
-        content = <CompanyDetailPersonas personaRoles={tabData.personaRoles} />;
-        break;
-      }
-      case 'knowledge': {
-        content = <CompanyDetailKnowledge articles={tabData.articles} />;
-        break;
-      }
-      case 'analysis': {
-        content = (
-          <CompanyDetailAnalysis
-            analysisRuns={tabData.analysisRuns}
-            reviewCards={tabData.reviewCards}
-            confirmedCandidateOfferings={tabData.confirmedCandidateOfferings}
-          />
-        );
-        break;
-      }
-      default:
-        content = assertNever(tabData);
+    case 'general': {
+      content = (
+        <CompanyDetailGeneral
+          company={company}
+          signals={tabData.signals}
+          pendingProposalCount={tabData.pendingProposalCount}
+        />
+      );
+      break;
+    }
+    case 'personas': {
+      content = <CompanyDetailPersonas personaRoles={tabData.personaRoles} />;
+      break;
+    }
+    case 'knowledge': {
+      content = <CompanyDetailKnowledge articles={tabData.articles} />;
+      break;
+    }
+    case 'analysis': {
+      content = (
+        <CompanyDetailAnalysis
+          analysisRuns={tabData.analysisRuns}
+          reviewCards={tabData.reviewCards}
+          confirmedCandidateOfferings={tabData.confirmedCandidateOfferings}
+        />
+      );
+      break;
+    }
+    default:
+      content = assertNever(tabData);
   }
 
   let searchTemplates: Awaited<ReturnType<typeof listActiveSearchTemplateProjections>> = [];

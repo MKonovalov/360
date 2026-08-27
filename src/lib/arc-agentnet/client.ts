@@ -76,6 +76,11 @@ export type ArcAgentnetClientConfig = {
 export type AnalyzeSubmitInput = {
   readonly idempotencyKey: string;
   readonly input: ArcAgentnetSubmitContext;
+  // Optional partner spec identifier forwarded verbatim as `spec_id` in the
+  // outgoing JSON body. Undefined for the legacy Analysis flow, which must
+  // keep posting the pre-existing `{ task, context }` shape unchanged; the
+  // Search flow (searchArcAgentnet.ts) supplies its own literal spec id.
+  readonly specId?: string;
 };
 
 export type ArcAgentnetSubmitInput = AnalyzeSubmitInput;
@@ -208,10 +213,14 @@ export function createArcAgentnetClient(config: ArcAgentnetClientConfig = {}): A
   }
 
   return {
-    submit: ({ idempotencyKey, input }) =>
+    submit: ({ idempotencyKey, input, specId }) =>
       request(PARTNER_JOBS_PATH, {
         method: 'POST',
-        body: JSON.stringify({ task: input.analysis.resolvedInstructions, context: input }),
+        body: JSON.stringify({
+          task: input.analysis.resolvedInstructions,
+          context: input,
+          ...(specId === undefined ? {} : { spec_id: specId }),
+        }),
         idempotencyKey,
         response: 'job',
       }).then(async (submission) => {

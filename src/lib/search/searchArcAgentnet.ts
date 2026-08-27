@@ -20,6 +20,10 @@ import {
 import { processSearchTerminalResult, type SearchProcessResult } from './searchCandidates';
 import { recordSearchMetric } from './searchTelemetry';
 
+// Partner-assigned identifier for the Search job spec. Legacy Analysis jobs
+// must never send this — it is only ever forwarded from submitSearchJob.
+const SEARCH_SPEC_ID = '6f9b69d738a24462b620a3c38968985b';
+
 export interface SearchSubmitContext {
   readonly schemaVersion: number;
   readonly analysis: {
@@ -69,7 +73,11 @@ export interface SearchPollInput {
 export async function submitSearchJob(input: SearchJobInput): Promise<ArcAgentnetClientResult<ArcAgentnetJob>> {
   const parsedContext = searchSubmitContextSchema.safeParse(input.context);
   if (!parsedContext.success) return { ok: false, kind: 'invalid_input', status: null };
-  const submitted = await (input.client ?? arcAgentnetClient).submit({ idempotencyKey: input.idempotencyKey, input: parsedContext.data });
+  const submitted = await (input.client ?? arcAgentnetClient).submit({
+    idempotencyKey: input.idempotencyKey,
+    input: parsedContext.data,
+    specId: SEARCH_SPEC_ID,
+  });
   if (!submitted.ok) {
     recordSearchMetric({ kind: 'dispatch_error', searchRunId: input.runId, reason: submitted.kind });
     return submitted;
