@@ -76,6 +76,11 @@ const payload = {
   },
 };
 
+// Deployment spec id required on every Analyze-flow partner submission.
+// Must never equal the Search flow's spec id (searchArcAgentnet.ts).
+const ANALYZE_SPEC_ID = '0893dfc5232945f2872fc40ea38146c0';
+const SEARCH_SPEC_ID = '6f9b69d738a24462b620a3c38968985b';
+
 function request(body: unknown): Request {
   return new Request('http://localhost/api/analysis-runs/arc-agentnet', {
     method: 'POST',
@@ -118,7 +123,7 @@ describe('POST /api/analysis-runs/arc-agentnet', () => {
     expect(response.status).toBe(201);
     await expect(response.json()).resolves.toEqual({ applicationRunId: 101 });
     expect(mocks.submit).toHaveBeenCalledOnce();
-    expect(mocks.submit).toHaveBeenCalledWith(expect.objectContaining({ input: payload }));
+    expect(mocks.submit).toHaveBeenCalledWith(expect.objectContaining({ input: payload, specId: ANALYZE_SPEC_ID }));
     expect(mocks.createArcAgentnetRunWithMapping).toHaveBeenCalledWith(expect.objectContaining({
       companyId: 42,
       templateId: 7,
@@ -126,6 +131,29 @@ describe('POST /api/analysis-runs/arc-agentnet', () => {
       partnerJobId: 'job-1',
       requestId: 'request-1',
       executionSnapshot: expect.objectContaining({ executor: 'arc-agentnet' }),
+    }));
+  });
+
+  it('sends the Analyze deployment spec_id and never the Search spec_id', async () => {
+    const response = await POST(request(validBody));
+
+    expect(response.status).toBe(201);
+    expect(mocks.submit).toHaveBeenCalledOnce();
+    const [submitArgs] = mocks.submit.mock.calls[0] ?? [];
+    expect(submitArgs).toMatchObject({ specId: ANALYZE_SPEC_ID });
+    expect(submitArgs.specId).not.toBe(SEARCH_SPEC_ID);
+  });
+
+  it('persists a valid running acknowledgement as an in-progress local run', async () => {
+    mocks.submit.mockResolvedValue({ ok: true, value: { jobId: 'job-running', requestId: 'request-running', status: 'running' } });
+
+    const response = await POST(request(validBody));
+
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toEqual({ applicationRunId: 101 });
+    expect(mocks.createArcAgentnetRunWithMapping).toHaveBeenCalledWith(expect.objectContaining({
+      partnerJobId: 'job-running',
+      requestId: 'request-running',
     }));
   });
 
