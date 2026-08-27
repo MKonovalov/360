@@ -106,6 +106,13 @@
       "when": 1787675781596,
       "tag": "0021_search_candidate_audit_idempotency",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1787825649095,
+      "tag": "0022_search_template_contract",
+      "breakpoints": true
     }
   ]
 }
