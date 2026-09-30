@@ -102,6 +102,39 @@ describe('resolveSearchLaunch', () => {
     expect(result.template.buyerRoleRules).not.toBe(mocks.getSearchTemplateVersion.mock.results[0]?.value.buyerRoleRules);
   });
 
+  it('renders company placeholders into partnerInstructions but keeps the stored snapshot raw', async () => {
+    const raw = 'Target company: <company.name> (<company.domain>) id <company.id>.';
+    mocks.getSearchTemplateVersion.mockResolvedValue(makeTemplate({ resolvedInstructions: raw }));
+
+    const result = await resolveSearchLaunch({ userId: 'staff-1', companyId: 42, templateVersionId: 100 });
+
+    if (!result.ok) throw new Error('expected launch resolution');
+    expect(result.partnerInstructions).toBe('Target company: Acme Holdings (acme.example) id 42.');
+    expect(result.template.resolvedInstructions).toBe(raw);
+  });
+
+  it('yields a partner task and context with no unrendered company token', async () => {
+    mocks.getSearchTemplateVersion.mockResolvedValue(makeTemplate({
+      resolvedInstructions: 'Company: <company.name>\n{ "id": "<company.id>", "name": "<company.name>", "domain": "<company.domain>" }',
+    }));
+
+    const result = await resolveSearchLaunch({ userId: 'staff-1', companyId: 42, templateVersionId: 100 });
+
+    if (!result.ok) throw new Error('expected launch resolution');
+    // Same shape the route hands submitSearchJob, which the client serializes as { task, context }.
+    const context = { schemaVersion: 1, analysis: { resolvedInstructions: result.partnerInstructions, subjectType: 'company', company: result.company } };
+    const body = JSON.stringify({ task: context.analysis.resolvedInstructions, context });
+    expect(body).not.toMatch(/<company\./u);
+    expect(body).toContain('Acme Holdings');
+  });
+
+  it('fails closed when the template carries an unknown company token', async () => {
+    mocks.getSearchTemplateVersion.mockResolvedValue(makeTemplate({ resolvedInstructions: 'Find <company.ticker>.' }));
+
+    await expect(resolveSearchLaunch({ userId: 'staff-1', companyId: 42, templateVersionId: 100 }))
+      .resolves.toEqual({ ok: false, reason: 'template_instructions_unrenderable' });
+  });
+
   it('deeply freezes template, evidence, policy, and selector arrays', async () => {
     const departments = ['Finance'];
     const template = makeTemplate({

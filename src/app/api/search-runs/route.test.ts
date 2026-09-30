@@ -152,6 +152,7 @@ describe('POST /api/search-runs', () => {
     ['template_inactive', 409],
     ['template_not_current', 409],
     ['buyer_role_rule_unresolved', 422],
+    ['template_instructions_unrenderable', 422],
   ] as const)('maps inaccessible or stale resolution failure %s safely', async (reason, status) => {
     mocks.resolveSearchLaunch.mockResolvedValue({ ok: false, reason });
     const response = await POST(request(validBody));

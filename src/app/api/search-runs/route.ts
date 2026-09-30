@@ -42,6 +42,7 @@ function resolutionFailureResponse(reason: Exclude<Awaited<ReturnType<typeof res
     case 'template_inactive':
     case 'template_not_current':
       return noStoreJson({ error: reason }, 409);
+    case 'template_instructions_unrenderable':
     case 'buyer_role_rule_invalid':
     case 'buyer_role_rule_unresolved':
       return noStoreJson({ error: reason }, 422);

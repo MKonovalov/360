@@ -13,6 +13,7 @@ import type {
 } from '@/lib/db/schema';
 import { resolveBuyerRoleRules } from './resolveBuyerRoleRules';
 import type { BuyerRoleResolution, BuyerRoleRuleEvidence } from './resolveBuyerRoleRules';
+import { renderSearchInstructions } from './renderSearchInstructions';
 import { searchTemplateSnapshotSchema } from './templateContracts';
 
 export { resolveBuyerRoleRules } from './resolveBuyerRoleRules';
@@ -26,7 +27,7 @@ export type {
 } from './resolveBuyerRoleRules';
 
 export type SearchLaunchFailure =
-  | { readonly ok: false; readonly reason: 'company_not_found' | 'template_not_found' | 'template_inactive' | 'template_not_current' }
+  | { readonly ok: false; readonly reason: 'company_not_found' | 'template_not_found' | 'template_inactive' | 'template_not_current' | 'template_instructions_unrenderable' }
   | Extract<BuyerRoleResolution, { readonly ok: false }>;
 
 export type SearchLaunchSuccess = {
@@ -111,6 +112,9 @@ export async function resolveSearchLaunch(input: {
     name: selectedCompany.name,
     domain: selectedCompany.domain,
   });
+  // The snapshot keeps the raw template; only the text sent to the partner is rendered.
+  const partnerInstructions = renderSearchInstructions(templateSnapshot.resolvedInstructions, companySnapshot);
+  if (partnerInstructions === undefined) return { ok: false, reason: 'template_instructions_unrenderable' };
   return {
     ok: true,
     company: companySnapshot,
@@ -118,6 +122,6 @@ export async function resolveSearchLaunch(input: {
     buyerRoles: buyerRoleResolution.buyerRoles,
     buyerRoleEvidence: buyerRoleResolution.buyerRoleEvidence,
     evidencePolicy: templateSnapshot.evidencePolicy,
-    partnerInstructions: templateSnapshot.resolvedInstructions,
+    partnerInstructions,
   };
 }
