@@ -471,7 +471,7 @@ function toCandidateWrite(
     kind: source.kind,
     url: source.url,
     title: source.title ?? source.providerLabel ?? source.kind,
-    publishedAt: parseDate(source.publishedAt),
+    publishedAt: parseDate(source.publishedAt ?? undefined),
     accessedAt: parseDate(source.accessedAt),
     supports: uniqueSorted(claimIdsBySource.get(source.sourceId) ?? []),
   }));

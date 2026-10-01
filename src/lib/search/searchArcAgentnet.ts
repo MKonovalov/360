@@ -120,9 +120,38 @@ export type SearchReconciliationResult =
   | { readonly kind: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled'; readonly run: SearchRunRecord }
   | { readonly kind: 'terminal_conflict'; readonly run: SearchRunRecord };
 
-function packetFromResult(result: unknown): unknown {
-  if (result !== null && typeof result === 'object' && 'output' in result) return (result as { output?: unknown }).output;
-  return result;
+const MAX_PACKET_TEXT_LENGTH = 1_000_000;
+const MAX_RESULT_UNWRAP_DEPTH = 4;
+
+// Arc Agent Net nests the packet differently per workflow: directly as the
+// result, under result.output, or as a JSON string at result.output.output.text
+// (alongside transcript/usage/workflow metadata). Walk down until the packet
+// (an object carrying `candidates`) is found; anything else falls through to
+// the normalizer, which rejects it.
+export function packetFromResult(result: unknown): unknown {
+  let current = result;
+  for (let depth = 0; depth < MAX_RESULT_UNWRAP_DEPTH; depth += 1) {
+    if (typeof current === 'string') {
+      if (current.length > MAX_PACKET_TEXT_LENGTH) return current;
+      try {
+        current = JSON.parse(current);
+      } catch (error: unknown) {
+        if (error instanceof SyntaxError) return current;
+        throw error;
+      }
+      continue;
+    }
+    if (current === null || typeof current !== 'object') return current;
+    if ('candidates' in current) return current;
+    if ('output' in current) {
+      current = (current as { output?: unknown }).output;
+    } else if ('text' in current && typeof (current as { text?: unknown }).text === 'string') {
+      current = (current as { text: string }).text;
+    } else {
+      return current;
+    }
+  }
+  return current;
 }
 
 function terminalSummary(result: unknown): SearchTerminalResultSummary {
