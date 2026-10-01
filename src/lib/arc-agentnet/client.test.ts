@@ -92,6 +92,31 @@ describe('arc-agentnet client', () => {
     });
   });
 
+  it('sends callback_url only when a per-job callback target is provided', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      response({ job_id: 'job-cb-1', status: 'queued', request_id: 'req-cb-1' }, 202),
+    );
+    const client = createArcAgentnetClient({
+      baseUrl: 'https://agentnet.example.test',
+      partnerKey: 'partner-secret',
+      fetchImpl,
+      registerJob: vi.fn().mockResolvedValue({ ok: true, mappingId: 1 }),
+    });
+
+    await client.submit({
+      idempotencyKey: 'cb-idempotency-1',
+      input: submitInput,
+      specId: '6f9b69d738a24462b620a3c38968985b',
+      callbackUrl: 'https://360.arclumenpartners.com/webhooks/arc-agentnet',
+    });
+    await client.submit({ idempotencyKey: 'cb-idempotency-2', input: submitInput });
+
+    const withCallback: Record<string, unknown> = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body));
+    const withoutCallback: Record<string, unknown> = JSON.parse(String(fetchImpl.mock.calls[1]?.[1]?.body));
+    expect(withCallback.callback_url).toBe('https://360.arclumenpartners.com/webhooks/arc-agentnet');
+    expect(withoutCallback).not.toHaveProperty('callback_url');
+  });
+
   it('sends the Analyze deployment spec_id in the outgoing JSON body, excluding the Search spec_id', async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
       response({ job_id: 'job-analyze-1', status: 'queued', request_id: 'req-analyze-1' }, 202),

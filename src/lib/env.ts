@@ -76,6 +76,9 @@ const envSchema = z.object({
   // a crash at import time. Non-PUBLIC_ prefix = server-only; read only from
   // this module, never re-exported as a client-side constant.
   SEARCH_ENABLED: z.string().optional(),
+  // Set by Vercel; gates the Search webhook callback_url to production so
+  // preview/dev jobs never call back into the production deployment.
+  VERCEL_ENV: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);
