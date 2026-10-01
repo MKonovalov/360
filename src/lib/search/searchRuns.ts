@@ -125,6 +125,33 @@ export async function getSearchRunPartnerMapping(
   return rows[0];
 }
 
+// Webhook path: the callback is authenticated by signature, not by a user, so
+// the run (and the user it belongs to) is resolved from the partner job id.
+export async function findSearchRunByPartnerJobId(
+  partnerJobId: string,
+): Promise<Pick<SearchRunRecord, 'id' | 'initiatingUserId'> | undefined> {
+  const rows = await db
+    .select({ id: searchRun.id, initiatingUserId: searchRun.initiatingUserId })
+    .from(searchRun)
+    .innerJoin(partnerJobMapping, sql`${searchRun.partnerJobMappingId} = ${partnerJobMapping.id}`)
+    .where(sql`${partnerJobMapping.partnerJobId} = ${partnerJobId}`);
+  return rows[0];
+}
+
+// Runs dispatched to the partner that have not reached a terminal status,
+// oldest first. Feeds the scheduled reconcile sweep.
+export async function listInFlightSearchRuns(
+  since: Date,
+  limit: number,
+): Promise<readonly Pick<SearchRunRecord, 'id' | 'initiatingUserId'>[]> {
+  return db
+    .select({ id: searchRun.id, initiatingUserId: searchRun.initiatingUserId })
+    .from(searchRun)
+    .where(sql`${searchRun.status} IN ('queued', 'running') AND ${searchRun.partnerJobMappingId} IS NOT NULL AND ${searchRun.createdAt} >= ${since}`)
+    .orderBy(searchRun.id)
+    .limit(limit);
+}
+
 export interface AssociateSearchRunPartnerMappingInput {
   readonly runId: number;
   readonly initiatingUserId: string;

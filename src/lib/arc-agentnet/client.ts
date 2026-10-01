@@ -81,6 +81,10 @@ export type AnalyzeSubmitInput = {
   // keep posting the pre-existing `{ task, context }` shape unchanged; the
   // Search flow (searchArcAgentnet.ts) supplies its own literal spec id.
   readonly specId?: string;
+  // Optional per-job webhook target forwarded verbatim as `callback_url`. The
+  // partner only stores it (its allowlist enforces the host). Undefined keeps
+  // the legacy Analysis body unchanged.
+  readonly callbackUrl?: string;
 };
 
 export type ArcAgentnetSubmitInput = AnalyzeSubmitInput;
@@ -213,13 +217,14 @@ export function createArcAgentnetClient(config: ArcAgentnetClientConfig = {}): A
   }
 
   return {
-    submit: ({ idempotencyKey, input, specId }) =>
+    submit: ({ idempotencyKey, input, specId, callbackUrl }) =>
       request(PARTNER_JOBS_PATH, {
         method: 'POST',
         body: JSON.stringify({
           task: input.analysis.resolvedInstructions,
           context: input,
           ...(specId === undefined ? {} : { spec_id: specId }),
+          ...(callbackUrl === undefined ? {} : { callback_url: callbackUrl }),
         }),
         idempotencyKey,
         response: 'job',

@@ -27,6 +27,7 @@ import { createArcAgentnetClient, type ArcAgentnetClient, type ArcAgentnetJob } 
 import {
   pollSearchJob,
   packetFromResult,
+  searchCallbackUrlFor,
   reconcileSearchRun,
   submitSearchJob,
   type SearchJobInput,
@@ -75,6 +76,31 @@ describe('Search Arc Agent Net adapter', () => {
       input: context,
       specId: '6f9b69d738a24462b620a3c38968985b',
     });
+  });
+
+  it('forwards an explicit callbackUrl to the client and omits it by default', async () => {
+    const job: ArcAgentnetJob = { jobId: 'job-1', requestId: 'request-1', status: 'queued' };
+    const submit = vi.fn().mockResolvedValue({ ok: true, value: job });
+    const base = {
+      idempotencyKey: 'search-key',
+      context,
+      runId: 101,
+      initiatingUserId: 'user-1',
+      associateMapping: vi.fn().mockResolvedValue({ id: 101 }),
+      client: fakeClient({ submit }),
+    };
+
+    await submitSearchJob({ ...base, callbackUrl: 'https://360.arclumenpartners.com/webhooks/arc-agentnet' });
+    await submitSearchJob(base);
+
+    expect(submit.mock.calls[0]?.[0]).toMatchObject({ callbackUrl: 'https://360.arclumenpartners.com/webhooks/arc-agentnet' });
+    expect(submit.mock.calls[1]?.[0]).not.toHaveProperty('callbackUrl');
+  });
+
+  it('targets the production webhook only for production deployments', () => {
+    expect(searchCallbackUrlFor('production')).toBe('https://360.arclumenpartners.com/webhooks/arc-agentnet');
+    expect(searchCallbackUrlFor('preview')).toBeUndefined();
+    expect(searchCallbackUrlFor(undefined)).toBeUndefined();
   });
 
   it('sends the required Search spec_id in the real outgoing partner JSON body', async () => {
