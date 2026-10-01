@@ -212,6 +212,24 @@ export function normalizeSearchLinkedInUrl(value: string | null | undefined): st
   }
 }
 
+// The partner returns free-text seniority ("C-Level", "Head", "Manager") but the
+// Persona record only stores this closed set, and approval rejects anything
+// else. Map known phrasings; an unrecognised value becomes null (the candidate
+// stays reviewable) instead of making every approval fail.
+const SENIORITY_PATTERNS: readonly (readonly [string, RegExp])[] = [
+  ['c_level', /^(c level|c suite|cxo|chief\b)/u],
+  ['vp', /\b(vp|svp|evp|vice president)\b/u],
+  ['director', /\b(director|head)\b/u],
+  ['manager', /\b(manager|lead)\b/u],
+  ['ic', /\b(ic|individual contributor|specialist|analyst|associate|engineer)\b/u],
+];
+
+export function normalizeSearchSeniority(value: string | null | undefined): string | null {
+  const folded = normalizeNullableText(value ?? null)?.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  if (!folded) return null;
+  return SENIORITY_PATTERNS.find(([, pattern]) => pattern.test(folded))?.[0] ?? null;
+}
+
 function normalizePersona(persona: SearchPersonaDraft): SearchPersonaDraft {
   return {
     ...persona,
@@ -225,7 +243,7 @@ function normalizePersona(persona: SearchPersonaDraft): SearchPersonaDraft {
     location: normalizeNullableText(persona.location),
     department: normalizeNullableText(persona.department),
     function: normalizeNullableText(persona.function),
-    seniority: normalizeNullableText(persona.seniority),
+    seniority: normalizeSearchSeniority(persona.seniority),
     companyName: normalizeNullableText(persona.companyName),
     companyDomain: normalizeSearchDomain(persona.companyDomain),
     bio: normalizeNullableText(persona.bio),

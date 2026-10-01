@@ -6,6 +6,7 @@ import {
   normalizeSearchLinkedInUrl,
   normalizeSearchName,
   normalizeSearchPacket,
+  normalizeSearchSeniority,
 } from './normalizeSearchPacket';
 
 const persona = {
@@ -131,6 +132,37 @@ describe('normalizeSearchPacket', () => {
       companyDomain: 'example.com',
     });
     expect(first.candidates[0]?.sources[0]?.url).toBe('https://example.com/about?ref=kept');
+  });
+
+  it.each([
+    ['C-Level', 'c_level'],
+    ['c_level', 'c_level'],
+    ['Chief Financial Officer', 'c_level'],
+    ['EVP', 'vp'],
+    ['Senior Vice President', 'vp'],
+    ['Head', 'director'],
+    ['Managing Director', 'director'],
+    ['Manager', 'manager'],
+    ['Team Lead', 'manager'],
+    ['Individual Contributor', 'ic'],
+    ['Intern', null],
+    ['  ', null],
+    [null, null],
+  ] as const)('maps partner seniority %j onto the Persona seniority set (%j)', (input, expected) => {
+    expect(normalizeSearchSeniority(input)).toBe(expected);
+  });
+
+  it('stores a Persona seniority approval can accept, or null when unrecognised', () => {
+    const run = (seniority: string) => normalizeSearchPacket({
+      schemaVersion: 1,
+      candidates: [{ ...candidate, persona: { ...candidate.persona, seniority } }],
+    }, { resolvedRuleIds: ['rule-finance'] });
+
+    const known = run('C-Level');
+    const unknown = run('Wizard');
+    if (!known.ok || !unknown.ok) throw new Error('expected valid packets');
+    expect(known.candidates[0]?.persona.seniority).toBe('c_level');
+    expect(unknown.candidates[0]?.persona.seniority).toBeNull();
   });
 
   it('accepts a null source publishedAt, which the partner contract emits when unknown', () => {
