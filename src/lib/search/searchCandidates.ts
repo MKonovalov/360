@@ -117,6 +117,10 @@ export type SearchProcessingDiagnostic = SearchNormalizationDiagnostic | {
   readonly code: 'invalid_buyer_role_proposal';
   readonly message: string;
   readonly candidateId: string;
+} | {
+  readonly code: 'required_rule_uncovered';
+  readonly message: string;
+  readonly ruleId: string;
 };
 
 export type SearchProcessResult =
@@ -384,10 +388,24 @@ function validateBuyerRoleEvidence(run: SearchCandidateRun): readonly SearchBuye
   return seenRoleIds.size === rolesById.size ? evidence : undefined;
 }
 
+function foldRoleName(value: string): string {
+  return value.normalize('NFKC').trim().replace(/\s+/gu, ' ').toLowerCase();
+}
+
+// The partner never receives our Buyer Role or rule ids (the contract lists
+// roles by name and only shows example ids), so its ids cannot be trusted or
+// matched. Resolve each proposal by role name against the run snapshot and take
+// the rule ids from server-computed evidence. A proposal that cannot be
+// resolved is dropped with a diagnostic; the candidate itself stays and is
+// judged on its remaining evidence (a candidate may have zero proposals).
 function sanitizeBuyerRoles(
   candidate: NormalizedSearchCandidate,
   run: SearchCandidateRun,
-): { ok: true; proposals: readonly SearchBuyerRoleProposalSnapshot[] } | { ok: false; diagnostic: SearchProcessingDiagnostic } {
+): {
+  ok: true;
+  proposals: readonly SearchBuyerRoleProposalSnapshot[];
+  diagnostics: readonly SearchProcessingDiagnostic[];
+} | { ok: false; diagnostic: SearchProcessingDiagnostic } {
   const evidence = validateBuyerRoleEvidence(run);
   if (evidence === undefined) {
     return {
@@ -399,41 +417,40 @@ function sanitizeBuyerRoles(
       },
     };
   }
-  const rolesById = new Map(run.buyerRoleSnapshot.map((role) => [role.id, role]));
-  const rulesById = new Map(run.templateSnapshot.buyerRoleRules.map((rule) => [rule.ruleId, rule]));
+  // null marks a folded name shared by several roles: ambiguous, so unresolved.
+  const rolesByName = new Map<string, (typeof run.buyerRoleSnapshot)[number] | null>();
+  for (const role of run.buyerRoleSnapshot) {
+    const key = foldRoleName(role.name);
+    rolesByName.set(key, rolesByName.has(key) ? null : role);
+  }
   const ruleIdsByRoleId = new Map(
-    (evidence ?? []).map((roleEvidence) => [
+    evidence.map((roleEvidence) => [
       roleEvidence.buyerRoleId,
-      new Set(roleEvidence.matchedRules.map((rule) => rule.ruleId)),
+      uniqueSorted(roleEvidence.matchedRules.map((rule) => rule.ruleId)),
     ]),
   );
-  const proposals: SearchBuyerRoleProposalSnapshot[] = [];
+  const proposalsByRoleId = new Map<number, SearchBuyerRoleProposalSnapshot>();
+  const diagnostics: SearchProcessingDiagnostic[] = [];
 
   for (const proposal of candidate.buyerRoleProposals) {
-    const role = rolesById.get(proposal.buyerRoleId);
-    const matchedRuleIds = uniqueSorted(proposal.matchedRuleIds);
-    const hasInvalidRule = matchedRuleIds.some((ruleId) => {
-      const rule = rulesById.get(ruleId);
-      return rule === undefined || !ruleIdsByRoleId.get(proposal.buyerRoleId)?.has(ruleId);
-    });
-    if (role === undefined || hasInvalidRule) {
-      return {
-        ok: false,
-        diagnostic: {
-          code: 'invalid_buyer_role_proposal',
-          message: `Candidate ${candidate.candidateId} proposed an unresolved Buyer Role or rule.`,
-          candidateId: candidate.candidateId,
-        },
-      };
+    const role = rolesByName.get(foldRoleName(proposal.buyerRoleName));
+    if (!role) {
+      diagnostics.push({
+        code: 'invalid_buyer_role_proposal',
+        message: `Candidate ${candidate.candidateId} proposed an unresolved Buyer Role; the proposal was ignored.`,
+        candidateId: candidate.candidateId,
+      });
+      continue;
     }
-    proposals.push({
+    const prior = proposalsByRoleId.get(role.id);
+    proposalsByRoleId.set(role.id, {
       buyerRoleId: role.id,
       buyerRoleName: role.name,
-      matchedRuleIds: [...matchedRuleIds],
-      confidence: proposal.confidence,
+      matchedRuleIds: [...(ruleIdsByRoleId.get(role.id) ?? [])],
+      confidence: prior?.confidence === 'supported' || proposal.confidence === 'supported' ? 'supported' : 'uncertain',
     });
   }
-  return { ok: true, proposals };
+  return { ok: true, proposals: [...proposalsByRoleId.values()], diagnostics };
 }
 
 function toPersonaSnapshot(candidate: NormalizedSearchCandidate): SearchPersonaSnapshot {
@@ -590,6 +607,7 @@ export async function processSearchTerminalResult(
       diagnostics.push(roleResult.diagnostic);
       continue;
     }
+    diagnostics.push(...roleResult.diagnostics);
     const candidateWithRoles = {
       ...candidate,
       buyerRoleProposals: roleResult.proposals.map((proposal) => ({
@@ -605,12 +623,26 @@ export async function processSearchTerminalResult(
     const eligibility = evaluateSearchEvidence(
       { ...candidateWithRoles, match },
       { ...run.templateSnapshot.evidencePolicy, allowedSourceKinds: [...run.templateSnapshot.evidencePolicy.allowedSourceKinds] },
-      requiredRuleIds,
+      // `required` is a run-level coverage rule (some candidate must cover it), not a
+      // per-candidate one: no single person holds every Buyer Role, so demanding all
+      // required rules from each candidate made every candidate unapprovable.
+      [],
     );
     if (eligibility.status === 'inconclusive') inconclusiveCount += 1;
     if (match.kind === 'ambiguous') ambiguousCount += 1;
     sourceCount += candidate.sources.length;
     writes.push(toCandidateWrite(candidateWithRoles, roleResult.proposals, match, eligibility));
+  }
+
+  const coveredRuleIds = new Set(writes.flatMap((write) => write.buyerRoleSnapshot.flatMap((proposal) => proposal.matchedRuleIds)));
+  for (const ruleId of requiredRuleIds) {
+    if (!coveredRuleIds.has(ruleId)) {
+      diagnostics.push({
+        code: 'required_rule_uncovered',
+        message: `No candidate covers required rule ${ruleId}.`,
+        ruleId,
+      });
+    }
   }
 
   recordSearchMetric({
