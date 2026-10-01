@@ -281,24 +281,81 @@ describe('processSearchTerminalResult', () => {
     ]);
   });
 
-  it('rejects a proposal for an unknown Buyer Role even when its rule is known', async () => {
+  it('resolves proposals by Buyer Role name and takes rule ids from server evidence, ignoring partner ids', async () => {
     const run = createRun();
     const store = createStore(run);
-    const unknownRoleCandidate = {
+    // Mirrors the real partner output: example ids and rule ids copied from the contract.
+    const partnerStyle = {
       ...candidate,
-      buyerRoleProposals: [{ ...candidate.buyerRoleProposals[0], buyerRoleId: 999 }],
+      buyerRoleProposals: [
+        { buyerRoleId: 1, buyerRoleName: 'cfo', matchedRuleIds: ['rule-cfo-title'], confidence: 'supported' as const },
+        { buyerRoleId: 2, buyerRoleName: ' Transformation   Lead ', matchedRuleIds: ['rule-nope'], confidence: 'uncertain' as const },
+      ],
     };
 
     const result = await processSearchTerminalResult(
-      { searchRunId: run.id, userId: run.initiatingUserId, packet: packet([unknownRoleCandidate]) },
+      { searchRunId: run.id, userId: run.initiatingUserId, packet: packet([partnerStyle]) },
       store,
     );
 
-    expect(result).toMatchObject({ kind: 'applied', normalizedCandidateCount: 0 });
+    expect(result).toMatchObject({ kind: 'applied', normalizedCandidateCount: 1, diagnostics: [] });
+    expect(store.persistCandidates.mock.calls[0]?.[0].candidates).toEqual([
+      expect.objectContaining({
+        buyerRoleSnapshot: [
+          { buyerRoleId: 7, buyerRoleName: 'CFO', matchedRuleIds: ['rule-finance'], confidence: 'supported' },
+          { buyerRoleId: 11, buyerRoleName: 'Transformation Lead', matchedRuleIds: ['rule-transformation'], confidence: 'uncertain' },
+        ],
+      }),
+    ]);
+  });
+
+  it('ignores a proposal for an unknown Buyer Role name but keeps the candidate and its other proposals', async () => {
+    const run = createRun();
+    const store = createStore(run);
+    const mixed = {
+      ...candidate,
+      buyerRoleProposals: [
+        { buyerRoleId: 999, buyerRoleName: 'Chief Vibes Officer', matchedRuleIds: ['rule-finance'], confidence: 'supported' as const },
+        candidate.buyerRoleProposals[0],
+      ],
+    };
+
+    const result = await processSearchTerminalResult(
+      { searchRunId: run.id, userId: run.initiatingUserId, packet: packet([mixed]) },
+      store,
+    );
+
     expect(result).toMatchObject({
+      kind: 'applied',
+      normalizedCandidateCount: 1,
       diagnostics: [expect.objectContaining({ code: 'invalid_buyer_role_proposal', candidateId: 'candidate-1' })],
     });
-    expect(store.persistCandidates.mock.calls[0]?.[0].candidates).toEqual([]);
+    expect(store.persistCandidates.mock.calls[0]?.[0].candidates).toEqual([
+      expect.objectContaining({ buyerRoleSnapshot: [expect.objectContaining({ buyerRoleId: 7 })] }),
+    ]);
+  });
+
+  it('merges proposals that resolve to one role, keeping the stronger confidence', async () => {
+    const run = createRun();
+    const store = createStore(run);
+    const duplicated = {
+      ...candidate,
+      buyerRoleProposals: [
+        { buyerRoleId: 1, buyerRoleName: 'CFO', matchedRuleIds: ['rule-finance'], confidence: 'uncertain' as const },
+        { buyerRoleId: 2, buyerRoleName: 'CFO', matchedRuleIds: ['rule-finance'], confidence: 'supported' as const },
+      ],
+    };
+
+    await processSearchTerminalResult(
+      { searchRunId: run.id, userId: run.initiatingUserId, packet: packet([duplicated]) },
+      store,
+    );
+
+    expect(store.persistCandidates.mock.calls[0]?.[0].candidates).toEqual([
+      expect.objectContaining({
+        buyerRoleSnapshot: [expect.objectContaining({ buyerRoleId: 7, confidence: 'supported' })],
+      }),
+    ]);
   });
 
   it.each([
