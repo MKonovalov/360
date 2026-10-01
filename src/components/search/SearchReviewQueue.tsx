@@ -44,6 +44,13 @@ const ERROR_COPY: Readonly<Record<string, string>> = {
   search_review_not_found: 'This review is no longer available.',
   unknown_buyer_role: 'One of the selected Buyer Roles is no longer available.',
   persistence_unavailable: 'The Search review could not be saved. Try again.',
+  invalid_persona: 'This candidate has Persona details that cannot be saved. Edit the candidate and try again.',
+  company_mismatch: 'This candidate does not match the Company its Search was run for.',
+  ambiguous_match: 'This candidate matches more than one existing Persona and needs manual resolution.',
+  inconclusive: 'This candidate does not have the evidence required for approval.',
+  conflict: 'Another change conflicted with this decision. Reload and try again.',
+  invalid_input: 'This request was not valid. Reload the page and try again.',
+  search_unavailable: 'Search approvals are currently turned off.',
 };
 
 function canBulkDecide(review: SearchReviewProjection, action: SearchBulkRequest['action']): boolean {
