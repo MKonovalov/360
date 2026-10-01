@@ -221,8 +221,8 @@ export function SearchReviewQueue({ reviews, searchRunId, roleOptions, loadError
 
       {loadError ? (
         <EmptyState title="Couldn&apos;t load Search Reviews" copy="Something went wrong fetching this Search run. Try refreshing the page." action={reload} />
-      ) : searchRunId === undefined ? (
-        <EmptyState title="No Search run selected" copy="Open a succeeded Search run to review its normalized candidates." />
+      ) : searchRunId === undefined && items.length === 0 ? (
+        <EmptyState title="No Search candidates awaiting review" copy="Launch a Search from a company's Menu, or open a specific run, to review its normalized candidates." />
       ) : items.length === 0 ? (
         <EmptyState title="No Search candidates to review" copy="This Search run has no normalized candidates. Nothing was added to the legacy review queues." />
       ) : (
