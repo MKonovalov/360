@@ -75,7 +75,13 @@ function projectReviews(rows: readonly SearchReviewQueryRow[]): readonly SearchR
   }).sort((left, right) => left.reviewId - right.reviewId);
 }
 
-async function queryReviews(reviewId: number | undefined, userId: string): Promise<readonly SearchReviewProjection[]> {
+const ACTIONABLE_REVIEW_LIMIT = 200;
+
+async function queryReviews(
+  reviewId: number | undefined,
+  userId: string,
+  options: { readonly actionableOnly?: boolean } = {},
+): Promise<readonly SearchReviewProjection[]> {
   if (userId.trim() === '' || (reviewId !== undefined && (!Number.isInteger(reviewId) || reviewId < 1))) return [];
 
   const result = await db.execute<SearchReviewQueryRow>(sql`
@@ -123,10 +129,17 @@ async function queryReviews(reviewId: number | undefined, userId: string): Promi
     ) latest_audit ON true
     WHERE run.initiating_user_id = ${userId}
       ${reviewId === undefined ? sql`` : sql`AND candidate.id = ${reviewId}`}
-    ORDER BY candidate.id ASC
+      ${options.actionableOnly ? sql`AND candidate.status IN ('pending', 'inconclusive', 'ambiguous_match')` : sql``}
+    ORDER BY candidate.id ${options.actionableOnly ? sql`DESC LIMIT ${ACTIONABLE_REVIEW_LIMIT}` : sql`ASC`}
   `);
 
   return projectReviews(result.rows);
+}
+
+// Candidates still awaiting a decision across every Search run the user
+// launched, newest first up to a bounded cap (projectReviews re-sorts by id).
+export async function listActionableSearchReviews(userId: string): Promise<readonly SearchReviewProjection[]> {
+  return queryReviews(undefined, userId, { actionableOnly: true });
 }
 
 export async function listSearchReviews(searchRunId: number, userId: string): Promise<readonly SearchReviewProjection[]> {

@@ -54,13 +54,23 @@ function review(input: {
 }
 
 describe('SearchReviewQueue', () => {
+  it('lists awaiting candidates without a run filter instead of asking to pick a run', () => {
+    const html = renderToStaticMarkup(
+      <SearchReviewQueue reviews={[review({ reviewId: 1 }), review({ reviewId: 2 })]} searchRunId={undefined} roleOptions={[]} />,
+    );
+
+    expect(html).not.toContain('No Search candidates awaiting review');
+    expect(html).toContain('Select eligible');
+    expect(html).not.toContain('Search run #');
+  });
+
   it('renders Search Reviews as a separate empty-safe section', () => {
     const html = renderToStaticMarkup(
       <SearchReviewQueue reviews={[]} searchRunId={undefined} roleOptions={[]} />,
     );
 
     expect(html).toContain('Search Reviews');
-    expect(html).toContain('Open a succeeded Search run');
+    expect(html).toContain('No Search candidates awaiting review');
     expect(html).not.toContain('No proposals to review');
     expect(html).not.toContain('Analysis Run Reviews');
   });

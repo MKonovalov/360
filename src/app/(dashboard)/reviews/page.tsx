@@ -3,7 +3,7 @@ import { listPendingProposals } from '@/lib/db/queries/proposals';
 import { listRunReviewItems } from '@/lib/db/queries/analysisReviews';
 import { getAnalysisPacket } from '@/lib/db/queries/analysisResults';
 import { listBuyerRoles } from '@/lib/db/queries/buyerRoles';
-import { listSearchReviews } from '@/lib/db/queries/searchReviews';
+import { listActionableSearchReviews, listSearchReviews } from '@/lib/db/queries/searchReviews';
 import { ReviewQueue } from '@/components/reviews/review-queue';
 import { RunReviewSection } from '@/components/reviews/run-review-section';
 import type { RunReviewCardData, RunReviewFinding, RunReviewSource } from '@/components/reviews/run-review-card';
@@ -130,14 +130,17 @@ export default async function ReviewsPage({
   let searchReviews: Awaited<ReturnType<typeof listSearchReviews>> = [];
   let searchRoleOptions: readonly SearchReviewRoleOption[] = [];
   let searchReviewLoadError = false;
-  if (searchRunId !== undefined) {
-    try {
-      const [reviews, buyerRoles] = await Promise.all([listSearchReviews(searchRunId, userId), listBuyerRoles()]);
-      searchReviews = reviews;
-      searchRoleOptions = buyerRoles.map(({ id, name }) => ({ id, name }));
-    } catch {
-      searchReviewLoadError = true;
-    }
+  // Without a run filter, show everything still awaiting a decision across the
+  // user's runs so completed Search results are discoverable from the queue.
+  try {
+    const [reviews, buyerRoles] = await Promise.all([
+      searchRunId === undefined ? listActionableSearchReviews(userId) : listSearchReviews(searchRunId, userId),
+      listBuyerRoles(),
+    ]);
+    searchReviews = reviews;
+    searchRoleOptions = buyerRoles.map(({ id, name }) => ({ id, name }));
+  } catch {
+    searchReviewLoadError = true;
   }
 
   return (
