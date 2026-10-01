@@ -117,6 +117,10 @@ export type SearchProcessingDiagnostic = SearchNormalizationDiagnostic | {
   readonly code: 'invalid_buyer_role_proposal';
   readonly message: string;
   readonly candidateId: string;
+} | {
+  readonly code: 'required_rule_uncovered';
+  readonly message: string;
+  readonly ruleId: string;
 };
 
 export type SearchProcessResult =
@@ -619,12 +623,26 @@ export async function processSearchTerminalResult(
     const eligibility = evaluateSearchEvidence(
       { ...candidateWithRoles, match },
       { ...run.templateSnapshot.evidencePolicy, allowedSourceKinds: [...run.templateSnapshot.evidencePolicy.allowedSourceKinds] },
-      requiredRuleIds,
+      // `required` is a run-level coverage rule (some candidate must cover it), not a
+      // per-candidate one: no single person holds every Buyer Role, so demanding all
+      // required rules from each candidate made every candidate unapprovable.
+      [],
     );
     if (eligibility.status === 'inconclusive') inconclusiveCount += 1;
     if (match.kind === 'ambiguous') ambiguousCount += 1;
     sourceCount += candidate.sources.length;
     writes.push(toCandidateWrite(candidateWithRoles, roleResult.proposals, match, eligibility));
+  }
+
+  const coveredRuleIds = new Set(writes.flatMap((write) => write.buyerRoleSnapshot.flatMap((proposal) => proposal.matchedRuleIds)));
+  for (const ruleId of requiredRuleIds) {
+    if (!coveredRuleIds.has(ruleId)) {
+      diagnostics.push({
+        code: 'required_rule_uncovered',
+        message: `No candidate covers required rule ${ruleId}.`,
+        ruleId,
+      });
+    }
   }
 
   recordSearchMetric({

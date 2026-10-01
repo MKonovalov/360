@@ -335,6 +335,37 @@ describe('processSearchTerminalResult', () => {
     ]);
   });
 
+  it('treats a required rule as run-level coverage: candidates stay pending and uncovered rules are reported', async () => {
+    const baseRun = createRun();
+    const run = {
+      ...baseRun,
+      templateSnapshot: {
+        ...baseRun.templateSnapshot,
+        buyerRoleRules: baseRun.templateSnapshot.buyerRoleRules.map((rule) => ({ ...rule, required: true })),
+      },
+      // Stored evidence mirrors rule metadata, so it must agree on `required` too.
+      buyerRoleEvidenceSnapshot: baseRun.buyerRoleEvidenceSnapshot.map((roleEvidence) => ({
+        ...roleEvidence,
+        matchedRules: roleEvidence.matchedRules.map((rule) => ({ ...rule, required: true })),
+      })),
+    };
+    const store = createStore(run);
+    const cfoOnly = { ...candidate, buyerRoleProposals: [candidate.buyerRoleProposals[0]] };
+
+    const result = await processSearchTerminalResult(
+      { searchRunId: run.id, userId: run.initiatingUserId, packet: packet([cfoOnly]) },
+      store,
+    );
+
+    expect(store.persistCandidates.mock.calls[0]?.[0].candidates).toEqual([
+      expect.objectContaining({ status: 'pending', eligibilitySnapshot: expect.objectContaining({ eligible: true, deficiencies: [] }) }),
+    ]);
+    expect(result).toMatchObject({
+      kind: 'applied',
+      diagnostics: [expect.objectContaining({ code: 'required_rule_uncovered', ruleId: 'rule-transformation' })],
+    });
+  });
+
   it('merges proposals that resolve to one role, keeping the stronger confidence', async () => {
     const run = createRun();
     const store = createStore(run);
@@ -403,7 +434,7 @@ describe('processSearchTerminalResult', () => {
 
     expect(result).toMatchObject({ kind: 'applied', normalizedCandidateCount: 0 });
     expect(result).toMatchObject({
-      diagnostics: [expect.objectContaining({ code: 'invalid_buyer_role_proposal', candidateId: 'candidate-1' })],
+      diagnostics: expect.arrayContaining([expect.objectContaining({ code: 'invalid_buyer_role_proposal', candidateId: 'candidate-1' })]),
     });
     expect(store.persistCandidates.mock.calls[0]?.[0].candidates).toEqual([]);
   });
@@ -421,7 +452,7 @@ describe('processSearchTerminalResult', () => {
 
     expect(result).toMatchObject({ kind: 'applied', normalizedCandidateCount: 0 });
     expect(result).toMatchObject({
-      diagnostics: [expect.objectContaining({ code: 'invalid_buyer_role_proposal', candidateId: 'candidate-1' })],
+      diagnostics: expect.arrayContaining([expect.objectContaining({ code: 'invalid_buyer_role_proposal', candidateId: 'candidate-1' })]),
     });
     expect(store.persistCandidates.mock.calls[0]?.[0].candidates).toEqual([]);
   });
