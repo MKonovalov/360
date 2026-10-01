@@ -207,7 +207,8 @@ export const searchSourceSchema = z
     url: searchSourceUrlSchema,
     title: z.string().trim().min(1).max(SOURCE_TITLE_MAX_LENGTH).optional(),
     providerLabel: z.string().trim().min(1).max(SOURCE_PROVIDER_LABEL_MAX_LENGTH).optional(),
-    publishedAt: z.string().datetime({ offset: true }).optional(),
+    // The partner contract example emits "publishedAt": null when unknown.
+    publishedAt: z.string().datetime({ offset: true }).nullish(),
     accessedAt: z.string().datetime({ offset: true }).optional(),
   })
   .strict()

@@ -133,6 +133,18 @@ describe('normalizeSearchPacket', () => {
     expect(first.candidates[0]?.sources[0]?.url).toBe('https://example.com/about?ref=kept');
   });
 
+  it('accepts a null source publishedAt, which the partner contract emits when unknown', () => {
+    const result = normalizeSearchPacket({
+      schemaVersion: 1,
+      candidates: [{ ...candidate, sources: candidate.sources.map((source) => ({ ...source, publishedAt: null })) }],
+    }, { resolvedRuleIds: ['rule-finance'] });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected a valid packet');
+    expect(result.candidates).toHaveLength(1);
+    expect(result.diagnostics).toEqual([]);
+  });
+
   it('canonicalizes set-valued packet content before hashing', () => {
     const firstProposal = candidate.buyerRoleProposals[0];
     const firstClaim = candidate.claims[0];

@@ -26,6 +26,7 @@ import { createArcAgentnetClient, type ArcAgentnetClient, type ArcAgentnetJob } 
 
 import {
   pollSearchJob,
+  packetFromResult,
   reconcileSearchRun,
   submitSearchJob,
   type SearchJobInput,
@@ -273,6 +274,56 @@ describe('reconcileSearchRun', () => {
       terminalStatus: 'succeeded',
     });
     expect(result).not.toHaveProperty('reviewsUrl');
+  });
+
+  it('processes the packet nested under result.output.output.text (real Arc Agent Net shape)', async () => {
+    processSearchTerminalResultMock.mockResolvedValue({
+      kind: 'applied',
+      searchRunId: 101,
+      packetHash: 'a'.repeat(64),
+      packetSchemaVersion: 1,
+      normalizedCandidateCount: 1,
+      diagnostics: [],
+    });
+    const run = {
+      id: 101,
+      initiatingUserId: 'user-1',
+      partnerJobMappingId: 202,
+      status: 'running',
+      companySnapshot: { id: 42, name: 'Acme', domain: 'acme.example' },
+      templateSnapshot: { buyerRoleRules: [] },
+    } as const;
+    const packet = { schemaVersion: 1, candidates: [{ candidateId: 'candidate-001' }] };
+    const job: ArcAgentnetJob = {
+      jobId: 'job-1',
+      requestId: 'request-1',
+      status: 'succeeded',
+      result: {
+        output: {
+          output: { text: JSON.stringify(packet), transcript: [] },
+          json_ok: false,
+          usage: {},
+          workflow: { mode: 'workflow' },
+          mcp_calls: [],
+          jev_escalations: [],
+        },
+        guest_results: {},
+      },
+    };
+    const recordTerminal = vi.fn().mockResolvedValue({ kind: 'applied', run: { ...run, status: 'succeeded' } });
+
+    await reconcileSearchRun(101, 'user-1', {
+      client: fakeClient({ poll: vi.fn().mockResolvedValue({ ok: true, value: job }) }),
+      getRun: vi.fn().mockResolvedValue(run),
+      getMapping: vi.fn().mockResolvedValue({ id: 202, partnerJobId: 'job-1', requestId: 'request-1' }),
+      recordStatus: vi.fn(),
+      recordTerminal,
+    });
+
+    expect(processSearchTerminalResultMock).toHaveBeenCalledWith(expect.objectContaining({ packet }));
+    expect(recordTerminal).toHaveBeenCalledWith(expect.objectContaining({
+      terminalResultSummary: expect.objectContaining({ candidateCount: 1 }),
+    }));
   });
 
   it('keeps a successful run nonterminal when candidate persistence fails', async () => {
@@ -613,5 +664,30 @@ describe('recordSearchMetric seam — submitSearchJob and reconcileSearchRun', (
 
     expect(consoleSpy).not.toHaveBeenCalled();
     expect(result).toMatchObject({ kind: 'poll_failed' });
+  });
+});
+
+describe('packetFromResult', () => {
+  const packet = { schemaVersion: 1, candidates: [] };
+
+  it.each([
+    ['the result itself', packet],
+    ['result.output', { output: packet }],
+    ['result.output.output', { output: { output: packet } }],
+    ['a JSON string at result.output.output.text', { output: { output: { text: JSON.stringify(packet), transcript: [] }, json_ok: false }, guest_results: {} }],
+    ['a JSON string at result.output', { output: JSON.stringify(packet) }],
+  ])('finds the packet in %s', (_label, result) => {
+    expect(packetFromResult(result)).toEqual(packet);
+  });
+
+  it('returns unparseable or oversized text unchanged so the normalizer rejects it', () => {
+    expect(packetFromResult({ output: { output: { text: 'not json' } } })).toBe('not json');
+    const huge = 'x'.repeat(1_000_001);
+    expect(packetFromResult({ output: { text: huge } })).toBe(huge);
+  });
+
+  it('returns a packet-less object as-is instead of guessing', () => {
+    const metadata = { json_ok: false, usage: {} };
+    expect(packetFromResult({ output: metadata })).toBe(metadata);
   });
 });
