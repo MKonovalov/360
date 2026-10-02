@@ -80,7 +80,7 @@ const ACTIONABLE_REVIEW_LIMIT = 200;
 async function queryReviews(
   reviewId: number | undefined,
   userId: string,
-  options: { readonly actionableOnly?: boolean } = {},
+  options: { readonly actionableOnly?: boolean; readonly companyId?: number } = {},
 ): Promise<readonly SearchReviewProjection[]> {
   if (userId.trim() === '' || (reviewId !== undefined && (!Number.isInteger(reviewId) || reviewId < 1))) return [];
 
@@ -130,7 +130,8 @@ async function queryReviews(
     WHERE run.initiating_user_id = ${userId}
       ${reviewId === undefined ? sql`` : sql`AND candidate.id = ${reviewId}`}
       ${options.actionableOnly ? sql`AND candidate.status IN ('pending', 'inconclusive', 'ambiguous_match')` : sql``}
-    ORDER BY candidate.id ${options.actionableOnly ? sql`DESC LIMIT ${ACTIONABLE_REVIEW_LIMIT}` : sql`ASC`}
+      ${options.companyId === undefined ? sql`` : sql`AND run.company_id = ${options.companyId}`}
+    ORDER BY candidate.id ${options.actionableOnly || options.companyId !== undefined ? sql`DESC LIMIT ${ACTIONABLE_REVIEW_LIMIT}` : sql`ASC`}
   `);
 
   return projectReviews(result.rows);
@@ -138,6 +139,16 @@ async function queryReviews(
 
 // Candidates still awaiting a decision across every Search run the user
 // launched, newest first up to a bounded cap (projectReviews re-sorts by id).
+// Every candidate (any decision status) from the user's Search runs for one
+// Company, newest first up to the same bounded cap.
+export async function listSearchReviewsForCompany(
+  companyId: number,
+  userId: string,
+): Promise<readonly SearchReviewProjection[]> {
+  if (!Number.isInteger(companyId) || companyId < 1) return [];
+  return queryReviews(undefined, userId, { companyId });
+}
+
 export async function listActionableSearchReviews(userId: string): Promise<readonly SearchReviewProjection[]> {
   return queryReviews(undefined, userId, { actionableOnly: true });
 }
