@@ -1,20 +1,10 @@
-import { ChevronDownIcon } from 'lucide-react';
+import Link from 'next/link';
 import { listPersonas, type PersonaFilters } from '@/lib/db/queries/personas';
 import { listCompanyRolesForPersona } from '@/lib/db/queries/companyPersonaRoles';
-import { TableCell } from '@/components/ui/table';
-import { ExplorerAccordionTable } from '@/components/explorer/explorer-accordion-table';
-import { ExplorerTableBehavior } from '@/components/explorer/explorer-table-behavior';
-import { PersonaDetail } from '@/components/personas/persona-detail';
-import { cn } from '@/lib/utils';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { humanizeEnum } from '@/components/explorer/explorer-format';
 
-export async function PersonaList({
-  filters,
-  selectedId,
-}: {
-  filters?: PersonaFilters;
-  selectedId?: number;
-}) {
+export async function PersonaList({ filters }: { filters?: PersonaFilters }) {
   // Phase 2 baseline error-state handling (mirrors company-list.tsx) — a
   // Neon fetch failure must degrade to known-good UI copy, never a thrown 500.
   let personas: Awaited<ReturnType<typeof listPersonas>>;
@@ -23,10 +13,7 @@ export async function PersonaList({
   } catch {
     return (
       <div
-        className={cn(
-          'flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-8 text-center',
-          selectedId != null ? 'hidden md:flex' : 'flex'
-        )}
+        className="flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-8 text-center"
       >
         <p className="text-[18px] font-semibold leading-[1.2] text-slate-900">
           {"Couldn't load personas"}
@@ -50,12 +37,7 @@ export async function PersonaList({
 
     return (
       <div
-        className={cn(
-          'flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-8 text-center',
-          // D-07 mobile pattern: hide the list pane once a persona is
-          // selected on narrow viewports so only the detail pane shows.
-          selectedId != null ? 'hidden md:flex' : 'flex'
-        )}
+        className="flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-8 text-center"
       >
         {hasActiveFilters ? (
           <>
@@ -90,50 +72,32 @@ export async function PersonaList({
     })
   );
 
-  // CR-02: `selectedId` (from `?selected=<id>`) may not match any row in the
-  // current filtered set — nonexistent id, deleted row, or filtered-out by
-  // the active filters. `renderDetail`/`notFound()` are only ever reached
-  // for a row already present in `rowsWithCurrentCompany`, so that case
-  // would otherwise silently render the plain list with nothing selected
-  // and no indication the D-03 legacy bookmark it came from pointed at
-  // something that's gone.
-  const selectedRowMissing =
-    selectedId != null && !rowsWithCurrentCompany.some((r) => r.persona.id === selectedId);
-
   return (
     <div className="rounded-lg border border-slate-200 bg-white">
-      {selectedRowMissing ? (
-        <div className="border-b border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          {"The selected persona couldn't be found — it may have been deleted or no longer matches your filters."}
-        </div>
-      ) : null}
-      <ExplorerTableBehavior selectedId={selectedId}>
-        <ExplorerAccordionTable
-          columnLabels={['Name', 'Title', 'Seniority', 'Current Company']}
-          rows={rowsWithCurrentCompany}
-          getRowId={(row) => row.persona.id}
-          selectedId={selectedId}
-          renderRowCells={({ persona, currentCompanyName }, isExpanded) => (
-            <>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Title</TableHead>
+            <TableHead>Seniority</TableHead>
+            <TableHead>Current Company</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rowsWithCurrentCompany.map(({ persona, currentCompanyName }) => (
+            <TableRow key={persona.id}>
               <TableCell className="font-medium text-slate-900">
-                <span className="flex items-center gap-1">
-                  <ChevronDownIcon
-                    className={cn(
-                      'size-4 shrink-0 text-slate-400 transition-transform',
-                      isExpanded && 'rotate-180'
-                    )}
-                  />
+                <Link href={`/personas/${persona.id}`} className="text-indigo-600 hover:underline">
                   {persona.name}
-                </span>
+                </Link>
               </TableCell>
               <TableCell>{persona.title}</TableCell>
               <TableCell>{humanizeEnum(persona.seniority)}</TableCell>
               <TableCell>{currentCompanyName}</TableCell>
-            </>
-          )}
-          renderDetail={(row) => <PersonaDetail id={row.persona.id} />}
-        />
-      </ExplorerTableBehavior>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }
