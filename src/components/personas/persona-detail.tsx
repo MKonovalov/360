@@ -1,18 +1,44 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import type { ReactNode } from 'react';
 import { getPersonaById } from '@/lib/db/queries/personas';
 import { listCompanyRolesForPersona } from '@/lib/db/queries/companyPersonaRoles';
 import { fetchArcpediaArticles } from '@/lib/arcpedia';
-import { ExplorerCloseButton } from '@/components/explorer/explorer-table-behavior';
+import { PersonaDetailErrorState } from '@/components/personas/persona-detail-states';
+import { PersonaDetailTabs } from '@/components/personas/persona-detail-tabs';
 import { EnrichMenu } from '@/components/enrichment/enrichment-review-dialog';
 import { RecordViewTracker } from '@/components/dashboard/record-view-tracker';
 import { humanizeEnum, dateFormatter, FirmographicField, FieldSourceBadge } from '@/components/explorer/explorer-format';
+import { Button } from '@/components/ui/button';
 import { env } from '@/lib/env';
 import { listAnalysisRunsForSubject } from '@/lib/db/queries/analysisRuns';
 import { listConfirmedCandidateOfferingsForSubject } from '@/lib/db/queries/confirmedCandidates';
 import { getAnalysisPacket } from '@/lib/db/queries/analysisResults';
 import { AnalysisHistory, projectRunReviewCards } from '@/components/analysis/analysis-history';
 import { ConfirmedCandidateOfferings } from '@/components/analysis/confirmed-candidate-offerings';
+import type { PersonaTab } from '@/lib/params/personaRoute';
+import { XIcon } from 'lucide-react';
+
+type Persona = NonNullable<Awaited<ReturnType<typeof getPersonaById>>>;
+type CompanyRoles = Awaited<ReturnType<typeof listCompanyRolesForPersona>>;
+type KnowledgeArticles = Awaited<ReturnType<typeof fetchArcpediaArticles>>;
+type AnalysisRuns = Awaited<ReturnType<typeof listAnalysisRunsForSubject>>;
+type CandidateOfferings = Awaited<ReturnType<typeof listConfirmedCandidateOfferingsForSubject>>;
+type ReviewCards = Awaited<ReturnType<typeof projectRunReviewCards>>;
+
+type PersonaDetailTabData =
+  | { readonly tab: 'general'; readonly roles: CompanyRoles }
+  | { readonly tab: 'knowledge'; readonly articles: KnowledgeArticles }
+  | {
+      readonly tab: 'analysis';
+      readonly analysisRuns: AnalysisRuns | null;
+      readonly reviewCards: ReviewCards;
+      readonly confirmedCandidateOfferings: CandidateOfferings | null;
+    };
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled persona detail tab: ${value}`);
+}
 
 // WR-06: enrichment/programmatic writes into persona data are on the
 // near-term roadmap (CLAUDE.md Constraints) — once linkedinUrl is populated
@@ -22,78 +48,40 @@ function isSafeUrl(url: string): boolean {
   return /^https?:\/\//i.test(url);
 }
 
-export async function PersonaDetail({ id }: { id: number }) {
-  // EXPL-06/D-09: mirrors CompanyDetail's try/catch error-card pattern — a
-  // DB-fetch failure degrades to known-good UI, never Next.js's default 500
-  // page. The not-found check below is deliberately OUTSIDE this try/catch:
-  // wrapping it in a try/catch would swallow Next.js's internal not-found
-  // signal and render the wrong UI.
-  let persona: Awaited<ReturnType<typeof getPersonaById>>;
-  let roles: Awaited<ReturnType<typeof listCompanyRolesForPersona>> = [];
-  try {
-    persona = await getPersonaById(id);
-    if (persona) {
-      roles = await listCompanyRolesForPersona(id);
+async function loadPersonaDetailTab(persona: Persona, tab: PersonaTab): Promise<PersonaDetailTabData> {
+  switch (tab) {
+    case 'general': {
+      const roles = await listCompanyRolesForPersona(persona.id);
+      return { tab, roles };
     }
-  } catch {
-    return (
-      <div className="flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-8 text-center">
-        <p className="text-[18px] font-semibold leading-[1.2] text-slate-900">
-          {"Couldn't load persona"}
-        </p>
-        <p className="text-sm text-slate-500">
-          Something went wrong fetching this data. Try refreshing the page.
-        </p>
-      </div>
-    );
+    case 'knowledge': {
+      // D-03/D-10: sourced strictly from the persona's own name, never the
+      // current company name. fetchArcpediaArticles never throws.
+      const articles = await fetchArcpediaArticles(persona.name);
+      return { tab, articles };
+    }
+    case 'analysis': {
+      const [analysisRuns, confirmedCandidateOfferings] = await Promise.all([
+        listAnalysisRunsForSubject({ targetType: 'persona', subjectId: persona.id }).catch(() => null),
+        listConfirmedCandidateOfferingsForSubject({ targetType: 'persona', subjectId: persona.id }).catch(() => null),
+      ]);
+      const reviewCards = analysisRuns
+        ? await projectRunReviewCards(analysisRuns, getAnalysisPacket)
+        : [];
+      return { tab, analysisRuns, reviewCards, confirmedCandidateOfferings };
+    }
+    default:
+      return assertNever(tab);
   }
+}
 
-  // Mirrors CompanyDetail's convention: a structurally invalid/nonexistent
-  // id is a real 404, distinct from PersonaList's "fetch failed" error copy.
-  if (!persona) {
-    notFound();
-  }
-
-  const [analysisRuns, confirmedCandidateOfferings] = await Promise.all([
-    listAnalysisRunsForSubject({ targetType: 'persona', subjectId: persona.id }).catch(() => null),
-    listConfirmedCandidateOfferingsForSubject({ targetType: 'persona', subjectId: persona.id }).catch(() => null),
-  ]);
-  const reviewCards = analysisRuns
-    ? await projectRunReviewCards(analysisRuns, getAnalysisPacket)
-    : [];
-
-  // D-04/Pitfall 4: fired only after the confirmed-exists check above — a
-  // broken/deleted-record deep link must never write a recentlyViewed row
-  // for a nonexistent id.
+function GeneralTab({ persona, roles }: { readonly persona: Persona; readonly roles: CompanyRoles }) {
   // D-04: Current Company is shown separate from Career History.
   const current = roles.find((r) => r.role.isCurrent);
   const history = roles.filter((r) => !r.role.isCurrent);
 
-  // D-03/D-10: sourced strictly from the persona's own name, never
-  // current.company.name — independent failure domain from the DB-fetch
-  // try/catch above (fetchArcpediaArticles never throws, Task 1).
-  const articles = await fetchArcpediaArticles(persona.name);
-
   return (
-    <div className="relative space-y-12 bg-white p-8">
-      <RecordViewTracker recordType="persona" recordId={persona.id} />
-      <div className="absolute top-3 right-3 flex items-center gap-1">
-        <EnrichMenu
-          entityType="persona"
-          recordId={persona.id}
-          canEnrich={Boolean(persona.email && env.PROSPEO_API_KEY && env.ENRICHMENT_REVIEW_SECRET)}
-          disabledReason={!persona.email ? 'Add an email first' : 'Persona enrichment is not configured'}
-          canAnalyze
-        />
-        <ExplorerCloseButton />
-      </div>
-      <div>
-        <h1 className="text-[24px] font-semibold leading-[1.2] text-slate-900">{persona.name}</h1>
-        <p className="text-[14px] font-normal leading-[1.5] text-slate-500">
-          {persona.title ?? '—'}
-        </p>
-      </div>
-
+    <div className="space-y-12">
       <section>
         <h2 className="mb-4 text-[18px] font-semibold leading-[1.2] text-slate-900">
           Role & Seniority
@@ -190,34 +178,115 @@ export async function PersonaDetail({ id }: { id: number }) {
         )}
       </section>
 
-      <ConfirmedCandidateOfferings items={confirmedCandidateOfferings} />
+    </div>
+  );
+}
 
-      <AnalysisHistory rows={analysisRuns} reviewCards={reviewCards} />
-
+function KnowledgeTab({ articles }: { readonly articles: KnowledgeArticles }) {
+  return (
+    <section>
+      <h2 className="mb-4 text-[18px] font-semibold leading-[1.2] text-slate-900">
+        Related Knowledge
+      </h2>
       {articles.length > 0 ? (
-        <section>
-          <h2 className="mb-4 text-[18px] font-semibold leading-[1.2] text-slate-900">
-            Related Knowledge
-          </h2>
-          <ul className="space-y-4">
-            {articles.map((article) => (
-              <li key={article.slug}>
-                <a
-                  href={`https://arcpedia.arclumen.de/wiki/${encodeURIComponent(article.slug)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[14px] font-normal leading-[1.5] text-indigo-600"
-                >
-                  {article.title}
-                </a>
-                <p className="text-[14px] font-normal leading-[1.5] text-slate-500">
-                  {article.snippet}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+        <ul className="space-y-4">
+          {articles.map((article) => (
+            <li key={article.slug}>
+              <a
+                href={`https://arcpedia.arclumen.de/wiki/${encodeURIComponent(article.slug)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[14px] font-normal leading-[1.5] text-indigo-600"
+              >
+                {article.title}
+              </a>
+              <p className="text-[14px] font-normal leading-[1.5] text-slate-500">
+                {article.snippet}
+              </p>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-[14px] font-normal leading-[1.5] text-slate-500">No related knowledge found.</p>
+      )}
+    </section>
+  );
+}
+
+export async function PersonaDetail({
+  id,
+  tab = 'general',
+}: {
+  readonly id: number;
+  readonly tab?: PersonaTab;
+}) {
+  // EXPL-06/D-09: a DB-fetch failure degrades to known-good UI, never
+  // Next.js's default 500 page. The not-found check is deliberately OUTSIDE
+  // the try/catch: wrapping it would swallow Next.js's internal not-found signal.
+  let persona: Persona | undefined;
+  try {
+    persona = await getPersonaById(id);
+  } catch {
+    return <PersonaDetailErrorState />;
+  }
+
+  if (!persona) {
+    notFound();
+  }
+
+  let tabData: PersonaDetailTabData;
+  try {
+    tabData = await loadPersonaDetailTab(persona, tab);
+  } catch {
+    return <PersonaDetailErrorState />;
+  }
+
+  let content: ReactNode;
+  switch (tabData.tab) {
+    case 'general':
+      content = <GeneralTab persona={persona} roles={tabData.roles} />;
+      break;
+    case 'knowledge':
+      content = <KnowledgeTab articles={tabData.articles} />;
+      break;
+    case 'analysis':
+      content = (
+        <>
+          <ConfirmedCandidateOfferings items={tabData.confirmedCandidateOfferings} />
+          <AnalysisHistory rows={tabData.analysisRuns} reviewCards={tabData.reviewCards} />
+        </>
+      );
+      break;
+    default:
+      content = assertNever(tabData);
+  }
+
+  return (
+    <div className="relative space-y-8 bg-white p-4 sm:p-8">
+      {/* D-04/Pitfall 4: fired only after the confirmed-exists check above. */}
+      <RecordViewTracker recordType="persona" recordId={persona.id} />
+      <div className="absolute top-3 right-3 flex items-center gap-1">
+        <EnrichMenu
+          entityType="persona"
+          recordId={persona.id}
+          canEnrich={Boolean(persona.email && env.PROSPEO_API_KEY && env.ENRICHMENT_REVIEW_SECRET)}
+          disabledReason={!persona.email ? 'Add an email first' : 'Persona enrichment is not configured'}
+          canAnalyze
+        />
+        <Button asChild variant="ghost" size="icon" aria-label="Back to personas">
+          <Link href="/personas">
+            <XIcon />
+          </Link>
+        </Button>
+      </div>
+      <div>
+        <h1 className="text-[24px] font-semibold leading-[1.2] text-slate-900">{persona.name}</h1>
+        <p className="text-[14px] font-normal leading-[1.5] text-slate-500">
+          {persona.title ?? '—'}
+        </p>
+      </div>
+      <PersonaDetailTabs id={persona.id} activeTab={tab} />
+      {content}
     </div>
   );
 }

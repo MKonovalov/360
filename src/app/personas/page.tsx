@@ -4,7 +4,9 @@ import { PersonaSearchInput } from '@/components/personas/persona-search-input';
 import { PersonaFilters } from '@/components/personas/persona-filters';
 import { ExplorerMenu } from '@/components/explorer/explorer-menu';
 import { listDistinctCurrentCompanyNames } from '@/lib/db/queries/personas';
-import { parsePersonaFilters, parseSelectedId } from '@/lib/params/personaFilters';
+import { parsePersonaFilters } from '@/lib/params/personaFilters';
+import { buildPersonaLegacyRedirect } from '@/lib/params/personaRoute';
+import { redirect } from 'next/navigation';
 
 // Belt-and-suspenders alongside the layout's auth gate (mirrors
 // CompaniesPage) — every page under /personas gates itself too, so the
@@ -16,8 +18,11 @@ export default async function PersonasPage({
 }) {
   await requireStaffAccess();
 
-  const filters = parsePersonaFilters(await searchParams);
-  const selectedId = parseSelectedId(await searchParams);
+  const search = await searchParams;
+  const legacyRedirect = buildPersonaLegacyRedirect(search);
+  if (legacyRedirect) redirect(legacyRedirect);
+
+  const filters = parsePersonaFilters(search);
   const currentCompanies = (await listDistinctCurrentCompanyNames()).map((row) => row.name);
 
   return (
@@ -35,7 +40,7 @@ export default async function PersonasPage({
         <PersonaSearchInput />
         <PersonaFilters currentCompanies={currentCompanies} />
       </div>
-      <PersonaList filters={filters} selectedId={selectedId} />
+      <PersonaList filters={filters} />
     </div>
   );
 }

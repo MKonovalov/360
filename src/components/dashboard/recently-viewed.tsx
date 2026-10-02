@@ -9,7 +9,7 @@ import { getPersonaById } from '@/lib/db/queries/personas';
 // explicit lookup is the single source of truth for record-type -> route.
 const HREF_BY_RECORD_TYPE = {
   company: (recordId: number) => `/companies/${recordId}`,
-  persona: (recordId: number) => `/personas?selected=${recordId}`,
+  persona: (recordId: number) => `/personas/${recordId}`,
 } as const;
 
 // EXPL-06: this widget's own try/catch is fully independent of the other
