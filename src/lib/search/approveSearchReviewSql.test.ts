@@ -24,4 +24,12 @@ describe('Search approval SQL', () => {
     expect(query).toContain('INNER JOIN company_persona_role cpr ON cpr.company_id = keys.company_id AND cpr.is_current = true');
     expect(query).toContain('INNER JOIN persona matched ON matched.id = cpr.persona_id');
   });
+
+  it('accepts a candidate domain equal to or a dot-bounded subdomain of the Company domain', () => {
+    const query = flattenSql(buildApproveSearchReviewSql({ reviewId: 73, expectedRevision: 2, actorUserId: 'user_123' }));
+
+    // The leading '.' keeps evilorlen.pl from matching orlen.pl.
+    expect(query).toContain("= '.' ||");
+    expect(query).toContain('length(');
+  });
 });
