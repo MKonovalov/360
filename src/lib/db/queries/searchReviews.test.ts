@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('server-only', () => ({}));
 vi.mock('../index', () => ({ db: mocks.db }));
 
-import { getSearchReviewById, listActionableSearchReviews, listSearchReviews, searchReviewProjectionSchema } from './searchReviews';
+import { getSearchReviewById, listActionableSearchReviews, listSearchReviews, listSearchReviewsForCompany, searchReviewProjectionSchema } from './searchReviews';
 
 function projectionRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -80,6 +80,24 @@ describe('Search Review projections', () => {
     expect(sqlText).toContain('initiating_user_id');
     expect(sqlText).toContain("'pending', 'inconclusive', 'ambiguous_match'");
     expect(sqlText).toContain('DESC LIMIT');
+  });
+
+  it('lists every decision status for one Company, scoped to the owner, newest first with a cap', async () => {
+    mocks.db.execute.mockResolvedValue({ rows: [projectionRow({ reviewId: 502 }), projectionRow()] });
+
+    const reviews = await listSearchReviewsForCompany(117, 'user_360');
+
+    expect(reviews.map((review: { readonly reviewId: number }) => review.reviewId)).toEqual([501, 502]);
+    const sqlText = JSON.stringify(mocks.db.execute.mock.calls[0]?.[0]);
+    expect(sqlText).toContain('initiating_user_id');
+    expect(sqlText).toContain('run.company_id =');
+    expect(sqlText).toContain('DESC LIMIT');
+    expect(sqlText).not.toContain("'pending', 'inconclusive', 'ambiguous_match'");
+  });
+
+  it('returns nothing for an invalid Company id without querying', async () => {
+    await expect(listSearchReviewsForCompany(0, 'user_360')).resolves.toEqual([]);
+    expect(mocks.db.execute).not.toHaveBeenCalled();
   });
 
   it('returns one owned Review detail and keeps partner or raw transport fields out of the projection', async () => {

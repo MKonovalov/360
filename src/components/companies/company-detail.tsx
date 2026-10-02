@@ -21,6 +21,9 @@ import { listArcAgentnetRunsForSubject, type ArcAgentnetRunHistoryRow } from '@/
 import { listConfirmedCandidateOfferingsForSubject } from '@/lib/db/queries/confirmedCandidates';
 import { getAnalysisPacket } from '@/lib/db/queries/analysisResults';
 import { listActiveSearchTemplateProjections } from '@/lib/db/queries/searchTemplates';
+import { listSearchReviewsForCompany } from '@/lib/db/queries/searchReviews';
+import { listBuyerRoles } from '@/lib/db/queries/buyerRoles';
+import type { SearchReviewProjection } from '@/lib/search/contracts';
 import { getActiveSearchStatusProjection } from '@/lib/search/searchRuns';
 import { isSearchEnabled } from '@/lib/search/templateContracts';
 import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
@@ -45,6 +48,9 @@ type CompanyDetailTabData =
       readonly reviewCards: ReviewCards;
       readonly confirmedCandidateOfferings: CandidateOfferings | null;
       readonly partnerRuns: readonly ArcAgentnetRunHistoryRow[];
+      readonly searchReviews: readonly SearchReviewProjection[];
+      readonly searchRoleOptions: readonly { readonly id: number; readonly name: string }[];
+      readonly searchReviewLoadError: boolean;
     };
 
 function assertNever(value: never): never {
@@ -83,7 +89,21 @@ async function loadCompanyDetailTab(company: Company, tab: CompanyTab, userId: s
       const reviewCards = analysisRuns
         ? await projectRunReviewCards(analysisRuns, getAnalysisPacket)
         : [];
-      return { tab, analysisRuns, reviewCards, confirmedCandidateOfferings, partnerRuns };
+      // Additive: Search candidates for this Company, with their own error state.
+      let searchReviews: readonly SearchReviewProjection[] = [];
+      let searchRoleOptions: readonly { readonly id: number; readonly name: string }[] = [];
+      let searchReviewLoadError = false;
+      try {
+        const [reviews, buyerRoles] = await Promise.all([
+          listSearchReviewsForCompany(company.id, userId),
+          listBuyerRoles(),
+        ]);
+        searchReviews = reviews;
+        searchRoleOptions = buyerRoles.map(({ id, name }) => ({ id, name }));
+      } catch {
+        searchReviewLoadError = true;
+      }
+      return { tab, analysisRuns, reviewCards, confirmedCandidateOfferings, partnerRuns, searchReviews, searchRoleOptions, searchReviewLoadError };
     }
     default:
       return assertNever(tab);
@@ -144,6 +164,9 @@ export async function CompanyDetail({
           reviewCards={tabData.reviewCards}
           confirmedCandidateOfferings={tabData.confirmedCandidateOfferings}
           partnerRuns={tabData.partnerRuns}
+          searchReviews={tabData.searchReviews}
+          searchRoleOptions={tabData.searchRoleOptions}
+          searchReviewLoadError={tabData.searchReviewLoadError}
         />
       );
       break;
