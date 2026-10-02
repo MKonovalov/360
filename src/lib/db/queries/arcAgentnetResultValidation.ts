@@ -87,7 +87,47 @@ function exceedsStructuralLimits(input: unknown): boolean {
   return false;
 }
 
-export function serializeArcAgentnetProjection(input: unknown): ArcAgentnetProjectionSerialization {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+// The current Arc Agent Net workflow wraps the agent's final answer in run
+// telemetry: { output: { output: { text, transcript }, json_ok, usage,
+// workflow, mcp_calls, ... }, guest_results }. The telemetry carries keys the
+// projection rules (rightly) refuse - usage.prompt_tokens, transcripts - and
+// agent transcripts alone can exceed the string limit, so storing the wrapper
+// made every such run fail as invalid_result. Keep only the final packet plus
+// a small, bounded workflow summary. Results in any other shape (including
+// the legacy ones already stored) pass through untouched, so this is
+// idempotent over stored projections.
+function projectWorkflowResult(input: unknown): unknown {
+  if (!isRecord(input) || !isRecord(input.output)) return input;
+  const wrapper = input.output;
+  if (!isRecord(wrapper.output) || typeof wrapper.output.text !== 'string') return input;
+
+  const workflow = isRecord(wrapper.workflow) ? wrapper.workflow : undefined;
+  const summary: Record<string, unknown> = {
+    jsonOk: wrapper.json_ok === true,
+    ...(workflow === undefined ? {} : {
+      workflow: {
+        ...(typeof workflow.mode === 'string' ? { mode: workflow.mode } : {}),
+        ...(Array.isArray(workflow.agents)
+          ? { agents: workflow.agents.filter((agent): agent is string => typeof agent === 'string').slice(0, MAX_ARRAY_ITEMS) }
+          : {}),
+      },
+    }),
+  };
+  try {
+    const packet: unknown = JSON.parse(wrapper.output.text);
+    if (isRecord(packet)) return { ...summary, packet };
+  } catch (error: unknown) {
+    if (!(error instanceof SyntaxError)) throw error;
+  }
+  return { ...summary, unparsedText: wrapper.output.text.slice(0, MAX_STRING_LENGTH) };
+}
+
+export function serializeArcAgentnetProjection(rawInput: unknown): ArcAgentnetProjectionSerialization {
+  const input = projectWorkflowResult(rawInput);
   if (exceedsStructuralLimits(input)) return { ok: false, reason: 'invalid_input' };
   const parsed = safeProjectionSchema.safeParse(input);
   if (!parsed.success) return { ok: false, reason: 'invalid_input' };
