@@ -36,7 +36,11 @@ export function buildApproveSearchReviewSql(input: ApprovalStatementInput): SQL<
         NULLIF(${searchApprovalDomainKey(sql`state.company_domain`)}, '') AS company_domain_key,
         (state.company_snapshot->>'id' = state.company_id::text AND state.company_snapshot->>'name' = state.company_name
           AND (state.company_snapshot->>'domain' IS NULL OR ${searchApprovalDomainKey(sql`state.company_snapshot->>'domain'`)} = ${searchApprovalDomainKey(sql`state.company_domain`)} )
-          AND (state.persona_snapshot->>'companyDomain' IS NULL OR ${searchApprovalDomainKey(sql`state.persona_snapshot->>'companyDomain'`)} = ${searchApprovalDomainKey(sql`state.company_domain`)} )) AS company_identity_valid,
+          -- A candidate's own domain may be a subdomain of the Company's (e.g. cuk.orlen.pl for orlen.pl).
+          AND (state.persona_snapshot->>'companyDomain' IS NULL
+            OR ${searchApprovalDomainKey(sql`state.persona_snapshot->>'companyDomain'`)} = ${searchApprovalDomainKey(sql`state.company_domain`)}
+            OR right(${searchApprovalDomainKey(sql`state.persona_snapshot->>'companyDomain'`)}, length(${searchApprovalDomainKey(sql`state.company_domain`)}) + 1)
+              = '.' || ${searchApprovalDomainKey(sql`state.company_domain`)})) AS company_identity_valid,
         NOT EXISTS (SELECT 1 FROM search_candidate_source source WHERE source.search_candidate_id = state.id
           AND (source.url !~ '^https://' OR btrim(source.title) = '' OR source.url ~ '[[:space:]]'))
         AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(state.claims_snapshot) claim
