@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { AnalysisRunStatus } from '@/components/analysis/analysis-run-status';
 import { ArcAgentnetRunCard } from '@/components/analysis/arc-agentnet-run-card';
+import { ArcAgentnetRunStatus } from '@/components/analysis/arc-agentnet-run-status';
 import { RunReviewCard } from '@/components/reviews/run-review-card';
 import type { RunReviewCardData } from '@/components/reviews/run-review-card';
 import { humanizeEnum } from '@/components/explorer/explorer-format';
@@ -194,9 +195,9 @@ function renderRun(
 }
 
 function renderPartnerRun(run: ArcAgentnetRunHistoryRow) {
-  // In-flight partner runs keep their live status panel, which polls the
-  // partner status route and refreshes the page once the run is terminal.
-  if (run.status === 'queued' || run.status === 'running') return <AnalysisRunStatus applicationRunId={run.runId} />;
+  // In-flight partner runs poll the partner status route, not the internal one
+  // (which 404s for them), and refresh the page once the run is terminal.
+  if (run.status === 'queued' || run.status === 'running') return <ArcAgentnetRunStatus run={run} />;
   return <ArcAgentnetRunCard run={run} />;
 }
 
