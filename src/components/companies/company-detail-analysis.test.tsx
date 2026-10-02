@@ -56,6 +56,6 @@ describe('CompanyDetailAnalysis', () => {
     const html = renderToStaticMarkup(<CompanyDetailAnalysis {...base} searchReviewLoadError />);
 
     expect(html).toContain('load Search Reviews');
-    expect(html).toContain('No analysis runs for this record');
+    expect(html).toContain('No current analysis runs for this record');
   });
 });

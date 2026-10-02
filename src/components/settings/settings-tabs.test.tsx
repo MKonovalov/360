@@ -159,3 +159,15 @@ describe('DebugSettingsPanel', () => {
     expect(html).not.toContain('global configuration');
   });
 });
+
+describe('SettingsTabs Logs tab', () => {
+  it('adds a Logs tab only when log content is provided', () => {
+    const withLogs = renderToStaticMarkup(
+      <SettingsTabs modelSettings={<div />} dataSources={<div />} logs={<div>job logs content</div>} />,
+    );
+    const withoutLogs = renderToStaticMarkup(<SettingsTabs modelSettings={<div />} dataSources={<div />} />);
+
+    expect(withLogs).toContain('>Logs<');
+    expect(withoutLogs).not.toContain('>Logs<');
+  });
+});

@@ -229,7 +229,7 @@ export function AnalysisHistory({ rows, reviewCards = [], partnerRuns = [] }: An
         Analysis
       </h2>
       {entries.length === 0 ? (
-        <p className="text-[14px] font-normal leading-[1.5] text-slate-500">No analysis runs for this record.</p>
+        <p className="text-[14px] font-normal leading-[1.5] text-slate-500">No current analysis runs for this record. Earlier runs are listed under Settings → Logs.</p>
       ) : (
         <div className="space-y-3">
           {entries.map((entry) => (

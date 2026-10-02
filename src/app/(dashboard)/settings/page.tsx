@@ -15,6 +15,8 @@ import { DataSourceSettingsForm } from '@/components/settings/data-source-settin
 import { SettingsTabs } from '@/components/settings/settings-tabs';
 import { DebugSettingsPanel } from '@/components/settings/debug-settings-panel';
 import { debugAdminConfig } from '@/lib/auth/debugAdminConfig';
+import { JOB_LOG_LIMIT, listJobLogs } from '@/lib/db/queries/jobLogs';
+import { JobLogsPanel } from '@/components/settings/job-logs-panel';
 
 // Belt-and-suspenders alongside the (dashboard) layout's auth gate
 // (02-RESEARCH.md Pitfall 4) — every page in the group gates itself too, so
@@ -33,9 +35,10 @@ export default async function SettingsPage() {
   // Keep the two tabs independently useful when one backing read is down.
   // `undefined` is a valid model-settings result, so the settled status is the
   // failure discriminator for that tab.
-  const [modelResult, dataSourceResult] = await Promise.allSettled([
+  const [modelResult, dataSourceResult, logsResult] = await Promise.allSettled([
     getModelSettingsForUser(userId),
     getDataSourceSettingsView(),
+    listJobLogs(userId),
   ]);
   const modelReadSucceeded = modelResult.status === 'fulfilled';
   const dataSourceReadSucceeded = dataSourceResult.status === 'fulfilled';
@@ -152,12 +155,17 @@ export default async function SettingsPage() {
     <SettingsReadError label="Data Sources" />
   );
 
+  const logsContent = logsResult.status === 'fulfilled'
+    ? <JobLogsPanel rows={logsResult.value} limit={JOB_LOG_LIMIT} />
+    : <SettingsReadError label="Logs" />;
+
   return (
     <div className="flex flex-col gap-8 p-8 max-sm:p-4">
       <h1 className="text-[24px] font-semibold leading-[1.2] text-slate-900">Settings</h1>
       <SettingsTabs
         modelSettings={modelSettingsContent}
         dataSources={dataSourceSettingsContent}
+        logs={logsContent}
         canUseDebugLaunches={canUseDebugLaunches}
         debugSettings={canUseDebugLaunches ? <DebugSettingsPanel panelId="debug-settings-panel" /> : null}
       />
