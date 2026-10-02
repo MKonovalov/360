@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const sweep = vi.hoisted(() => vi.fn());
+const analyzeSweep = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/search/searchCallbacks', () => ({ reconcileInFlightSearchRuns: sweep }));
+vi.mock('@/lib/analysis/arcAgentnetSweep', () => ({ reconcileInFlightArcAgentnetRuns: analyzeSweep }));
 const envMock = vi.hoisted(() => ({ CRON_SECRET: 'c'.repeat(32) as string | undefined }));
 vi.mock('@/lib/env', () => ({ env: envMock }));
 
@@ -20,6 +22,7 @@ describe('GET /api/cron/search-reconcile', () => {
     const response = await GET(new Request('https://x.test/api/cron/search-reconcile', authorization ? { headers: { authorization } } : {}));
     expect(response.status).toBe(401);
     expect(sweep).not.toHaveBeenCalled();
+    expect(analyzeSweep).not.toHaveBeenCalled();
   });
 
   it('fails closed when no cron secret is configured', async () => {
@@ -28,10 +31,25 @@ describe('GET /api/cron/search-reconcile', () => {
     expect(response.status).toBe(401);
   });
 
-  it('runs the sweep for an authorized cron request', async () => {
+  it('runs both the Search and Analyze sweeps for an authorized cron request', async () => {
     sweep.mockResolvedValue({ checked: 2, failed: 0 });
+    analyzeSweep.mockResolvedValue({ checked: 1, failed: 1 });
     const response = await GET(new Request('https://x.test/api/cron/search-reconcile', { headers: { authorization: `Bearer ${'c'.repeat(32)}` } }));
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ checked: 2, failed: 0 });
+    await expect(response.json()).resolves.toEqual({
+      search: { checked: 2, failed: 0 },
+      analyze: { checked: 1, failed: 1 },
+    });
+  });
+
+  it('still reports the other sweep when one throws', async () => {
+    sweep.mockRejectedValue(new Error('db down'));
+    analyzeSweep.mockResolvedValue({ checked: 3, failed: 0 });
+    const response = await GET(new Request('https://x.test/api/cron/search-reconcile', { headers: { authorization: `Bearer ${'c'.repeat(32)}` } }));
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      search: { checked: 0, failed: 0, error: 'sweep_failed' },
+      analyze: { checked: 3, failed: 0 },
+    });
   });
 });

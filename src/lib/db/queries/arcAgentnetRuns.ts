@@ -95,6 +95,20 @@ export async function listArcAgentnetRunsForSubject(
   }));
 }
 
+// Partner analysis runs dispatched but not yet terminal, oldest first. Feeds
+// the scheduled reconcile sweep that backstops the webhook.
+export async function listInFlightArcAgentnetRuns(
+  since: Date,
+  limit: number,
+): Promise<ArcAgentnetRunRecord[]> {
+  return db.select().from(analysisRun).where(and(
+    eq(analysisRun.executionTarget, 'arc-agentnet'),
+    inArray(analysisRun.arcAgentnetLocalStatus, ['queued', 'running']),
+    sql`${analysisRun.partnerJobId} IS NOT NULL AND ${analysisRun.partnerRequestId} IS NOT NULL AND ${analysisRun.initiatingUserId} IS NOT NULL`,
+    sql`${analysisRun.createdAt} >= ${since}`,
+  )).orderBy(analysisRun.id).limit(limit);
+}
+
 export async function getArcAgentnetRunByPartnerIdentity(
   partnerJobId: string,
   requestId: string,
