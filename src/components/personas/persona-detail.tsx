@@ -9,7 +9,6 @@ import { PersonaDetailTabs } from '@/components/personas/persona-detail-tabs';
 import { EnrichMenu } from '@/components/enrichment/enrichment-review-dialog';
 import { RecordViewTracker } from '@/components/dashboard/record-view-tracker';
 import { humanizeEnum, dateFormatter, FirmographicField, FieldSourceBadge } from '@/components/explorer/explorer-format';
-import { Button } from '@/components/ui/button';
 import { env } from '@/lib/env';
 import { listAnalysisRunsForSubject } from '@/lib/db/queries/analysisRuns';
 import { listConfirmedCandidateOfferingsForSubject } from '@/lib/db/queries/confirmedCandidates';
@@ -273,11 +272,15 @@ export async function PersonaDetail({
           disabledReason={!persona.email ? 'Add an email first' : 'Persona enrichment is not configured'}
           canAnalyze
         />
-        <Button asChild variant="ghost" size="icon" aria-label="Back to personas">
-          <Link href="/personas">
-            <XIcon />
-          </Link>
-        </Button>
+        {/* Plain Link: ui/button imports Radix Slot (createContext), which
+            cannot be evaluated from a server component. */}
+        <Link
+          href="/personas"
+          aria-label="Back to personas"
+          className="inline-flex size-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+        >
+          <XIcon className="size-4" />
+        </Link>
       </div>
       <div>
         <h1 className="text-[24px] font-semibold leading-[1.2] text-slate-900">{persona.name}</h1>
