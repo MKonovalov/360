@@ -3,6 +3,7 @@ import 'server-only';
 import { createHash } from 'node:crypto';
 
 import { arcAgentnetClient, type ArcAgentnetSubmitContext } from '@/lib/arc-agentnet/client';
+import { partnerCallbackUrl } from '@/lib/arc-agentnet/callbackUrl';
 import { buildBoundedArcAgentnetInput } from '@/lib/analysis/buildArcAgentnetPayload';
 import { resolveAnalysisLaunch, type ResolvedCompanyArcAgentnetLaunch } from '@/lib/analysis/compatibility';
 import { buildPhase33AnalysisSnapshots } from '@/lib/analysis/snapshots';
@@ -78,10 +79,12 @@ export async function POST(request: Request): Promise<Response> {
   });
   if (activeRun) return safeResponse({ error: 'active_run_exists' }, 409);
 
+  const callbackUrl = partnerCallbackUrl();
   const partnerJob = await arcAgentnetClient.submit({
     idempotencyKey: parsed.data.idempotencyKey,
     input: toPartnerJson(input),
     specId: ANALYZE_SPEC_ID,
+    ...(callbackUrl === undefined ? {} : { callbackUrl }),
   });
   if (!partnerJob.ok) return partnerErrorResponse(partnerJob.kind);
 
