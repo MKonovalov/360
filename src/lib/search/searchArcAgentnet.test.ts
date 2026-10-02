@@ -27,7 +27,6 @@ import { createArcAgentnetClient, type ArcAgentnetClient, type ArcAgentnetJob } 
 import {
   pollSearchJob,
   packetFromResult,
-  searchCallbackUrlFor,
   reconcileSearchRun,
   submitSearchJob,
   type SearchJobInput,
@@ -95,12 +94,6 @@ describe('Search Arc Agent Net adapter', () => {
 
     expect(submit.mock.calls[0]?.[0]).toMatchObject({ callbackUrl: 'https://360.arclumenpartners.com/webhooks/arc-agentnet' });
     expect(submit.mock.calls[1]?.[0]).not.toHaveProperty('callbackUrl');
-  });
-
-  it('targets the production webhook only for production deployments', () => {
-    expect(searchCallbackUrlFor('production')).toBe('https://360.arclumenpartners.com/webhooks/arc-agentnet');
-    expect(searchCallbackUrlFor('preview')).toBeUndefined();
-    expect(searchCallbackUrlFor(undefined)).toBeUndefined();
   });
 
   it('sends the required Search spec_id in the real outgoing partner JSON body', async () => {

@@ -12,6 +12,7 @@ vi.mock('next/navigation', () => ({
 import type { RunReviewCardData } from '@/components/reviews/run-review-card';
 import type { AnalysisRunHistoryRow } from '@/lib/analysis/experienceContracts';
 import type { AnalysisRunStatus } from '@/lib/analysis/contracts';
+import type { ArcAgentnetRunHistoryRow } from '@/lib/db/queries/arcAgentnetRuns';
 
 import { AnalysisHistory, projectRunReviewCard } from './analysis-history';
 
@@ -104,6 +105,45 @@ describe('AnalysisHistory', () => {
     expect(html).toContain('data-status="queued"');
     expect(html).toContain('data-status="running"');
     expect(html).toContain('Dismissed');
+  });
+
+  it('merges partner runs into the newest-first list and renders their findings', () => {
+    const partnerRun = (runId: number, status: ArcAgentnetRunHistoryRow['status'], createdAt: string): ArcAgentnetRunHistoryRow => ({
+      runId,
+      status,
+      safeReason: null,
+      templateName: 'Company Buying Signal Analysis',
+      practiceAreaName: 'GBS',
+      createdAt,
+      completedAt: null,
+      result: status === 'completed'
+        ? { narrative: null, findings: [{ findingId: 'F-1', label: 'Fragmented delivery', status: 'supported', confidence: null, claim: 'Partner claim text.', reasoning: null, sources: [] }] }
+        : null,
+    });
+    const html = renderToStaticMarkup(
+      <AnalysisHistory
+        rows={[historyRow(1, 'failed', '2026-08-01T00:00:00.000Z', 'execution_failed')]}
+        partnerRuns={[partnerRun(83, 'completed', '2026-10-02T10:47:30.138Z'), partnerRun(84, 'running', '2026-10-03T00:00:00.000Z')]}
+      />,
+    );
+    const runIds = [...html.matchAll(/data-run-id="(\d+)" data-status=/g)].map((match) => match[1]);
+
+    expect(runIds).toEqual(['84', '83', '1']);
+    expect(html).toContain('Partner claim text.');
+    expect(html).toContain('Loading analysis run status…');
+    expect(html).not.toContain('No analysis runs for this record');
+  });
+
+  it('shows no empty state when only partner runs exist', () => {
+    const html = renderToStaticMarkup(
+      <AnalysisHistory
+        rows={[]}
+        partnerRuns={[{ runId: 5, status: 'failed', safeReason: 'execution_failed', templateName: 'T', practiceAreaName: 'P', createdAt: '2026-10-01T00:00:00.000Z', completedAt: null, result: null }]}
+      />,
+    );
+
+    expect(html).not.toContain('No analysis runs for this record');
+    expect(html).toContain('The analysis did not complete.');
   });
 
   it('mounts live status only for queued and running rows', () => {

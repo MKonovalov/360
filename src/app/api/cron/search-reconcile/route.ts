@@ -20,15 +20,29 @@ function isAuthorizedCronRequest(request: Request): boolean {
   );
 }
 
-// Safety net behind the webhook: finishes in-flight Search runs whose callback
-// never arrived or whose after-response ingestion failed.
+// Safety net behind the webhook: finishes in-flight Search and Analyze runs
+// whose callback never arrived or whose after-response ingestion failed.
 export async function GET(request: Request): Promise<Response> {
   if (!isAuthorizedCronRequest(request)) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
   }
 
-  const { reconcileInFlightSearchRuns } = await import('@/lib/search/searchCallbacks');
-  const result = await reconcileInFlightSearchRuns();
+  const [{ reconcileInFlightSearchRuns }, { reconcileInFlightArcAgentnetRuns }] = await Promise.all([
+    import('@/lib/search/searchCallbacks'),
+    import('@/lib/analysis/arcAgentnetSweep'),
+  ]);
+  // Independent sweeps: a failure in one must not skip the other.
+  const [search, analyze] = await Promise.allSettled([
+    reconcileInFlightSearchRuns(),
+    reconcileInFlightArcAgentnetRuns(),
+  ]);
+  const unavailable = { checked: 0, failed: 0, error: 'sweep_failed' };
 
-  return Response.json(result, { headers: { 'Cache-Control': 'private, no-store' } });
+  return Response.json(
+    {
+      search: search.status === 'fulfilled' ? search.value : unavailable,
+      analyze: analyze.status === 'fulfilled' ? analyze.value : unavailable,
+    },
+    { headers: { 'Cache-Control': 'private, no-store' } },
+  );
 }

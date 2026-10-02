@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 const mocks = vi.hoisted(() => ({
   requireStaffAccess: vi.fn(),
   isCompanyArcAgentnetEnabled: vi.fn(),
+  partnerCallbackUrl: vi.fn(),
   resolveAnalysisLaunch: vi.fn(),
   getCompanyById: vi.fn(),
   buildBoundedArcAgentnetInput: vi.fn(),
@@ -17,6 +18,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('server-only', () => ({}));
 vi.mock('@/lib/auth/requireStaffAccess', () => ({ requireStaffAccess: mocks.requireStaffAccess }));
 vi.mock('@/lib/env', () => ({ isCompanyArcAgentnetEnabled: mocks.isCompanyArcAgentnetEnabled }));
+vi.mock('@/lib/arc-agentnet/callbackUrl', () => ({ partnerCallbackUrl: mocks.partnerCallbackUrl }));
 vi.mock('@/lib/analysis/compatibility', () => ({ resolveAnalysisLaunch: mocks.resolveAnalysisLaunch }));
 vi.mock('@/lib/db/queries/companies', () => ({ getCompanyById: mocks.getCompanyById }));
 vi.mock('@/lib/analysis/buildArcAgentnetPayload', () => ({ buildBoundedArcAgentnetInput: mocks.buildBoundedArcAgentnetInput }));
@@ -142,6 +144,17 @@ describe('POST /api/analysis-runs/arc-agentnet', () => {
     const [submitArgs] = mocks.submit.mock.calls[0] ?? [];
     expect(submitArgs).toMatchObject({ specId: ANALYZE_SPEC_ID });
     expect(submitArgs.specId).not.toBe(SEARCH_SPEC_ID);
+  });
+
+  it('sends the production webhook callbackUrl on submit and omits it when none applies', async () => {
+    mocks.partnerCallbackUrl.mockReturnValue('https://360.arclumenpartners.com/webhooks/arc-agentnet');
+    await POST(request(validBody));
+    expect(mocks.submit.mock.calls[0]?.[0]).toMatchObject({ callbackUrl: 'https://360.arclumenpartners.com/webhooks/arc-agentnet' });
+
+    mocks.submit.mockClear();
+    mocks.partnerCallbackUrl.mockReturnValue(undefined);
+    await POST(request({ ...validBody, idempotencyKey: 'another-key-for-the-second-launch' }));
+    expect(mocks.submit.mock.calls[0]?.[0]).not.toHaveProperty('callbackUrl');
   });
 
   it('persists a valid running acknowledgement as an in-progress local run', async () => {

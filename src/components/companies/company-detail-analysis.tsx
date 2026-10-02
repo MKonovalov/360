@@ -2,6 +2,7 @@ import { AnalysisHistory } from '@/components/analysis/analysis-history';
 import type { projectRunReviewCards } from '@/components/analysis/analysis-history';
 import { ConfirmedCandidateOfferings } from '@/components/analysis/confirmed-candidate-offerings';
 import type { listAnalysisRunsForSubject } from '@/lib/db/queries/analysisRuns';
+import type { ArcAgentnetRunHistoryRow } from '@/lib/db/queries/arcAgentnetRuns';
 import type { listConfirmedCandidateOfferingsForSubject } from '@/lib/db/queries/confirmedCandidates';
 
 type AnalysisRuns = Awaited<ReturnType<typeof listAnalysisRunsForSubject>>;
@@ -12,14 +13,16 @@ export function CompanyDetailAnalysis({
   analysisRuns,
   reviewCards,
   confirmedCandidateOfferings,
+  partnerRuns = [],
 }: {
   readonly analysisRuns: AnalysisRuns | null;
   readonly reviewCards: ReviewCards;
   readonly confirmedCandidateOfferings: CandidateOfferings | null;
+  readonly partnerRuns?: readonly ArcAgentnetRunHistoryRow[];
 }) {
   return (
     <>
-      <AnalysisHistory rows={analysisRuns} reviewCards={reviewCards} />
+      <AnalysisHistory rows={analysisRuns} reviewCards={reviewCards} partnerRuns={partnerRuns} />
       <ConfirmedCandidateOfferings items={confirmedCandidateOfferings} />
     </>
   );

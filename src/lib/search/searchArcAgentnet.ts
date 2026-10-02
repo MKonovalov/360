@@ -7,7 +7,7 @@ import {
   type ArcAgentnetJob,
 } from '@/lib/arc-agentnet/client';
 import type { SearchTerminalResultSummary } from '@/lib/db/schema';
-import { env } from '@/lib/env';
+import { partnerCallbackUrl } from '@/lib/arc-agentnet/callbackUrl';
 import {
   getSearchRunById,
   getSearchRunPartnerMapping,
@@ -24,14 +24,6 @@ import { recordSearchMetric } from './searchTelemetry';
 // Partner-assigned identifier for the Search job spec. Legacy Analysis jobs
 // must never send this — it is only ever forwarded from submitSearchJob.
 const SEARCH_SPEC_ID = '6f9b69d738a24462b620a3c38968985b';
-
-// Per-job webhook target. Production only: preview and local jobs must not call
-// back into the production deployment, so they fall back to polling alone.
-const SEARCH_CALLBACK_URL = 'https://360.arclumenpartners.com/webhooks/arc-agentnet';
-
-export function searchCallbackUrlFor(vercelEnv: string | undefined): string | undefined {
-  return vercelEnv === 'production' ? SEARCH_CALLBACK_URL : undefined;
-}
 
 export interface SearchSubmitContext {
   readonly schemaVersion: number;
@@ -91,7 +83,7 @@ export async function submitSearchJob(input: SearchJobInput): Promise<ArcAgentne
     idempotencyKey: input.idempotencyKey,
     input: parsedContext.data,
     specId: SEARCH_SPEC_ID,
-    ...callbackUrlField(input.callbackUrl ?? searchCallbackUrlFor(env.VERCEL_ENV)),
+    ...callbackUrlField(input.callbackUrl ?? partnerCallbackUrl()),
   });
   if (!submitted.ok) {
     recordSearchMetric({ kind: 'dispatch_error', searchRunId: input.runId, reason: submitted.kind });
