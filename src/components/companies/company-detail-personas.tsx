@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { listPersonasForCompany } from '@/lib/db/queries/companyPersonaRoles';
 
 type PersonaRoles = Awaited<ReturnType<typeof listPersonasForCompany>>;
@@ -12,7 +13,9 @@ export function CompanyDetailPersonas({ personaRoles }: { readonly personaRoles:
         <ul className="space-y-2">
           {personaRoles.map(({ persona, role }) => (
             <li key={persona.id} className="text-[14px] font-normal leading-[1.5] text-slate-900">
-              {persona.name}
+              <Link href={`/personas/${persona.id}`} className="text-indigo-600 hover:underline">
+                {persona.name}
+              </Link>
               {role.title ? ` — ${role.title}` : ''}
             </li>
           ))}
