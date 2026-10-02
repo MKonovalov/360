@@ -130,7 +130,9 @@ describe('AnalysisHistory', () => {
 
     expect(runIds).toEqual(['84', '83', '1']);
     expect(html).toContain('Partner claim text.');
-    expect(html).toContain('Loading analysis run status…');
+    // In-flight partner runs get the partner status card, not the internal polling panel.
+    expect(html).toContain('The analysis is in progress.');
+    expect(html).not.toContain('Loading analysis run status…');
     expect(html).not.toContain('No current analysis runs for this record');
   });
 
