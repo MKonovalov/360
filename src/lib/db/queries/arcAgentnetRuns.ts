@@ -1,8 +1,11 @@
 import 'server-only';
 
 import { createHash } from 'node:crypto';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 
+import type { ArcAgentnetLocalStatus } from '@/lib/analysis/executionTarget';
+import { projectArcAgentnetResultDisplay, type ArcAgentnetResultDisplay } from '@/lib/analysis/arcAgentnetResultDisplay';
+import type { SubjectScope } from '@/lib/analysis/experienceContracts';
 import { db } from '../index';
 import { analysisRun, arcAgentnetIdempotency, partnerJobMapping } from '../schema';
 import {
@@ -51,6 +54,45 @@ export async function getArcAgentnetRunById(
     eq(analysisRun.initiatingUserId, initiatingUserId),
   ));
   return rows[0];
+}
+
+export type ArcAgentnetRunHistoryRow = {
+  readonly runId: number;
+  readonly status: ArcAgentnetLocalStatus;
+  readonly safeReason: string | null;
+  readonly templateName: string;
+  readonly practiceAreaName: string;
+  readonly createdAt: string;
+  readonly completedAt: string | null;
+  readonly result: ArcAgentnetResultDisplay | null;
+};
+
+const ARC_AGENTNET_HISTORY_LIMIT = 20;
+
+// Partner runs are scoped to the staff member who launched them, matching the
+// status route's access model. The stored partner projection is reduced to a
+// bounded display model here so no raw partner payload reaches a component.
+export async function listArcAgentnetRunsForSubject(
+  scope: SubjectScope,
+  initiatingUserId: string,
+): Promise<ArcAgentnetRunHistoryRow[]> {
+  const rows = await db.select().from(analysisRun).where(and(
+    eq(analysisRun.subjectType, scope.targetType),
+    eq(analysisRun.subjectId, scope.subjectId),
+    eq(analysisRun.executionTarget, 'arc-agentnet'),
+    eq(analysisRun.initiatingUserId, initiatingUserId),
+  )).orderBy(desc(analysisRun.createdAt), desc(analysisRun.id)).limit(ARC_AGENTNET_HISTORY_LIMIT);
+
+  return rows.map((run) => ({
+    runId: run.id,
+    status: run.arcAgentnetLocalStatus ?? 'queued',
+    safeReason: run.arcAgentnetSafeReason,
+    templateName: run.templateSnapshot.templateName,
+    practiceAreaName: run.checklistSnapshot.practiceAreaName,
+    createdAt: run.createdAt.toISOString(),
+    completedAt: run.arcAgentnetCompletedAt?.toISOString() ?? null,
+    result: projectArcAgentnetResultDisplay(run.arcAgentnetResultProjection),
+  }));
 }
 
 export async function getArcAgentnetRunByPartnerIdentity(

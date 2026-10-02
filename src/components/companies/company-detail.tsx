@@ -17,6 +17,7 @@ import { FieldSourceBadge } from '@/components/explorer/explorer-format';
 import { RecordViewTracker } from '@/components/dashboard/record-view-tracker';
 import { env } from '@/lib/env';
 import { listAnalysisRunsForSubject } from '@/lib/db/queries/analysisRuns';
+import { listArcAgentnetRunsForSubject, type ArcAgentnetRunHistoryRow } from '@/lib/db/queries/arcAgentnetRuns';
 import { listConfirmedCandidateOfferingsForSubject } from '@/lib/db/queries/confirmedCandidates';
 import { getAnalysisPacket } from '@/lib/db/queries/analysisResults';
 import { listActiveSearchTemplateProjections } from '@/lib/db/queries/searchTemplates';
@@ -43,13 +44,14 @@ type CompanyDetailTabData =
       readonly analysisRuns: AnalysisRuns | null;
       readonly reviewCards: ReviewCards;
       readonly confirmedCandidateOfferings: CandidateOfferings | null;
+      readonly partnerRuns: readonly ArcAgentnetRunHistoryRow[];
     };
 
 function assertNever(value: never): never {
   throw new Error(`Unhandled company detail tab: ${value}`);
 }
 
-async function loadCompanyDetailTab(company: Company, tab: CompanyTab): Promise<CompanyDetailTabData> {
+async function loadCompanyDetailTab(company: Company, tab: CompanyTab, userId: string): Promise<CompanyDetailTabData> {
   switch (tab) {
     case 'general': {
       const [signals, pendingProposalCount] = await Promise.all([
@@ -72,14 +74,16 @@ async function loadCompanyDetailTab(company: Company, tab: CompanyTab): Promise<
       return { tab, articles };
     }
     case 'analysis': {
-      const [analysisRuns, confirmedCandidateOfferings] = await Promise.all([
+      const [analysisRuns, confirmedCandidateOfferings, partnerRuns] = await Promise.all([
         listAnalysisRunsForSubject({ targetType: 'company', subjectId: company.id }).catch(() => null),
         listConfirmedCandidateOfferingsForSubject({ targetType: 'company', subjectId: company.id }).catch(() => null),
+        // Additive: a failed partner-run read must not hide the rest of the tab.
+        listArcAgentnetRunsForSubject({ targetType: 'company', subjectId: company.id }, userId).catch((): ArcAgentnetRunHistoryRow[] => []),
       ]);
       const reviewCards = analysisRuns
         ? await projectRunReviewCards(analysisRuns, getAnalysisPacket)
         : [];
-      return { tab, analysisRuns, reviewCards, confirmedCandidateOfferings };
+      return { tab, analysisRuns, reviewCards, confirmedCandidateOfferings, partnerRuns };
     }
     default:
       return assertNever(tab);
@@ -108,7 +112,7 @@ export async function CompanyDetail({
 
   let tabData: CompanyDetailTabData;
   try {
-    tabData = await loadCompanyDetailTab(company, tab);
+    tabData = await loadCompanyDetailTab(company, tab, userId);
   } catch {
     return <CompanyDetailErrorState />;
   }
@@ -139,6 +143,7 @@ export async function CompanyDetail({
           analysisRuns={tabData.analysisRuns}
           reviewCards={tabData.reviewCards}
           confirmedCandidateOfferings={tabData.confirmedCandidateOfferings}
+          partnerRuns={tabData.partnerRuns}
         />
       );
       break;

@@ -1,15 +1,24 @@
 import Link from 'next/link';
 import { AnalysisRunStatus } from '@/components/analysis/analysis-run-status';
+import { ArcAgentnetRunCard } from '@/components/analysis/arc-agentnet-run-card';
 import { RunReviewCard } from '@/components/reviews/run-review-card';
 import type { RunReviewCardData } from '@/components/reviews/run-review-card';
 import { humanizeEnum } from '@/components/explorer/explorer-format';
 import type { AnalysisRunHistoryRow } from '@/lib/analysis/experienceContracts';
 import type { AnalysisPacketRead } from '@/lib/db/queries/analysisResults';
+import type { ArcAgentnetRunHistoryRow } from '@/lib/db/queries/arcAgentnetRuns';
 
 type AnalysisHistoryProps = {
   readonly rows: readonly AnalysisRunHistoryRow[] | null;
   readonly reviewCards?: readonly RunReviewCardData[];
+  // Partner (Arc Agent Net) runs launched by the viewer; the internal history
+  // query excludes them, so they are merged into the same newest-first list.
+  readonly partnerRuns?: readonly ArcAgentnetRunHistoryRow[];
 };
+
+type HistoryEntry =
+  | { readonly kind: 'internal'; readonly runId: number; readonly createdAt: string; readonly row: AnalysisRunHistoryRow }
+  | { readonly kind: 'partner'; readonly runId: number; readonly createdAt: string; readonly run: ArcAgentnetRunHistoryRow };
 
 const SAFE_REASON_COPY: Readonly<Record<string, string>> = {
   cancelled: 'The analysis was cancelled.',
@@ -36,7 +45,7 @@ function lifecycleCopy(status: 'failed' | 'cancelled', safeReason: string | null
   }
 }
 
-function sortNewestFirst(rows: readonly AnalysisRunHistoryRow[]): AnalysisRunHistoryRow[] {
+function sortNewestFirst<T extends { readonly createdAt: string; readonly runId: number }>(rows: readonly T[]): T[] {
   return [...rows].sort((left, right) => {
     const createdAtDifference = Date.parse(right.createdAt) - Date.parse(left.createdAt);
     return createdAtDifference === 0 ? right.runId - left.runId : createdAtDifference;
@@ -184,7 +193,14 @@ function renderRun(
   }
 }
 
-export function AnalysisHistory({ rows, reviewCards = [] }: AnalysisHistoryProps) {
+function renderPartnerRun(run: ArcAgentnetRunHistoryRow) {
+  // In-flight partner runs keep their live status panel, which polls the
+  // partner status route and refreshes the page once the run is terminal.
+  if (run.status === 'queued' || run.status === 'running') return <AnalysisRunStatus applicationRunId={run.runId} />;
+  return <ArcAgentnetRunCard run={run} />;
+}
+
+export function AnalysisHistory({ rows, reviewCards = [], partnerRuns = [] }: AnalysisHistoryProps) {
   if (rows === null) {
     return (
       <section aria-labelledby="analysis-history-heading" className="space-y-3">
@@ -201,7 +217,10 @@ export function AnalysisHistory({ rows, reviewCards = [] }: AnalysisHistoryProps
     );
   }
 
-  const sortedRows = sortNewestFirst(rows);
+  const entries = sortNewestFirst<HistoryEntry>([
+    ...rows.map((row): HistoryEntry => ({ kind: 'internal', runId: row.runId, createdAt: row.createdAt, row })),
+    ...partnerRuns.map((run): HistoryEntry => ({ kind: 'partner', runId: run.runId, createdAt: run.createdAt, run })),
+  ]);
   const reviewCardsByRunId = new Map(reviewCards.map((card) => [card.runId, card]));
 
   return (
@@ -209,13 +228,19 @@ export function AnalysisHistory({ rows, reviewCards = [] }: AnalysisHistoryProps
       <h2 id="analysis-history-heading" className="text-[18px] font-semibold leading-[1.2] text-slate-900">
         Analysis
       </h2>
-      {sortedRows.length === 0 ? (
+      {entries.length === 0 ? (
         <p className="text-[14px] font-normal leading-[1.5] text-slate-500">No analysis runs for this record.</p>
       ) : (
         <div className="space-y-3">
-          {sortedRows.map((row) => (
-            <div key={row.runId} data-run-id={row.runId} data-status={row.status}>
-              {renderRun(row, reviewCardsByRunId)}
+          {entries.map((entry) => (
+            <div
+              key={`${entry.kind}-${entry.runId}`}
+              data-run-id={entry.runId}
+              data-status={entry.kind === 'internal' ? entry.row.status : entry.run.status}
+            >
+              {entry.kind === 'internal'
+                ? renderRun(entry.row, reviewCardsByRunId)
+                : renderPartnerRun(entry.run)}
             </div>
           ))}
         </div>
