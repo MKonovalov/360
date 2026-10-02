@@ -82,7 +82,7 @@ describe('Search Review projections', () => {
     expect(sqlText).toContain('DESC LIMIT');
   });
 
-  it('lists every decision status for one Company, scoped to the owner, newest first with a cap', async () => {
+  it('lists only actionable candidates for one Company, scoped to the owner, newest first with a cap', async () => {
     mocks.db.execute.mockResolvedValue({ rows: [projectionRow({ reviewId: 502 }), projectionRow()] });
 
     const reviews = await listSearchReviewsForCompany(117, 'user_360');
@@ -92,7 +92,7 @@ describe('Search Review projections', () => {
     expect(sqlText).toContain('initiating_user_id');
     expect(sqlText).toContain('run.company_id =');
     expect(sqlText).toContain('DESC LIMIT');
-    expect(sqlText).not.toContain("'pending', 'inconclusive', 'ambiguous_match'");
+    expect(sqlText).toContain("'pending', 'inconclusive', 'ambiguous_match'");
   });
 
   it('returns nothing for an invalid Company id without querying', async () => {
