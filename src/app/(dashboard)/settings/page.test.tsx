@@ -11,12 +11,14 @@ type SettingsTabsProps = {
   readonly debugSettings?: React.ReactNode;
   readonly modelSettings: React.ReactNode;
   readonly dataSources: React.ReactNode;
+  readonly logs?: React.ReactNode;
 };
 
 const mocks = vi.hoisted(() => ({
   requireStaffAccess: vi.fn(),
   getModelSettingsForUser: vi.fn(),
   getDataSourceSettingsView: vi.fn(),
+  listJobLogs: vi.fn(),
   debugAdminConfig: {
     captureEnabled: Boolean(false),
     adminUserIds: [] as readonly string[],
@@ -33,6 +35,10 @@ vi.mock('@/lib/auth/debugAdminConfig', () => ({
 }));
 vi.mock('@/lib/db/queries/userModelSettings', () => ({
   getModelSettingsForUser: mocks.getModelSettingsForUser,
+}));
+vi.mock('@/lib/db/queries/jobLogs', () => ({ JOB_LOG_LIMIT: 200, listJobLogs: mocks.listJobLogs }));
+vi.mock('@/components/settings/job-logs-panel', () => ({
+  JobLogsPanel: ({ rows }: { readonly rows: readonly unknown[] }) => <div data-job-logs={rows.length}>job logs</div>,
 }));
 vi.mock('@/lib/data-sources/settings', () => ({
   getDataSourceSettingsView: mocks.getDataSourceSettingsView,
@@ -62,9 +68,11 @@ vi.mock('@/components/settings/settings-tabs', () => ({
   SettingsTabs: ({
     canUseDebugLaunches = false,
     debugSettings = null,
+    logs = null,
   }: SettingsTabsProps) => (
     <div data-can-use-debug-launches={String(canUseDebugLaunches)}>
       {canUseDebugLaunches ? debugSettings : null}
+      {logs}
     </div>
   ),
 }));
@@ -81,6 +89,7 @@ function configurePage({
   mocks.requireStaffAccess.mockResolvedValue({ userId });
   mocks.getModelSettingsForUser.mockResolvedValue(undefined);
   mocks.getDataSourceSettingsView.mockResolvedValue(undefined);
+  mocks.listJobLogs.mockResolvedValue([]);
   mocks.debugAdminConfig.captureEnabled = config.captureEnabled;
   mocks.debugAdminConfig.adminUserIds = config.adminUserIds;
 }
@@ -164,5 +173,27 @@ describe('SettingsPage debug capability boundary', () => {
     // Then
     expect(html).toContain('data-can-use-debug-launches="false"');
     expect(html).not.toContain('Debug');
+  });
+});
+
+describe('SettingsPage job logs', () => {
+  it('loads the viewer-aware job logs into the Logs tab', async () => {
+    configurePage({ userId: 'user_staff', config: { captureEnabled: false, adminUserIds: [] } });
+    mocks.listJobLogs.mockResolvedValue([{ key: 'analyze-1' }, { key: 'search-2' }]);
+
+    const html = await renderSettingsPage();
+
+    expect(mocks.listJobLogs).toHaveBeenCalledWith('user_staff');
+    expect(html).toContain('data-job-logs="2"');
+  });
+
+  it('degrades only the Logs tab when the job log read fails', async () => {
+    configurePage({ userId: 'user_staff', config: { captureEnabled: false, adminUserIds: [] } });
+    mocks.listJobLogs.mockRejectedValue(new Error('db down'));
+
+    const html = await renderSettingsPage();
+
+    expect(html).toContain('load Logs');
+    expect(html).toContain('data-can-use-debug-launches="false"');
   });
 });

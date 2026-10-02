@@ -28,6 +28,7 @@ import { getActiveSearchStatusProjection } from '@/lib/search/searchRuns';
 import { isSearchEnabled } from '@/lib/search/templateContracts';
 import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { projectRunReviewCards } from '@/components/analysis/analysis-history';
+import { currentInternalRuns, currentPartnerRuns } from '@/lib/analysis/currentRuns';
 import type { CompanyTab } from '@/lib/params/companyRoute';
 
 type Company = NonNullable<Awaited<ReturnType<typeof getCompanyById>>>;
@@ -80,12 +81,16 @@ async function loadCompanyDetailTab(company: Company, tab: CompanyTab, userId: s
       return { tab, articles };
     }
     case 'analysis': {
-      const [analysisRuns, confirmedCandidateOfferings, partnerRuns] = await Promise.all([
+      const [allAnalysisRuns, confirmedCandidateOfferings, allPartnerRuns] = await Promise.all([
         listAnalysisRunsForSubject({ targetType: 'company', subjectId: company.id }).catch(() => null),
         listConfirmedCandidateOfferingsForSubject({ targetType: 'company', subjectId: company.id }).catch(() => null),
         // Additive: a failed partner-run read must not hide the rest of the tab.
         listArcAgentnetRunsForSubject({ targetType: 'company', subjectId: company.id }, userId).catch((): ArcAgentnetRunHistoryRow[] => []),
       ]);
+      // Old failed/cancelled/decided runs are hidden here (kept in the DB and
+      // listed under Settings > Logs); only current runs are shown.
+      const analysisRuns = allAnalysisRuns ? currentInternalRuns(allAnalysisRuns) : null;
+      const partnerRuns = currentPartnerRuns(allPartnerRuns);
       const reviewCards = analysisRuns
         ? await projectRunReviewCards(analysisRuns, getAnalysisPacket)
         : [];

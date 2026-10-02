@@ -73,7 +73,7 @@ const REVIEW_CARD: RunReviewCardData = {
 describe('AnalysisHistory', () => {
   it('renders an explicit empty state when a subject has no runs', () => {
     const html = renderToStaticMarkup(<AnalysisHistory rows={[]} />);
-    expect(html).toContain('No analysis runs for this record');
+    expect(html).toContain('No current analysis runs for this record');
     expect(html).not.toContain('data-run-id');
   });
 
@@ -131,7 +131,7 @@ describe('AnalysisHistory', () => {
     expect(runIds).toEqual(['84', '83', '1']);
     expect(html).toContain('Partner claim text.');
     expect(html).toContain('Loading analysis run status…');
-    expect(html).not.toContain('No analysis runs for this record');
+    expect(html).not.toContain('No current analysis runs for this record');
   });
 
   it('shows no empty state when only partner runs exist', () => {
@@ -142,7 +142,7 @@ describe('AnalysisHistory', () => {
       />,
     );
 
-    expect(html).not.toContain('No analysis runs for this record');
+    expect(html).not.toContain('No current analysis runs for this record');
     expect(html).toContain('The analysis did not complete.');
   });
 
