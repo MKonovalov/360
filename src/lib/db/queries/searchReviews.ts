@@ -139,14 +139,15 @@ async function queryReviews(
 
 // Candidates still awaiting a decision across every Search run the user
 // launched, newest first up to a bounded cap (projectReviews re-sorts by id).
-// Every candidate (any decision status) from the user's Search runs for one
-// Company, newest first up to the same bounded cap.
+// Still-actionable candidates (pending/inconclusive/ambiguous) from the user's
+// Search runs for one Company, newest first up to the same bounded cap.
+// Approved/rejected ones are hidden: the persona already lives on its own page.
 export async function listSearchReviewsForCompany(
   companyId: number,
   userId: string,
 ): Promise<readonly SearchReviewProjection[]> {
   if (!Number.isInteger(companyId) || companyId < 1) return [];
-  return queryReviews(undefined, userId, { companyId });
+  return queryReviews(undefined, userId, { companyId, actionableOnly: true });
 }
 
 export async function listActionableSearchReviews(userId: string): Promise<readonly SearchReviewProjection[]> {
