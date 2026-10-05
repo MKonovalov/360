@@ -33,7 +33,9 @@ vi.mock('@/components/explorer/explorer-table-behavior', () => ({
   ExplorerCloseButton: () => <button type="button">Close</button>,
 }));
 vi.mock('@/components/search/SearchActiveRunStatus', () => ({ SearchActiveRunStatus: () => null }));
-vi.mock('@/components/companies/company-actions-menu', () => ({ CompanyActionsMenu: () => null }));
+vi.mock('@/components/companies/company-actions-menu', () => ({
+  CompanyActionsMenu: () => <button type="button">Actions</button>,
+}));
 vi.mock('@/components/dashboard/record-view-tracker', () => ({
   RecordViewTracker: () => null,
 }));

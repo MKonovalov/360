@@ -14,7 +14,6 @@ import { CompanyActionsMenu } from '@/components/companies/company-actions-menu'
 import { SearchActiveRunStatus } from '@/components/search/SearchActiveRunStatus';
 import { CompanyDetailTabs } from '@/components/companies/company-detail-tabs';
 import { ExplorerCloseButton } from '@/components/explorer/explorer-table-behavior';
-import { EnrichMenu } from '@/components/enrichment/enrichment-review-dialog';
 import { FieldSourceBadge } from '@/components/explorer/explorer-format';
 import { RecordViewTracker } from '@/components/dashboard/record-view-tracker';
 import { env } from '@/lib/env';
@@ -201,18 +200,6 @@ export async function CompanyDetail({
     <div className="space-y-8 bg-white p-4 sm:p-8">
       <RecordViewTracker recordType="company" recordId={company.id} />
       <div className="absolute top-3 right-3 flex items-center gap-1">
-        <EnrichMenu
-          entityType="company"
-          recordId={company.id}
-          canEnrich={Boolean(company.domain && env.APOLLO_API_KEY && env.ENRICHMENT_REVIEW_SECRET)}
-          disabledReason={!company.domain ? 'Add a domain first' : 'Company enrichment is not configured'}
-          canAnalyze
-          search={isSearchEnabled() ? {
-            company: { id: company.id, name: company.name, domain: company.domain },
-            templates: searchTemplates,
-            activeRun: activeSearchRun ?? null,
-          } : undefined}
-        />
         <CompanyActionsMenu
           company={{
             id: company.id,
@@ -224,6 +211,18 @@ export async function CompanyDetail({
             hqLocation: company.hqLocation,
             revenueBand: company.revenueBand,
             ownershipType: company.ownershipType,
+          }}
+          enrich={{
+            entityType: 'company',
+            recordId: company.id,
+            canEnrich: Boolean(company.domain && env.APOLLO_API_KEY && env.ENRICHMENT_REVIEW_SECRET),
+            disabledReason: !company.domain ? 'Add a domain first' : 'Company enrichment is not configured',
+            canAnalyze: true,
+            search: isSearchEnabled() ? {
+              company: { id: company.id, name: company.name, domain: company.domain },
+              templates: searchTemplates,
+              activeRun: activeSearchRun ?? null,
+            } : undefined,
           }}
         />
         <ExplorerCloseButton />

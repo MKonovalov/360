@@ -7,7 +7,6 @@ import { fetchArcpediaArticles } from '@/lib/arcpedia';
 import { PersonaDetailErrorState } from '@/components/personas/persona-detail-states';
 import { PersonaActionsMenu } from '@/components/personas/persona-actions-menu';
 import { PersonaDetailTabs } from '@/components/personas/persona-detail-tabs';
-import { EnrichMenu } from '@/components/enrichment/enrichment-review-dialog';
 import { RecordViewTracker } from '@/components/dashboard/record-view-tracker';
 import { humanizeEnum, dateFormatter, FirmographicField, FieldSourceBadge } from '@/components/explorer/explorer-format';
 import { env } from '@/lib/env';
@@ -266,13 +265,6 @@ export async function PersonaDetail({
       {/* D-04/Pitfall 4: fired only after the confirmed-exists check above. */}
       <RecordViewTracker recordType="persona" recordId={persona.id} />
       <div className="absolute top-3 right-3 flex items-center gap-1">
-        <EnrichMenu
-          entityType="persona"
-          recordId={persona.id}
-          canEnrich={Boolean(persona.email && env.PROSPEO_API_KEY && env.ENRICHMENT_REVIEW_SECRET)}
-          disabledReason={!persona.email ? 'Add an email first' : 'Persona enrichment is not configured'}
-          canAnalyze
-        />
         <PersonaActionsMenu
           persona={{
             id: persona.id,
@@ -282,6 +274,13 @@ export async function PersonaDetail({
             seniority: persona.seniority,
             email: persona.email,
             linkedinUrl: persona.linkedinUrl,
+          }}
+          enrich={{
+            entityType: 'persona',
+            recordId: persona.id,
+            canEnrich: Boolean(persona.email && env.PROSPEO_API_KEY && env.ENRICHMENT_REVIEW_SECRET),
+            disabledReason: !persona.email ? 'Add an email first' : 'Persona enrichment is not configured',
+            canAnalyze: true,
           }}
         />
         {/* Plain Link: ui/button imports Radix Slot (createContext), which

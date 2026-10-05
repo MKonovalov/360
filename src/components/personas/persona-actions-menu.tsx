@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { EllipsisVerticalIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -12,12 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { EnrichMenu, type EnrichMenuProps } from '@/components/enrichment/enrichment-review-dialog';
 import { Input } from '@/components/ui/input';
 import { deletePersona, updatePersona } from '@/app/actions/personas';
 import { humanizeEnum } from '@/components/explorer/explorer-format';
@@ -36,7 +30,14 @@ export interface PersonaActionsTarget {
 
 const labelClass = 'flex flex-col gap-1 text-sm font-medium text-slate-700';
 
-export function PersonaActionsMenu({ persona }: { readonly persona: PersonaActionsTarget }) {
+// The one upper-right menu: Edit/Delete first, then Enrich/Analyze.
+export function PersonaActionsMenu({
+  persona,
+  enrich,
+}: {
+  readonly persona: PersonaActionsTarget;
+  readonly enrich: Omit<EnrichMenuProps, 'leadingActions'>;
+}) {
   const router = useRouter();
   const [dialog, setDialog] = useState<'edit' | 'delete' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -84,19 +85,13 @@ export function PersonaActionsMenu({ persona }: { readonly persona: PersonaActio
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" aria-label="Persona actions">
-            <EllipsisVerticalIcon />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => setDialog('edit')}>Edit</DropdownMenuItem>
-          <DropdownMenuItem variant="destructive" onSelect={() => setDialog('delete')}>
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <EnrichMenu
+        {...enrich}
+        leadingActions={[
+          { label: 'Edit', onSelect: () => setDialog('edit') },
+          { label: 'Delete', destructive: true, onSelect: () => setDialog('delete') },
+        ]}
+      />
 
       <Dialog open={dialog === 'edit'} onOpenChange={(open) => (open ? undefined : close())}>
         <DialogContent>
