@@ -6,6 +6,7 @@ import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import {
   deletePersonaById,
   getPersonaById,
+  insertPersona,
   updatePersonaFields,
   type PersonaEditValues,
 } from '@/lib/db/queries/personas';
@@ -21,9 +22,7 @@ export type PersonaActionResult = { ok: true } | { ok: false; reason: string };
 const optionalText = (max: number) =>
   z.string().trim().max(max).transform((value) => (value === '' ? null : value));
 
-const editSchema = z.object({
-  id: z.number().int().positive(),
-  baseVersion: z.number().int().min(0),
+const fieldsSchema = z.object({
   name: z.string().trim().min(1, 'Name is required').max(200),
   title: optionalText(300),
   seniority: z.enum(seniorityEnum.enumValues).nullable(),
@@ -31,6 +30,36 @@ const editSchema = z.object({
   // Only http(s) links are stored: this value is later rendered as an anchor href.
   linkedinUrl: optionalText(500).refine((value) => value === null || /^https?:\/\//i.test(value), 'LinkedIn URL must start with http(s)://'),
 });
+
+const editSchema = fieldsSchema.extend({
+  id: z.number().int().positive(),
+  baseVersion: z.number().int().min(0),
+});
+
+export type CreatePersonaResult = { ok: true; id: number } | { ok: false; reason: string };
+
+export async function createPersona(input: unknown): Promise<CreatePersonaResult> {
+  await requireStaffAccess();
+
+  const parsed = fieldsSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, reason: parsed.error.issues[0]?.message ?? 'Invalid input' };
+  const values: PersonaEditValues = {
+    ...parsed.data,
+    // persona.email is the CSV-import dedup key, which is stored lowercase.
+    email: parsed.data.email === null ? null : parsed.data.email.toLowerCase(),
+  };
+
+  let result: Awaited<ReturnType<typeof insertPersona>>;
+  try {
+    result = await insertPersona(values);
+  } catch {
+    return { ok: false, reason: 'Could not create the persona. Try again.' };
+  }
+  if (result.kind === 'email_conflict') return { ok: false, reason: 'Another persona already uses this email.' };
+
+  revalidatePath('/personas');
+  return { ok: true, id: result.id };
+}
 
 export async function updatePersona(input: unknown): Promise<PersonaActionResult> {
   await requireStaffAccess();
