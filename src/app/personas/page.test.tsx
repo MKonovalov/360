@@ -13,7 +13,7 @@ vi.mock('@/lib/db/queries/personas', () => ({ listDistinctCurrentCompanyNames: m
 vi.mock('@/components/personas/persona-list', () => ({ PersonaList: () => <div data-persona-list="true" /> }));
 vi.mock('@/components/personas/persona-search-input', () => ({ PersonaSearchInput: () => null }));
 vi.mock('@/components/personas/persona-filters', () => ({ PersonaFilters: () => null }));
-vi.mock('@/components/explorer/explorer-menu', () => ({ ExplorerMenu: () => null }));
+vi.mock('@/components/personas/personas-list-menu', () => ({ PersonasListMenu: () => null }));
 
 import PersonasPage from './page';
 

@@ -264,3 +264,24 @@ export async function deletePersonaById(id: number): Promise<boolean> {
   const deleted = await db.delete(persona).where(eq(persona.id, id)).returning({ id: persona.id });
   return deleted.length > 0;
 }
+
+export type InsertPersonaResult = { readonly kind: 'created'; readonly id: number } | { readonly kind: 'email_conflict' };
+
+// Manual create. Every provided field is marked 'manual'; a duplicate email
+// surfaces as a result instead of a thrown 23505 (persona_email_unique).
+export async function insertPersona(values: PersonaEditValues): Promise<InsertPersonaResult> {
+  const sources = Object.fromEntries(
+    (Object.keys(values) as (keyof PersonaEditValues)[])
+      .filter((field) => field !== 'name' && values[field] !== null)
+      .map((field) => [field, 'manual' as const]),
+  );
+  try {
+    const [inserted] = await db.insert(persona).values({ ...values, fieldSources: sources }).returning({ id: persona.id });
+    return { kind: 'created', id: inserted.id };
+  } catch (error) {
+    if (typeof error === 'object' && error !== null && (error as { code?: unknown }).code === '23505') {
+      return { kind: 'email_conflict' };
+    }
+    throw error;
+  }
+}
