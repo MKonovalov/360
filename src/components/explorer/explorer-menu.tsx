@@ -18,7 +18,7 @@ export function ExplorerMenu({
   items,
 }: {
   variant: 'labeled' | 'icon';
-  items: { label: string; disabled?: boolean; href?: string }[];
+  items: { label: string; disabled?: boolean; href?: string; onSelect?: () => void }[];
 }) {
   return (
     <DropdownMenu>
@@ -41,7 +41,7 @@ export function ExplorerMenu({
               <Link href={item.href}>{item.label}</Link>
             </DropdownMenuItem>
           ) : (
-            <DropdownMenuItem key={item.label} disabled={item.disabled}>
+            <DropdownMenuItem key={item.label} disabled={item.disabled} onSelect={item.onSelect}>
               {item.label}
             </DropdownMenuItem>
           )

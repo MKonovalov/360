@@ -15,8 +15,7 @@ vi.mock('@/components/companies/company-list', () => ({
 }));
 vi.mock('@/components/companies/company-search-input', () => ({ CompanySearchInput: () => null }));
 vi.mock('@/components/companies/company-filters', () => ({ CompanyFilters: () => null }));
-vi.mock('@/components/companies/add-company-button', () => ({ AddCompanyButton: () => null }));
-vi.mock('@/components/explorer/explorer-menu', () => ({ ExplorerMenu: () => null }));
+vi.mock('@/components/companies/companies-list-menu', () => ({ CompaniesListMenu: () => null }));
 
 import CompaniesPage from './page';
 
