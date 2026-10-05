@@ -7,6 +7,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -81,6 +82,25 @@ function errorMessage(reason: string): string {
   return 'Enrichment failed. Please try again.';
 }
 
+export interface EnrichMenuAction {
+  readonly label: string;
+  readonly destructive?: boolean;
+  readonly onSelect: () => void;
+}
+
+export interface EnrichMenuProps {
+  entityType: 'company' | 'persona';
+  recordId: number;
+  canEnrich: boolean;
+  disabledReason: string;
+  canAnalyze?: boolean;
+  analyzeDisabledReason?: string;
+  search?: SearchLauncherConfig;
+  // Record-management items (Add/Edit/Delete) rendered above Enrich/Search/Analyze
+  // so each page has one menu instead of two.
+  leadingActions?: readonly EnrichMenuAction[];
+}
+
 export function EnrichMenu({
   entityType,
   recordId,
@@ -89,15 +109,8 @@ export function EnrichMenu({
   canAnalyze = true,
   analyzeDisabledReason = 'Analysis unavailable',
   search,
-}: {
-  entityType: 'company' | 'persona';
-  recordId: number;
-  canEnrich: boolean;
-  disabledReason: string;
-  canAnalyze?: boolean;
-  analyzeDisabledReason?: string;
-  search?: SearchLauncherConfig;
-}) {
+  leadingActions = [],
+}: EnrichMenuProps) {
   const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
@@ -176,11 +189,21 @@ export function EnrichMenu({
     <>
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" aria-label="Agent menu">
+          <Button variant="ghost" size="icon" aria-label="Menu">
             <EllipsisVerticalIcon />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          {leadingActions.map((action) => (
+            <DropdownMenuItem
+              key={action.label}
+              variant={action.destructive ? 'destructive' : 'default'}
+              onSelect={action.onSelect}
+            >
+              {action.label}
+            </DropdownMenuItem>
+          ))}
+          {leadingActions.length > 0 && <DropdownMenuSeparator />}
           <DropdownMenuItem disabled={!canEnrich} onSelect={startEnrichment}>
             {canEnrich ? 'Enrich' : `Enrich — ${disabledReason}`}
           </DropdownMenuItem>

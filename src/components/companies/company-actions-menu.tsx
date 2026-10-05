@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { EllipsisVerticalIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -12,16 +11,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { EnrichMenu, type EnrichMenuProps } from '@/components/enrichment/enrichment-review-dialog';
 import { deleteCompany } from '@/app/actions/companies';
 import { CompanyFormDialog, type CompanyActionsTarget } from '@/components/companies/company-form-dialog';
 
-export function CompanyActionsMenu({ company }: { readonly company: CompanyActionsTarget }) {
+// The one upper-right menu: Add/Edit/Delete first, then Enrich/Search/Analyze.
+export function CompanyActionsMenu({
+  company,
+  enrich,
+}: {
+  readonly company: CompanyActionsTarget;
+  readonly enrich: Omit<EnrichMenuProps, 'leadingActions'>;
+}) {
   const router = useRouter();
   const [dialog, setDialog] = useState<'edit' | 'delete' | 'add' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -46,20 +47,14 @@ export function CompanyActionsMenu({ company }: { readonly company: CompanyActio
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" aria-label="Company actions">
-            <EllipsisVerticalIcon />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => setDialog('add')}>Add</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setDialog('edit')}>Edit</DropdownMenuItem>
-          <DropdownMenuItem variant="destructive" onSelect={() => setDialog('delete')}>
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <EnrichMenu
+        {...enrich}
+        leadingActions={[
+          { label: 'Add', onSelect: () => setDialog('add') },
+          { label: 'Edit', onSelect: () => setDialog('edit') },
+          { label: 'Delete', destructive: true, onSelect: () => setDialog('delete') },
+        ]}
+      />
 
       <CompanyFormDialog open={dialog === 'edit' || dialog === 'add'} onClose={close} company={dialog === 'edit' ? company : undefined} />
 
