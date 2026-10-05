@@ -10,6 +10,8 @@ import { CompanyDetailAnalysis } from '@/components/companies/company-detail-ana
 import { CompanyDetailGeneral } from '@/components/companies/company-detail-general';
 import { CompanyDetailKnowledge } from '@/components/companies/company-detail-knowledge';
 import { CompanyDetailPersonas } from '@/components/companies/company-detail-personas';
+import { CompanyActionsMenu } from '@/components/companies/company-actions-menu';
+import { SearchActiveRunStatus } from '@/components/search/SearchActiveRunStatus';
 import { CompanyDetailTabs } from '@/components/companies/company-detail-tabs';
 import { ExplorerCloseButton } from '@/components/explorer/explorer-table-behavior';
 import { EnrichMenu } from '@/components/enrichment/enrichment-review-dialog';
@@ -211,6 +213,19 @@ export async function CompanyDetail({
             activeRun: activeSearchRun ?? null,
           } : undefined}
         />
+        <CompanyActionsMenu
+          company={{
+            id: company.id,
+            version: company.version,
+            name: company.name,
+            domain: company.domain,
+            industry: company.industry,
+            employeeCountBand: company.employeeCountBand,
+            hqLocation: company.hqLocation,
+            revenueBand: company.revenueBand,
+            ownershipType: company.ownershipType,
+          }}
+        />
         <ExplorerCloseButton />
       </div>
       <div>
@@ -222,6 +237,7 @@ export async function CompanyDetail({
           <FieldSourceBadge source={company.fieldSources?.industry} />
         </div>
       </div>
+      {activeSearchRun ? <SearchActiveRunStatus run={activeSearchRun} /> : null}
       <CompanyDetailTabs id={company.id} activeTab={tab} />
       {content}
     </div>

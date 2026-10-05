@@ -5,6 +5,7 @@ import { getPersonaById } from '@/lib/db/queries/personas';
 import { listCompanyRolesForPersona } from '@/lib/db/queries/companyPersonaRoles';
 import { fetchArcpediaArticles } from '@/lib/arcpedia';
 import { PersonaDetailErrorState } from '@/components/personas/persona-detail-states';
+import { PersonaActionsMenu } from '@/components/personas/persona-actions-menu';
 import { PersonaDetailTabs } from '@/components/personas/persona-detail-tabs';
 import { EnrichMenu } from '@/components/enrichment/enrichment-review-dialog';
 import { RecordViewTracker } from '@/components/dashboard/record-view-tracker';
@@ -271,6 +272,17 @@ export async function PersonaDetail({
           canEnrich={Boolean(persona.email && env.PROSPEO_API_KEY && env.ENRICHMENT_REVIEW_SECRET)}
           disabledReason={!persona.email ? 'Add an email first' : 'Persona enrichment is not configured'}
           canAnalyze
+        />
+        <PersonaActionsMenu
+          persona={{
+            id: persona.id,
+            version: persona.version,
+            name: persona.name,
+            title: persona.title,
+            seniority: persona.seniority,
+            email: persona.email,
+            linkedinUrl: persona.linkedinUrl,
+          }}
         />
         {/* Plain Link: ui/button imports Radix Slot (createContext), which
             cannot be evaluated from a server component. */}

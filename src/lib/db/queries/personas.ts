@@ -1,6 +1,15 @@
 import { and, eq, ilike, exists, not, or, sql } from 'drizzle-orm';
 import { db } from '../index';
-import { persona, companyPersonaRole, company, signal, seniorityEnum } from '../schema';
+import {
+  persona,
+  companyPersonaRole,
+  companyPersonaRoleBuyerRole,
+  company,
+  signal,
+  seniorityEnum,
+  recentlyViewed,
+  searchCandidate,
+} from '../schema';
 import { normalizeEmail, buildUpdatePatch } from '@/lib/import/dedupKeys';
 import type { PersonaAcceptedValues } from '@/lib/enrichment/reviewProposal';
 
@@ -200,4 +209,58 @@ export async function applyPersonaEnrichment(
     .where(and(eq(persona.id, id), eq(persona.version, baseVersion)))
     .returning({ id: persona.id });
   return updated !== undefined;
+}
+
+export interface PersonaEditValues {
+  readonly name: string;
+  readonly title: string | null;
+  readonly seniority: (typeof seniorityEnum.enumValues)[number] | null;
+  readonly email: string | null;
+  readonly linkedinUrl: string | null;
+}
+
+export type UpdatePersonaResult = 'updated' | 'stale' | 'email_conflict';
+
+// Optimistic update keyed on the version the editor loaded, mirroring
+// applyPersonaEnrichment. Only fields whose value changed are re-marked
+// 'manual' in fieldSources, so untouched enriched fields keep their badge.
+export async function updatePersonaFields(
+  id: number,
+  baseVersion: number,
+  values: PersonaEditValues,
+  changedFields: readonly (keyof PersonaEditValues)[],
+): Promise<UpdatePersonaResult> {
+  const sources = Object.fromEntries(changedFields.map((field) => [field, 'manual']));
+  try {
+    const [updated] = await db
+      .update(persona)
+      .set({
+        ...values,
+        fieldSources: sql`coalesce(${persona.fieldSources}, '{}'::jsonb) || ${JSON.stringify(sources)}::jsonb`,
+        version: sql`${persona.version} + 1`,
+      })
+      .where(and(eq(persona.id, id), eq(persona.version, baseVersion)))
+      .returning({ id: persona.id });
+    return updated !== undefined ? 'updated' : 'stale';
+  } catch (error) {
+    // 23505 = unique_violation on persona_email_unique.
+    if (typeof error === 'object' && error !== null && (error as { code?: unknown }).code === '23505') {
+      return 'email_conflict';
+    }
+    throw error;
+  }
+}
+
+// Hard delete. neon-http has no transactions, so this runs in FK-dependency
+// order: role->buyer-role links, roles, Search candidate match pointers, the
+// per-user recently-viewed rows, then the persona itself. Analysis runs and
+// import logs reference personas by an untyped id and are kept as history.
+export async function deletePersonaById(id: number): Promise<boolean> {
+  const roleIds = db.select({ id: companyPersonaRole.id }).from(companyPersonaRole).where(eq(companyPersonaRole.personaId, id));
+  await db.delete(companyPersonaRoleBuyerRole).where(sql`${companyPersonaRoleBuyerRole.companyPersonaRoleId} IN (${roleIds})`);
+  await db.delete(companyPersonaRole).where(eq(companyPersonaRole.personaId, id));
+  await db.update(searchCandidate).set({ matchedPersonaId: null }).where(eq(searchCandidate.matchedPersonaId, id));
+  await db.delete(recentlyViewed).where(and(eq(recentlyViewed.recordType, 'persona'), eq(recentlyViewed.recordId, id)));
+  const deleted = await db.delete(persona).where(eq(persona.id, id)).returning({ id: persona.id });
+  return deleted.length > 0;
 }
