@@ -2,8 +2,7 @@ import { requireStaffAccess } from '@/lib/auth/requireStaffAccess';
 import { CompanyList } from '@/components/companies/company-list';
 import { CompanySearchInput } from '@/components/companies/company-search-input';
 import { CompanyFilters } from '@/components/companies/company-filters';
-import { AddCompanyButton } from '@/components/companies/add-company-button';
-import { ExplorerMenu } from '@/components/explorer/explorer-menu';
+import { CompaniesListMenu } from '@/components/companies/companies-list-menu';
 import { listDistinctIndustries } from '@/lib/db/queries/companies';
 import { parseCompanyFilters } from '@/lib/params/companyFilters';
 import { buildCompanyLegacyRedirect } from '@/lib/params/companyRoute';
@@ -30,15 +29,8 @@ export default async function CompaniesPage({
 
   return (
     <div className="flex flex-col gap-4 p-8">
-      <div className="flex items-center justify-end gap-2">
-        <AddCompanyButton />
-        <ExplorerMenu
-          variant="labeled"
-          items={[
-            { label: 'Import', href: '/companies/import' },
-            { label: 'Settings', href: '/settings' },
-          ]}
-        />
+      <div className="flex items-center justify-end">
+        <CompaniesListMenu />
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <CompanySearchInput />
