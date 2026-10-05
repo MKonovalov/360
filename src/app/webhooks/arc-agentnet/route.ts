@@ -30,6 +30,10 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
+  // Failure kind only (never headers, body or secret) so a rejected delivery
+  // can be told apart in the logs: bad signature vs skewed timestamp vs headers.
+  console.warn('[arc-agentnet-webhook] rejected', { kind: result.kind });
+
   switch (result.kind) {
     case 'not_configured':
       return Response.json({ error: 'callback_not_configured' }, { status: 503 });
